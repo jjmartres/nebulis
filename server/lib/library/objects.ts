@@ -957,8 +957,16 @@ export const stmts = {
   ),
 
   // Processing-project archives (Siril/PixInsight project bundles)
+  // `uploadedAt` is millisecond-resolution, so two archives added within the
+  // same millisecond (never happens for a real human upload, but a fast
+  // scripted sequence or a quick test can hit it) would otherwise tie and
+  // leave "newest first" to whatever order SQLite happens to return —
+  // `rowid DESC` breaks the tie deterministically in true insertion order
+  // (rowid is monotonically increasing on this ordinary, non-WITHOUT-ROWID
+  // table) without changing anything for the common case of distinct
+  // timestamps, where it's never reached.
   getProjectArchivesForObject: db.prepare<[string], ProjectArchiveRow>(
-    'SELECT * FROM projectArchives WHERE objectId = ? ORDER BY uploadedAt DESC',
+    'SELECT * FROM projectArchives WHERE objectId = ? ORDER BY uploadedAt DESC, rowid DESC',
   ),
   // Batched count for the library grid (one query for every object, mirroring
   // getAllSessions below, rather than one COUNT(*) per object per list load).
