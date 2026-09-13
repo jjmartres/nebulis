@@ -1,17 +1,15 @@
 # Changelog
 ## Unreleased
-### New
-- Framing & Mosaic preview: see your telescope's actual field of view laid over a real sky image of a target, so you know before you head outside whether it will fill the frame, need a multi-panel mosaic, or look tiny. The rectangle rotates to preview different framing angles, and an Auto-fit helper works out the rows, columns, and overlap for a mosaic on objects too large for one shot. Open it from an object's page, an observation's page, or straight from the Planner.
-- A small "Fits", "Tight crop", "Tiny", or "Mosaic" badge now shows next to targets in the Planner, inside the Framing preview, and throughout Catalogs, so you can tell at a glance whether an object suits your setup without opening anything.
-- Custom and ASIAIR telescopes can now have their optics entered by hand: focal length, sensor size, and an optional pixel size for an arcsec-per-pixel readout (Settings -> Telescopes -> Add/Edit Telescope). SeeStar, Dwarf, and other telescopes with a known field of view are unaffected and keep using their real optics automatically.
-- Save more than one optical configuration per telescope, for example "Native" and "0.8x Reducer", and mark which one is currently mounted. Framing previews follow whichever configuration is active, so switching your setup is a single pick instead of retyping numbers.
-- Catalogs: a new "Best frame fit" sort orders Messier, Caldwell, Herschel 400, and other catalogs from a comfortable single-frame fit down to objects that would need a mosaic. Every tile shows the fit badge, and an object's popup adds a "Framing & Mosaic" button to open the full preview without leaving the catalog.
+### Fixes
+- ZWO ASIAIR (Beta): light frames captured on a real ASIAIR were not recognized, because of how the device writes exposure time, temperature, and camera angle into the filename. Every frame from an affected import landed on a single undated, oddly-named object instead of being grouped by night. Filenames from a real ASIAIR are now read correctly.
+- ZWO ASIAIR (Beta): an object with a multi-word name (for example IC 5146) did not match its catalog entry, because the name read from the filename kept underscores where the catalog expects spaces. It now matches correctly.
 
 ## 2.0.1 (254) - September 7th, 2026
 ### New
 - Sky Forecast: the "Upcoming Nights" outlook now covers three nights instead of two. The third night is about three days out, so its card is dimmed to show it is less certain.
 - macOS and Windows: "View Logs" in the menu bar (macOS) or taskbar (Windows) opens a live log viewer. Follow the server log as it's written, clear it, or save a copy to send with a support request. On Windows the viewer now opens right away and stays responsive while a large log streams in, reads and parses off the UI thread, and no longer re-checks the log path (which meant launching a helper process) on every refresh.
 - Docker: set the `LIBRARY_DIR` environment variable to keep your image library on a separate disk or mount, apart from the database and settings. While it is set, the library location is fixed by the deployment and cannot be changed from the app. See the Docker README.
+- Added a Gallery toggle to Settings -> General -> Navigation bar, so the Gallery menu item can be hidden from the top nav the same way Forecast, Planner, Catalogs, and Help already can.
 
 ### Fixes
 - Library location: added "Reset to default folder". If the drive or path your library lived on is gone for good, this points the library back at its built-in folder. Before this, a database copied from another machine could leave the library pointing at a path that does not exist on the new machine, with no way to fix it from the app.
