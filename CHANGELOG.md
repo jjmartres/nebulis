@@ -1,5 +1,9 @@
 # Changelog
 ## Unreleased
+### New
+- Library: each object now has a processing status — Unprocessed, Processing, or Processed — that you set yourself to track where it stands in your own editing pipeline (Siril, PixInsight, etc.). It shows as a colored pill next to the favorite button on the object page, where an admin can click it to change it; on the Library grid, the same pill shows on a card next to its favorite icon once set to Processing or Processed, so an untouched object stays uncluttered. It's a manual label only — the app never sets or changes it based on how many processed images or archives you've uploaded for the object.
+- Library: added a Status filter, next to the telescope filter, to show only Unprocessed, Processing, or Processed objects.
+
 ### Fixes
 - ZWO ASIAIR (Beta): light frames captured on a real ASIAIR were not recognized, because of how the device writes exposure time, temperature, and camera angle into the filename. Every frame from an affected import landed on a single undated, oddly-named object instead of being grouped by night. Filenames from a real ASIAIR are now read correctly.
 - ZWO ASIAIR (Beta): an object with a multi-word name (for example IC 5146) did not match its catalog entry, because the name read from the filename kept underscores where the catalog expects spaces. It now matches correctly.
