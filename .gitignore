@@ -17,6 +17,10 @@ node_modules
 # Reasonix tool state/config — local-only, never for project source or public sync.
 .reasonix/
 reasonix.toml
+# AI agent memory bank — per-developer working notes, not project source.
+.ai-agents/
+# asdf per-project version pins — local dev-machine tooling, not project source.
+.tool-versions
 # All build output lives here — generated, never committed. Includes:
 #   releases/web/      built React SPA
 #   releases/mac/      Node server bundle for macOS
