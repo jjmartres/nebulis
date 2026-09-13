@@ -1,5 +1,5 @@
 import type { Settings as SettingsType } from '../../types';
-import { Sec, Row, Toggle } from './SettingsUI';
+import { Sec, Row, Toggle, getInputClass } from './SettingsUI';
 import { Telescope, Globe } from 'lucide-react';
 
 function ImageSourceOption({
@@ -171,6 +171,34 @@ export function LibrarySection({
             checked={form.groupObservingNights ?? true}
             onChange={v => setForm(f => ({ ...f, groupObservingNights: v }))}
           />
+        </Row>
+      </Sec>
+
+      <Sec
+        title="Calibration"
+        description="Bias and darks are reusable across sessions on a cooled camera, but not indefinitely."
+        isDark={isDark}
+      >
+        <Row
+          label="Dark/bias validity"
+          description="A sensor's dark current and read noise drift as it ages, so a bundle older than this is flagged Expired on the Calibrations page and can be deleted from there. Flats and flat-darks aren't affected — they're matched to a session instead of aged out."
+          isDark={isDark}
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              max={1800}
+              step={1}
+              value={form.calibrationExpiryDays ?? 180}
+              onChange={e => {
+                const n = parseInt(e.target.value, 10);
+                setForm(f => ({ ...f, calibrationExpiryDays: Number.isFinite(n) && n > 0 ? n : 180 }));
+              }}
+              className={`w-20 ${getInputClass(isDark)}`}
+            />
+            <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>days</span>
+          </div>
         </Row>
       </Sec>
     </>

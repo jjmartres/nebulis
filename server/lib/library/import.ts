@@ -103,6 +103,7 @@ import {
 } from './importFilter.js';
 import { isRecord } from '../typeGuards.js';
 import { isContainerFolder, groupByTarget, stripCaptureModeSuffix } from './objectDiscovery.js';
+import { CALIBRATION_FOLDER_NAMES } from './calibrationFolders.js';
 import {
   collectObjectSources,
   walkObjectFiles,
@@ -3142,16 +3143,17 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
     // everything" silently still dropped calibration frames and restacks. See
     // archiveFolders.ts.
     //
-    // Calibration frames (CALI_FRAME/DWARF_DARK) are specific to the physical
-    // telescope unit and are never observations of anything, so — like the
-    // live-sync path — they are always archived, not gated behind
-    // archiveAllFiles: a folder-import user has to opt into "archive
-    // everything" for daytime photos and burst captures, but calibration data
-    // has nowhere else to go regardless. RESTACKED is handled separately,
-    // after the main object loop below (matched subfolders become processed
-    // images instead of archived bytes); `restackedFolderName` is carved out
-    // here so it isn't double-archived by the "everything else" pass.
-    const CALIBRATION_FOLDER_NAMES = ['cali_frame', 'dwarf_dark'];
+    // Calibration frames (CALI_FRAME/DWARF_DARK, and every bias/dark/flat/
+    // flat-dark folder name calibrationFolders.ts recognizes — singular or
+    // plural) are specific to the physical telescope/rig and are never
+    // observations of anything, so — like the live-sync path — they are
+    // always archived, not gated behind archiveAllFiles: a folder-import user
+    // has to opt into "archive everything" for daytime photos and burst
+    // captures, but calibration data has nowhere else to go regardless.
+    // RESTACKED is handled separately, after the main object loop below
+    // (matched subfolders become processed images instead of archived bytes);
+    // `restackedFolderName` is carved out here so it isn't double-archived by
+    // the "everything else" pass.
     const calibrationFolderNames = excludedFolders.filter(f => CALIBRATION_FOLDER_NAMES.includes(f.toLowerCase()));
     const restackedFolderName = excludedFolders.find(f => isRestackedFolder(f)) ?? null;
     const otherExcludedFolders = excludedFolders.filter(

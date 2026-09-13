@@ -77,6 +77,10 @@ export interface Settings {
   nightlyMaintenanceEnabled: boolean;
   nightlyHousekeepingLastRun: number | null;
   nightlyForecastLastRun: number | null;
+  /** How many days an archived bias/dark bundle stays valid before the
+   *  Calibrations page flags it `isExpired` (default 180). Flats/flat-darks
+   *  are unaffected — they're matched to a session instead of aged out. */
+  calibrationExpiryDays: number;
 }
 
 export interface CatalogEntry {

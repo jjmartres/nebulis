@@ -96,6 +96,16 @@ import {
   objectThumbnailDiskCacheKey,
 } from '../lib/localLibrary.js';
 import { getArchiveDir, listArchivedFolders, listArchiveScopes } from '../lib/library/archiveFolders.js';
+import { listCalibrationLibrary, findCalibrationBundle, calibrationBundleName, deleteCalibrationBundle } from '../lib/library/calibrationScan.js';
+import {
+  isAttachableCalibrationType,
+  attachCalibrationBundle,
+  detachCalibrationBundle,
+  findAttachmentsForBundle,
+  listAttachmentsForObject,
+  resolveAttachmentsForSession,
+} from '../lib/library/calibrationAttachments.js';
+import { stmts as objectStmts } from '../lib/library/objects.js';
 import { stageUploadDestPath } from '../lib/library/uploadPath.js';
 import {
   IMPORT_TMP_BASE,
@@ -1011,6 +1021,268 @@ router.get('/archive/scopes', (_req: Request, res: Response) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to list archive scopes';
     res.apiError(500, 'ARCHIVE_SCOPES_FAILED', message);
+  }
+});
+
+/**
+ * The Calibration Library: every bias/dark/flat/flat-dark folder currently
+ * archived (see calibrationScan.ts), grouped by telescope scope and frame
+ * type, with per-file metadata parsed from filenames where recognized. This
+ * is the dedicated, browsable home for calibration data — /archive above is
+ * the older plain-folder-listing view (still used by the per-telescope
+ * Settings modal), this one is what the top-nav "Calibrations" page reads.
+ *
+ * Flat/flat-dark settings groups are enriched with `attachments` here rather
+ * than in calibrationScan.ts, which stays a pure filesystem read with no
+ * database — this route is the one place calibration data and the
+ * attachments table meet. Bias/dark/mixed groups are never attachable (see
+ * calibrationAttachments.ts), so they are skipped rather than paying for a
+ * lookup that can never find anything.
+ */
+router.get('/calibrations', (_req: Request, res: Response) => {
+  try {
+    const groups = listCalibrationLibrary();
+    for (const group of groups) {
+      if (!isAttachableCalibrationType(group.type)) continue;
+      for (const set of group.settingsGroups) {
+        set.attachments = findAttachmentsForBundle(group.scope, group.folderName, set.key);
+      }
+    }
+    res.apiSuccess({ groups });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to list the calibration library';
+    res.apiError(500, 'CALIBRATIONS_LIST_FAILED', message);
+  }
+});
+
+// ─── Calibration bundle attachment (flats / flat-darks → object/session) ────
+//
+// Bias/darks are stable across sessions on a cooled camera and stay a shared,
+// reusable pool (the whole point of organizing them by settings). Flats and
+// their matching flat-darks are shot fresh per session and correct for that
+// session's optical-train state, so they are session-specific — this lets a
+// user point one at the object (and, optionally, the exact session date) it
+// was captured for. See calibrationAttachments.ts for the full reasoning.
+
+const AttachBundleBodySchema = z.object({
+  scope: z.string().nullable(),
+  folderName: z.string().min(1),
+  key: z.string().min(1),
+  objectId: z.string().min(1),
+  date: z.string().min(1).optional(),
+});
+
+router.post('/calibrations/attach', requireAdmin, (req: Request, res: Response) => {
+  const parsed = AttachBundleBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(400, 'INVALID_BODY', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  const { scope, folderName, key, objectId, date } = parsed.data;
+
+  const found = findCalibrationBundle(scope, folderName, key);
+  if (!found) {
+    res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this page loaded');
+    return;
+  }
+  if (!isAttachableCalibrationType(found.group.type)) {
+    res.apiError(
+      400,
+      'NOT_ATTACHABLE',
+      'Only flats and flat-darks can be attached to an object. Bias and darks are stable across sessions on a cooled camera and stay in the shared calibration pool.',
+    );
+    return;
+  }
+
+  const obj = objectStmts.getObject.get(objectId);
+  if (!obj || obj.deleted) {
+    res.apiError(404, 'OBJECT_NOT_FOUND', 'No such library object');
+    return;
+  }
+
+  const attachment = attachCalibrationBundle({
+    objectId,
+    date,
+    calibrationType: found.group.type,
+    scope,
+    folderName,
+    settingsKey: key,
+  });
+  res.apiSuccess({ attachment: { ...attachment, objectName: obj.objectName ?? obj.folderName } });
+});
+
+router.delete('/calibrations/attach/:id', requireAdmin, (req: Request, res: Response) => {
+  const ok = detachCalibrationBundle(String(req.params.id));
+  if (!ok) {
+    res.apiError(404, 'ATTACHMENT_NOT_FOUND', 'No such attachment');
+    return;
+  }
+  res.apiSuccess({ detached: true });
+});
+
+/** What's attached to one object — every session that has its own attachment
+ *  plus the whole-object one, or (with `?date=`) just what resolves for that
+ *  one session (a session-specific pick wins over the whole-object one). Not
+ *  read by the Calibration Library page itself (that page reads the reverse
+ *  direction via GET /calibrations above) — this is for a future object/
+ *  session detail view to show "flats attached: ...".*/
+router.get('/calibrations/attachments', (req: Request, res: Response) => {
+  const objectId = queryString(req.query.objectId);
+  if (!objectId) {
+    res.apiError(400, 'MISSING_OBJECT_ID', 'objectId is required');
+    return;
+  }
+  const date = queryString(req.query.date);
+  const attachments = date ? resolveAttachmentsForSession(objectId, date) : listAttachmentsForObject(objectId);
+  res.apiSuccess({ attachments });
+});
+
+/**
+ * Permanently deletes one bias/dark bundle's files from the archive — meant
+ * for a set flagged `isExpired` (older than the configured calibration
+ * expiry, Settings → Library → "Dark/bias validity") that the user wants to
+ * reclaim disk space from after re-shooting fresh ones, though nothing here
+ * requires it to actually be expired first. Restricted to bias/dark: flats/
+ * flat-darks are managed by attaching them to an object (see above), not by
+ * deleting them from here — deleting one out from under an active
+ * attachment would silently orphan it with no confirmation this route is
+ * built to give.
+ */
+const DeleteBundleBodySchema = z.object({
+  scope: z.string().nullable(),
+  folderName: z.string().min(1),
+  key: z.string().min(1),
+});
+
+router.delete('/calibrations/bundle', requireAdmin, (req: Request, res: Response) => {
+  const parsed = DeleteBundleBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(400, 'INVALID_BODY', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  const { scope, folderName, key } = parsed.data;
+
+  const found = findCalibrationBundle(scope, folderName, key);
+  if (!found) {
+    res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this page loaded');
+    return;
+  }
+  if (found.group.type !== 'bias' && found.group.type !== 'dark') {
+    res.apiError(
+      400,
+      'NOT_DELETABLE_HERE',
+      'Only bias and dark bundles can be deleted here. Flats and flat-darks are managed by attaching them to an object instead.',
+    );
+    return;
+  }
+
+  const result = deleteCalibrationBundle(scope, folderName, key);
+  res.apiSuccess(result);
+});
+
+// ─── Calibration bundle ZIP ───────────────────────────────────────────────
+//
+// A "bundle" is one CalibrationSettingsGroup — every frame sharing the same
+// exposure/binning/gain/TEC temperature, the grouping a stacking app actually
+// matches calibration frames by. Same two-step signed-URL flow as the
+// whole-object ZIP above (a browser <a download> click cannot send an
+// Authorization header): POST .../link mints a short-lived token, GET
+// consumes it. The (scope, folderName, key) selector is opaque-encoded into
+// the path itself (never a client-supplied file path) so the GET route can
+// re-derive the exact file list from a fresh, authoritative filesystem scan —
+// findCalibrationBundle() re-scans rather than trusting anything decoded here.
+
+interface CalibrationBundleSelector {
+  scope: string | null;
+  folderName: string;
+  key: string;
+}
+
+function encodeCalibrationBundleId(sel: CalibrationBundleSelector): string {
+  return Buffer.from(JSON.stringify(sel)).toString('base64url');
+}
+
+function decodeCalibrationBundleId(id: string): CalibrationBundleSelector | null {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(id, 'base64url').toString('utf8'));
+    if (
+      typeof parsed !== 'object' || parsed === null ||
+      !('folderName' in parsed) || !('key' in parsed) || !('scope' in parsed)
+    ) return null;
+    const { scope, folderName, key } = parsed as Record<string, unknown>;
+    if ((scope !== null && typeof scope !== 'string') || typeof folderName !== 'string' || typeof key !== 'string') {
+      return null;
+    }
+    return { scope, folderName, key };
+  } catch {
+    return null;
+  }
+}
+
+const CalibrationBundleLinkBodySchema = z.object({
+  scope: z.string().nullable(),
+  folderName: z.string().min(1),
+  key: z.string().min(1),
+});
+
+router.post('/calibrations/download/link', strictRateLimiter, (req: Request, res: Response) => {
+  const parsed = CalibrationBundleLinkBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(400, 'INVALID_BODY', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  const { scope, folderName, key } = parsed.data;
+  const found = findCalibrationBundle(scope, folderName, key);
+  if (!found) {
+    res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this page loaded');
+    return;
+  }
+
+  const id = encodeCalibrationBundleId({ scope, folderName, key });
+  // Scope must match the prefix-stripped path the browser GET produces, which
+  // the auth middleware compares against decodeURIComponent(req.path).
+  const token = mintDownloadToken(`/library/calibrations/download/${id}`);
+
+  res.apiSuccess({
+    url: `/api/v1/library/calibrations/download/${id}?t=${encodeURIComponent(token)}`,
+    filename: `${calibrationBundleName(found.group, found.set)}.zip`,
+    expiresInMs: DOWNLOAD_TOKEN_TTL_MS,
+  });
+});
+
+router.get('/calibrations/download/:id', strictRateLimiter, async (req: Request, res: Response) => {
+  const decoded = decodeCalibrationBundleId(String(req.params.id));
+  if (!decoded) {
+    res.apiError(400, 'INVALID_BUNDLE_ID', 'Malformed bundle id');
+    return;
+  }
+  const found = findCalibrationBundle(decoded.scope, decoded.folderName, decoded.key);
+  if (!found) {
+    res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this link was created');
+    return;
+  }
+
+  try {
+    const zipName = `${calibrationBundleName(found.group, found.set)}.zip`;
+    res.set('Content-Type', 'application/zip');
+    res.set('Content-Disposition', contentDispositionHeader('attachment', zipName));
+
+    const archive = archiver('zip', { zlib: { level: 1 } });
+    archive.on('error', (err: Error) => {
+      if (!res.headersSent) res.status(500).send(err.message);
+    });
+    archive.pipe(res);
+
+    for (const f of found.set.files) {
+      if (fs.existsSync(f.path)) {
+        archive.file(f.path, { name: f.name });
+      }
+    }
+
+    await archive.finalize();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Bundle download failed';
+    if (!res.headersSent) res.status(500).send(message);
   }
 });
 
