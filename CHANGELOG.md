@@ -1,4 +1,12 @@
 # Changelog
+## Unreleased
+### New
+- Framing & Mosaic preview: see your telescope's actual field of view laid over a real sky image of a target, so you know before you head outside whether it will fill the frame, need a multi-panel mosaic, or look tiny. The rectangle rotates to preview different framing angles, and an Auto-fit helper works out the rows, columns, and overlap for a mosaic on objects too large for one shot. Open it from an object's page, an observation's page, or straight from the Planner.
+- A small "Fits", "Tight crop", "Tiny", or "Mosaic" badge now shows next to targets in the Planner, inside the Framing preview, and throughout Catalogs, so you can tell at a glance whether an object suits your setup without opening anything.
+- Custom and ASIAIR telescopes can now have their optics entered by hand: focal length, sensor size, and an optional pixel size for an arcsec-per-pixel readout (Settings -> Telescopes -> Add/Edit Telescope). SeeStar, Dwarf, and other telescopes with a known field of view are unaffected and keep using their real optics automatically.
+- Save more than one optical configuration per telescope, for example "Native" and "0.8x Reducer", and mark which one is currently mounted. Framing previews follow whichever configuration is active, so switching your setup is a single pick instead of retyping numbers.
+- Catalogs: a new "Best frame fit" sort orders Messier, Caldwell, Herschel 400, and other catalogs from a comfortable single-frame fit down to objects that would need a mosaic. Every tile shows the fit badge, and an object's popup adds a "Framing & Mosaic" button to open the full preview without leaving the catalog.
+
 ## 2.0.1 (254) - September 7th, 2026
 ### New
 - Sky Forecast: the "Upcoming Nights" outlook now covers three nights instead of two. The third night is about three days out, so its card is dimmed to show it is less certain.
