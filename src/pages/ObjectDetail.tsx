@@ -51,6 +51,7 @@ import { ObjectTrashModal } from '../components/objectDetail/ObjectTrashModal';
 import { DangerConfirm } from '../components/objectDetail/DangerConfirm';
 import { buildObjectMetrics, summarizeObject } from '../components/objectDetail/objectStats';
 import { ObjectProcessedSection } from '../components/objectDetail/ObjectProcessedSection';
+import { ObjectProjectArchivesSection } from '../components/objectDetail/ObjectProjectArchivesSection';
 import { TourAnchor } from '../components/tour/TourAnchor';
 import { DWARF_STARTRAILS_OBJECT_TYPE, DWARF_STARTRAILS_PLACEHOLDER_IMAGE } from '../lib/dwarfStartrails';
 import type { ObservationCardModel } from '../components/objectDetail/ObservationCard';
@@ -609,6 +610,8 @@ export function ObjectDetail() {
       </div>
 
       <ObjectProcessedSection objectId={activeObjectId} isAdmin={isAdmin} />
+
+      <ObjectProjectArchivesSection objectId={activeObjectId} isAdmin={isAdmin} />
 
       <ObservationsSection
         observations={observationCards}

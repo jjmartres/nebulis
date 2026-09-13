@@ -826,6 +826,11 @@ export async function mockAllRoutes(page: Page) {
     r.fulfill(json(ok([]))));
   await page.route('**/api/library/objects/*/processed-images', r =>
     r.fulfill(json(ok([]))));
+  // Processing-project archives (object page's ObjectProjectArchivesSection).
+  // Same catch-all hazard: without this, `objects/**` answers with a single
+  // object and `archives.map is not a function` crashes the page.
+  await page.route('**/api/library/objects/*/project-archives', r =>
+    r.fulfill(json(ok([]))));
   // Same catch-all hazard again: the object page's admin-only trash-count
   // queries hit these two, and without a mock `deletedObjectsAll` ends up as
   // a single MOCK.objects[0] object rather than an array, throwing

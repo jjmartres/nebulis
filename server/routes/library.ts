@@ -89,6 +89,12 @@ import {
   createProcessingRun,
   getProcessingRun,
   getProcessingRunsForObject,
+  getProjectArchivesForObject,
+  addProjectArchive,
+  deleteProjectArchive,
+  getProjectArchivePath,
+  isProjectArchiveName,
+  projectArchiveMimeType,
   getObjectFolderName,
   scanImportFolder,
   LIBRARY_OBJECT_FILTERS,
@@ -2602,6 +2608,121 @@ router.post('/objects/:objectId/processing-runs', requireAdmin, (req: Request, r
   const { dates, title, notes, software } = parsed.data;
   const run = createProcessingRun(objectId, dates, title?.trim() ?? '', notes?.trim() ?? '', software?.trim() ?? '');
   res.apiSuccess(run);
+});
+
+// ─── Processing-project archives (Siril/PixInsight project bundles) ───────────
+// The working project behind a finished processed image (process icons,
+// masters, logs, ...) — see server/lib/library/projectArchives.ts for the
+// domain reasoning. Object-scoped only, no session date.
+
+const projectArchiveUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, file, cb) => cb(null, `projectarchive_${randomUUID()}_${path.basename(file.originalname)}`),
+  }),
+  // 20 GB: a real PixInsight project (masters + every intermediate XISF
+  // process stage) or a full Siril working folder can run well past the 2 GB
+  // cap the processed-image uploader uses for one finished picture — this is
+  // meant to hold a whole project, not one file. multer streams to a temp
+  // file, so — same as every other uploader in this file — the ceiling bounds
+  // temp-disk usage, not memory; see checkArchiveUploadSpace below for the
+  // free-space guard that actually protects the disk at this size.
+  limits: { fileSize: 20 * 1024 * 1024 * 1024, fieldSize: 1 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, isProjectArchiveName(file.originalname)),
+});
+
+/**
+ * Free-space preflight for a project-archive upload, keyed off the
+ * Content-Length header before multer starts streaming the body anywhere.
+ *
+ * At up to 20 GB per upload this is not optional the way it might be for a
+ * small JSON body: the file lands in full at `os.tmpdir()` first (multer's
+ * diskStorage destination), which on a container/Docker host is routinely a
+ * small tmpfs sized off available RAM, not the library's own volume — a
+ * 20 GB upload can exhaust that long before it ever reaches the library
+ * directory it's ultimately destined for. Checked against *both* candidate
+ * volumes (mirrors the same per-request re-check /import/upload-temp already
+ * does against IMPORT_TMP_BASE) so a caller gets one clear 507 up front
+ * instead of an upload that runs for however long, then fails opaquely with
+ * ENOSPC partway through.
+ */
+function checkArchiveUploadSpace(req: Request, res: Response, next: () => void): void {
+  const contentLengthHeader = req.headers['content-length'];
+  const declaredBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : NaN;
+  if (Number.isFinite(declaredBytes)) {
+    const tmpSpace = checkFreeSpace(os.tmpdir(), declaredBytes, 'to stage this project archive upload');
+    if (!tmpSpace.ok) {
+      log.warn({ declaredBytes, free: tmpSpace.freeBytes, path: tmpSpace.path }, '[project-archives] refused: temp storage nearly full');
+      res.apiError(507, 'INSUFFICIENT_STORAGE', tmpSpace.message ?? 'Not enough temporary storage to stage this upload.');
+      return;
+    }
+    const libSpace = checkFreeSpace(getLibraryDir(), declaredBytes, 'to store this project archive');
+    if (!libSpace.ok) {
+      log.warn({ declaredBytes, free: libSpace.freeBytes, path: libSpace.path }, '[project-archives] refused: library volume nearly full');
+      res.apiError(507, 'INSUFFICIENT_STORAGE', libSpace.message ?? 'Not enough free space in your library to store this archive.');
+      return;
+    }
+  }
+  next();
+}
+
+router.get('/objects/:objectId/project-archives', (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  res.apiSuccess(getProjectArchivesForObject(objectId));
+});
+
+router.post(
+  '/objects/:objectId/project-archives',
+  requireAdmin,
+  checkArchiveUploadSpace,
+  projectArchiveUpload.single('archive'),
+  (req: Request, res: Response) => {
+    const objectId = String(req.params.objectId);
+    const file = req.file;
+    if (!file) {
+      res.apiError(400, 'NO_ARCHIVE', 'No archive file provided, or it was not a .zip');
+      return;
+    }
+
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const notes = typeof req.body?.notes === 'string' ? req.body.notes.trim() : '';
+    const software = typeof req.body?.software === 'string' ? req.body.software.trim() : '';
+
+    try {
+      const record = addProjectArchive(objectId, file.path, file.originalname, projectArchiveMimeType(), title, notes, software);
+      res.apiSuccess(record);
+    } catch (err) {
+      try { fs.unlinkSync(file.path); } catch { /* ignore */ }
+      res.apiError(500, 'UPLOAD_FAILED', err instanceof Error ? err.message : 'Upload failed');
+    }
+  },
+);
+
+router.delete('/objects/:objectId/project-archives/:id', requireAdmin, (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const record = getProjectArchivePath(id);
+  if (!record) {
+    res.apiError(404, 'NOT_FOUND', 'Project archive not found');
+    return;
+  }
+  deleteProjectArchive(id);
+  res.apiSuccess({ deleted: true, id });
+});
+
+/** Serve a project archive by id. Streamed via res.download rather than read
+ *  into a Buffer (see getProjectArchivePath's own doc comment) — these files
+ *  can legitimately be several GB. */
+router.get('/project-archives/:id', async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  if (!(await requireLibraryReachable(res))) return;
+  const file = getProjectArchivePath(id);
+  if (!file) {
+    res.status(404).send('Not found');
+    return;
+  }
+  res.download(file.filePath, file.name, err => {
+    if (err && !res.headersSent) res.status(500).send('Failed to send file');
+  });
 });
 
 // ─── Save edited telescope image back into the library folder ─────────────────

@@ -1,5 +1,5 @@
-import type { AstroObject, Session, ProcessedImage, SessionCaptureSummary } from '../../types';
-export type { ProcessedImage };
+import type { AstroObject, Session, ProcessedImage, ProjectArchive, SessionCaptureSummary } from '../../types';
+export type { ProcessedImage, ProjectArchive };
 import { fetchJSON, authHeaders, BASE } from './client';
 import type { ConnectionType as TransportKind } from './telescopes';
 
@@ -888,6 +888,110 @@ export const createProcessingRun = (
   fetchJSON<ProcessingRun>(
     `/library/objects/${encodeURIComponent(objectId)}/processing-runs`,
     { method: 'POST', body: JSON.stringify(data) },
+  );
+
+/** Validates the shape returned by the project-archive upload endpoint. */
+function parseProjectArchive(value: unknown): ProjectArchive {
+  const v = asRecord(value);
+  if (!v) throw new Error('Project archive response is not an object');
+  const reqStr = (key: string): string => {
+    const x = v[key];
+    if (typeof x !== 'string') {
+      throw new Error(`Project archive response missing string \`${key}\``);
+    }
+    return x;
+  };
+  const { size } = v;
+  if (typeof size !== 'number') {
+    throw new Error('Project archive response missing number `size`');
+  }
+  return {
+    id: reqStr('id'),
+    objectId: reqStr('objectId'),
+    filename: reqStr('filename'),
+    originalName: reqStr('originalName'),
+    title: reqStr('title'),
+    notes: reqStr('notes'),
+    software: reqStr('software'),
+    size,
+    mimeType: reqStr('mimeType'),
+    uploadedAt: reqStr('uploadedAt'),
+    url: reqStr('url'),
+    path: reqStr('path'),
+  };
+}
+
+// Processing-project archives — the Siril/PixInsight project bundle behind a
+// finished processed image (see ProjectArchive's own doc comment).
+export const getProjectArchives = (objectId: string) =>
+  fetchJSON<ProjectArchive[]>(`/library/objects/${encodeURIComponent(objectId)}/project-archives`);
+
+/**
+ * Upload a project archive, reporting progress and honoring cancellation —
+ * unlike every other single-`fetch` upload in this file, a project archive
+ * can be up to 20 GB, easily an hour-plus transfer on a home upload link, so
+ * a plain `await fetch(...)` with no feedback and no way to stop mid-flight
+ * is not good enough here (mirrors uploadFolderTemp's XHR-based approach,
+ * simplified to a single request instead of that function's multi-batch
+ * loop — there's exactly one file, so there is nothing to batch).
+ */
+export function uploadProjectArchive(
+  objectId: string,
+  file: File,
+  title: string,
+  notes: string,
+  software: string,
+  onProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<ProjectArchive> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+      return;
+    }
+    const formData = new FormData();
+    formData.append('archive', file, file.name);
+    formData.append('title', title);
+    formData.append('notes', notes);
+    formData.append('software', software);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE}/library/objects/${encodeURIComponent(objectId)}/project-archives`);
+    const hdrs = authHeaders();
+    Object.entries(hdrs).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) onProgress(e.loaded, e.total);
+      });
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          resolve(parseProjectArchive(body?.data ?? body));
+        } catch {
+          reject(new Error('Invalid response from server'));
+        }
+      } else {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          reject(new Error(body?.error?.message || body?.error || xhr.statusText));
+        } catch {
+          reject(new Error(xhr.statusText || `Upload failed (${xhr.status})`));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
+    signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(formData);
+  });
+}
+
+export const deleteProjectArchive = (objectId: string, id: string) =>
+  fetchJSON<{ deleted: boolean; id: string }>(
+    `/library/objects/${encodeURIComponent(objectId)}/project-archives/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
   );
 
 export const getLibraryFileUrl = (filePath: string) =>

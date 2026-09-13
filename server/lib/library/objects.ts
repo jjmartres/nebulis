@@ -134,6 +134,29 @@ export interface ProcessedImageRow {
   source: ProcessedImageSource;
 }
 
+/** A user-uploaded archive of an external post-processing project (a Siril
+ *  `.siril`/log bundle, a PixInsight `.xipp`/process-icons/masters bundle,
+ *  ...) — the working files behind a finished processed image, not the image
+ *  itself. Object-scoped only (no session date): a project routinely draws on
+ *  more than one night's subs, so there is no single observation to anchor it
+ *  to, the same reasoning `sessionProcessedImages.date` being nullable exists
+ *  for a Dwarf RESTACKED image. See server/lib/library/projectArchives.ts. */
+export interface ProjectArchiveRow {
+  id: string;
+  objectId: string;
+  filename: string;
+  originalName: string;
+  title: string;
+  notes: string;
+  /** Free-text, e.g. "PixInsight", "Siril" — not an enum, since users name
+   *  their tools inconsistently (version suffixes, GraXpert, APP, ...) and
+   *  nothing downstream branches on this value today. */
+  software: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
+}
+
 export interface ImportHistoryRow {
   id: number;
   startedAt: string;
@@ -333,6 +356,23 @@ db.prepare(`CREATE TABLE IF NOT EXISTS processingRunSessions (
   date  TEXT NOT NULL,
   PRIMARY KEY (runId, date)
 )`).run();
+
+// Processing-project archives (Siril/PixInsight project bundles, see
+// ProjectArchiveRow above) — a fresh table, not a migration of anything
+// older, so it needs no ALTER TABLE dance.
+db.prepare(`CREATE TABLE IF NOT EXISTS projectArchives (
+  id           TEXT PRIMARY KEY,
+  objectId     TEXT NOT NULL,
+  filename     TEXT NOT NULL,
+  originalName TEXT NOT NULL,
+  title        TEXT NOT NULL DEFAULT '',
+  notes        TEXT NOT NULL DEFAULT '',
+  software     TEXT NOT NULL DEFAULT '',
+  size         INTEGER NOT NULL DEFAULT 0,
+  mimeType     TEXT NOT NULL DEFAULT '',
+  uploadedAt   TEXT NOT NULL
+)`).run();
+db.prepare('CREATE INDEX IF NOT EXISTS idx_projectArchives_object ON projectArchives(objectId)').run();
 
 // sessionProcessedImages.runId — added after initial schema. NULL means the
 // image predates processing runs; backfilled below into one-session runs so
@@ -915,6 +955,24 @@ export const stmts = {
   getRestackedImageByName: db.prepare<[string, string], { id: string }>(
     `SELECT id FROM sessionProcessedImages WHERE objectId = ? AND originalName = ? AND source = 'dwarf-restack' LIMIT 1`,
   ),
+
+  // Processing-project archives (Siril/PixInsight project bundles)
+  getProjectArchivesForObject: db.prepare<[string], ProjectArchiveRow>(
+    'SELECT * FROM projectArchives WHERE objectId = ? ORDER BY uploadedAt DESC',
+  ),
+  // Batched count for the library grid (one query for every object, mirroring
+  // getAllSessions below, rather than one COUNT(*) per object per list load).
+  getProjectArchiveCounts: db.prepare<[], { objectId: string; count: number }>(
+    'SELECT objectId, COUNT(*) as count FROM projectArchives GROUP BY objectId',
+  ),
+  getProjectArchive: db.prepare<[string], ProjectArchiveRow>(
+    'SELECT * FROM projectArchives WHERE id = ?',
+  ),
+  insertProjectArchive: db.prepare(
+    `INSERT INTO projectArchives (id, objectId, filename, originalName, title, notes, software, size, mimeType, uploadedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ),
+  deleteProjectArchiveRow: db.prepare('DELETE FROM projectArchives WHERE id = ?'),
 
   // Import history
   insertHistory: db.prepare(
@@ -1575,6 +1633,11 @@ export function getLocalObjects(userId = '', search = '') {
   const favoriteSet = new Set<string>(
     stmts.getAllFavorites.all(userId).map(r => r.objectId),
   );
+  // Same batching reasoning as sessionsByObject above: one GROUP BY query for
+  // every object's processing-project-archive count, not one per object.
+  const projectArchiveCountByObject = new Map<string, number>(
+    stmts.getProjectArchiveCounts.all().map(r => [r.objectId, r.count]),
+  );
 
   return objects.map(obj => {
     const sessionRows = sessionsByObject.get(obj.objectId) ?? [];
@@ -1665,6 +1728,7 @@ export function getLocalObjects(userId = '', search = '') {
       filesUrl: `${LIBRARY_API_BASE}/objects/${encodeURIComponent(obj.objectId)}/files`,
       subFramesUrl: null,
       sessionCount: sessions.length,
+      projectArchiveCount: projectArchiveCountByObject.get(obj.objectId) ?? 0,
       lastSessionDate: sessions.filter(d => d && d !== 'unknown').sort().at(-1) ?? null,
       lastImport: obj.lastImport,
       source: 'local' as const, // `as const` is a type-preserving literal widening — not a type assertion.

@@ -119,6 +119,10 @@ export interface AstroObject {
   filesUrl: string;
   subFramesUrl: string | null;
   sessionCount?: number;
+  /** Count of uploaded processing-project archives (see ProjectArchive) —
+   *  0/absent for an object with none. Batched server-side the same way
+   *  sessionCount is, not a per-object query. */
+  projectArchiveCount?: number;
   lastSessionDate?: string | null;
   lastImport?: string;
   source?: 'local' | 'smb';
@@ -242,4 +246,26 @@ export interface ProcessedImage {
   /** 'dwarf-restack' for an auto-imported Dwarf RESTACKED file; 'user' for
    *  everything else. */
   source: 'user' | 'dwarf-restack';
+}
+
+/** A user-uploaded archive of the *working project* behind a processed image
+ *  — a Siril or PixInsight project bundle (process icons, masters, logs) —
+ *  as opposed to the finished picture itself (see ProcessedImage). Object-
+ *  scoped only: a project routinely draws on more than one night's subs, so
+ *  there is no single observing session to file it under. */
+export interface ProjectArchive {
+  id: string;
+  objectId: string;
+  filename: string;
+  originalName: string;
+  title: string;
+  notes: string;
+  /** Free-text tool name ("PixInsight", "Siril", ...), not an enum. */
+  software: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
+  url: string;
+  /** Relative library path (folderName/project-archives/filename). */
+  path: string;
 }
