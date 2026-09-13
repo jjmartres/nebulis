@@ -24,6 +24,12 @@ import {
   setLibraryPath, setNetworkLibraryConfig, getLibraryId, writeMarker,
 } from '../../server/lib/libraryPath';
 
+// Mirrors libraryNetwork.test.ts's setPlatform/ORIGINAL_PLATFORM pattern.
+function setPlatform(platform: string): void {
+  Object.defineProperty(process, 'platform', { value: platform, configurable: true });
+}
+const ORIGINAL_PLATFORM = process.platform;
+
 let server: http.Server;
 let baseUrl: string;
 
@@ -50,6 +56,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  setPlatform(ORIGINAL_PLATFORM);
   await setLibraryPath('');
 });
 
@@ -85,6 +92,33 @@ describe('POST /storage/library-location/reset', () => {
 
     const res = await fetch(`${baseUrl}/storage/library-location/reset`, { method: 'POST' });
     expect(res.status).toBe(200);
+    expect(isNetworkLocation()).toBe(false);
+    expect(isDefaultLocation()).toBe(true);
+  });
+
+  // Regression test: resolveNetworkLibraryPath (libraryNetwork.ts) throws on
+  // any platform other than win32/darwin — by design, since Linux/Docker
+  // can't connect to a network share directly (see its own doc comment). The
+  // route used to call getLibraryDir() (which resolves through that same
+  // function) just to describe the location being left behind, so a network
+  // config configured on, say, macOS and then run under Linux/Docker (or a
+  // test asserting this exact scenario) 500'd here before the reset it
+  // exists to perform ever ran — on precisely the platform most likely to
+  // need this escape hatch. Caught via a real CI failure on Linux; see
+  // describeLibraryLocation()'s doc comment in libraryPath.ts.
+  it('clears a network config even on a platform that cannot resolve a real path for it (Linux/Docker)', async () => {
+    setNetworkLibraryConfig({
+      host: 'nas.local', share: 'Photos', domain: '', username: '', password: 'secret', subpath: 'Nebulis',
+    });
+    expect(isNetworkLocation()).toBe(true);
+    setPlatform('linux');
+    expect(() => getLibraryDir()).toThrow();
+
+    const res = await fetch(`${baseUrl}/storage/library-location/reset`, { method: 'POST' });
+    expect(res.status).toBe(200);
+    const body = (await res.json()).data as { changed: boolean; previousPath: string };
+    expect(body.changed).toBe(true);
+    expect(body.previousPath).toBe('network share nas.local/Photos');
     expect(isNetworkLocation()).toBe(false);
     expect(isDefaultLocation()).toBe(true);
   });
