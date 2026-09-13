@@ -5,6 +5,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toggleFavorite, getLibraryObjectThumbnailUrl } from '../lib/api/library';
 import type { TelescopeProfile } from '../lib/api/telescopes';
 import type { AstroObject } from '../types';
+import { PROCESSING_STATUS_LABEL } from '../lib/processingStatus';
 
 interface ObjectCardProps {
   object: AstroObject;
@@ -160,18 +161,40 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
           </div>
         )}
 
-        {/* Favorite heart button — hidden until hover, always visible when favorited */}
-        <button
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); favMutation.mutate({ objectId: object.id, next: !favorited }); }}
-          className={`absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/30 backdrop-blur-sm hover:bg-black/50 transition-all ${
-            favorited ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          }`}
-          aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          <Heart
-            className={`w-4 h-4 transition-colors ${favorited ? 'text-rose-500 fill-rose-500' : 'text-white/70'}`}
-          />
-        </button>
+        {/* Top-right overlay row: favorite heart, then the processing-status
+            pill to its right — same translucent glass idiom as the heart
+            button and the telescope dot stack, since this sits over the
+            photo, not the card's light/dark body. */}
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); favMutation.mutate({ objectId: object.id, next: !favorited }); }}
+            className={`p-1.5 rounded-full bg-black/30 backdrop-blur-sm hover:bg-black/50 transition-all ${
+              favorited ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            }`}
+            aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Heart
+              className={`w-4 h-4 transition-colors ${favorited ? 'text-rose-500 fill-rose-500' : 'text-white/70'}`}
+            />
+          </button>
+
+          {/* Only shown once the object has left its default state — a
+              permanent "Unprocessed" pill on every untouched card would be
+              pure noise, same reasoning the session-count line already
+              follows. Always visible (not hover-gated like the heart above):
+              this is a status to be seen at a glance, not an action to keep quiet. */}
+          {object.processingStatus && object.processingStatus !== 'unprocessed' && (
+            <span
+              className={`px-2 py-1 rounded-full text-[10px] font-medium leading-none whitespace-nowrap backdrop-blur-sm ring-1 ring-inset ${
+                object.processingStatus === 'processing'
+                  ? 'bg-amber-500/20 text-amber-300 ring-amber-400/30'
+                  : 'bg-emerald-500/20 text-emerald-300 ring-emerald-400/30'
+              }`}
+            >
+              {PROCESSING_STATUS_LABEL[object.processingStatus]}
+            </span>
+          )}
+        </div>
 
         {/* Telescope dot stack — one dot per telescope that captured this
             object, only rendered when ≥2 telescopes are configured. */}

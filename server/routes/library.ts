@@ -70,6 +70,7 @@ import {
   getGalleryImageRow,
   setGalleryImage,
   setGalleryImageUserChosen,
+  setProcessingStatus,
   isCatalogSourceSentinel,
   findFallbackObservationImage,
   getStackedImages,
@@ -278,6 +279,10 @@ const SubframesBodySchema = z.object({
 
 const GalleryImageBodySchema = z.object({
   imagePath: z.string().nullable().optional(),
+});
+
+const ProcessingStatusBodySchema = z.object({
+  status: z.enum(['unprocessed', 'processing', 'processed']),
 });
 
 const SessionImageBodySchema = z.object({
@@ -2373,6 +2378,33 @@ router.put('/objects/:objectId/gallery-image', requireAdmin, (req: Request, res:
     }
     setGalleryImageUserChosen(objectId, resolved);
     res.apiSuccess({ objectId, galleryImage: resolved });
+  } catch (err) {
+    res.apiError(500, 'SET_FAILED', err instanceof Error ? err.message : 'Failed');
+  }
+});
+
+/**
+ * Set where an object sits in the user's own processing pipeline
+ * (unprocessed → processing → processed). A plain user-set label, not
+ * derived from processed-image/project-archive counts — see ProcessingStatus's
+ * own doc comment in objects.ts for why. `requireAdmin` matches every other
+ * object-metadata write in this file (gallery image, telescope reassignment).
+ */
+router.put('/objects/:objectId/processing-status', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const bodyParsed = ProcessingStatusBodySchema.safeParse(req.body ?? {});
+  if (!bodyParsed.success) {
+    res.apiError(400, 'BAD_REQUEST', bodyParsed.error.issues[0]?.message ?? 'status must be one of unprocessed, processing, processed');
+    return;
+  }
+  try {
+    const { status } = bodyParsed.data;
+    const updated = setProcessingStatus(objectId, status);
+    if (!updated) {
+      res.apiError(404, 'NOT_FOUND', `Library object "${objectId}" not found`);
+      return;
+    }
+    res.apiSuccess({ objectId, processingStatus: status });
   } catch (err) {
     res.apiError(500, 'SET_FAILED', err instanceof Error ? err.message : 'Failed');
   }

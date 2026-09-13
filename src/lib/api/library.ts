@@ -1,5 +1,5 @@
-import type { AstroObject, Session, ProcessedImage, SessionCaptureSummary } from '../../types';
-export type { ProcessedImage };
+import type { AstroObject, Session, ProcessedImage, SessionCaptureSummary, ProcessingStatus } from '../../types';
+export type { ProcessedImage, ProcessingStatus };
 import { fetchJSON, authHeaders, BASE } from './client';
 import type { ConnectionType as TransportKind } from './telescopes';
 
@@ -739,6 +739,13 @@ export const setGalleryImage = (objectId: string, imagePath: string | null) =>
   fetchJSON<{ objectId: string; galleryImage: string | null }>(
     `/library/objects/${encodeURIComponent(objectId)}/gallery-image`,
     { method: 'PUT', body: JSON.stringify({ imagePath }) }
+  );
+
+// Processing status (unprocessed / processing / processed)
+export const setProcessingStatus = (objectId: string, status: ProcessingStatus) =>
+  fetchJSON<{ objectId: string; processingStatus: ProcessingStatus }>(
+    `/library/objects/${encodeURIComponent(objectId)}/processing-status`,
+    { method: 'PUT', body: JSON.stringify({ status }) }
   );
 
 export async function uploadGalleryImage(objectId: string, file: File): Promise<{ objectId: string; galleryImage: string }> {

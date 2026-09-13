@@ -40,6 +40,19 @@ import { getStartrailsObjectId, patchStartrailsObjectMeta } from './dwarfStartra
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+/** Where a target sits in the user's own processing pipeline (Siril/PixInsight/
+ *  etc.), independent of what's actually stored — an object can carry
+ *  processed images and still be "processing" (a WIP re-edit) or even
+ *  "unprocessed" (a placeholder swap, or the flag just hasn't been touched
+ *  yet). Purely a user-set label, never derived from `processedImages`/
+ *  `projectArchives` counts, so marking something "processed" doesn't require
+ *  actually uploading a deliverable first. */
+export type ProcessingStatus = 'unprocessed' | 'processing' | 'processed';
+export const PROCESSING_STATUSES: readonly ProcessingStatus[] = ['unprocessed', 'processing', 'processed'];
+export function isProcessingStatus(value: unknown): value is ProcessingStatus {
+  return typeof value === 'string' && (PROCESSING_STATUSES as readonly string[]).includes(value);
+}
+
 export interface LibraryIndex {
   version: number;
   objects: Record<string, LibraryObjectMeta>;
@@ -80,6 +93,14 @@ export interface LibraryObjectRow {
   wikiUrl: string | null;
   sizeArcmin: string | null;
   primaryTelescopeId: string | null;
+  /** See `ProcessingStatus` above. `NOT NULL DEFAULT 'unprocessed'` at the
+   *  column level, so this is never actually NULL in practice — typed as the
+   *  narrower `ProcessingStatus` at the row level would be a lie about what
+   *  SQLite's type affinity actually enforces (nothing stops a stray value
+   *  reaching the column outside `setProcessingStatus`), so it stays a plain
+   *  string here and is narrowed with `isProcessingStatus` at the one read
+   *  site that exposes it (`getLocalObjects`). */
+  processingStatus: string;
 }
 
 export interface LibrarySessionRow {
@@ -191,6 +212,11 @@ const migrationColumns: Array<{ column: string; sql: string }> = [
   // See shouldSkipEnrichment.
   { column: 'enrichmentAttemptedAt', sql: 'ALTER TABLE libraryObjects ADD COLUMN enrichmentAttemptedAt TEXT' },
   { column: 'enrichmentAttempts', sql: 'ALTER TABLE libraryObjects ADD COLUMN enrichmentAttempts INTEGER NOT NULL DEFAULT 0' },
+  // User-set processing-pipeline label (see ProcessingStatus above). Defaults
+  // every pre-existing row to 'unprocessed' — accurate for a library that
+  // predates the feature, and the same "nothing changes until you touch it"
+  // rule every additive column in this table already follows.
+  { column: 'processingStatus', sql: "ALTER TABLE libraryObjects ADD COLUMN processingStatus TEXT NOT NULL DEFAULT 'unprocessed'" },
 ];
 const sessionMigrations: Array<{ column: string; sql: string }> = [
   { column: 'temperature',  sql: 'ALTER TABLE librarySessions ADD COLUMN temperature REAL' },
@@ -780,6 +806,12 @@ export const stmts = {
   updateObjectFileCount: db.prepare(
     'UPDATE libraryObjects SET fileCount = ? WHERE objectId = ?'
   ),
+  // `.changes` tells the route layer whether objectId actually matched a row
+  // (see setProcessingStatus below) — same "let the UPDATE itself answer
+  // existence" approach reassignSessionTelescope already uses for sessions.
+  setProcessingStatus: db.prepare(
+    'UPDATE libraryObjects SET processingStatus = ? WHERE objectId = ? AND deleted = 0'
+  ),
 
   // Sessions
   getSessions: db.prepare<[string], LibrarySessionRow>('SELECT * FROM librarySessions WHERE objectId = ? ORDER BY date ASC'),
@@ -949,6 +981,16 @@ export function getLibraryObjectCoords(id: string, rawId: string): { ra: string 
  *  before the static catalog in GET /catalog/:id/info. */
 export function getObjectInfo(objectId: string) {
   return stmts.getObjectInfo.get(objectId);
+}
+
+/**
+ * Set an object's processing-pipeline status (see `ProcessingStatus`).
+ * Returns false when objectId matched no live (non-tombstoned) row, so the
+ * route layer can answer 404 instead of silently succeeding — mirrors
+ * `reassignSessionTelescope`'s existence-via-`.changes` pattern.
+ */
+export function setProcessingStatus(objectId: string, status: ProcessingStatus): boolean {
+  return stmts.setProcessingStatus.run(status, objectId).changes > 0;
 }
 
 /** Fallback object info for GET /catalog/:id when there is no static catalog
@@ -1675,6 +1717,7 @@ export function getLocalObjects(userId = '', search = '') {
       primaryTelescopeId: obj.primaryTelescopeId ?? null,
       telescopeIds,
       aliases: getAliasesForCanonical(obj.objectId),
+      processingStatus: isProcessingStatus(obj.processingStatus) ? obj.processingStatus : 'unprocessed',
     };
   });
 }

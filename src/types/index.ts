@@ -100,6 +100,12 @@ export interface CatalogEntry {
   alsoKnownAs?: string[];
 }
 
+/** Where a target sits in the user's own processing pipeline (Siril/PixInsight/
+ *  etc.), independent of what's actually stored — see
+ *  server/lib/library/objects.ts's own doc comment for the full reasoning.
+ *  A plain user-set label, never derived from processed-image counts. */
+export type ProcessingStatus = 'unprocessed' | 'processing' | 'processed';
+
 export interface AstroObject {
   id: string;
   catalogId: string;
@@ -138,6 +144,10 @@ export interface AstroObject {
   telescopeIds?: string[];
   /** All catalog aliases for this object (e.g. ["C30"] for NGC7331). */
   aliases?: string[];
+  /** Absent on an older server response; treat a missing value as
+   *  'unprocessed', the same default a fresh column backfills every
+   *  pre-existing row to server-side. */
+  processingStatus?: ProcessingStatus;
 }
 
 export interface SessionWeather {
