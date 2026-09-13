@@ -15,6 +15,7 @@
  * `2·atan(sensorMm / (2·focalMm))`.
  */
 import type { TelescopeKind } from './telescopePresets';
+import type { TelescopeProfile, TelescopeOpticalConfig } from './api/telescopes';
 
 export interface FovProfile {
   id: string;
@@ -152,19 +153,290 @@ export function autoMosaicForObject(
   return { cols: need(objWDeg, fov.widthDeg), rows: need(objHDeg, fov.heightDeg) };
 }
 
-/** Human summary of whether an object fits, e.g. "Fits in one frame" or "Needs a 3 × 1 mosaic". */
-export function fitVerdict(
-  fov: { widthDeg: number; heightDeg: number },
-  object: ObjectExtentArcmin | null,
-): string {
-  if (!object) return 'Angular size unknown';
-  const { cols, rows } = autoMosaicForObject(fov, object, 0.1);
-  if (cols === 1 && rows === 1) return 'Fits in a single frame';
-  return `Needs a ${cols} × ${rows} mosaic to capture fully`;
-}
-
 /** Format a degree value as degrees or arcminutes, whichever reads cleaner. */
 export function formatFovDeg(deg: number): string {
   if (deg < 1) return `${Math.round(deg * 60)}′`;
   return `${deg.toFixed(2)}°`;
+}
+
+// ─── Plate scale (arcsec/pixel) ───────────────────────────────────────────
+
+/** Plate scale in arcsec/pixel: `206.265 · pixelSizeUm / focalMm`. Only
+ *  meaningful for a custom rig, since the built-in FOV_PROFILES are looked up
+ *  by imaging field rather than derived from a focal length + pixel pitch. */
+export function arcsecPerPixel(focalMm: number, pixelSizeUm: number): number {
+  if (focalMm <= 0 || pixelSizeUm <= 0) return 0;
+  return (206.265 * pixelSizeUm) / focalMm;
+}
+
+// ─── Fit classification (Planner list badge + Framing modal verdict) ─────
+
+export type FitTag = 'tiny' | 'fits' | 'tight' | 'mosaic';
+
+export interface FitAssessment {
+  tag: FitTag;
+  /** Short chip text, e.g. "Fits", "Tight crop". */
+  short: string;
+  /** One-line explanation, used as a tooltip or the modal's verdict line. */
+  label: string;
+  /** Fraction of the frame's limiting axis the object's bounding box fills
+   *  (see `frameFillRatio`'s doc comment — same rotation-agnostic caveat).
+   *  Exposed mainly so callers can secondary-sort within one `tag` (e.g. the
+   *  Catalogs board's "Best frame fit" sort) without recomputing it. */
+  fillRatio: number;
+}
+
+/** Fraction of the frame's limiting axis the object's bounding box fills,
+ *  ignoring rotation (same approximation `autoMosaicForObject` uses — we
+ *  rarely know the object's position angle). >1 means it overflows that axis. */
+function frameFillRatio(fov: { widthDeg: number; heightDeg: number }, object: ObjectExtentArcmin): number {
+  return Math.max(
+    (object.widthArcmin / 60) / fov.widthDeg,
+    (object.heightArcmin / 60) / fov.heightDeg,
+  );
+}
+
+/**
+ * Classifies how an object sits in a given FOV: too large for one frame
+ * (needs a mosaic), a tight single-frame crop, a comfortable fit, or tiny
+ * against the frame. Same geometry as `autoMosaicForObject` (rotation-agnostic
+ * bounding-box comparison) but returns a structured tag so callers can render
+ * a colored badge instead of parsing a sentence.
+ *
+ * Returns `null` when the object's angular size isn't known — callers should
+ * omit the badge entirely rather than guess.
+ */
+export function classifyFit(
+  fov: { widthDeg: number; heightDeg: number },
+  object: ObjectExtentArcmin | null,
+): FitAssessment | null {
+  if (!object) return null;
+  const fillRatio = frameFillRatio(fov, object);
+  const { cols, rows } = autoMosaicForObject(fov, object, 0.1);
+  if (cols > 1 || rows > 1) {
+    return { tag: 'mosaic', short: 'Mosaic', label: `Too large for one frame — needs a ${cols} × ${rows} mosaic`, fillRatio };
+  }
+  if (fillRatio >= 0.75) return { tag: 'tight', short: 'Tight crop', label: 'Fits, but fills most of the frame — little room to rotate or crop', fillRatio };
+  if (fillRatio < 0.15) return { tag: 'tiny', short: 'Tiny', label: 'Fits with plenty to spare — will look small in the frame', fillRatio };
+  return { tag: 'fits', short: 'Fits', label: 'Fits comfortably in a single frame', fillRatio };
+}
+
+/** Best-to-worst ranking of `FitTag` for sorting a list of objects by "does
+ *  this fit my telescope's frame" — e.g. the Catalogs board's "Best frame
+ *  fit" sort. Lower sorts first. `fits` (comfortable single frame) leads;
+ *  `mosaic` (needs multiple frames) trails. `tight` and `tiny` both still
+ *  capture in one frame, so both rank ahead of `mosaic` — `tight` first
+ *  since a tiny object is arguably a worse composition than a tight crop. */
+export const FRAME_FIT_RANK: Record<FitTag, number> = {
+  fits: 0,
+  tight: 1,
+  tiny: 2,
+  mosaic: 3,
+};
+
+// ─── Persisted framing setup (Settings → Telescopes default + override) ──
+
+export const CUSTOM_FOV_PROFILE_ID = 'custom';
+
+export interface CustomOptics {
+  focalMm: number;
+  sensorWMm: number;
+  sensorHMm: number;
+  /** Pixel pitch in microns. Optional — only used for the arcsec/pixel readout. */
+  pixelSizeUm: number | null;
+}
+
+/** Starting point for a first-time custom rig: a small OSC camera on a short
+ *  APO refractor, with a common ZWO pixel pitch (matches the ASIAIR default
+ *  in server/routes/satellite.ts) so the arcsec/pixel readout isn't 0 out of the box. */
+export const DEFAULT_CUSTOM_OPTICS: CustomOptics = {
+  focalMm: 250,
+  sensorWMm: 5.6,
+  sensorHMm: 3.2,
+  pixelSizeUm: 3.76,
+};
+
+export interface FovSetup {
+  /** A FOV_PROFILES id, `CUSTOM_FOV_PROFILE_ID`, or null to follow whichever
+   *  telescope is configured under Settings → Telescopes. */
+  profileId: string | null;
+  custom: CustomOptics;
+}
+
+const FOV_SETUP_KEY = 'nebulis-fov-setup';
+
+const DEFAULT_FOV_SETUP: FovSetup = { profileId: null, custom: DEFAULT_CUSTOM_OPTICS };
+
+/** Reads the user's saved Framing & Mosaic setup (the Framing modal writes
+ *  this every time the telescope pick or custom optics change), so a manual
+ *  override for an unsupported rig — a bare ZWO camera + third-party lens,
+ *  say — sticks the same way everywhere it's used: the modal itself and the
+ *  Planner list's fit badge. Falls back to following the configured telescope
+ *  when nothing has been saved yet. */
+export function readFovSetup(): FovSetup {
+  if (typeof window === 'undefined') return DEFAULT_FOV_SETUP;
+  try {
+    const raw = localStorage.getItem(FOV_SETUP_KEY);
+    if (!raw) return DEFAULT_FOV_SETUP;
+    const parsed = JSON.parse(raw) as Partial<FovSetup>;
+    const custom = parsed.custom;
+    const validCustom: CustomOptics = custom && typeof custom.focalMm === 'number' && typeof custom.sensorWMm === 'number' && typeof custom.sensorHMm === 'number'
+      ? {
+          focalMm: custom.focalMm,
+          sensorWMm: custom.sensorWMm,
+          sensorHMm: custom.sensorHMm,
+          pixelSizeUm: typeof custom.pixelSizeUm === 'number' ? custom.pixelSizeUm : null,
+        }
+      : DEFAULT_CUSTOM_OPTICS;
+    return {
+      profileId: typeof parsed.profileId === 'string' ? parsed.profileId : null,
+      custom: validCustom,
+    };
+  } catch {
+    return DEFAULT_FOV_SETUP;
+  }
+}
+
+export function writeFovSetup(setup: FovSetup): void {
+  try {
+    localStorage.setItem(FOV_SETUP_KEY, JSON.stringify(setup));
+  } catch {
+    /* ignore — a private/full storage just means the pick won't stick */
+  }
+}
+
+export interface ResolvedFov {
+  widthDeg: number;
+  heightDeg: number;
+  label: string;
+  /** Only set when the plate scale is knowable: a custom setup (ad-hoc or a
+   *  registered profile) with a pixel size entered. */
+  arcsecPerPixel: number | null;
+  profileId: string;
+}
+
+/** Dropdown-option-id prefix for a registered telescope profile, so
+ *  `FovSetup.profileId` can distinguish "a `FOV_PROFILES` id",
+ *  "`CUSTOM_FOV_PROFILE_ID`", and "this specific telescope (+ optionally a
+ *  specific optical configuration on it) from Settings → Telescopes" from one
+ *  string: `telescope:<telescopeId>` (its active/default config) or
+ *  `telescope:<telescopeId>:<configId>` (a specific one). */
+export const TELESCOPE_PROFILE_PREFIX = 'telescope:';
+
+export function telescopeProfileOptionId(telescopeId: string, configId?: string | null): string {
+  return configId ? `${TELESCOPE_PROFILE_PREFIX}${telescopeId}:${configId}` : `${TELESCOPE_PROFILE_PREFIX}${telescopeId}`;
+}
+
+/** The subset of `TelescopeOpticalConfig` (src/lib/api/telescopes.ts)
+ *  resolveFov actually needs. */
+export type OpticalConfigLike = Pick<
+  TelescopeOpticalConfig,
+  'id' | 'name' | 'focalLengthMm' | 'sensorWidthMm' | 'sensorHeightMm' | 'pixelSizeUm'
+>;
+
+/** The subset of `TelescopeProfile` (src/lib/api/telescopes.ts) resolveFov
+ *  actually needs — kept narrow so tests can build one without the full
+ *  connection/import-toggle shape. */
+export type TelescopeProfileLike = Pick<
+  TelescopeProfile,
+  'id' | 'name' | 'kind' | 'archivedAt' | 'activeOpticalConfigId'
+> & {
+  opticalConfigs: OpticalConfigLike[];
+};
+
+/** Picks which of a profile's optical configs to use: an explicit `configId`
+ *  if it still exists, else the profile's `activeOpticalConfigId` if set and
+ *  still valid, else the oldest config (server orders `opticalConfigs` by
+ *  `createdAt asc`), else `null` when there are none at all. */
+function pickOpticalConfig(t: TelescopeProfileLike, configId?: string): OpticalConfigLike | null {
+  const configs = t.opticalConfigs;
+  if (configs.length === 0) return null;
+  if (configId) {
+    const requested = configs.find(c => c.id === configId);
+    if (requested) return requested;
+  }
+  const active = t.activeOpticalConfigId ? configs.find(c => c.id === t.activeOpticalConfigId) : undefined;
+  return active ?? configs[0];
+}
+
+/** FOV for one registered telescope profile, optionally a specific optical
+ *  config on it. Optical configs only take effect for kinds Nebulis has no
+ *  `FOV_PROFILES` lookup for (`other`, `asiair`) — a known smart-telescope
+ *  kind always uses its lookup entry, even if configs happen to be present
+ *  from an earlier kind switch. */
+function fovForTelescopeProfile(
+  t: TelescopeProfileLike,
+  configId?: string,
+): { widthDeg: number; heightDeg: number; arcsecPerPixel: number | null; configId: string | null; configName: string | null } {
+  if (t.kind === 'other' || t.kind === 'asiair') {
+    const config = pickOpticalConfig(t, configId);
+    if (config) {
+      const { widthDeg, heightDeg } = fovFromOptics(config.focalLengthMm, config.sensorWidthMm, config.sensorHeightMm);
+      const arcsecPx = config.pixelSizeUm ? arcsecPerPixel(config.focalLengthMm, config.pixelSizeUm) : null;
+      return { widthDeg, heightDeg, arcsecPerPixel: arcsecPx, configId: config.id, configName: config.name };
+    }
+  }
+  const p = fovProfileById(fovProfileIdForKind(t.kind)) ?? fovProfileById(DEFAULT_FOV_PROFILE_ID)!;
+  return { widthDeg: p.widthDeg, heightDeg: p.heightDeg, arcsecPerPixel: null, configId: null, configName: null };
+}
+
+/**
+ * Turns a saved `FovSetup` + the telescopes registered under Settings →
+ * Telescopes into the actual FOV to draw/classify against. Shared by the
+ * Framing modal and the Planner list badge so both always agree on "the
+ * current rig".
+ *
+ * Resolution order:
+ * 1. An explicit pick (`setup.profileId`) wins: a built-in `FOV_PROFILES` id,
+ *    `CUSTOM_FOV_PROFILE_ID` (the modal's ad-hoc, unsaved "Custom" entry), or
+ *    a `telescope:<id>[:<configId>]` pick of a registered profile (optionally
+ *    a specific optical config on it) — which resolves through that config's
+ *    optics, that profile's active/oldest config, or its kind's
+ *    `FOV_PROFILES` lookup, in that order.
+ * 2. No pick, or the picked telescope was since deleted: fall back to
+ *    whichever telescope is active (first non-archived, else the first at
+ *    all) under Settings → Telescopes, using its active/oldest config.
+ * 3. No telescopes registered at all: the generic `DEFAULT_FOV_PROFILE_ID`.
+ */
+export function resolveFov(setup: FovSetup, telescopes: TelescopeProfileLike[] | null | undefined): ResolvedFov {
+  const list = telescopes ?? [];
+
+  if (setup.profileId) {
+    if (setup.profileId === CUSTOM_FOV_PROFILE_ID) {
+      const { widthDeg, heightDeg } = fovFromOptics(
+        setup.custom.focalMm || 1,
+        setup.custom.sensorWMm || 0.1,
+        setup.custom.sensorHMm || 0.1,
+      );
+      const arcsecPx = setup.custom.pixelSizeUm ? arcsecPerPixel(setup.custom.focalMm, setup.custom.pixelSizeUm) : null;
+      return { widthDeg, heightDeg, label: 'Custom', arcsecPerPixel: arcsecPx, profileId: setup.profileId };
+    }
+    if (setup.profileId.startsWith(TELESCOPE_PROFILE_PREFIX)) {
+      const rest = setup.profileId.slice(TELESCOPE_PROFILE_PREFIX.length);
+      const sep = rest.indexOf(':');
+      const telescopeId = sep === -1 ? rest : rest.slice(0, sep);
+      const configId = sep === -1 ? undefined : rest.slice(sep + 1);
+      const t = list.find(p => p.id === telescopeId);
+      if (t) {
+        const fov = fovForTelescopeProfile(t, configId);
+        const label = fov.configName ? `${t.name} — ${fov.configName}` : t.name;
+        return { widthDeg: fov.widthDeg, heightDeg: fov.heightDeg, label, arcsecPerPixel: fov.arcsecPerPixel, profileId: setup.profileId };
+      }
+      // The saved pick no longer exists (profile deleted since) — fall
+      // through to the active-telescope default below.
+    } else {
+      const p = fovProfileById(setup.profileId);
+      if (p) return { widthDeg: p.widthDeg, heightDeg: p.heightDeg, label: p.label, arcsecPerPixel: null, profileId: p.id };
+    }
+  }
+
+  const owned = list.find(t => !t.archivedAt) ?? list[0] ?? null;
+  if (owned) {
+    const fov = fovForTelescopeProfile(owned);
+    const label = fov.configName ? `${owned.name} — ${fov.configName}` : owned.name;
+    return { widthDeg: fov.widthDeg, heightDeg: fov.heightDeg, label, arcsecPerPixel: fov.arcsecPerPixel, profileId: telescopeProfileOptionId(owned.id, fov.configId) };
+  }
+
+  const fallback = fovProfileById(DEFAULT_FOV_PROFILE_ID)!;
+  return { widthDeg: fallback.widthDeg, heightDeg: fallback.heightDeg, label: fallback.label, arcsecPerPixel: null, profileId: fallback.id };
 }

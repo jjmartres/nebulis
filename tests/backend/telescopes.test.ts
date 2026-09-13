@@ -9,6 +9,12 @@ import {
   updateSettingsData,
   type TelescopeProfile,
 } from '../../server/lib/telescopes';
+import {
+  getOpticalConfigsForProfile,
+  addOpticalConfig,
+  updateOpticalConfig,
+  deleteOpticalConfig,
+} from '../../server/lib/telescopeOpticalConfigs';
 import db from '../../server/lib/db';
 
 describe('telescopes', () => {
@@ -88,6 +94,121 @@ describe('telescopes', () => {
     // length and contents are knowable. `>= 1` would pass for duplicates.
     expect(settings.telescopes).toHaveLength(1);
     expect(settings.telescopes[0].id).toBe('test-1');
+  });
+});
+
+// ─── Optical configurations (Framing & Mosaic FOV preview) ─────────────────
+// One `other`/`asiair` telescope profile can carry several named optical
+// configs ("Native", "0.8x Reducer", ...) in telescopeOpticalConfigs, each a
+// distinct focal length/sensor/pixel-pitch spec; `activeOpticalConfigId` on
+// the profile says which is currently mounted. See
+// src/lib/telescopeFov.ts's resolveFov for how the client turns these into
+// an actual FOV.
+describe('telescope optical configs', () => {
+  // A global afterEach (tests/setup.ts) wipes telescopeProfiles between every
+  // test in the suite to prevent cross-file leakage, so — like the sibling
+  // `describe('telescopes')` block above — this needs its own beforeEach
+  // rather than relying on state left over from a previous test.
+  // telescopeOpticalConfigs isn't in that shared-table list, but its rows
+  // cascade-delete with their profile (ON DELETE CASCADE), so wiping
+  // telescopeProfiles here is enough to keep both tables clean per test.
+  beforeEach(() => {
+    db.prepare('DELETE FROM telescopeProfiles').run();
+    db.prepare(`
+      INSERT INTO telescopeProfiles (id, name, model, kind, hostname, shareName, username, password, isActive, createdAt)
+      VALUES ('test-1', 'Bare Rig', 'Custom', 'other', '10.0.0.1', 'EMMC Images', 'guest', '', 0, '2024-01-01T00:00:00Z')
+    `).run();
+  });
+
+  it('a profile starts with no optical configs and activeOpticalConfigId null', () => {
+    const profile = getAllProfiles()[0];
+    expect(getOpticalConfigsForProfile(profile.id)).toEqual([]);
+    expect(profile.activeOpticalConfigId).toBeNull();
+  });
+
+  it('addOpticalConfig stores a full spec and defaults pixelSizeUm to null when omitted', () => {
+    const config = addOpticalConfig('test-1', {
+      name: 'Native', focalLengthMm: 2000, sensorWidthMm: 23.5, sensorHeightMm: 15.7,
+    });
+    expect(config.name).toBe('Native');
+    expect(config.focalLengthMm).toBe(2000);
+    expect(config.pixelSizeUm).toBeNull();
+    expect(config.profileId).toBe('test-1');
+
+    const withPixels = addOpticalConfig('test-1', {
+      name: '0.8x Reducer', focalLengthMm: 1600, sensorWidthMm: 23.5, sensorHeightMm: 15.7, pixelSizeUm: 3.76,
+    });
+    expect(withPixels.pixelSizeUm).toBe(3.76);
+
+    // Both configs coexist on the same profile — the whole point.
+    const configs = getOpticalConfigsForProfile('test-1');
+    expect(configs).toHaveLength(2);
+    expect(configs.map(c => c.name)).toEqual(['Native', '0.8x Reducer']);
+  });
+
+  it('updateOpticalConfig changes fields and round-trips through a fresh read', () => {
+    const config = addOpticalConfig('test-1', { name: 'Native', focalLengthMm: 2000, sensorWidthMm: 23.5, sensorHeightMm: 15.7 });
+    const updated = updateOpticalConfig(config.id, { name: 'Native (no reducer)', focalLengthMm: 2032 });
+    expect(updated?.name).toBe('Native (no reducer)');
+    expect(updated?.focalLengthMm).toBe(2032);
+    // Fields not in the patch are preserved, not zeroed.
+    expect(updated?.sensorWidthMm).toBe(23.5);
+
+    const reread = getOpticalConfigsForProfile('test-1').find(c => c.id === config.id);
+    expect(reread?.name).toBe('Native (no reducer)');
+  });
+
+  it('updateOpticalConfig returns null for an unknown id', () => {
+    expect(updateOpticalConfig('nonexistent-id', { name: 'Ghost' })).toBeNull();
+  });
+
+  it('deleteOpticalConfig removes the row (deleting the only one is allowed)', () => {
+    const config = addOpticalConfig('test-1', { name: 'Native', focalLengthMm: 2000, sensorWidthMm: 23.5, sensorHeightMm: 15.7 });
+    expect(deleteOpticalConfig(config.id)).toBe(true);
+    expect(getOpticalConfigsForProfile('test-1')).toEqual([]);
+  });
+
+  it('deleteOpticalConfig returns false for an unknown id', () => {
+    expect(deleteOpticalConfig('nonexistent-id')).toBe(false);
+  });
+
+  it('deleting the profile\'s active config clears activeOpticalConfigId back to null', () => {
+    const config = addOpticalConfig('test-1', { name: 'Native', focalLengthMm: 2000, sensorWidthMm: 23.5, sensorHeightMm: 15.7 });
+    updateProfile('test-1', { activeOpticalConfigId: config.id });
+    expect(getAllProfiles().find(p => p.id === 'test-1')?.activeOpticalConfigId).toBe(config.id);
+
+    deleteOpticalConfig(config.id);
+    const profile = getAllProfiles().find(p => p.id === 'test-1');
+    expect(profile?.activeOpticalConfigId).toBeNull();
+  });
+
+  it('deleting a config that is not the active one leaves activeOpticalConfigId untouched', () => {
+    const active = addOpticalConfig('test-1', { name: 'Native', focalLengthMm: 2000, sensorWidthMm: 23.5, sensorHeightMm: 15.7 });
+    const other = addOpticalConfig('test-1', { name: '0.8x Reducer', focalLengthMm: 1600, sensorWidthMm: 23.5, sensorHeightMm: 15.7 });
+    updateProfile('test-1', { activeOpticalConfigId: active.id });
+
+    deleteOpticalConfig(other.id);
+    const profile = getAllProfiles().find(p => p.id === 'test-1');
+    expect(profile?.activeOpticalConfigId).toBe(active.id);
+  });
+
+  it('updateProfile round-trips activeOpticalConfigId, including clearing it back to null', () => {
+    const config = addOpticalConfig('test-1', { name: 'Native', focalLengthMm: 2000, sensorWidthMm: 23.5, sensorHeightMm: 15.7 });
+    const withActive = updateProfile('test-1', { activeOpticalConfigId: config.id });
+    expect(withActive?.activeOpticalConfigId).toBe(config.id);
+
+    const cleared = updateProfile('test-1', { activeOpticalConfigId: null });
+    expect(cleared?.activeOpticalConfigId).toBeNull();
+  });
+
+  it('optical configs cascade-delete when their profile is deleted', () => {
+    createProfile({ name: 'Second Scope', kind: 'other', hostname: '10.0.0.2' });
+    const second = getAllProfiles().find(p => p.name === 'Second Scope')!;
+    addOpticalConfig(second.id, { name: 'Native', focalLengthMm: 400, sensorWidthMm: 5.6, sensorHeightMm: 3.2 });
+    expect(getOpticalConfigsForProfile(second.id)).toHaveLength(1);
+
+    deleteProfile(second.id);
+    expect(getOpticalConfigsForProfile(second.id)).toEqual([]);
   });
 });
 

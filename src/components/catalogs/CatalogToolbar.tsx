@@ -35,6 +35,7 @@ const SORT_LABELS: Record<SortKey, string> = {
   name: 'Name',
   magnitude: 'Brightest first',
   constellation: 'Constellation',
+  frameFit: 'Best frame fit',
 };
 
 export function CatalogToolbar({

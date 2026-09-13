@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, RotateCw, HelpCircle, Telescope as TelescopeIcon, Check, Wifi, WifiOff, Usb, Network, Settings2, ChevronDown } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { X, RotateCw, HelpCircle, Telescope as TelescopeIcon, Check, Wifi, WifiOff, Usb, Network, Settings2, ChevronDown, Frame, Pin, Pencil, Trash2, Plus } from 'lucide-react';
 import { HelpBlockText } from './HelpBlockText';
 import {
   createTelescope,
@@ -8,7 +8,13 @@ import {
   testTelescopeConnection,
   probeTransportIdentity,
   addProfileTransport,
+  listTelescopes,
+  addTelescopeOpticalConfig,
+  updateTelescopeOpticalConfig,
+  deleteTelescopeOpticalConfig,
   type TelescopeProfile,
+  type TelescopeOpticalConfig,
+  type OpticalConfigInput,
   type DetectedDrive,
   type ConnectionType,
 } from '../../lib/api/telescopes';
@@ -95,6 +101,11 @@ export function AddTelescopeModal({
   const isDwarfKind = isDwarfTelescopeKind(kind);
   const isSeestarKind = isSeestarTelescopeKind(kind);
   const isAsiairKind = isAsiairTelescopeKind(kind);
+  // No known FOV_PROFILES entry for these kinds — the only ones where an
+  // optical configuration can actually change anything (see resolveFov in
+  // telescopeFov.ts). Configs are managed only once the profile exists (see
+  // OpticalConfigsEditor below), so this only matters in edit mode.
+  const showOptics = kind === 'other' || isAsiairKind;
   // Transport mode picks which set of inputs to render and which connection
   // type to save on the profile. Dwarf gets FTP (its only network interface)
   // or USB; everything else, ASIAIR included, gets SMB or USB. Edits seed from
@@ -837,6 +848,35 @@ export function AddTelescopeModal({
             </div>
           </div>
 
+          {/* Optical configurations — only for kinds with no known fixed field
+              of view. Lets the Framing & Mosaic FOV preview draw a real frame
+              for a bare camera/lens rig, including a named entry per optical
+              train (e.g. "Native" vs "0.8x Reducer") instead of only an
+              unsaved, ad-hoc "Custom" entry picked fresh every preview.
+              Configs attach to a profile id, so this only exists once one has
+              been saved — a brand-new "Add Telescope" flow shows a note
+              instead and picks up the full editor on the next Edit. */}
+          {showOptics && (
+            isEdit && existing ? (
+              <OpticalConfigsEditor
+                profile={existing}
+                isDark={isDark}
+                inputClass={inputClass}
+                labelClass={labelClass}
+                helperClass={helperClass}
+              />
+            ) : (
+              <div className={`rounded-xl border p-4 flex items-start gap-3 ${isDark ? 'border-slate-800 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}`}>
+                <Frame className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
+                <p className={helperClass}>
+                  {preset.label} has no fixed field of view Nebulis knows about. Save this telescope first,
+                  then reopen it from Edit to add one or more optical configurations (e.g. "Native" and
+                  "0.8x Reducer") for the Framing &amp; Mosaic FOV preview.
+                </p>
+              </div>
+            )
+          )}
+
           {/* Custom layout help — only when kind is "other" */}
           {kind === 'other' && (
             <div className={`rounded-xl border ${isDark ? 'border-slate-800 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}`}>
@@ -972,6 +1012,341 @@ function SectionHeading({ isDark, children }: { isDark: boolean; children: React
       isDark ? 'text-slate-500 border-slate-800/70' : 'text-slate-400 border-slate-200'
     }`}>
       {children}
+    </div>
+  );
+}
+
+interface OpticalConfigFormState {
+  name: string;
+  focalLengthMm: string;
+  sensorWidthMm: string;
+  sensorHeightMm: string;
+  pixelSizeUm: string;
+}
+
+function blankOpticalConfigForm(): OpticalConfigFormState {
+  return { name: '', focalLengthMm: '', sensorWidthMm: '', sensorHeightMm: '', pixelSizeUm: '' };
+}
+
+function opticalConfigFormFrom(c: TelescopeOpticalConfig): OpticalConfigFormState {
+  return {
+    name: c.name,
+    focalLengthMm: String(c.focalLengthMm),
+    sensorWidthMm: String(c.sensorWidthMm),
+    sensorHeightMm: String(c.sensorHeightMm),
+    pixelSizeUm: c.pixelSizeUm != null ? String(c.pixelSizeUm) : '',
+  };
+}
+
+/** `null` when the form isn't submittable — name and every dimension are
+ *  required; pixel size stays optional (only drives the arcsec/pixel readout). */
+function parseOpticalConfigForm(f: OpticalConfigFormState): OpticalConfigInput | null {
+  const focalLengthMm = Number(f.focalLengthMm);
+  const sensorWidthMm = Number(f.sensorWidthMm);
+  const sensorHeightMm = Number(f.sensorHeightMm);
+  if (!f.name.trim() || !(focalLengthMm > 0) || !(sensorWidthMm > 0) || !(sensorHeightMm > 0)) return null;
+  const pixelSizeUm = f.pixelSizeUm.trim() !== '' ? Number(f.pixelSizeUm) : null;
+  return {
+    name: f.name.trim(),
+    focalLengthMm, sensorWidthMm, sensorHeightMm,
+    pixelSizeUm: pixelSizeUm != null && pixelSizeUm > 0 ? pixelSizeUm : null,
+  };
+}
+
+/**
+ * Manage the optical configurations ("Native", "0.8x Reducer", ...) on an
+ * existing `other`/`asiair` telescope profile, for the Framing & Mosaic FOV
+ * preview: add, edit, delete, and mark one as currently mounted
+ * (`activeOpticalConfigId`). Only opened for a saved profile — configs
+ * attach to a profile id, so a brand-new profile has nowhere to attach them
+ * to yet (see the note AddTelescopeModal shows instead during create).
+ *
+ * Reads the profile fresh from the `['telescopes']` query rather than the
+ * `profile` prop directly, so it reflects its own mutations without the
+ * parent needing to re-derive `existing` on every keystroke elsewhere in the
+ * form (mirrors ConnectionSection's `managingTransportsId`-by-id pattern).
+ */
+function OpticalConfigsEditor({
+  profile, isDark, inputClass, labelClass, helperClass,
+}: {
+  profile: TelescopeProfile;
+  isDark: boolean;
+  inputClass: string;
+  labelClass: string;
+  helperClass: string;
+}) {
+  const queryClient = useQueryClient();
+  const { data: telescopes } = useQuery({ queryKey: ['telescopes'], queryFn: listTelescopes });
+  const live = telescopes?.find(t => t.id === profile.id) ?? profile;
+  const configs = live.opticalConfigs;
+  const activeId = live.activeOpticalConfigId;
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState<OpticalConfigFormState>(blankOpticalConfigForm());
+  const [formError, setFormError] = useState('');
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['telescopes'] });
+
+  const activeMutation = useMutation({
+    mutationFn: (activeOpticalConfigId: string | null) => updateTelescope(profile.id, { activeOpticalConfigId }),
+    onSuccess: invalidate,
+  });
+  const addMutation = useMutation({
+    mutationFn: (data: OpticalConfigInput) => addTelescopeOpticalConfig(profile.id, data),
+    onSuccess: () => { invalidate(); setAdding(false); },
+    onError: (err: Error) => setFormError(err.message),
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: OpticalConfigInput }) => updateTelescopeOpticalConfig(profile.id, id, data),
+    onSuccess: () => { invalidate(); setEditingId(null); },
+    onError: (err: Error) => setFormError(err.message),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteTelescopeOpticalConfig(profile.id, id),
+    onSuccess: invalidate,
+  });
+
+  function startAdd() {
+    setForm(blankOpticalConfigForm());
+    setFormError('');
+    setEditingId(null);
+    setAdding(true);
+  }
+  function startEdit(c: TelescopeOpticalConfig) {
+    setForm(opticalConfigFormFrom(c));
+    setFormError('');
+    setAdding(false);
+    setEditingId(c.id);
+  }
+  function cancelForm() {
+    setAdding(false);
+    setEditingId(null);
+    setFormError('');
+  }
+  function submitForm() {
+    const parsed = parseOpticalConfigForm(form);
+    if (!parsed) {
+      setFormError('Name, focal length, and sensor width/height are required.');
+      return;
+    }
+    setFormError('');
+    if (editingId) updateMutation.mutate({ id: editingId, data: parsed });
+    else addMutation.mutate(parsed);
+  }
+
+  const canSubmit = parseOpticalConfigForm(form) !== null;
+
+  return (
+    <div className={`rounded-xl border p-4 space-y-3 ${isDark ? 'border-slate-800 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}`}>
+      <div className="flex items-center gap-2">
+        <Frame className="w-4 h-4 text-sky-500" />
+        <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+          Optical configurations <span className="opacity-60 font-normal">(optional)</span>
+        </span>
+      </div>
+      <p className={helperClass}>
+        No fixed field of view is known for this telescope. Add one entry per optical setup you actually
+        use — e.g. "Native" and "0.8x Reducer" — and pick which is mounted right now; the Framing &amp;
+        Mosaic preview uses whichever is active.
+      </p>
+
+      <div className="space-y-2">
+        {configs.map(cfg => {
+          const isActive = cfg.id === activeId;
+          const isEditingThis = editingId === cfg.id;
+          return (
+            <div key={cfg.id} className={`rounded-lg border overflow-hidden ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+              <div className={`flex items-center gap-3 px-3 py-2 ${isDark ? 'bg-slate-800/30' : 'bg-white'}`}>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                    {cfg.name}
+                    {isActive && (
+                      <span className={`ml-1.5 text-[10px] font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>ACTIVE</span>
+                    )}
+                  </div>
+                  <div className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {cfg.focalLengthMm}mm · {cfg.sensorWidthMm}×{cfg.sensorHeightMm}mm
+                    {cfg.pixelSizeUm ? ` · ${cfg.pixelSizeUm}µm px` : ''}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {!isActive && (
+                    <button
+                      type="button"
+                      onClick={() => activeMutation.mutate(cfg.id)}
+                      disabled={activeMutation.isPending}
+                      title="Mark as currently mounted"
+                      className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
+                    >
+                      <Pin className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => (isEditingThis ? cancelForm() : startEdit(cfg))}
+                    title="Edit"
+                    className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteMutation.mutate(cfg.id)}
+                    disabled={deleteMutation.isPending}
+                    title="Delete"
+                    className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-red-500/10 text-slate-400 hover:text-red-400' : 'hover:bg-red-50 text-slate-500 hover:text-red-600'}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              {isEditingThis && (
+                <OpticalConfigForm
+                  form={form}
+                  setForm={setForm}
+                  isDark={isDark}
+                  inputClass={inputClass}
+                  labelClass={labelClass}
+                  error={formError}
+                  onCancel={cancelForm}
+                  onSubmit={submitForm}
+                  canSubmit={canSubmit}
+                  submitting={updateMutation.isPending}
+                  submitLabel="Save"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {adding ? (
+        <div className={`rounded-lg border overflow-hidden ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          <OpticalConfigForm
+            form={form}
+            setForm={setForm}
+            isDark={isDark}
+            inputClass={inputClass}
+            labelClass={labelClass}
+            error={formError}
+            onCancel={cancelForm}
+            onSubmit={submitForm}
+            canSubmit={canSubmit}
+            submitting={addMutation.isPending}
+            submitLabel="Add configuration"
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={startAdd}
+          className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border border-dashed transition ${
+            isDark ? 'border-slate-700 text-slate-400 hover:bg-slate-800/50' : 'border-slate-300 text-slate-500 hover:bg-slate-50'
+          }`}
+        >
+          <Plus className="w-4 h-4" />
+          Add configuration
+        </button>
+      )}
+    </div>
+  );
+}
+
+function OpticalConfigForm({
+  form, setForm, isDark, inputClass, labelClass, error, onCancel, onSubmit, canSubmit, submitting, submitLabel,
+}: {
+  form: OpticalConfigFormState;
+  setForm: (f: OpticalConfigFormState) => void;
+  isDark: boolean;
+  inputClass: string;
+  labelClass: string;
+  error: string;
+  onCancel: () => void;
+  onSubmit: () => void;
+  canSubmit: boolean;
+  submitting: boolean;
+  submitLabel: string;
+}) {
+  return (
+    <div className={`px-3 py-3 space-y-3 ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+      <div>
+        <label className={labelClass}>Name</label>
+        <input
+          type="text"
+          placeholder="e.g. Native, 0.8x Reducer"
+          value={form.name}
+          onChange={e => setForm({ ...form, name: e.target.value })}
+          className={inputClass}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Focal length (mm)</label>
+          <input
+            type="number"
+            min={1}
+            placeholder="e.g. 400"
+            value={form.focalLengthMm}
+            onChange={e => setForm({ ...form, focalLengthMm: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Pixel size (µm) <span className="opacity-60">(optional)</span></label>
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="e.g. 3.76"
+            value={form.pixelSizeUm}
+            onChange={e => setForm({ ...form, pixelSizeUm: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Sensor width (mm)</label>
+          <input
+            type="number"
+            min={0.1}
+            step={0.1}
+            placeholder="e.g. 23.5"
+            value={form.sensorWidthMm}
+            onChange={e => setForm({ ...form, sensorWidthMm: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Sensor height (mm)</label>
+          <input
+            type="number"
+            min={0.1}
+            step={0.1}
+            placeholder="e.g. 15.7"
+            value={form.sensorHeightMm}
+            onChange={e => setForm({ ...form, sensorHeightMm: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!canSubmit || submitting}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {submitLabel}
+        </button>
+      </div>
     </div>
   );
 }

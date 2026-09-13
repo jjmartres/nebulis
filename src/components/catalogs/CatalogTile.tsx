@@ -9,6 +9,8 @@
 import { memo } from 'react';
 import { getCatalogStaticThumbnailUrl, getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import type { CatalogProgressObject } from '../../lib/api/catalogs';
+import type { FitAssessment } from '../../lib/telescopeFov';
+import { FitBadge } from '../FitBadge';
 import { Check } from 'lucide-react';
 
 interface Props {
@@ -20,6 +22,11 @@ interface Props {
    * re-mapped for the night and space themes.
    */
   accent: string;
+  /** How this object sits in the current telescope's frame, precomputed once
+   *  per board render (`CatalogBoard`'s `fitById`) rather than per tile —
+   *  `null` when the object's angular size isn't known. Explains the "Best
+   *  frame fit" sort and is shown regardless of which sort is active. */
+  fit: FitAssessment | null;
   /** Takes the object id, not a bound callback, so the board can pass its
    *  setState setter directly — a stable reference `memo` can actually rely
    *  on, instead of a fresh arrow that would re-render every tile whenever
@@ -27,7 +34,7 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
-export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, onSelect }: Props) {
+export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, fit, onSelect }: Props) {
   const staticUrl = getCatalogStaticThumbnailUrl(object.id);
   const apiUrl = getCatalogThumbnailUrl(object.id, object.majorAxisArcmin);
   const imaged = object.isImaged;
@@ -91,10 +98,19 @@ export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, o
         </div>
       )}
 
-      {/* Magnitude, kept out of the way until the tile is hovered */}
-      {object.magnitude != null && (
-        <div className="absolute top-2 left-2 rounded-full bg-slate-950/60 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white/80 opacity-0 ring-1 ring-inset ring-white/15 backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
-          mag {object.magnitude.toFixed(1)}
+      {/* Magnitude + frame-fit badge, kept out of the way until the tile is
+          hovered. FitBadge is always passed isDark={true} here regardless of
+          the app theme: the photo underneath is dark in every theme, so its
+          translucent-on-dark variant is what reads, the same reasoning as
+          the magnitude chip's fixed bg-slate-950/60 below. */}
+      {(object.magnitude != null || fit) && (
+        <div className="absolute top-2 left-2 flex flex-col items-start gap-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          {object.magnitude != null && (
+            <div className="rounded-full bg-slate-950/60 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white/80 ring-1 ring-inset ring-white/15 backdrop-blur-md">
+              mag {object.magnitude.toFixed(1)}
+            </div>
+          )}
+          {fit && <FitBadge tag={fit.tag} label={fit.short} title={fit.label} isDark className="backdrop-blur-md" />}
         </div>
       )}
 

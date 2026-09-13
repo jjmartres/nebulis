@@ -15,6 +15,8 @@ import { useTheme } from '../hooks/useTheme';
 import { getCatalogProgress, type CatalogProgressObject, type ObjectClass } from '../lib/api/catalogs';
 import { getSettings } from '../lib/api/settings';
 import { getCatalogMeta } from '../lib/catalogMeta';
+import { useResolvedFov } from '../hooks/useResolvedFov';
+import { classifyFit, objectExtentArcmin, FRAME_FIT_RANK, type FitAssessment } from '../lib/telescopeFov';
 import { CatalogHero } from '../components/catalogs/CatalogHero';
 import { CatalogToolbar, type SortKey, type StatusFilter } from '../components/catalogs/CatalogToolbar';
 import { CatalogTile } from '../components/catalogs/CatalogTile';
@@ -23,6 +25,9 @@ import { CatalogPlanModal } from '../components/catalogs/CatalogPlanModal';
 
 /** Objects with no magnitude sort last rather than ahead of the brightest. */
 const NO_MAGNITUDE = Number.POSITIVE_INFINITY;
+/** Objects with no known angular size (so no `FitAssessment` at all) sort
+ *  last under "Best frame fit", same reasoning as NO_MAGNITUDE above. */
+const NO_FIT_RANK = Number.POSITIVE_INFINITY;
 
 function matchesSearch(obj: CatalogProgressObject, needle: string): boolean {
   return (
@@ -34,7 +39,14 @@ function matchesSearch(obj: CatalogProgressObject, needle: string): boolean {
   );
 }
 
-function compareBy(sort: SortKey) {
+/** `fitById` is precomputed once per (catalog, fov) pair — every tile shows
+ *  its `FitAssessment` as a badge regardless of the active sort, so the
+ *  "Best frame fit" order is explained rather than a silent reshuffle; this
+ *  just reuses that same map for the actual comparison. */
+/** Exported for direct unit testing (tests/frontend/catalogBoardSort.test.ts)
+ *  — it's a pure function, so there's no reason to only exercise it through
+ *  a full page render. */
+export function compareBy(sort: SortKey, fitById: Map<string, FitAssessment | null>) {
   return (a: CatalogProgressObject, b: CatalogProgressObject): number => {
     switch (sort) {
       case 'name':
@@ -44,6 +56,16 @@ function compareBy(sort: SortKey) {
       case 'constellation':
         return (a.constellation ?? 'zzz').localeCompare(b.constellation ?? 'zzz')
           || (a.number ?? 0) - (b.number ?? 0);
+      case 'frameFit': {
+        const fa = fitById.get(a.id) ?? null;
+        const fb = fitById.get(b.id) ?? null;
+        const ra = fa ? FRAME_FIT_RANK[fa.tag] : NO_FIT_RANK;
+        const rb = fb ? FRAME_FIT_RANK[fb.tag] : NO_FIT_RANK;
+        // Same tag (e.g. both "mosaic")? Break the tie by how extreme the fill
+        // ratio is — a barely-too-big mosaic candidate sorts ahead of a
+        // wildly-oversized one, and likewise within "fits"/"tight"/"tiny".
+        return ra - rb || (fa?.fillRatio ?? 0) - (fb?.fillRatio ?? 0) || a.name.localeCompare(b.name);
+      }
       // Catalog order is the order the list already arrives in, so this is a
       // deliberate no-op rather than an unhandled key.
       case 'catalog':
@@ -97,6 +119,18 @@ export function CatalogBoard() {
   // tiles take the bright accent value directly.
   const accent = isNight ? '#f87171' : isSpace ? '#a78bfa' : '#fbbf24';
 
+  // The FOV currently in effect (Settings → Telescopes, or the Framing
+  // modal's saved pick) — used to badge every tile with "does this fit my
+  // frame" and to drive the "Best frame fit" sort.
+  const fov = useResolvedFov();
+  const fitById = useMemo(() => {
+    const map = new Map<string, FitAssessment | null>();
+    for (const o of progress?.objects ?? []) {
+      map.set(o.id, classifyFit(fov, objectExtentArcmin(null, o.majorAxisArcmin)));
+    }
+    return map;
+  }, [progress, fov]);
+
   // Deferred so a keystroke doesn't block on re-filtering a full catalog
   // (Herschel 400, Sharpless 313, etc).
   const deferredSearch = useDeferredValue(search);
@@ -111,8 +145,8 @@ export function CatalogBoard() {
       return true;
     });
     // 'catalog' keeps the server's ordering, which is already catalog order.
-    return sort === 'catalog' ? result : [...result].sort(compareBy(sort));
-  }, [progress, filter, typeFilter, deferredSearch, sort]);
+    return sort === 'catalog' ? result : [...result].sort(compareBy(sort, fitById));
+  }, [progress, filter, typeFilter, deferredSearch, sort, fitById]);
 
   const statusCounts = useMemo(() => {
     // Counts on the status pills reflect the type and search filters, so the
@@ -196,6 +230,7 @@ export function CatalogBoard() {
                 object={obj}
                 isDark={isDark}
                 accent={accent}
+                fit={fitById.get(obj.id) ?? null}
                 onSelect={setSelectedId}
               />
             ))}
@@ -207,6 +242,7 @@ export function CatalogBoard() {
       {selected && (
         <CatalogObjectModal
           object={selected}
+          fit={fitById.get(selected.id) ?? null}
           hasPrev={selectedIndex > 0}
           hasNext={selectedIndex < filteredObjects.length - 1}
           onPrev={() => setSelectedId(filteredObjects[Math.max(0, selectedIndex - 1)].id)}

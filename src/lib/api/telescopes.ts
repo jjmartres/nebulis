@@ -89,6 +89,30 @@ export interface TelescopeProfile {
   /** transports[].id to force, overriding the automatic local > ftp > smb
    *  selection. Null means "Auto". */
   pinnedTransportId: string | null;
+  /** All optical configurations saved for this profile (Settings →
+   *  Telescopes → Edit), for kinds with no known fixed field of view
+   *  (`other`, `asiair`) — e.g. "Native" and "0.8x Reducer" on the same OTA.
+   *  Populated by GET /telescopes. Ignored for kinds with a known
+   *  FOV_PROFILES entry. See `src/lib/telescopeFov.ts`'s `resolveFov`. */
+  opticalConfigs: TelescopeOpticalConfig[];
+  /** opticalConfigs[].id currently "mounted" — a plain user choice, since
+   *  nothing can auto-detect which optical train is physically attached.
+   *  Null means "use the oldest config" (or a generic fallback with none). */
+  activeOpticalConfigId: string | null;
+}
+
+/** One named optical setup on a telescope profile — e.g. "Native" vs. "0.8x
+ *  Reducer" on the same OTA. Only meaningful for `other`/`asiair` kinds. */
+export interface TelescopeOpticalConfig {
+  id: string;
+  profileId: string;
+  name: string;
+  focalLengthMm: number;
+  sensorWidthMm: number;
+  sensorHeightMm: number;
+  /** Pixel pitch in microns. Optional — only drives the arcsec/pixel readout. */
+  pixelSizeUm: number | null;
+  createdAt: string;
 }
 
 /** One way to reach a telescope. A profile can have several (e.g. one Seestar
@@ -148,6 +172,7 @@ type TelescopeCreateInput =
     | 'importJpg' | 'importFits' | 'importThumbnails' | 'importSubFrames' | 'importVideos'
     | 'archiveAllFiles'
     | 'trackDeviceIdentity'
+    | 'opticalConfigs' | 'activeOpticalConfigId'
   >
   & {
     connectionType?: ConnectionType;
@@ -293,6 +318,32 @@ export const updateProfileTransport = (
 export const deleteProfileTransport = (profileId: string, transportId: string) =>
   fetchJSON<{ deleted: boolean }>(
     `/telescopes/${encodeURIComponent(profileId)}/transports/${encodeURIComponent(transportId)}`,
+    { method: 'DELETE' },
+  );
+
+// ─── Optical configurations (Framing & Mosaic FOV preview) ─────────────────
+// A telescope profile with no known fixed field of view (`other`/`asiair`)
+// can carry several named optical setups — e.g. "Native" and "0.8x Reducer"
+// on the same OTA. Manage them from AddTelescopeModal in edit mode; pick
+// which is active via updateTelescope's `activeOpticalConfigId`.
+
+export type OpticalConfigInput = Omit<TelescopeOpticalConfig, 'id' | 'profileId' | 'createdAt'>;
+
+export const addTelescopeOpticalConfig = (profileId: string, data: OpticalConfigInput) =>
+  fetchJSON<TelescopeOpticalConfig>(
+    `/telescopes/${encodeURIComponent(profileId)}/optical-configs`,
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+
+export const updateTelescopeOpticalConfig = (profileId: string, configId: string, data: Partial<OpticalConfigInput>) =>
+  fetchJSON<TelescopeOpticalConfig>(
+    `/telescopes/${encodeURIComponent(profileId)}/optical-configs/${encodeURIComponent(configId)}`,
+    { method: 'PUT', body: JSON.stringify(data) },
+  );
+
+export const deleteTelescopeOpticalConfig = (profileId: string, configId: string) =>
+  fetchJSON<{ deleted: boolean }>(
+    `/telescopes/${encodeURIComponent(profileId)}/optical-configs/${encodeURIComponent(configId)}`,
     { method: 'DELETE' },
   );
 

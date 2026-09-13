@@ -228,6 +228,27 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_telescopeTransports_profile
     ON telescopeTransports(profileId);
 
+  -- One profile can carry multiple optical configurations — e.g. a bare
+  -- camera/OTA reached through an ASIAIR ('other'/'asiair' kind, the two
+  -- kinds with no known fixed FOV_PROFILES entry) imaged natively, and again
+  -- through a 0.8x reducer/flattener. Each is a distinct focal length (and
+  -- possibly sensor/pixel pitch, if the camera changed too), so one flat
+  -- optics spec per telescope can't represent both. telescopeProfiles.
+  -- activeOpticalConfigId (below) says which one is "currently mounted" for
+  -- framing previews; see src/lib/telescopeFov.ts's resolveFov.
+  CREATE TABLE IF NOT EXISTS telescopeOpticalConfigs (
+    id             TEXT PRIMARY KEY,
+    profileId      TEXT NOT NULL REFERENCES telescopeProfiles(id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,          -- e.g. "Native", "0.8x Reducer"
+    focalLengthMm  REAL NOT NULL,
+    sensorWidthMm  REAL NOT NULL,
+    sensorHeightMm REAL NOT NULL,
+    pixelSizeUm    REAL,                   -- optional; only drives the arcsec/pixel readout
+    createdAt      TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_telescopeOpticalConfigs_profile
+    ON telescopeOpticalConfigs(profileId);
+
   CREATE TABLE IF NOT EXISTS notes (
     id                  TEXT PRIMARY KEY,
     objectId            TEXT NOT NULL,
@@ -957,6 +978,22 @@ db.exec(`
   const silCols = db.prepare<[], { name: string }>('PRAGMA table_info(sessionImportLog)').all();
   if (!silCols.some(c => c.name === 'deviceId')) {
     db.prepare('ALTER TABLE sessionImportLog ADD COLUMN deviceId TEXT').run();
+  }
+}
+
+// ─── Custom optics for the Framing & Mosaic FOV preview ─────────────────────
+// telescopeProfiles.activeOpticalConfigId: which row in telescopeOpticalConfigs
+// (see CREATE TABLE above) is "currently mounted" on this telescope, for kinds
+// with no known fixed field of view (`other`, `asiair`). Unlike
+// pinnedTransportId (an override of an automatic reachability heuristic),
+// there is no way to auto-detect which optical train is physically attached —
+// this is purely a user choice. NULL means "use whichever config was added
+// first" (rowToProfile's default) or, with zero configs, a generic fallback.
+// See src/lib/telescopeFov.ts's `resolveFov` on the client.
+{
+  const tpOpticsCols = db.prepare<[], { name: string }>('PRAGMA table_info(telescopeProfiles)').all();
+  if (!tpOpticsCols.some(c => c.name === 'activeOpticalConfigId')) {
+    db.prepare('ALTER TABLE telescopeProfiles ADD COLUMN activeOpticalConfigId TEXT').run();
   }
 }
 

@@ -12,17 +12,22 @@ import { useQuery } from '@tanstack/react-query';
 import { X, RotateCw, Plus, Minus, Crosshair } from 'lucide-react';
 import { listTelescopes } from '../../lib/api/telescopes';
 import { getCatalogEntry } from '../../lib/api/catalog';
+import { FitBadge } from '../FitBadge';
 import {
   FOV_PROFILES,
-  DEFAULT_FOV_PROFILE_ID,
-  fovProfileById,
-  fovProfileIdForKind,
-  fovFromOptics,
   objectExtentArcmin,
   mosaicCoverageDeg,
   autoMosaicForObject,
-  fitVerdict,
+  classifyFit,
   formatFovDeg,
+  readFovSetup,
+  writeFovSetup,
+  resolveFov,
+  telescopeProfileOptionId,
+  CUSTOM_FOV_PROFILE_ID,
+  TELESCOPE_PROFILE_PREFIX,
+  type CustomOptics,
+  type FovSetup,
 } from '../../lib/telescopeFov';
 
 interface FramingModalProps {
@@ -33,14 +38,16 @@ interface FramingModalProps {
 }
 
 /**
- * Feature flag. The Framing & Mosaic planner is fully built and working but
- * intentionally hidden from the UI for now. Flip to `true` to re-enable the
- * entry-point buttons on the object and observation detail pages. The planner
- * spans this modal, `src/lib/telescopeFov.ts`, and `GET /api/catalog/:id/sky`.
+ * Feature flag for the Framing & Mosaic planner. Kept around in case a future
+ * change needs to hide it again quickly (e.g. while the DSS cutout source is
+ * unavailable); flip to `false` to pull the entry-point buttons on the object
+ * and observation detail pages. The planner spans this modal,
+ * `src/lib/telescopeFov.ts`, `src/hooks/useResolvedFov.ts` (the Planner list's
+ * fit badge), and `GET /api/catalog/:id/sky`.
  */
-export const FRAMING_MOSAIC_ENABLED: boolean = false;
+export const FRAMING_MOSAIC_ENABLED: boolean = true;
 
-const CUSTOM_ID = 'custom';
+const CUSTOM_ID = CUSTOM_FOV_PROFILE_ID;
 const OVERLAP_OPTIONS = [0, 0.1, 0.15, 0.2];
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -67,24 +74,35 @@ export function FramingModal({ catalogId, objectName, isDark, onClose }: Framing
   const majorAxisArcmin = catalogEntry?.majorAxisArcmin ?? null;
   const sizeStr = catalogEntry?.size ?? null;
 
-  // null override = follow the user's configured scope; a value = user picked.
-  const [profileIdOverride, setProfileIdOverride] = useState<string | null>(null);
+  // Saved framing setup (telescope pick + custom optics), persisted to
+  // localStorage on every change so it sticks across sessions and is what
+  // the Planner list's fit badge reads too — see useResolvedFov.ts. A null
+  // `profileId` means "follow whichever telescope is configured under
+  // Settings → Telescopes" until the user picks one here.
+  const [setup, setSetup] = useState<FovSetup>(readFovSetup);
   const [rotationDeg, setRotationDeg] = useState(0);
   const [cols, setCols] = useState(1);
   const [rows, setRows] = useState(1);
   const [overlap, setOverlap] = useState(0.1);
   const [erroredSrc, setErroredSrc] = useState<string | null>(null);
 
-  // Custom optics (used only when profileId === CUSTOM_ID).
-  const [focalMm, setFocalMm] = useState(250);
-  const [sensorWMm, setSensorWMm] = useState(5.6);
-  const [sensorHMm, setSensorHMm] = useState(3.2);
-
-  // Default the model to the user's configured scope until they change it.
+  // Default the model to the user's active telescope until they change it.
   const { data: telescopes } = useQuery({ queryKey: ['telescopes'], queryFn: listTelescopes });
-  const ownedKind = telescopes?.find(t => !t.archivedAt)?.kind ?? telescopes?.[0]?.kind ?? null;
-  const profileId = profileIdOverride ?? fovProfileIdForKind(ownedKind);
-  const setProfileId = setProfileIdOverride;
+
+  const setProfileId = (id: string) => {
+    setSetup(prev => {
+      const next = { ...prev, profileId: id };
+      writeFovSetup(next);
+      return next;
+    });
+  };
+  const updateCustom = (patch: Partial<CustomOptics>) => {
+    setSetup(prev => {
+      const next = { ...prev, custom: { ...prev.custom, ...patch } };
+      writeFovSetup(next);
+      return next;
+    });
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -92,17 +110,27 @@ export function FramingModal({ catalogId, objectName, isDark, onClose }: Framing
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const fov = useMemo(() => {
-    if (profileId === CUSTOM_ID) {
-      const { widthDeg, heightDeg } = fovFromOptics(focalMm || 1, sensorWMm || 0.1, sensorHMm || 0.1);
-      return { widthDeg, heightDeg, label: 'Custom' };
-    }
-    const p = fovProfileById(profileId) ?? fovProfileById(DEFAULT_FOV_PROFILE_ID)!;
-    return { widthDeg: p.widthDeg, heightDeg: p.heightDeg, label: p.label };
-  }, [profileId, focalMm, sensorWMm, sensorHMm]);
+  const fov = useMemo(() => resolveFov(setup, telescopes), [setup, telescopes]);
+  const profileId = fov.profileId;
+  const activeTelescopes = useMemo(() => (telescopes ?? []).filter(t => !t.archivedAt), [telescopes]);
+
+  // When the current pick is a registered telescope with no known FOV and no
+  // optical configuration saved for it, the frame shown is a generic
+  // stand-in, not this rig's actual field — flag that so the user knows to
+  // go fill it in rather than assuming the rectangle on screen is accurate.
+  const selectedTelescope = useMemo(() => {
+    if (!profileId.startsWith(TELESCOPE_PROFILE_PREFIX)) return null;
+    const rest = profileId.slice(TELESCOPE_PROFILE_PREFIX.length);
+    const telescopeId = rest.includes(':') ? rest.slice(0, rest.indexOf(':')) : rest;
+    return activeTelescopes.find(t => t.id === telescopeId) ?? null;
+  }, [profileId, activeTelescopes]);
+  const selectedTelescopeNeedsOptics = !!selectedTelescope
+    && (selectedTelescope.kind === 'other' || selectedTelescope.kind === 'asiair')
+    && selectedTelescope.opticalConfigs.length === 0;
 
   const object = useMemo(() => objectExtentArcmin(sizeStr, majorAxisArcmin), [sizeStr, majorAxisArcmin]);
   const coverage = useMemo(() => mosaicCoverageDeg(fov, cols, rows, overlap), [fov, cols, rows, overlap]);
+  const fit = useMemo(() => classifyFit(fov, object), [fov, object]);
 
   // Atlas view: fetch a SQUARE DSS cutout spanning exactly viewDeg° centered on
   // the object (the /sky endpoint), so the sky fills the background. The view is
@@ -279,26 +307,73 @@ export function FramingModal({ catalogId, objectName, isDark, onClose }: Framing
             <div>
               <label className={`text-xs font-medium block mb-1.5 ${panelText}`}>Telescope</label>
               <select value={profileId} onChange={e => setProfileId(e.target.value)} className={inputCls}>
-                {FOV_PROFILES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                {activeTelescopes.length > 0 && (
+                  <optgroup label="Your telescopes">
+                    {activeTelescopes.flatMap(t => {
+                      // A telescope with saved optical configs ("Native",
+                      // "0.8x Reducer", ...) gets one option per config, so
+                      // switching optical trains is a plain dropdown pick —
+                      // not a telescope with no configs at all, which just
+                      // gets one option (falls back to a generic frame).
+                      if ((t.kind === 'other' || t.kind === 'asiair') && t.opticalConfigs.length > 0) {
+                        return t.opticalConfigs.map(cfg => (
+                          <option key={cfg.id} value={telescopeProfileOptionId(t.id, cfg.id)}>
+                            {t.name} — {cfg.name}
+                          </option>
+                        ));
+                      }
+                      return [
+                        <option key={t.id} value={telescopeProfileOptionId(t.id)}>{t.name}</option>,
+                      ];
+                    })}
+                  </optgroup>
+                )}
+                <optgroup label="Built-in models">
+                  {FOV_PROFILES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </optgroup>
                 <option value={CUSTOM_ID}>Custom (focal + sensor)…</option>
               </select>
+              {selectedTelescopeNeedsOptics && (
+                <p className={`mt-1.5 text-[11px] ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                  {selectedTelescope!.name} has no optical configuration saved, so this is a generic
+                  stand-in frame. Add one (focal length + sensor size) under Settings → Telescopes → Edit
+                  for an accurate one.
+                </p>
+              )}
             </div>
 
             {profileId === CUSTOM_ID && (
-              <div className="grid grid-cols-3 gap-2">
-                <label className="col-span-3 text-[11px] uppercase tracking-wide font-semibold text-slate-500">Optics (mm)</label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="col-span-2 text-[11px] uppercase tracking-wide font-semibold text-slate-500">Optics (mm)</label>
                 <div>
-                  <span className={`text-[11px] ${panelText}`}>Focal</span>
-                  <input type="number" min={1} value={focalMm} onChange={e => setFocalMm(Number(e.target.value))} className={inputCls} />
+                  <span className={`text-[11px] ${panelText}`}>Focal length</span>
+                  <input type="number" min={1} value={setup.custom.focalMm} onChange={e => updateCustom({ focalMm: Number(e.target.value) })} className={inputCls} />
                 </div>
                 <div>
-                  <span className={`text-[11px] ${panelText}`}>Sensor W</span>
-                  <input type="number" min={0.1} step={0.1} value={sensorWMm} onChange={e => setSensorWMm(Number(e.target.value))} className={inputCls} />
+                  <span className={`text-[11px] ${panelText}`}>Pixel size (µm)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="optional"
+                    value={setup.custom.pixelSizeUm ?? ''}
+                    onChange={e => updateCustom({ pixelSizeUm: e.target.value === '' ? null : Number(e.target.value) })}
+                    className={inputCls}
+                  />
                 </div>
                 <div>
-                  <span className={`text-[11px] ${panelText}`}>Sensor H</span>
-                  <input type="number" min={0.1} step={0.1} value={sensorHMm} onChange={e => setSensorHMm(Number(e.target.value))} className={inputCls} />
+                  <span className={`text-[11px] ${panelText}`}>Sensor width</span>
+                  <input type="number" min={0.1} step={0.1} value={setup.custom.sensorWMm} onChange={e => updateCustom({ sensorWMm: Number(e.target.value) })} className={inputCls} />
                 </div>
+                <div>
+                  <span className={`text-[11px] ${panelText}`}>Sensor height</span>
+                  <input type="number" min={0.1} step={0.1} value={setup.custom.sensorHMm} onChange={e => updateCustom({ sensorHMm: Number(e.target.value) })} className={inputCls} />
+                </div>
+                <p className={`col-span-2 text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                  A one-off preview — not saved anywhere. For a rig you'll come back to, add it once under
+                  Settings → Telescopes → Edit instead and pick it from the list above. Pixel size is
+                  optional; it only drives the plate-scale readout below.
+                </p>
               </div>
             )}
 
@@ -327,12 +402,25 @@ export function FramingModal({ catalogId, objectName, isDark, onClose }: Framing
             {/* Readout */}
             <div className={`space-y-1.5 text-xs ${panelText}`}>
               <Row label="Frame FOV" value={`${formatFovDeg(fov.widthDeg)} × ${formatFovDeg(fov.heightDeg)}`} isDark={isDark} />
+              {fov.arcsecPerPixel != null && (
+                <Row label="Plate scale" value={`${fov.arcsecPerPixel.toFixed(2)}″/px`} isDark={isDark} />
+              )}
               {tileCount > 1 && (
                 <Row label="Coverage" value={`${formatFovDeg(coverage.coverageWidthDeg)} × ${formatFovDeg(coverage.coverageHeightDeg)}`} isDark={isDark} />
               )}
               <Row label="Tiles" value={String(tileCount)} isDark={isDark} />
               {object && <Row label="Object size" value={`${object.widthArcmin.toFixed(1)}′ × ${object.heightArcmin.toFixed(1)}′`} isDark={isDark} />}
-              <p className={`pt-1 font-medium ${isDark ? 'text-accent-400' : 'text-accent-600'}`}>{fitVerdict(fov, object)}</p>
+              <div className="flex items-center justify-between pt-1.5">
+                <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>Verdict</span>
+                {fit ? (
+                  <FitBadge tag={fit.tag} label={fit.short} title={fit.label} isDark={isDark} />
+                ) : (
+                  <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>Angular size unknown</span>
+                )}
+              </div>
+              {fit && (
+                <p className={isDark ? 'text-slate-500' : 'text-slate-400'}>{fit.label}</p>
+              )}
             </div>
           </div>
         </div>
