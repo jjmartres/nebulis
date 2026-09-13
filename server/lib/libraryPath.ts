@@ -211,11 +211,47 @@ export function getDefaultLibraryDir(): string {
 /** Where the library currently lives (the `LIBRARY_DIR` override, a configured
  *  path, a network share, or the default). No I/O for the network case — just
  *  builds the path string; call isLibraryAvailable() to know whether it's
- *  actually reachable right now. */
+ *  actually reachable right now.
+ *
+ *  Throws when the location is a network share on a platform that can't
+ *  resolve one (Linux/Docker — see resolveNetworkLibraryPath), by design:
+ *  every other caller of this function is about to read or write the
+ *  library, and silently falling back to some other path there would risk
+ *  touching the wrong location. A caller that only wants a human-readable
+ *  description of the *current* location, network-unsupported-platform
+ *  included (e.g. to log or display it before resetting away from it), wants
+ *  describeLibraryLocation() below instead. */
 export function getLibraryDir(): string {
   if (LIBRARY_DIR_OVERRIDE) return LIBRARY_DIR_OVERRIDE;
   const cfg = load();
   if (cfg.locationType === 'network') return resolveNetworkLibraryPath(cfg.network);
+  return cfg.path ? cfg.path : getDefaultLibraryDir();
+}
+
+/**
+ * Same intent as getLibraryDir(), but never throws — for display/logging
+ * only, never for an actual read or write.
+ *
+ * A library previously relocated to a network share, then run on a platform
+ * that doesn't support connecting to one directly (Linux/Docker), is exactly
+ * the "location is gone for good" case the library-location reset route
+ * exists to recover from (see POST /storage/library-location/reset) — but
+ * that route calls getLibraryDir() first just to describe the location being
+ * left behind, and resolveNetworkLibraryPath() throwing there took the whole
+ * request down with a 500 before the reset itself ever ran, on exactly the
+ * platform (Linux) most likely to need the escape hatch. This falls back to
+ * a plain "host/share" description instead of resolving a real, usable path.
+ */
+export function describeLibraryLocation(): string {
+  if (LIBRARY_DIR_OVERRIDE) return LIBRARY_DIR_OVERRIDE;
+  const cfg = load();
+  if (cfg.locationType === 'network') {
+    try {
+      return resolveNetworkLibraryPath(cfg.network);
+    } catch {
+      return `network share ${cfg.network.host}/${cfg.network.share}`;
+    }
+  }
   return cfg.path ? cfg.path : getDefaultLibraryDir();
 }
 
