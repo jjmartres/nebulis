@@ -1,5 +1,9 @@
 # Changelog
 ## Unreleased
+### New
+- Processing Projects: object pages now have a new "Processing Projects" section alongside Processed Images. Upload your Siril or PixInsight working project as a .zip — process icons, masters, logs, whatever your software exported — up to 20 GB, with an optional title, software name, and notes, so you can save and come back to your actual processing work later instead of only keeping the finished picture. Uploads show real progress (percentage and amount transferred) and can be cancelled partway through; anything uploaded can be downloaded back or deleted anytime.
+- Library: an object's card now shows how many processing projects have been archived for it, next to the observation count, once at least one has been uploaded.
+
 ### Fixes
 - ZWO ASIAIR (Beta): light frames captured on a real ASIAIR were not recognized, because of how the device writes exposure time, temperature, and camera angle into the filename. Every frame from an affected import landed on a single undated, oddly-named object instead of being grouped by night. Filenames from a real ASIAIR are now read correctly.
 - ZWO ASIAIR (Beta): an object with a multi-word name (for example IC 5146) did not match its catalog entry, because the name read from the filename kept underscores where the catalog expects spaces. It now matches correctly.
