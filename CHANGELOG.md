@@ -1,8 +1,15 @@
 # Changelog
 ## Unreleased
+### New
+- Calibrations: a new Calibrations item in the top navigation (between Catalogs and Settings; toggle it off in Settings -> General -> Navigation bar, same as Catalogs, Planner, and Help) brings together every bias, dark, flat, and flat-dark frame the app has already pulled in from a telescope sync or folder import. Frames are grouped by their real capture settings — exposure length, binning, gain, and sensor temperature — read straight from the filenames rather than by whatever folder they happened to land in; temperature readings within about a degree of each other are treated as the same setting, since a cooled camera's temperature control holds close to its target but rarely dead-on. Each group can be downloaded as a single ZIP, ready to hand to Siril, PixInsight, or whatever you stack with.
+- Calibrations: bias and dark frames are reusable across many sessions on a cooled camera, so they live in a shared pool — but a sensor's characteristics drift over time. A new "Dark/bias validity" setting (Settings -> Library, default 180 days) flags a set as Expired once it's older than that, and expired sets can be deleted right from the Calibrations page to free up disk space.
+- Calibrations: flats and flat-darks correct for the exact state of your optical train (dust, focus, camera rotation) at the moment they were shot, so instead of expiring by age, a flat or flat-dark set can now be attached, or reattached, to the specific object — and optionally the exact night — it belongs to, right from the Calibrations page. That makes it easy to find the right set again when you go back to reprocess that session later.
+
 ### Fixes
 - ZWO ASIAIR (Beta): light frames captured on a real ASIAIR were not recognized, because of how the device writes exposure time, temperature, and camera angle into the filename. Every frame from an affected import landed on a single undated, oddly-named object instead of being grouped by night. Filenames from a real ASIAIR are now read correctly.
 - ZWO ASIAIR (Beta): an object with a multi-word name (for example IC 5146) did not match its catalog entry, because the name read from the filename kept underscores where the catalog expects spaces. It now matches correctly.
+- Import: a calibration folder named in the plural (Darks, Flats, Bias, FlatDarks, as opposed to a device's own singular naming) was previously either dropped silently during import or, in some cases, mistakenly imported as a bogus library object instead of being recognized as calibration data. These folders are now recognized correctly and archived like every other calibration folder.
+- ZWO ASIAIR (Beta): calibration frames synced live from an ASIAIR sometimes did not show up in the archive folder listing at all, depending on whether the ASIAIR used Autorun or Plan capture mode. Both modes now archive correctly.
 
 ## 2.0.1 (254) - September 7th, 2026
 ### New
