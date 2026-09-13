@@ -41,6 +41,13 @@ import {
 import { readIdentity, writeIdentityIfMissing } from '../lib/deviceIdentity.js';
 import { invalidateDeviceCache } from '../lib/smbCache.js';
 import { invalidateFtpCache } from '../lib/smb.ftp.js';
+import {
+  getOpticalConfigsForProfile,
+  getOpticalConfigById,
+  addOpticalConfig,
+  updateOpticalConfig,
+  deleteOpticalConfig,
+} from '../lib/telescopeOpticalConfigs.js';
 
 const router = Router();
 
@@ -136,6 +143,19 @@ const TelescopeProfileBodySchema = z.object({
   importVideos: z.boolean().optional(),
   trackDeviceIdentity: z.boolean().optional(),
   pinnedTransportId: z.string().nullable().optional(),
+  // Which telescopeOpticalConfigs row is "currently mounted", for the Framing
+  // & Mosaic FOV preview — see src/lib/telescopeFov.ts's resolveFov. Only
+  // meaningful for `other`/`asiair` kinds; validated to belong to this
+  // profile in the PUT handler below.
+  activeOpticalConfigId: z.string().nullable().optional(),
+});
+
+const OpticalConfigBodySchema = z.object({
+  name: z.string().min(1),
+  focalLengthMm: z.number().positive(),
+  sensorWidthMm: z.number().positive(),
+  sensorHeightMm: z.number().positive(),
+  pixelSizeUm: z.number().positive().nullable().optional(),
 });
 
 const TestConnectionBodySchema = z.object({
@@ -199,7 +219,8 @@ router.get('/dwarf-mounts', async (_req: Request, res: Response) => {
 });
 
 // List all telescope profiles, each with the inline transports[] needed to
-// render the per-profile transports list in HardwareSection.
+// render the per-profile transports list in HardwareSection, and
+// opticalConfigs[] for the Framing & Mosaic FOV preview's telescope picker.
 router.get('/', (_req: Request, res: Response) => {
   const counts = sessionCountsByTelescope();
   const profiles = getAllProfiles().map(p => {
@@ -215,6 +236,7 @@ router.get('/', (_req: Request, res: Response) => {
       // pick right now. Lets the UI highlight the active pill without
       // reimplementing the mount-presence check client-side.
       activeTransportId: selectActiveTransport(p.id, transports)?.id ?? null,
+      opticalConfigs: getOpticalConfigsForProfile(p.id),
     };
   });
   res.apiSuccess(profiles);
@@ -392,6 +414,75 @@ router.delete('/:id/transports/:tid', requireAdmin, (req: Request, res: Response
   res.apiSuccess({ deleted: true });
 });
 
+// ─── Optical configurations (Framing & Mosaic FOV preview) ─────────────────
+// One profile can carry several — e.g. the same ASIAIR-controlled OTA imaged
+// natively and again through a reducer/flattener, each a different focal
+// length. Only meaningful for `other`/`asiair` kinds (no route-level kind
+// check, though: a config on any other kind is simply never read — see
+// resolveFov in src/lib/telescopeFov.ts).
+
+router.get('/:id/optical-configs', requireAdmin, (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  if (!getProfileById(id)) {
+    res.apiError(404, 'NOT_FOUND', 'Telescope profile not found');
+    return;
+  }
+  res.apiSuccess(getOpticalConfigsForProfile(id));
+});
+
+router.post('/:id/optical-configs', requireAdmin, (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  if (!getProfileById(id)) {
+    res.apiError(404, 'NOT_FOUND', 'Telescope profile not found');
+    return;
+  }
+  const parsed = OpticalConfigBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  const config = addOpticalConfig(id, parsed.data);
+  res.apiSuccess(config);
+});
+
+router.put('/:id/optical-configs/:cid', requireAdmin, (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const cid = String(req.params.cid);
+  const existing = getOpticalConfigById(cid);
+  if (!existing || existing.profileId !== id) {
+    res.apiError(404, 'NOT_FOUND', 'Optical configuration not found');
+    return;
+  }
+  const parsed = OpticalConfigBodySchema.partial().safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  const updated = updateOpticalConfig(cid, parsed.data);
+  if (!updated) {
+    res.apiError(404, 'NOT_FOUND', 'Optical configuration not found');
+    return;
+  }
+  res.apiSuccess(updated);
+});
+
+// Deleting an optical configuration is always allowed, including the last one
+// on a profile — unlike a transport, zero configs is a valid, meaningful
+// state (the Framing preview just falls back to a generic default). If the
+// deleted config was the profile's active pick, deleteOpticalConfig clears
+// that reference itself.
+router.delete('/:id/optical-configs/:cid', requireAdmin, (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const cid = String(req.params.cid);
+  const existing = getOpticalConfigById(cid);
+  if (!existing || existing.profileId !== id) {
+    res.apiError(404, 'NOT_FOUND', 'Optical configuration not found');
+    return;
+  }
+  deleteOpticalConfig(cid);
+  res.apiSuccess({ deleted: true });
+});
+
 // Create new telescope profile
 router.post('/', requireAdmin, (req: Request, res: Response) => {
   const parsed = TelescopeProfileBodySchema.safeParse(req.body);
@@ -426,6 +517,13 @@ router.put('/:id', requireAdmin, (req: Request, res: Response) => {
     const transports = getTransportsForProfile(id);
     if (!transports.some(t => t.id === updates.pinnedTransportId)) {
       res.apiError(422, 'VALIDATION_ERROR', 'pinnedTransportId must reference a transport on this telescope');
+      return;
+    }
+  }
+  if (updates.activeOpticalConfigId) {
+    const configs = getOpticalConfigsForProfile(id);
+    if (!configs.some(c => c.id === updates.activeOpticalConfigId)) {
+      res.apiError(422, 'VALIDATION_ERROR', 'activeOpticalConfigId must reference an optical configuration on this telescope');
       return;
     }
   }

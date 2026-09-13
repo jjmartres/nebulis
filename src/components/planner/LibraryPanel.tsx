@@ -25,6 +25,9 @@ import { searchDsoCatalog, type PlannerTarget } from '../../lib/api/planner';
 import type { LibraryDragData } from './dragData';
 import { computeAltitudeCurve } from '../../lib/altaz';
 import { objectEverVisible, type VisibleSkyMap } from '../../lib/visibilityCheck';
+import { useResolvedFov } from '../../hooks/useResolvedFov';
+import { classifyFit, objectExtentArcmin } from '../../lib/telescopeFov';
+import { FitBadge } from '../FitBadge';
 
 /** Minimal shape the details modal needs — satisfied by both observable
  *  targets and unobservable catalog entries. */
@@ -108,6 +111,11 @@ export function LibraryPanel({
   const [query, setQuery] = useState(initialQuery);
   const [filter, setFilter] = useState<LibraryFilter>('all');
   const [hideBlocked, setHideBlocked] = useState(false);
+
+  // The rig currently in effect for framing previews (Settings → Telescopes,
+  // or the Framing modal's saved override) — used below to badge each row
+  // with whether the object fits that frame.
+  const fov = useResolvedFov();
 
   // Filter against a deferred copy: the input stays at 60fps while the memo
   // below (a scan of 2000+ targets + per-row astronomy math in visibilityById)
@@ -309,6 +317,7 @@ export function LibraryPanel({
             onQuickAdd={onQuickAdd}
             isScheduled={scheduledIds?.has(target.id) ?? false}
             observerTimezone={observerTimezone}
+            fov={fov}
             isDark={isDark}
           />
         ))}
@@ -345,6 +354,7 @@ interface LibraryRowProps {
   onQuickAdd?: (target: PlannerTarget) => void;
   isScheduled: boolean;
   observerTimezone?: string;
+  fov: ReturnType<typeof useResolvedFov>;
   isDark: boolean;
 }
 
@@ -355,6 +365,7 @@ const LibraryRow = memo(function LibraryRow({
   onQuickAdd,
   isScheduled,
   observerTimezone,
+  fov,
   isDark,
 }: LibraryRowProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -370,6 +381,10 @@ const LibraryRow = memo(function LibraryRow({
 
   const thumbnailUrl = getCatalogThumbnailUrl(target.id, target.majorAxisArcmin);
   const peakAt = target.maxAltTime ? formatHm(new Date(target.maxAltTime), observerTimezone) : null;
+  const fit = useMemo(
+    () => classifyFit(fov, objectExtentArcmin(null, target.majorAxisArcmin)),
+    [fov, target.majorAxisArcmin],
+  );
 
   return (
     <div
@@ -409,14 +424,17 @@ const LibraryRow = memo(function LibraryRow({
           {target.constellation ? ` · ${target.constellation}` : ''}
           {target.magnitude != null ? ` · mag ${target.magnitude.toFixed(1)}` : ''}
         </div>
-        {blockedBySky ? (
-          <div className="mt-0.5 text-[10px] text-amber-500">Not in your visible sky this night</div>
-        ) : (
-          <div className={`mt-0.5 flex items-center gap-1 text-[10px] tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-            <ArrowUp className="h-2.5 w-2.5" />
-            Peaks at {Math.round(target.maxAlt)}°{peakAt ? ` around ${peakAt}` : ''}
-          </div>
-        )}
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          {blockedBySky ? (
+            <span className="text-[10px] text-amber-500">Not in your visible sky this night</span>
+          ) : (
+            <span className={`flex items-center gap-1 text-[10px] tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+              <ArrowUp className="h-2.5 w-2.5" />
+              Peaks at {Math.round(target.maxAlt)}°{peakAt ? ` around ${peakAt}` : ''}
+            </span>
+          )}
+          {fit && <FitBadge tag={fit.tag} label={fit.short} title={fit.label} isDark={isDark} />}
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <button

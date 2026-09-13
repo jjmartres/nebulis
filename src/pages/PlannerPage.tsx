@@ -27,7 +27,7 @@ import {
   type DragMoveEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { CalendarRange, Check, ListTree } from 'lucide-react';
+import { CalendarRange, Check, ListTree, Frame } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { getPlannerTargets, getForecastForSite, getBlockVerdicts, type ForecastHour, type PlannerTarget } from '../lib/api/planner';
 import { getSites, getActiveSite, setActiveSite, updateSite, type ObservingSite } from '../lib/api/sites';
@@ -50,6 +50,10 @@ import { NightStrip, type StripNight } from '../components/planner/NightStrip';
 import { PlannerActions } from '../components/planner/PlannerActions';
 import { parsePlannerDragData } from '../components/planner/dragData';
 import { NightWeatherModal, type NightAstro } from '../components/planner/NightWeatherModal';
+import { FramingModal, FRAMING_MOSAIC_ENABLED } from '../components/catalogs/FramingModal';
+import { useResolvedFov } from '../hooks/useResolvedFov';
+import { classifyFit, objectExtentArcmin } from '../lib/telescopeFov';
+import { FitBadge } from '../components/FitBadge';
 import {
   dateFromKey,
   formatPlannerDate,
@@ -1453,7 +1457,12 @@ function SessionDetailsModal({
 
   const referenceUrl = getCatalogThumbnailUrl(objectId, majorAxisArcmin);
 
+  const fov = useResolvedFov();
+  const fit = useMemo(() => classifyFit(fov, objectExtentArcmin(null, majorAxisArcmin)), [fov, majorAxisArcmin]);
+  const [framingOpen, setFramingOpen] = useState(false);
+
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       onClick={onClose}
@@ -1478,6 +1487,21 @@ function SessionDetailsModal({
           </button>
         </div>
         <div className="p-5 space-y-5">
+          {FRAMING_MOSAIC_ENABLED && (
+            <div className="-mb-1 flex flex-wrap items-center gap-2">
+              {fit && <FitBadge tag={fit.tag} label={fit.short} title={fit.label} isDark={isDark} />}
+              <button
+                onClick={() => setFramingOpen(true)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                  isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+                title="Preview how this object frames in your telescope, and plan a mosaic"
+              >
+                <Frame className="h-3.5 w-3.5 text-sky-500" />
+                Framing &amp; Mosaic
+              </button>
+            </div>
+          )}
           {/* Reference photo (left) + sky-position chart (right) */}
           <div className="grid gap-4 sm:grid-cols-2 items-start">
             <div className="space-y-2">
@@ -1568,6 +1592,15 @@ function SessionDetailsModal({
         </div>
       </div>
     </div>
+    {framingOpen && (
+      <FramingModal
+        catalogId={objectId}
+        objectName={objectName}
+        isDark={isDark}
+        onClose={() => setFramingOpen(false)}
+      />
+    )}
+    </>
   );
 }
 
