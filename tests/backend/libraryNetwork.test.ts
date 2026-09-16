@@ -71,9 +71,15 @@ describe('resolveNetworkLibraryPath', () => {
     expect(() => resolveNetworkLibraryPath(cfg({ subpath: '../../etc' }))).toThrow();
   });
 
-  it('throws on unsupported platforms (e.g. linux/Docker)', () => {
+  it('never throws on unsupported platforms (e.g. linux/Docker): returns a UNC-style display path', () => {
+    // getLibraryDir() calls this unconditionally, including from read-only
+    // endpoints (GET /storage/library-location) and the reset recovery route
+    // whose whole purpose is unsticking a config this platform can't otherwise
+    // act on. Platform support is enforced at the connect step
+    // (ensureNetworkLibraryConnected) and surfaced via networkLibrarySupported,
+    // not here. See resolveNetworkLibraryPath's doc comment.
     setPlatform('linux');
-    expect(() => resolveNetworkLibraryPath(cfg())).toThrow(/not supported on this platform/);
+    expect(resolveNetworkLibraryPath(cfg())).toBe('\\\\nas.local\\Photos\\Nebulis');
   });
 });
 

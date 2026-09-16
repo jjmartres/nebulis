@@ -164,7 +164,14 @@ export function AddTelescopeModal({
 
   const createMutation = useMutation({
     mutationFn: () => createTelescope({
-      name: name.trim() || `${preset.label}${isLocalKind ? (localPath ? ` (${localPath})` : '') : (hostname ? ` (${hostname})` : '')}`,
+      // Never bake the raw local filesystem path into the default name — it
+      // leaks a folder path (and whatever username is in it) into every place
+      // the telescope name is displayed (session headers, TV hero subtitle).
+      // A bare transport mechanism ("USB") isn't worth appending either — it's
+      // not identifying information, just noise on every display surface. A
+      // hostname is a real network address though, so that still helps
+      // disambiguate two profiles of the same model and stays.
+      name: name.trim() || `${preset.label}${!isLocalKind && hostname ? ` (${hostname})` : ''}`,
       model: preset.model,
       // Always send both sets. Under multi-transport, a profile can have both
       // an SMB and a USB transport configured at once; zeroing the inactive

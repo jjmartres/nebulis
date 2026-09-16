@@ -17,7 +17,7 @@ import {
   isRealFile,
   sessionNightFor,
 } from '../telescopeFiles.js';
-import { resolveCanonicalId, expandSearchAliases, getAliasesForCanonical } from '../catalogAliases.js';
+import { resolveCanonicalId, expandSearchAliases, getAliasesForCanonical, normalizeDesignation, isDesignationShaped } from '../catalogAliases.js';
 import { getCatalogEntry } from '../../data/catalog.js';
 import { SOLAR_SYSTEM_LOOKUP_KEYS } from '../../data/solar-system-catalog.js';
 import { parseFitsHeader } from '../fitsParser.js';
@@ -509,6 +509,50 @@ db.prepare(`CREATE TABLE IF NOT EXISTS processingRunSessions (
     })();
     db.pragma('foreign_keys = ON');
     console.log('[library] objectId corruption repair complete');
+  }
+}
+
+// Repair: a mosaic capture's filename puts the "mosaic" mode token BEFORE the
+// target (SeeStar: "Stacked_210_mosaic_NGC 6992_10.0s_LP_..."), but
+// parseFilename's Stacked_ pattern didn't know to treat it as a separate
+// token, so any object imported via the folder-import wizard (or the
+// planetary-container expansion, both of which derive the object name from
+// filenames rather than trusting an existing folder) landed with objectId
+// "mosaic_<designation>" — e.g. "mosaic_IC4605" — instead of
+// "<designation>_mosaic", the suffix form every live-synced mosaic object
+// already uses and the only form normalizeCatalogId/DESIGNATION_RE know how
+// to resolve to catalog data. The object was left with no catalog match:
+// type "Unknown", no coordinates, no "Tonight" score. Fixed going forward in
+// parseFilename; this repairs objects already imported under the broken id.
+//
+// Only rewrites ids where stripping the "mosaic_" prefix leaves something
+// provably designation-shaped, so a legitimate custom object name that merely
+// starts with "Mosaic_..." is never touched. Idempotent, and a no-op on a DB
+// that never hit the bug.
+{
+  const MOSAIC_PREFIX_RE = /^(?:mosai[ck]|mosiac)_(.+)$/i;
+  const candidates = db
+    .prepare<[], { objectId: string }>('SELECT objectId FROM libraryObjects')
+    .all()
+    .map(({ objectId }) => {
+      const m = objectId.match(MOSAIC_PREFIX_RE);
+      if (!m || !isDesignationShaped(m[1])) return null;
+      return { objectId, fixed: `${normalizeDesignation(m[1])}_mosaic` };
+    })
+    .filter((c): c is { objectId: string; fixed: string } => c !== null);
+
+  if (candidates.length > 0) {
+    console.log(`[library] Repairing ${candidates.length} mosaic object(s) with a misparsed objectId...`);
+    db.pragma('foreign_keys = OFF');
+    db.transaction(() => {
+      for (const { objectId, fixed } of candidates) {
+        db.prepare(`UPDATE libraryObjects SET folderName = ? WHERE objectId = ? AND (folderName = objectId OR folderName IS NULL OR folderName = '')`).run(objectId, objectId);
+        const mode = rekeyLibraryObject(objectId, fixed, { skipManifest: true });
+        console.log(`[library]   ${objectId} → ${fixed} (${mode})`);
+      }
+    })();
+    db.pragma('foreign_keys = ON');
+    console.log('[library] mosaic objectId repair complete');
   }
 }
 

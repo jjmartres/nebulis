@@ -42,7 +42,12 @@ import {
 } from './libraryFiles.js';
 import { listObjectFiles, getObjectLayout, setObjectLayout } from './libraryLayout.js';
 import { isRenderableProcessedName } from './processed.js';
-import { isDwarfInternalArtifact } from './importFilter.js';
+import {
+  isDwarfInternalArtifact,
+  isDwarfDeviceStackPreview,
+  isDwarfMasterStack,
+  isDwarfRollingStack,
+} from './importFilter.js';
 import {
   deleteCaptureInfoForSession,
   getCaptureInfoForObject,
@@ -648,6 +653,17 @@ export function getLocalSessions(objectId: string) {
   // falls back to parsing the name when it doesn't. See resolverFor().
   const identity = resolverFor(objectId);
 
+  // See the matching pre-pass in getLocalFiles: Dwarf's bare `stacked.jpg`
+  // device preview is only a redundant duplicate worth passing over as a card
+  // pick when the same session also has the real science-quality stack next
+  // to it.
+  const sessionsWithSuperiorStack = new Set<string>();
+  for (const entry of entries) {
+    if (!isDwarfMasterStack(entry.fileName) && !isDwarfRollingStack(entry.fileName)) continue;
+    const key = identity.session(entry.relPath);
+    if (key) sessionsWithSuperiorStack.add(key);
+  }
+
   for (const entry of entries) {
     const fname = entry.fileName;
     const parsed = parseFilename(fname);
@@ -675,7 +691,11 @@ export function getLocalSessions(objectId: string) {
     if (parsed.isThumbnail && !s.thumbnailFile) s.thumbnailFile = entry.relPath;
     const isViewableImage = (parsed.extension === '.jpg' || parsed.extension === '.jpeg'
       || parsed.extension === '.png' || parsed.extension === '.tif' || parsed.extension === '.tiff')
-      && !isDwarfInternalArtifact(fname);
+      && !isDwarfInternalArtifact(fname)
+      // Dwarf's own on-device stack preview: skip it as a pick only where a
+      // better, science-quality stack exists in the same session — otherwise
+      // it is that session's only deliverable image.
+      && !(isDwarfDeviceStackPreview(fname) && sessionsWithSuperiorStack.has(sessionKey));
     // A JPEG can be served straight to the client; anything else has to be
     // converted by sharp on the way out. That matters for the pick, not just the
     // URL: featuring a Dwarf's ~100 MB float `img_stacked_all.tif` means a 100 MB
@@ -773,13 +793,30 @@ export function getLocalFiles(objectId: string, sessionDate?: string) {
 
   const identity = resolverFor(objectId);
 
-  return listObjectFiles(objDir, getObjectLayout(objectId))
+  const realEntries = listObjectFiles(objDir, getObjectLayout(objectId))
     .filter(e => isRealFile(e.fileName)
       && !e.fileName.startsWith('sky_')
-      && !e.fileName.startsWith('gallery_')
+      && !e.fileName.startsWith('gallery_'));
+
+  // See the matching pre-pass in getLocalSessions: Dwarf's bare `stacked.jpg`
+  // device preview is only a redundant duplicate worth hiding when the same
+  // session also has the real science-quality stack next to it.
+  const sessionsWithSuperiorStack = new Set<string>();
+  for (const entry of realEntries) {
+    if (!isDwarfMasterStack(entry.fileName) && !isDwarfRollingStack(entry.fileName)) continue;
+    const key = identity.session(entry.relPath);
+    if (key) sessionsWithSuperiorStack.add(key);
+  }
+
+  return realEntries
+    .filter(e =>
       // Dwarf plate-solve / stack-count working images: kept on disk under
       // Archive mode but never a photo, so no client should list them.
-      && !isDwarfInternalArtifact(e.fileName))
+      !isDwarfInternalArtifact(e.fileName)
+      // Dwarf's own on-device stack preview: hidden only where a better,
+      // science-quality stack exists in the same session (see above) —
+      // otherwise it is that session's only deliverable image.
+      && !(isDwarfDeviceStackPreview(e.fileName) && sessionsWithSuperiorStack.has(identity.session(e.relPath) ?? '')))
     .filter(entry => {
       if (!sessionDate) return true;
       return identity.session(entry.relPath) === sessionDate;
@@ -1020,6 +1057,11 @@ export function getLocalObservations() {
       if (parsed.type === 'sub') s.subFrameCount++;
       const ext = parsed.extension?.toLowerCase();
       if (ext === '.fit' || ext === '.fits') s.fitsCount++;
+      // stacked.jpg never reaches here: parsed.type for that bare filename is
+      // 'other', not 'stacked' (see parseFilenameFormat's final fallback), and
+      // this map only ever tracks the `parsed.type === 'stacked'` branch below
+      // — so, unlike getLocalSessions/getLocalFiles, there is no device-preview
+      // case to gate on a superior-stack sibling here.
       const isViewableImage = (ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.tif' || ext === '.tiff')
         && !isDwarfInternalArtifact(fname);
       // Cheap-first, same reasoning as getLocalSessions: a costly pick means a

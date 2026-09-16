@@ -1924,6 +1924,12 @@ export async function runImport(
       debugLog('import:thumb', `Pre-warming gallery thumbnails for ${newObjectIds.size} object(s): ${Array.from(newObjectIds).join(', ')}`);
       await pregenerateObjectThumbnails(newObjectIds);
       debugLog('import:thumb', 'Gallery thumbnail pre-warm complete');
+
+      // Also warm the per-session (Nights calendar) thumbnails for the new
+      // nights. Fire-and-forget: never hold up import completion for it.
+      void import('./sessionThumbnailPrewarm.js')
+        .then(m => m.prewarmSessionThumbnails('post-import'))
+        .catch(err => debugLog('import:thumb', `session thumbnail prewarm failed: ${err instanceof Error ? err.message : err}`));
     }
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);

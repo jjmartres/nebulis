@@ -100,6 +100,16 @@ describe('parseFilename', () => {
       expect(result.date).toBe('2026-08-27');
     });
 
+    it('parses a mosaic stack, moving the mode token to a target suffix', () => {
+      const result = parseFilename('Stacked_297_mosaic_IC 4605_10.0s_LP_20250601-201415.jpg');
+      expect(result.type).toBe('stacked');
+      expect(result.frameCount).toBe(297);
+      expect(result.target).toBe('IC 4605_mosaic');
+      expect(result.exposure).toBe('10.0s');
+      expect(result.filter).toBe('LP');
+      expect(result.date).toBe('2025-06-01');
+    });
+
     it('parses DSO_Stacked filename without mode field', () => {
       const result = parseFilename('DSO_Stacked_1318_M 81_30.0s_20250323_060820.jpg');
       expect(result.type).toBe('stacked');
@@ -121,6 +131,16 @@ describe('parseFilename', () => {
   });
 
   describe('sub-frames', () => {
+    it('parses a mosaic sub-frame, moving the mode token to a target suffix', () => {
+      const result = parseFilename('sub_00042_mosaic_IC 4605_10.0s_LP_20250601-201415.fit');
+      expect(result.type).toBe('sub');
+      expect(result.subIndex).toBe(42);
+      expect(result.target).toBe('IC 4605_mosaic');
+      expect(result.exposure).toBe('10.0s');
+      expect(result.filter).toBe('LP');
+      expect(result.date).toBe('2025-06-01');
+    });
+
     it('parses a standard sub-frame FITS', () => {
       const result = parseFilename('sub_00001_M42_10.0s_IRCUT_20241015-205200.fit');
       expect(result.type).toBe('sub');

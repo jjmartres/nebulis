@@ -138,9 +138,19 @@ export function refreshLibraryConfig(): void {
  * library/gallery.ts, library/objects.ts, library/observations.ts,
  * library/processed.ts, library/housekeeping.ts, and routes/library.ts.
  */
+/** Thrown by {@link withTimeout} when the wrapped promise loses the race.
+ *  Lets a caller tell "the disk is slow/wedged right now" (retryable, a 503)
+ *  apart from a real ENOENT (a 404). */
+export class TimeoutError extends Error {
+  constructor(ms: number) {
+    super(`timed out after ${ms}ms`);
+    this.name = 'TimeoutError';
+  }
+}
+
 export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+    const timer = setTimeout(() => reject(new TimeoutError(ms)), ms);
     promise.then(
       value => { clearTimeout(timer); resolve(value); },
       // `: unknown` — the lib signature types this rejection reason as `any`,
@@ -156,6 +166,32 @@ const NETWORK_STAT_TIMEOUT_MS = 5_000;
 /** Shared timeout for any fs.promises call against a library path outside
  *  this module. Same bound as the network-availability check above. */
 export const LIBRARY_IO_TIMEOUT_MS = NETWORK_STAT_TIMEOUT_MS;
+
+/** Longer bound for the read-and-serve routes (thumbnails, file bytes) when the
+ *  library IS on a network share. A near-full disk / Time Machine pass can push
+ *  a stat past 5s without anything being broken, and a slow stat that resolves
+ *  beats a 503 the client renders as a broken image. */
+export const LIBRARY_SERVE_IO_TIMEOUT_MS = 20_000;
+
+/**
+ * `stat` a file under the library for a read-and-serve route.
+ *
+ * Local library: a plain synchronous `statSync` is microseconds and cannot
+ * hang (there is no wedged mount to protect against). Routing it through
+ * `fs.promises` + the libuv threadpool is what produced 503s under load — the
+ * threadpool would saturate with sharp decodes and a trivial metadata read
+ * would queue behind them past the timeout. Sync skips the queue entirely.
+ *
+ * Network library: keep the async, timeout-bounded path, since a `statSync`
+ * against a dead SMB mount blocks the whole event loop until the OS gives up.
+ *
+ * Throws `TimeoutError` (network, slow) or a normal ENOENT-style error
+ * (missing) — callers map those to 503 vs 404.
+ */
+export async function statLibraryFileForServe(absPath: string): Promise<fs.Stats> {
+  if (!isNetworkLocation()) return fs.statSync(absPath);
+  return withTimeout(fs.promises.stat(absPath), LIBRARY_SERVE_IO_TIMEOUT_MS);
+}
 
 /**
  * Build a LibraryMarker out of marker-file text, or null if the file isn't a

@@ -6,6 +6,7 @@ import {
   getAliasesForCanonical,
   expandSearchAliases,
   normalizeDesignation,
+  isDesignationShaped,
 } from '../../server/lib/catalogAliases';
 import { getById } from '../../server/lib/dsoCatalog';
 
@@ -156,6 +157,27 @@ describe('normalizeDesignation', () => {
     expect(normalizeDesignation('NGC 0224')).toBe('NGC224');
     expect(resolveCanonicalId('ngc224')).toBe('M31');
     expect(resolveCanonicalId('NGC9999')).toBe('NGC9999');
+  });
+});
+
+describe('isDesignationShaped', () => {
+  it('recognizes bare designations, incl. those needing case/space normalization', () => {
+    for (const id of ['IC4605', 'ic 4605', 'NGC 7000', 'M31', 'Messier 31', 'Sh2-155', 'B33']) {
+      expect(isDesignationShaped(id)).toBe(true);
+    }
+  });
+
+  it('rejects custom names and variant ids that merely start like a designation', () => {
+    for (const id of ['My Favorite Nebula', 'M31_mosaic', 'NGC2244SatelliteCluster', 'C-2023 A3']) {
+      expect(isDesignationShaped(id)).toBe(false);
+    }
+  });
+
+  it('is what the mosaic-objectId repair (objects.ts) relies on to avoid touching a custom name', () => {
+    // "mosaic_IC4605" -> strip prefix -> "IC4605", provably a designation: rewrite.
+    expect(isDesignationShaped('IC4605')).toBe(true);
+    // A custom object literally named "Mosaic_MyWideField" must never be rewritten.
+    expect(isDesignationShaped('MyWideField')).toBe(false);
   });
 });
 

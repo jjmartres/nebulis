@@ -200,6 +200,39 @@ export async function listVolumes(): Promise<VolumeInfo[]> {
   }
 }
 
+/**
+ * Normalize a path a user typed or pasted into the folder picker so it stands a
+ * chance of matching a real directory. Handles the shapes Windows users produce:
+ * Explorer's "Copy as path" wraps the value in double quotes, a bare drive
+ * letter ("H:") is not absolute until it carries a separator, and a trailing
+ * separator trips the exact-string comparisons downstream.
+ *
+ * This is not a security boundary. `/storage/browse` still requires the result
+ * to be absolute and the route is admin-only.
+ */
+export function normalizeUserPath(input: string, platform: NodeJS.Platform = process.platform): string {
+  let s = input.trim();
+  if (s.length >= 2 && ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))) {
+    s = s.slice(1, -1).trim();
+  }
+  if (!s) return '';
+
+  if (platform === 'win32') {
+    // "H:" addresses the current directory on H:, not its root, and
+    // path.win32.isAbsolute("H:") is false. Users mean the root.
+    if (/^[A-Za-z]:$/.test(s)) return `${s}\\`;
+    // Drop a trailing separator ("C:\Astro\" and "\\host\share\"), then restore
+    // it for a drive root we just bared ("C:\" -> "C:" -> "C:\"). Forward
+    // slashes are left alone: path.win32 accepts "//host/share" and "C:/Astro".
+    s = s.replace(/[\\/]+$/, '');
+    if (/^[A-Za-z]:$/.test(s)) s += '\\';
+    return s;
+  }
+
+  s = s.replace(/\/+$/, '');
+  return s || '/';
+}
+
 /** List immediate subdirectories of an existing absolute path. */
 export async function listDirectories(parent: string): Promise<DirectoryEntry[]> {
   if (!path.isAbsolute(parent)) throw new Error('Path must be absolute.');

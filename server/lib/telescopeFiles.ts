@@ -105,20 +105,28 @@ function parseFilenameFormat(filename: string): ParsedFilename {
   const exposurePattern = String.raw`\d+(?:\.\d+)?m?s`;
 
   // Try stacked pattern: Stacked_<count>_<target>_<exposure>_<filter>_<timestamp><suffix>
+  // A mosaic capture inserts its mode token BEFORE the target rather than after
+  // (unlike DSO_Stacked below): Stacked_210_mosaic_NGC 6992_10.0s_LP_...
+  // Captured separately and moved onto the end of `target` as `_mosaic`, the
+  // same suffix shape the device's own mosaic folder names use (NGC6992_mosaic)
+  // and that normalizeCatalogId already knows how to strip. Left in place, the
+  // literal "mosaic_" prefix doesn't match any catalog designation shape, which
+  // is what left a real user's mosaic object typed "Unknown" with no coordinates.
   const stackedMatch = filename.match(
-    new RegExp(`^Stacked_(\\d+)_(.+?)_(${exposurePattern})_([A-Z0-9]+)_(\\d{8}-\\d{6})([A-Z])?(?:_thn)?\\.`, 'i')
+    new RegExp(`^Stacked_(\\d+)_(?:(mosai[ck]|mosiac)_)?(.+?)_(${exposurePattern})_([A-Z0-9]+)_(\\d{8}-\\d{6})([A-Z])?(?:_thn)?\\.`, 'i')
   );
   if (stackedMatch) {
-    const ts = stackedMatch[5];
+    const ts = stackedMatch[6];
+    const target = stackedMatch[2] ? `${stackedMatch[3]}_mosaic` : stackedMatch[3];
     return {
       type: isThumbnail ? 'thumbnail' : 'stacked',
       frameCount: parseInt(stackedMatch[1]),
-      target: stackedMatch[2],
-      exposure: stackedMatch[3],
-      filter: stackedMatch[4],
+      target,
+      exposure: stackedMatch[4],
+      filter: stackedMatch[5],
       timestamp: ts,
       date: `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}`,
-      suffix: stackedMatch[6] || undefined,
+      suffix: stackedMatch[7] || undefined,
       extension: ext,
       isThumbnail,
     };
@@ -151,17 +159,21 @@ function parseFilenameFormat(filename: string): ParsedFilename {
   const withoutCopySuffix = filename.replace(/ copy(?: \d+)?(\.[^.]+)$/, '$1');
 
   // Try sub-frame pattern: sub_<index>_<target>_<exposure>_<filter>_<timestamp>
+  // Same prefix-position mode token as the Stacked_ pattern above — a mosaic's
+  // raw sub-frames use the same "sub_<index>_mosaic_<target>_..." shape the
+  // device writes for the stacked result — so it gets the identical treatment.
   const subMatch = withoutCopySuffix.match(
-    new RegExp(`^sub_(\\d+)_(.+?)_(${exposurePattern})_([A-Z0-9]+)_(\\d{8}-\\d{6})\\.`, 'i')
+    new RegExp(`^sub_(\\d+)_(?:(mosai[ck]|mosiac)_)?(.+?)_(${exposurePattern})_([A-Z0-9]+)_(\\d{8}-\\d{6})\\.`, 'i')
   );
   if (subMatch) {
-    const ts = subMatch[5];
+    const ts = subMatch[6];
+    const target = subMatch[2] ? `${subMatch[3]}_mosaic` : subMatch[3];
     return {
       type: 'sub',
       subIndex: parseInt(subMatch[1]),
-      target: subMatch[2],
-      exposure: subMatch[3],
-      filter: subMatch[4],
+      target,
+      exposure: subMatch[4],
+      filter: subMatch[5],
       timestamp: ts,
       date: `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}`,
       extension: ext,

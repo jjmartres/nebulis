@@ -663,15 +663,25 @@ async function downloadWikipediaThumbnail(
  * (ok or not_found) is recorded in catalogCache — so calling this on every
  * gallery-image request is safe and cheap once the object is settled.
  *
+ * `force: true` (the gallery image picker's "Re-fetch" button) bypasses both
+ * the on-disk and catalogCache skip checks and re-downloads unconditionally.
+ * Without this, re-fetch could never replace a thumbnail already cached at
+ * the small size Wikipedia's summary API returned before `upsizeThumbnailUrl`
+ * started requesting a larger rendition — the file existed, so this function
+ * always returned false and the DSS2/Hubble force-refetch alongside it did
+ * nothing to fix the Wikipedia source.
+ *
  * Returns true only when a new thumbnail was written to disk.
  */
-export async function prefetchObjectWiki(id: string, signal?: AbortSignal): Promise<boolean> {
+export async function prefetchObjectWiki(id: string, signal?: AbortSignal, force = false): Promise<boolean> {
   const cacheKey = resolveCanonicalId(id);
 
-  try {
-    const stat = fs.statSync(wikiImagePath(cacheKey));
-    if (stat.isFile() && stat.size > 0) return false;
-  } catch { /* not present */ }
+  if (!force) {
+    try {
+      const stat = fs.statSync(wikiImagePath(cacheKey));
+      if (stat.isFile() && stat.size > 0) return false;
+    } catch { /* not present */ }
+  }
 
   // Build candidates BEFORE checking the cache. A prior not_found may have
   // been written when we only tried the raw ID (e.g. "SH2-274" which 404s on
@@ -698,13 +708,13 @@ export async function prefetchObjectWiki(id: string, signal?: AbortSignal): Prom
   }
   if (dsoEntry?.messier != null) candidates.push(`Messier ${dsoEntry.messier}`);
 
-  // Skip if already successfully cached.
+  // Skip if already successfully cached (unless forced).
   // For not_found: only skip when there are no candidates beyond the raw ID —
   // the prior miss may have used wrong search terms and we now have better ones.
   const existing = getCatalogCacheEntry(cacheKey);
-  if (existing?.status === 'ok') return false;
+  if (!force && existing?.status === 'ok') return false;
   const hasBetterCandidates = candidates.some(c => c !== id && c !== cacheKey);
-  if (existing?.status === 'not_found' && !hasBetterCandidates) return false;
+  if (!force && existing?.status === 'not_found' && !hasBetterCandidates) return false;
 
   const ctrl = new AbortController();
   const sig = signal ?? ctrl.signal;
