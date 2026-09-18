@@ -566,7 +566,7 @@ router.post('/:id/prefetch', requireAdmin, async (req: Request, res: Response) =
   try {
     const [dss2Result, wikiResult, hubbleResult] = await Promise.allSettled([
       prefetchSkyImage(id, { fov, ra, dec, force: true }),
-      prefetchObjectWiki(id),
+      prefetchObjectWiki(id, undefined, true),
       prefetchObjectHubble(id),
     ]);
     res.apiSuccess({

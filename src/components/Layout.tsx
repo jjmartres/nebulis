@@ -212,7 +212,6 @@ export function Layout({ children }: LayoutProps) {
                   activeClass={activeNavClass}
                   isDark={isDark}
                   isNight={isNight}
-                  tether={location.pathname === '/settings'}
                 >
                   <Settings className="w-4 h-4" />
                   <span>Settings</span>
@@ -566,7 +565,6 @@ function NavLink({
   activeClass,
   isDark,
   isNight,
-  tether = false,
   children,
 }: {
   to: string;
@@ -574,49 +572,22 @@ function NavLink({
   activeClass: string;
   isDark: boolean;
   isNight: boolean;
-  tether?: boolean;
   children: ReactNode;
 }) {
   return (
     <Link
       to={to}
-      className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all ${
-        active && tether
-          ? `${activeClass} rounded-t-xl rounded-b-none`
-          : active
-            ? `${activeClass} rounded-xl`
-            : isNight
-              ? 'rounded-xl text-red-700 hover:text-red-500 hover:bg-red-950/20'
-              : isDark
-                ? 'rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                : 'rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+      className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl transition-all ${
+        active
+          ? activeClass
+          : isNight
+            ? 'text-red-700 hover:text-red-500 hover:bg-red-950/20'
+            : isDark
+              ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
       }`}
     >
       {children}
-      {active && tether && (
-        <>
-          {/* 1px gradient thread descending into the section nav strip */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 w-px h-3"
-            style={{
-              background: `linear-gradient(to bottom, ${
-                isNight ? '#cc3333' : '#f59e0b'
-              }, transparent)`,
-            }}
-          />
-          {/* Small terminating dot */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-            style={{
-              top: 'calc(100% + 12px)',
-              background: isNight ? '#cc3333' : '#f59e0b',
-              boxShadow: `0 0 4px ${isNight ? '#cc3333' : '#f59e0b'}`,
-            }}
-          />
-        </>
-      )}
     </Link>
   );
 }

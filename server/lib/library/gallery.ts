@@ -381,6 +381,29 @@ export function objectThumbnailDiskCacheKey(
   return createHash('sha256').update(`${srcPath}:${width}x${height}:${mtimeMs}`).digest('base64url');
 }
 
+/** Default square size the `/library/file/thumbnail` route renders when the
+ *  request carries no `w`/`h` — which is what every calendar / Nights card
+ *  asks for. The session-thumbnail prewarm targets this size. */
+export const FILE_THUMBNAIL_DEFAULT_SIZE = 400;
+
+/**
+ * Disk-cache key for a per-file thumbnail (`/library/file/thumbnail`).
+ *
+ * Keyed on the **library-relative** path string exactly as the route receives
+ * it in `?path=`, not an absolute path (that is the difference from
+ * {@link objectThumbnailDiskCacheKey}). The route and the session-thumbnail
+ * prewarm both derive the cached JPEG's name from this, so it MUST stay one
+ * function — a mismatch silently wastes the prewarm.
+ */
+export function fileThumbnailDiskCacheKey(
+  relPath: string,
+  width: number,
+  height: number,
+  mtimeMs: number,
+): string {
+  return createHash('sha256').update(`${relPath}:${width}x${height}:${mtimeMs}`).digest('base64url');
+}
+
 /**
  * Resolve the authoritative source image path for an object.
  * Priority: user-set override > galleryImageSource setting > best local catalog

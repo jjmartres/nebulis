@@ -1,22 +1,26 @@
 # Changelog
-## Unreleased
-### New
-- Calibrations: a new Calibrations item in the top navigation (between Catalogs and Settings; toggle it off in Settings -> General -> Navigation bar, same as Catalogs, Planner, and Help) brings together every bias, dark, flat, and flat-dark frame the app has already pulled in from a telescope sync or folder import. Frames are grouped by their real capture settings — exposure length, binning, gain, and sensor temperature — read straight from the filenames rather than by whatever folder they happened to land in; temperature readings within about a degree of each other are treated as the same setting, since a cooled camera's temperature control holds close to its target but rarely dead-on. Each group can be downloaded as a single ZIP, ready to hand to Siril, PixInsight, or whatever you stack with.
-- Calibrations: bias and dark frames are reusable across many sessions on a cooled camera, so they live in a shared pool — but a sensor's characteristics drift over time. A new "Dark/bias validity" setting (Settings -> Library, default 180 days) flags a set as Expired once it's older than that, and expired sets can be deleted right from the Calibrations page to free up disk space.
-- Calibrations: flats and flat-darks correct for the exact state of your optical train (dust, focus, camera rotation) at the moment they were shot, so instead of expiring by age, a flat or flat-dark set can now be attached, or reattached, to the specific object — and optionally the exact night — it belongs to, right from the Calibrations page. That makes it easy to find the right set again when you go back to reprocess that session later.
+## 2.0.2 (263) - September 15th, 2026
+### Updated
+- Added a prewarm task for calendar view observation thumbnails to speed up rendering on mobile clients
+- Added a Gallery toggle to Settings -> General -> Navigation bar, so the Gallery menu item can be hidden from the top nav the same way Forecast, Planner, Catalogs, and Help already can. (@jjmartres)
 
 ### Fixes
-- ZWO ASIAIR (Beta): light frames captured on a real ASIAIR were not recognized, because of how the device writes exposure time, temperature, and camera angle into the filename. Every frame from an affected import landed on a single undated, oddly-named object instead of being grouped by night. Filenames from a real ASIAIR are now read correctly.
-- ZWO ASIAIR (Beta): an object with a multi-word name (for example IC 5146) did not match its catalog entry, because the name read from the filename kept underscores where the catalog expects spaces. It now matches correctly.
-- Import: a calibration folder named in the plural (Darks, Flats, Bias, FlatDarks, as opposed to a device's own singular naming) was previously either dropped silently during import or, in some cases, mistakenly imported as a bogus library object instead of being recognized as calibration data. These folders are now recognized correctly and archived like every other calibration folder.
-- ZWO ASIAIR (Beta): calibration frames synced live from an ASIAIR sometimes did not show up in the archive folder listing at all, depending on whether the ASIAIR used Autorun or Plan capture mode. Both modes now archive correctly.
+- ZWO ASIAIR: light frames from a real ASIAIR were not recognized, so imports landed on one undated, oddly-named object instead of being grouped by night. Filenames are now read correctly. (@jjmartres)
+- ZWO ASIAIR: multi-word object names (for example IC 5146) did not match the catalog. They match correctly now. (@jjmartres)
+- MacOS: Start Service in the menu bar could silently do nothing on newer versions of macOS (27), with no error message and nothing in the logs. It now double-checks that the service is really running and retries a different way when it isn't.
+- Mosaic captures from a SeeStar (where the filename places "mosaic" before the object name) were imported as an unrecognized object with no coordinates instead of being matched to the catalog. Fixed, and existing mosaic objects affected by this are repaired automatically.
+- Other minor bug fixes and security improvements
 
-## 2.0.1 (254) - September 7th, 2026
+## 2.0.1 (256) - September 7th, 2026
 ### New
 - Sky Forecast: the "Upcoming Nights" outlook now covers three nights instead of two. The third night is about three days out, so its card is dimmed to show it is less certain.
 - macOS and Windows: "View Logs" in the menu bar (macOS) or taskbar (Windows) opens a live log viewer. Follow the server log as it's written, clear it, or save a copy to send with a support request. On Windows the viewer now opens right away and stays responsive while a large log streams in, reads and parses off the UI thread, and no longer re-checks the log path (which meant launching a helper process) on every refresh.
 - Docker: set the `LIBRARY_DIR` environment variable to keep your image library on a separate disk or mount, apart from the database and settings. While it is set, the library location is fixed by the deployment and cannot be changed from the app. See the Docker README.
 - Added a Gallery toggle to Settings -> General -> Navigation bar, so the Gallery menu item can be hidden from the top nav the same way Forecast, Planner, Catalogs, and Help already can.
+
+#### Updated
+- Import to Library: the "import in place" folder picker now has an "Or enter a path" box. Network shares and mapped drive letters never appear in the drive list (a mapped letter exists only in your own Windows sign-in session, and Nebulis runs as a service), so type the share's network path, like \\server\share\folder, to import a library straight off a NAS. Recently used paths are remembered.
+- Import to Library: a path that can't be read now says why. A mapped drive letter, an offline share, and a share the Nebulis service isn't allowed to sign in to each get their own message and the fix, instead of a generic "cannot read that folder".
 
 ### Fixes
 - Library location: added "Reset to default folder". If the drive or path your library lived on is gone for good, this points the library back at its built-in folder. Before this, a database copied from another machine could leave the library pointing at a path that does not exist on the new machine, with no way to fix it from the app.
