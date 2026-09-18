@@ -117,14 +117,26 @@ function resolveMacPath(cfg: NetworkLibraryConfig): string {
 
 /** Builds the resolved library directory path. No I/O — the mount/session
  *  may or may not actually be live; call ensureNetworkLibraryConnected() first
- *  to make that true before trusting reads/writes against this path. */
+ *  to make that true before trusting reads/writes against this path.
+ *
+ *  Never throws for "unsupported platform": this is a pure string builder that
+ *  `getLibraryDir()` calls unconditionally, including from read-only endpoints
+ *  like `GET /storage/library-location` and the `reset` recovery route whose
+ *  whole purpose is unsticking a config this platform can't otherwise act on
+ *  (e.g. a database copied from a Windows/Mac install onto Linux/Docker, where
+ *  network locations are real but unusable — see the module doc). Actual
+ *  platform support is enforced where it has to be: at the connect step
+ *  (`ensureNetworkLibraryConnected`, `isLibraryAvailable`) and surfaced to the
+ *  UI via `networkLibrarySupported`. On Linux this returns the same UNC-style
+ *  display string Windows would show, never touched for real file I/O because
+ *  `isLibraryAvailable()` already returns false before anything reads it. */
 export function resolveNetworkLibraryPath(cfg: NetworkLibraryConfig): string {
   assertSafeConfig(cfg);
   if (process.platform === 'win32') return resolveWindowsPath(cfg);
   if (process.platform === 'darwin') return resolveMacPath(cfg);
-  throw new Error(
-    'Network share library locations are not supported on this platform. Mount the share on the host and choose the mounted folder as a regular local location instead.',
-  );
+  const root = uncRoot(cfg);
+  const sub = cfg.subpath.replace(/\\/g, '/').replace(/^\/+/, '');
+  return sub ? `${root}\\${sub.replace(/\//g, '\\')}` : root;
 }
 
 // ─── Windows: net use ───────────────────────────────────────────────────────

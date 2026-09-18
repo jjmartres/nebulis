@@ -46,6 +46,7 @@ import { catalogsRouter } from './routes/catalogs.js';
 import { systemLogRouter } from './routes/systemLog.js';
 import { startPackUpdateChecker } from './lib/catalogPack/updater.js';
 import { startPlannerNightlyScheduler } from './lib/plannerNightlyPrefetch.js';
+import { prewarmSessionThumbnails } from './lib/library/sessionThumbnailPrewarm.js';
 import { startForecastRefresh } from './lib/forecastCache.js';
 import { startAppUpdateChecker } from './lib/appUpdate/updater.js';
 import { prewarmThumbnails } from './lib/catalogPrefetch.js';
@@ -704,6 +705,15 @@ function onListening(): void {
   startAppUpdateChecker();
   startPlannerNightlyScheduler();
   startForecastRefresh();
+
+  // Warm the per-session (Nights calendar) thumbnail cache in the background,
+  // deferred so it never competes with the rest of startup. Idempotent, so a
+  // restart only renders whatever is genuinely missing.
+  setTimeout(() => {
+    void prewarmSessionThumbnails('boot').catch(err =>
+      console.warn('[session-thumb-prewarm] boot run failed:', err instanceof Error ? err.message : err),
+    );
+  }, 120_000).unref();
 
   // Advertise via mDNS. Deferred by one tick (via the async IIFE) so it never
   // blocks the listen callback above.

@@ -11,7 +11,7 @@ import { strictRateLimiter, burstyRateLimiter } from '../middleware/rateLimit.js
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { randomUUID, createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 import multer from 'multer';
 import { log } from '../lib/logger.js';
@@ -19,7 +19,8 @@ import { debugLog, isDebugLoggingEnabled } from '../lib/debugLogger.js';
 import { isErrnoException } from '../lib/errors.js';
 import { redactUrl } from '../lib/logSafe.js';
 import { THUMBNAILS_DIR } from '../lib/paths.js';
-import { getLibraryDir, isLibraryAvailable, withTimeout, LIBRARY_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
+import { getLibraryDir, isLibraryAvailable, statLibraryFileForServe, TimeoutError } from '../lib/libraryPath.js';
+import { runRender } from '../lib/renderQueue.js';
 import { mintDownloadToken, DOWNLOAD_TOKEN_TTL_MS } from '../lib/downloadToken.js';
 import { isLibraryMigrating } from '../lib/libraryMaintenance.js';
 import { getSite } from '../lib/observingSites.js';
@@ -100,6 +101,7 @@ import {
   LIBRARY_OBJECT_FILTERS,
   resolveObjectImagePath,
   objectThumbnailDiskCacheKey,
+  fileThumbnailDiskCacheKey,
 } from '../lib/localLibrary.js';
 import { getArchiveDir, listArchivedFolders, listArchiveScopes } from '../lib/library/archiveFolders.js';
 import { stageUploadDestPath } from '../lib/library/uploadPath.js';
@@ -215,6 +217,21 @@ async function requireLibraryReachable(res: Response): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+/**
+ * Map a failed `withTimeout(fs.*)` guard onto a response. A real ENOENT is a
+ * 404; a {@link TimeoutError} means the disk is slow or wedged right now (a
+ * burst of cold thumbnail renders saturating the threadpool is the common
+ * cause), which is transient, so answer 503 + Retry-After and let the client
+ * try again rather than caching a "missing image".
+ */
+function respondFsGuardError(res: Response, err: unknown): void {
+  if (err instanceof TimeoutError) {
+    res.status(503).set('Retry-After', '2').type('text/plain').send('Library is busy, retry shortly');
+  } else {
+    res.status(404).type('text/plain').send('Not found');
+  }
 }
 
 // ─── Zod schemas ─────────────────────────────────────────────────────────────
@@ -1083,19 +1100,12 @@ router.get('/objects/:objectId', (req: Request, res: Response) => {
 });
 
 // ─── Thumbnail ────────────────────────────────────────────────────────────────
-
-/**
- * Fixed-length disk-cache key. A raw base64url of `path:WxH:mtime` grows with
- * the path, and a Dwarf's device-folder-plus-filename combination (session
- * folder name alone can run ~90 chars, doubled once for the raw file and again
- * for its "stacked-16_..." master) pushes the encoded key past the OS's
- * 255-byte filename-component limit. sharp's toFile() then fails to open the
- * temp file with ENAMETOOLONG, which the client sees as a 500 and the `<img>`
- * renders as broken. A hash is constant-length regardless of input length.
- */
-function thumbnailCacheKey(input: string): string {
-  return createHash('sha256').update(input).digest('base64url');
-}
+//
+// Disk-cache keys are sha256 hashes (objectThumbnailDiskCacheKey /
+// fileThumbnailDiskCacheKey in library/gallery.ts): a raw base64url of
+// `path:WxH:mtime` grows with the path, and a Dwarf's device-folder-plus-
+// filename combination pushes it past the OS's 255-byte filename-component
+// limit, so sharp's toFile() fails with ENAMETOOLONG and the `<img>` breaks.
 
 router.get('/objects/:objectId/thumbnail', async (req: Request, res: Response) => {
   try {
@@ -1117,17 +1127,25 @@ router.get('/objects/:objectId/thumbnail', async (req: Request, res: Response) =
     // (e.g. re-uploading a custom gallery_<id>.jpg, or a refreshed catalog
     // master) busts the disk-cached thumbnail. Without mtime, srcPath alone
     // would map to the same .jpg forever even after the source bytes change.
-    const mtimeMs = (await withTimeout(fs.promises.stat(srcPath), LIBRARY_IO_TIMEOUT_MS)).mtimeMs;
+    let mtimeMs: number;
+    try {
+      mtimeMs = (await statLibraryFileForServe(srcPath)).mtimeMs;
+    } catch (err) {
+      respondFsGuardError(res, err);
+      return;
+    }
     const cacheKey = objectThumbnailDiskCacheKey(srcPath, w, h, mtimeMs);
     const cachePath = path.join(THUMBNAILS_DIR, `${cacheKey}.jpg`);
 
     if (!fs.existsSync(cachePath)) {
       try {
         fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
-        await sharp(srcPath)
+        // Capped so a dashboard/calendar fan-out of cold thumbnails can't
+        // saturate the threadpool and time out sibling requests.
+        await runRender(() => sharp(srcPath)
           .resize(w, h, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 80, progressive: true })
-          .toFile(cachePath);
+          .toFile(cachePath));
       } catch (sharpErr) {
         const msg = sharpErr instanceof Error ? sharpErr.message : '';
         if (msg.includes('corrupt') || msg.includes('not a known file format')) {
@@ -1465,7 +1483,7 @@ router.get('/video', async (req: Request, res: Response) => {
 
   if (!(await requireLibraryReachable(res))) return;
   try {
-    await withTimeout(fs.promises.access(absPath), LIBRARY_IO_TIMEOUT_MS);
+    await statLibraryFileForServe(absPath);
   } catch {
     res.status(404).type('text/plain').send('Not found');
     return;
@@ -1566,21 +1584,18 @@ router.get('/file/thumbnail', burstyRateLimiter, async (req: Request, res: Respo
   }
 
   if (!(await requireLibraryReachable(res))) return;
-  try {
-    await withTimeout(fs.promises.access(absPath), LIBRARY_IO_TIMEOUT_MS);
-  } catch {
-    res.status(404).send('Not found');
-    return;
-  }
 
   // Cache key includes mtime, matching the object-thumbnail route above: without
   // it an in-place overwrite (a re-import replacing the same filename) serves the
-  // old thumbnail forever.
+  // old thumbnail forever. `stat` doubles as the existence guard.
   let mtimeMs = 0;
   try {
-    mtimeMs = (await withTimeout(fs.promises.stat(absPath), LIBRARY_IO_TIMEOUT_MS)).mtimeMs;
-  } catch { /* fall through with 0; a miss is better than a stale hit */ }
-  const cacheKey = thumbnailCacheKey(`${filePath}:${w}x${h}:${mtimeMs}`);
+    mtimeMs = (await statLibraryFileForServe(absPath)).mtimeMs;
+  } catch (err) {
+    respondFsGuardError(res, err);
+    return;
+  }
+  const cacheKey = fileThumbnailDiskCacheKey(filePath, w, h, mtimeMs);
   const cachePath = path.join(THUMBNAILS_DIR, `${cacheKey}.jpg`);
 
   try {
@@ -1589,8 +1604,10 @@ router.get('/file/thumbnail', burstyRateLimiter, async (req: Request, res: Respo
       // cannot display, which now includes a Dwarf's ~100 MB 32-bit float
       // `img_stacked_all.tif`. An observation page asks for the same file twice
       // at once (hero plus grid card), and without this each request starts its
-      // own 100 MB decode.
-      await renderThumbnailOnce(cacheKey, cachePath, absPath, w, h);
+      // own 100 MB decode. `runRender` additionally caps how many *distinct*
+      // renders run at once so a calendar-load burst can't starve the
+      // threadpool (which used to surface as 5s timeouts → 404s here).
+      await runRender(() => renderThumbnailOnce(cacheKey, cachePath, absPath, w, h));
     }
 
     res.set('Content-Type', 'image/jpeg');
@@ -1642,16 +1659,20 @@ router.get('/fits-thumbnail', async (req: Request, res: Response) => {
   if (!(await requireLibraryReachable(res))) return;
 
   try {
-    await withTimeout(fs.promises.access(absPath), LIBRARY_IO_TIMEOUT_MS);
-  } catch {
-    res.status(404).send('Not found');
+    await statLibraryFileForServe(absPath);
+  } catch (err) {
+    respondFsGuardError(res, err);
     return;
   }
 
   const thumbPath = fitsThumbnailPath(absPath, tier);
   try {
-    // No-ops if it already exists; otherwise parses + renders + writes.
-    await generateFitsThumbnail(absPath, tier);
+    // No-ops if it already exists; otherwise parses + renders + writes. The
+    // cache-hit check stays outside the render cap so a warm burst never
+    // queues; only an actual render takes a slot.
+    if (!fs.existsSync(thumbPath)) {
+      await runRender(() => generateFitsThumbnail(absPath, tier));
+    }
     // Read + send the buffer rather than res.sendFile: the thumbnail lives in a
     // `.thumbs/` directory, and Express's sendFile (via `send`) defaults to
     // dotfiles:'ignore', which 404s any path with a dot-prefixed segment.
@@ -1700,15 +1721,17 @@ router.get('/tiff-thumbnail', async (req: Request, res: Response) => {
   if (!(await requireLibraryReachable(res))) return;
 
   try {
-    await withTimeout(fs.promises.access(absPath), LIBRARY_IO_TIMEOUT_MS);
-  } catch {
-    res.status(404).send('Not found');
+    await statLibraryFileForServe(absPath);
+  } catch (err) {
+    respondFsGuardError(res, err);
     return;
   }
 
   const thumbPath = tiffThumbnailPath(absPath, tier);
   try {
-    await generateTiffThumbnail(absPath, tier);
+    if (!fs.existsSync(thumbPath)) {
+      await runRender(() => generateTiffThumbnail(absPath, tier));
+    }
     // Read + send the buffer rather than res.sendFile: the thumbnail lives in
     // a `.thumbs/` directory, and Express's sendFile (via `send`) defaults to
     // dotfiles:'ignore', which 404s any path with a dot-prefixed segment.

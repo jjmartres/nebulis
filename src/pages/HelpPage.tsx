@@ -15,6 +15,8 @@ import {
   Usb,
   Server,
   Smartphone,
+  HardDrive,
+  UserCog,
   type LucideIcon,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
@@ -65,6 +67,9 @@ import tourCatalogsProgressShot from '../assets/help/tour/catalogs/progress.webp
 import mobileMenuShot from '../assets/help/mobile/menu.webp';
 import mobileQrShot from '../assets/help/mobile/qr.webp';
 import mobileEnterCodeShot from '../assets/help/mobile/enter-code.webp';
+import manualImportDropZoneShot from '../assets/help/manual-import/drop-zone.webp';
+import manualImportFolderPickerShot from '../assets/help/manual-import/folder-picker.webp';
+import manualImportUncPathShot from '../assets/help/manual-import/unc-path.webp';
 
 /**
  * Help: a hero banner, a left rail, and one guide shown at a time.
@@ -91,6 +96,7 @@ type SectionId =
   | 'custom-smb'
   | 'importing'
   | 'uploading'
+  | 'manual-import'
   | 'mobile-devices'
   | 'troubleshooting';
 
@@ -111,6 +117,7 @@ const NAV: ({ id: SectionId; label: string; icon?: LucideIcon; indent?: boolean 
   { id: 'custom-smb', label: 'Custom SMB sources', icon: Server },
   { id: 'importing', label: 'Importing and syncing images', icon: Download },
   { id: 'uploading', label: 'Uploading images', icon: Upload },
+  { id: 'manual-import', label: 'Manual imports from a folder', icon: HardDrive },
   { id: 'mobile-devices', label: 'Mobile devices', icon: Smartphone },
   { id: 'troubleshooting', label: 'Troubleshooting', icon: AlertTriangle },
 ];
@@ -813,6 +820,110 @@ function renderSection(id: SectionId, isDark: boolean, navigate: (id: SectionId)
         </GuideCard>
       );
 
+    case 'manual-import':
+      return (
+        <div className="space-y-6">
+        <GuideCard
+          icon={HardDrive}
+          title="Manual imports from a folder"
+          lead="Point Nebulis at a folder that's already sitting somewhere, either on the computer running Nebulis or on a network share, instead of dragging files through the browser."
+          isDark={isDark}
+        >
+          <Steps
+            isDark={isDark}
+            steps={[
+              {
+                title: 'Open Library → Upload Files.',
+                body: (
+                  <>
+                    <p>
+                      The same dialog used for a browser upload has a second path down at the
+                      bottom for files that are already somewhere Nebulis can reach.
+                    </p>
+                    <Screenshot
+                      src={manualImportDropZoneShot}
+                      alt="The Import to Library dialog's drop zone, with a link below it reading 'Files already on the computer running Nebulis? Import in place, no upload.'"
+                      caption="Library → Upload Files"
+                      isDark={isDark}
+                    />
+                  </>
+                ),
+              },
+              {
+                title: 'Click "Files already on the computer running Nebulis?"',
+                body: (
+                  <>
+                    <p>
+                      This switches to a server-side folder browser: pick a drive Nebulis can
+                      see, or type a path directly. Nothing uploads. The server reads the folder
+                      where it already sits, so even a huge backup imports in seconds instead of
+                      streaming through your browser.
+                    </p>
+                    <Screenshot
+                      src={manualImportFolderPickerShot}
+                      alt="The server-side folder picker, listing detected drives and an 'Or enter a path' field with a placeholder showing a UNC path and a drive letter path"
+                      caption="Upload Files → Import in place"
+                      isDark={isDark}
+                    />
+                  </>
+                ),
+              },
+              {
+                title: 'For a NAS or network folder, type its UNC path.',
+                body: (
+                  <>
+                    <p>
+                      A network share never shows up in the drive list above, and a mapped drive
+                      letter (like <Code isDark={isDark}>Z:</Code>) won't work either. Both only
+                      exist inside your own sign-in session, and Nebulis runs as a background
+                      service that doesn't share it. Type or paste the share's full UNC path
+                      instead, for example{' '}
+                      <Code isDark={isDark}>{'\\\\NAS-OBSERVATORY\\Astrophotography'}</Code>, and
+                      Nebulis browses it the same way as a local drive.
+                    </p>
+                    <Screenshot
+                      src={manualImportUncPathShot}
+                      alt="The folder picker with a UNC path opened, showing its subfolders SeeStar S50, Dwarf 3, and _archive"
+                      caption="Upload Files → Import in place → UNC path"
+                      isDark={isDark}
+                    />
+                  </>
+                ),
+              },
+              {
+                title: 'Review, then import.',
+                body: 'Same review step as any other import: Nebulis shows every object, session, and file it found before anything is committed, so nothing lands in the library unreviewed.',
+              },
+            ]}
+          />
+          <Note isDark={isDark}>
+            If typing the UNC path fails with a permission or "cannot read that folder" error,
+            the share itself is reachable but Nebulis isn't allowed onto it yet. See below.
+          </Note>
+        </GuideCard>
+
+        <GuideCard
+          icon={UserCog}
+          title="Give Nebulis access to that network share"
+          lead={
+            'A UNC path only resolves if whatever is running Nebulis is already allowed onto ' +
+            'the share, the same way a person would need to be. Nebulis itself has no login ' +
+            'prompt for this: it inherits access from the account its background process runs ' +
+            'as, so that account is what needs to be squared away with the NAS or PC sharing ' +
+            'the folder.'
+          }
+          isDark={isDark}
+        >
+          <ServiceAccountTabs isDark={isDark} />
+          <Note isDark={isDark}>
+            A share configured for guest or anonymous access needs none of this: it already
+            works no matter which account Nebulis runs as. This is only for a share that asks
+            for a username and password.
+          </Note>
+        </GuideCard>
+        </div>
+      );
+
     case 'mobile-devices':
       return (
         <GuideCard icon={Smartphone} title="Mobile devices" lead="iPhone, iPad, Apple TV, and Android apps that read the same library over your local network. No cloud, no subscription, no separate account to manage." isDark={isDark}>
@@ -1168,6 +1279,137 @@ function ConnectionMethodTabs({ isDark }: { isDark: boolean }) {
             isDark={isDark}
             width="max-w-lg"
           />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ServiceAccountTabs({ isDark }: { isDark: boolean }) {
+  const [active, setActive] = useState<'windows' | 'macos'>('windows');
+  const body = isDark ? 'text-slate-300' : 'text-slate-600';
+
+  const tabs: { id: typeof active; label: string }[] = [
+    { id: 'windows', label: 'Windows' },
+    { id: 'macos', label: 'macOS' },
+  ];
+
+  return (
+    <div>
+      <div className={`inline-flex p-1 rounded-xl gap-1 ${isDark ? 'bg-slate-950/60' : 'bg-slate-100'}`}>
+        {tabs.map(t => {
+          const isActive = t.id === active;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActive(t.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                isActive
+                  ? isDark ? 'bg-accent-500 text-slate-950' : 'bg-white text-accent-700 shadow-sm'
+                  : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {active === 'windows' && (
+        <div className="mt-4">
+          <p className={`text-sm leading-relaxed ${body}`}>
+            Nebulis installs as a Windows service, which by default runs as{' '}
+            <Code isDark={isDark}>Local System</Code>, a machine identity with no credentials on
+            your NAS or PC. Give the service an account the share already trusts:
+          </p>
+          <div className="mt-4">
+            <Steps
+              isDark={isDark}
+              steps={[
+                {
+                  title: 'Open Services.',
+                  body: (
+                    <>Press <Code isDark={isDark}>Win + R</Code>, type <Code isDark={isDark}>services.msc</Code>, and press Enter.</>
+                  ),
+                },
+                {
+                  title: 'Find Nebulis, then open its Log On tab.',
+                  body: (
+                    <>Right-click <Code isDark={isDark}>Nebulis</Code> in the list → Properties → the <Code isDark={isDark}>Log On</Code> tab.</>
+                  ),
+                },
+                {
+                  title: 'Switch to "This account" and enter its credentials.',
+                  body: (
+                    <>
+                      Use an account the share already grants access to: a local account as{' '}
+                      <Code isDark={isDark}>.\username</Code>, or a domain account as{' '}
+                      <Code isDark={isDark}>DOMAIN\username</Code>. Enter its password, click OK,
+                      and Windows grants that account the "Log on as a service" right
+                      automatically.
+                    </>
+                  ),
+                },
+                {
+                  title: 'Restart the service.',
+                  body: (
+                    <>Right-click Nebulis → Restart, or from an elevated prompt: <Code isDark={isDark}>net stop Nebulis &amp;&amp; net start Nebulis</Code>.</>
+                  ),
+                },
+              ]}
+            />
+          </div>
+          <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            Re-registered the service by hand with <Code isDark={isDark}>install-service.bat</Code>{' '}
+            instead of the installer? Set the account from the command line first:{' '}
+            <Code isDark={isDark}>nssm.exe set Nebulis ObjectName ".\username" "password"</Code>,
+            then restart it the same way.
+          </p>
+        </div>
+      )}
+
+      {active === 'macos' && (
+        <div className="mt-4">
+          <p className={`text-sm leading-relaxed ${body}`}>
+            The Mac build has no separate service account: Nebulis runs as a LaunchAgent inside
+            whichever macOS user is currently logged in, so it already has that user's access.
+            The fix here is making sure that account can reach the share, not swapping the
+            account Nebulis uses.
+          </p>
+          <div className="mt-4">
+            <Steps
+              isDark={isDark}
+              steps={[
+                {
+                  title: 'Connect to the share once from Finder.',
+                  body: (
+                    <>
+                      Press <Code isDark={isDark}>Cmd + K</Code> (Finder → Go → Connect to
+                      Server), enter <Code isDark={isDark}>smb://host/share</Code>, and sign in
+                      with the credentials the folder needs. Turn on{' '}
+                      <em>Remember this password in my keychain</em> so it reconnects on its own
+                      later.
+                    </>
+                  ),
+                },
+                {
+                  title: 'Use the /Volumes path, not the smb:// address.',
+                  body: (
+                    <>
+                      Once mounted it appears under <Code isDark={isDark}>/Volumes/</Code>, e.g.{' '}
+                      <Code isDark={isDark}>/Volumes/Astrophotography</Code>. That's the path to
+                      type into Nebulis's folder picker.
+                    </>
+                  ),
+                },
+                {
+                  title: 'Logged in as a different user than the share credentials belong to?',
+                  body: 'Log in as (or fast-user-switch to) the macOS account that owns those credentials before opening Nebulis, since the LaunchAgent runs inside whichever account is signed in at the time.',
+                },
+              ]}
+            />
+          </div>
         </div>
       )}
     </div>
