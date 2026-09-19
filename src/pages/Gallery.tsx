@@ -1,10 +1,12 @@
 import { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import { useQuery, useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search, Telescope, AlertCircle, Filter, Download, RotateCw, Upload, PlusCircle, Star, ArrowUpDown, Check, ChevronDown } from 'lucide-react';
+import { Search, Telescope, AlertCircle, Filter, Download, RotateCw, Upload, PlusCircle, Star, ArrowUpDown, Check, ChevronDown, Workflow } from 'lucide-react';
 import { getLibraryObjects, getLibraryObjectFilters, triggerImport, getImportStatus } from '../lib/api/library';
 import { listTelescopes } from '../lib/api/telescopes';
 import { ObjectCard } from '../components/ObjectCard';
+import { PROCESSING_STATUS_ORDER, PROCESSING_STATUS_LABEL } from '../lib/processingStatus';
+import type { ProcessingStatus } from '../types';
 import { LibraryHero } from '../components/library/LibraryHero';
 import { ImportModal } from '../components/ImportModal';
 import { FolderImportWizard } from '../components/folderImport/FolderImportWizard';
@@ -40,6 +42,7 @@ function readStoredSort(): SortKey {
 }
 
 const ALL_TELESCOPES_FILTER = '__all__';
+const ALL_PROCESSING_FILTER = '__all__';
 
 // Catalog "family" keywords. Searching a bare family name (e.g. "Messier")
 // surfaces every object in that catalog by testing its catalogId + aliases,
@@ -61,6 +64,7 @@ export function Gallery() {
   const [search, setSearch] = useState('');
   const [activeFilterId, setActiveFilterId] = useState<string>(ALL_FILTER_ID);
   const [telescopeFilter, setTelescopeFilter] = useState<string>(ALL_TELESCOPES_FILTER);
+  const [processingFilter, setProcessingFilter] = useState<string>(ALL_PROCESSING_FILTER);
   const [showImportModal, setShowImportModal] = useState(false);
   const [newObservationOpen, setNewObservationOpen] = useState(false);
   const [wizardPath, setWizardPath] = useState<string | null>(null);
@@ -76,6 +80,8 @@ export function Gallery() {
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const [telescopeMenuOpen, setTelescopeMenuOpen] = useState(false);
   const telescopeMenuRef = useRef<HTMLDivElement>(null);
+  const [processingMenuOpen, setProcessingMenuOpen] = useState(false);
+  const processingMenuRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -155,6 +161,10 @@ export function Gallery() {
   });
   useClickOutside(telescopeMenuRef, () => setTelescopeMenuOpen(false), {
     enabled: telescopeMenuOpen,
+    closeOnEscape: true,
+  });
+  useClickOutside(processingMenuRef, () => setProcessingMenuOpen(false), {
+    enabled: processingMenuOpen,
     closeOnEscape: true,
   });
 
@@ -262,7 +272,11 @@ export function Gallery() {
         effectiveTelescopeFilter === ALL_TELESCOPES_FILTER ||
         (obj.telescopeIds?.includes(effectiveTelescopeFilter) ?? false);
 
-      return matchesSearch && matchesType && matchesTelescope;
+      const matchesProcessing =
+        processingFilter === ALL_PROCESSING_FILTER ||
+        (obj.processingStatus ?? 'unprocessed') === processingFilter;
+
+      return matchesSearch && matchesType && matchesTelescope && matchesProcessing;
     });
 
     if (!list) return list;
@@ -290,7 +304,7 @@ export function Gallery() {
         }
       }
     });
-  }, [objectsWithPendingFavorites, deferredSearch, effectiveFilterId, effectiveTelescopeFilter, objectFilters, sortKey]);
+  }, [objectsWithPendingFavorites, deferredSearch, effectiveFilterId, effectiveTelescopeFilter, processingFilter, objectFilters, sortKey]);
 
   // The hero describes the whole library, so it ignores the search box and the
   // type chips. It does honor the telescope facet (a persistent lens on the
@@ -391,7 +405,7 @@ export function Gallery() {
         column while the telescope column stays put at the top.
       */}
       <div
-        className={`${showTelescopeUI ? 'grid grid-cols-[minmax(0,1fr)_auto]' : 'flex'} items-start gap-3 ${
+        className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 ${
           isDark ? 'text-slate-400' : 'text-slate-500'
         }`}
       >
@@ -474,11 +488,11 @@ export function Gallery() {
             </button>
           ))}
         </div>
-        {/* Telescope facet — only when more than one telescope is configured.
-            A single dropdown trigger rather than one chip per scope, so
-            adding telescopes doesn't keep growing this row; a sibling flex
-            item (not part of the chip row above) so it stays anchored in its
-            own corner regardless of how many rows the chips wrap to. */}
+        {/* Facet dropdowns — telescope (only when ≥2 configured) and
+            processing status (always). A sibling flex item (not part of the
+            chip row above) so this stays anchored in its own corner
+            regardless of how many rows the chips wrap to. */}
+        <div className="flex items-center gap-2 shrink-0">
         {showTelescopeUI && (() => {
           const selectedTelescope = effectiveTelescopeFilter === ALL_TELESCOPES_FILTER
             ? null
@@ -562,6 +576,73 @@ export function Gallery() {
             </div>
           );
         })()}
+        {(() => {
+          const selectedStatus = processingFilter === ALL_PROCESSING_FILTER ? null : (processingFilter as ProcessingStatus);
+          return (
+            <div ref={processingMenuRef} className="relative shrink-0">
+              <button
+                onClick={() => setProcessingMenuOpen(o => !o)}
+                aria-haspopup="menu"
+                aria-expanded={processingMenuOpen}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ring-1 ring-inset transition-colors ${
+                  selectedStatus
+                    ? isDark
+                      ? 'bg-accent-500/15 text-accent-400 ring-accent-500/30'
+                      : 'bg-accent-500 text-white ring-accent-500'
+                    : isDark
+                      ? 'bg-slate-900/70 ring-slate-700/60 text-slate-300 hover:bg-slate-800'
+                      : 'bg-white ring-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Workflow className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate max-w-[9rem]">
+                  {selectedStatus ? PROCESSING_STATUS_LABEL[selectedStatus] : 'Any status'}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 shrink-0 transition-transform ${processingMenuOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {processingMenuOpen && (
+                <div className={`absolute right-0 top-full mt-1.5 z-20 w-48 rounded-2xl border shadow-lg overflow-hidden ${
+                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                }`}>
+                  <button
+                    onClick={() => { setProcessingFilter(ALL_PROCESSING_FILTER); setProcessingMenuOpen(false); }}
+                    className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
+                      processingFilter === ALL_PROCESSING_FILTER
+                        ? isDark ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Workflow className="w-3.5 h-3.5 shrink-0" />
+                      Any status
+                    </span>
+                    {processingFilter === ALL_PROCESSING_FILTER && <Check className="w-3.5 h-3.5 shrink-0" />}
+                  </button>
+                  {PROCESSING_STATUS_ORDER.map(s => {
+                    const selected = processingFilter === s;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => { setProcessingFilter(s); setProcessingMenuOpen(false); }}
+                        className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
+                          selected
+                            ? isDark ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'
+                            : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="truncate">{PROCESSING_STATUS_LABEL[s]}</span>
+                        {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+        </div>
       </div>
       </TourAnchor>
 
@@ -654,7 +735,7 @@ export function Gallery() {
             <p className={`text-xl font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
               {effectiveFilterId === FAVORITES_FILTER_ID
                 ? 'No favorites yet'
-                : search || effectiveFilterId !== ALL_FILTER_ID
+                : search || effectiveFilterId !== ALL_FILTER_ID || processingFilter !== ALL_PROCESSING_FILTER
                   ? 'No objects match your search'
                   : 'Your library is empty'}
             </p>
@@ -663,13 +744,13 @@ export function Gallery() {
                 Star an object from its detail page to add it to your favorites.
               </p>
             )}
-            {!search && effectiveFilterId === ALL_FILTER_ID && (
+            {!search && effectiveFilterId === ALL_FILTER_ID && processingFilter === ALL_PROCESSING_FILTER && (
               <p className="text-sm max-w-sm mx-auto">
                 Import images from your SeeStar to build your local library. Configure your telescope connection in Settings first.
               </p>
             )}
           </div>
-          {!search && effectiveFilterId === ALL_FILTER_ID && isAdmin && (
+          {!search && effectiveFilterId === ALL_FILTER_ID && processingFilter === ALL_PROCESSING_FILTER && isAdmin && (
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 onClick={() => importMutation.mutate()}

@@ -892,6 +892,13 @@ export const setGalleryImage = (objectId: string, imagePath: string | null) =>
     { method: 'PUT', body: JSON.stringify({ imagePath }) }
   );
 
+// Processing status (unprocessed / processing / processed)
+export const setProcessingStatus = (objectId: string, status: ProcessingStatus) =>
+  fetchJSON<{ objectId: string; processingStatus: ProcessingStatus }>(
+    `/library/objects/${encodeURIComponent(objectId)}/processing-status`,
+    { method: 'PUT', body: JSON.stringify({ status }) }
+  );
+
 export async function uploadGalleryImage(objectId: string, file: File): Promise<{ objectId: string; galleryImage: string }> {
   const formData = new FormData();
   formData.append('image', file, file.name);

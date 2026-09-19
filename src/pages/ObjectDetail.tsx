@@ -26,6 +26,7 @@ import {
   getLibrarySessions, requestObjectDownloadUrl, deleteLibraryObject, deleteLibrarySession,
   getGalleryImage, getLibraryFileUrl, getLibraryObjects, getObjectCapture, toggleFavorite,
   getDeletedObjects, getDeletedSessions, restoreLibraryObject, restoreLibrarySession,
+  setProcessingStatus,
 } from '../lib/api/library';
 import { getCatalogEntry } from '../lib/api/catalog';
 import { getObservations } from '../lib/api/observations';
@@ -55,7 +56,7 @@ import { ObjectProjectArchivesSection } from '../components/objectDetail/ObjectP
 import { TourAnchor } from '../components/tour/TourAnchor';
 import { DWARF_STARTRAILS_OBJECT_TYPE, DWARF_STARTRAILS_PLACEHOLDER_IMAGE } from '../lib/dwarfStartrails';
 import type { ObservationCardModel } from '../components/objectDetail/ObservationCard';
-import type { AstroObject } from '../types';
+import type { AstroObject, ProcessingStatus } from '../types';
 
 /**
  * Requested size for the hero's fallback catalog image, when the object has no
@@ -243,6 +244,19 @@ export function ObjectDetail() {
   const isFavorite = favoriteMutation.isPending
     ? (favoriteMutation.variables ?? false)
     : (baseObject?.isFavorite ?? false);
+
+  // Same optimistic-via-mutation-variables shape as favoriteMutation above.
+  const processingStatusMutation = useMutation({
+    mutationFn: (next: ProcessingStatus) => setProcessingStatus(activeObjectId, next),
+    onSuccess: (_data, next) => {
+      queryClient.setQueryData<AstroObject[]>(['library-objects'], old =>
+        old?.map(o => (o.id === activeObjectId ? { ...o, processingStatus: next } : o)));
+      queryClient.invalidateQueries({ queryKey: ['library-objects'] });
+    },
+  });
+  const processingStatus: ProcessingStatus = processingStatusMutation.isPending
+    ? (processingStatusMutation.variables ?? 'unprocessed')
+    : (baseObject?.processingStatus ?? 'unprocessed');
 
   // Sessions for every variant, in parallel.
   const sessionQueries = useQueries({
@@ -544,6 +558,8 @@ export function ObjectDetail() {
         accent={accent}
         isFavorite={isFavorite}
         onToggleFavorite={() => favoriteMutation.mutate(!isFavorite)}
+        processingStatus={processingStatus}
+        onChangeProcessingStatus={isAdmin ? (next) => processingStatusMutation.mutate(next) : null}
         onAddObservation={isAdmin ? () => setNewObservationOpen(true) : null}
         onCompare={allSessions.length >= 2 ? () => setCompareModalOpen(true) : null}
         onCombine={() => setCombineSubframesOpen(true)}

@@ -17,15 +17,17 @@
 import { Link } from 'react-router-dom';
 import { useRef, useState } from 'react';
 import {
-  CalendarDays, Columns, Download, FolderOpen, Image as ImageIcon, Layers, Loader2, MoreHorizontal,
-  Pencil, PlusCircle, Star, Telescope, Trash2,
+  CalendarDays, Check, ChevronDown, Columns, Download, FolderOpen, Image as ImageIcon, Layers, Loader2,
+  MoreHorizontal, Pencil, PlusCircle, Star, Telescope, Trash2,
 } from 'lucide-react';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { FileLocationModal } from '../library/FileLocationModal';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { HERO_IMAGES } from '../../lib/heroImagery';
 import { CaptureRail } from '../ui/CaptureRail';
+import { PROCESSING_STATUS_LABEL, PROCESSING_STATUS_ORDER } from '../../lib/processingStatus';
 import type { CaptureMetric } from '../../lib/captureMetrics';
+import type { ProcessingStatus } from '../../types';
 
 export interface HeroTelescope {
   id: string;
@@ -57,6 +59,12 @@ interface Props {
 
   isFavorite: boolean;
   onToggleFavorite: () => void;
+
+  processingStatus: ProcessingStatus;
+  /** Null for a viewer who may not change it — renders a plain, non-interactive
+   *  pill instead of a dropdown, same "null means read-only" convention
+   *  `onEditImage`/`onEditDetails`/`onDelete` already use on this component. */
+  onChangeProcessingStatus: ((status: ProcessingStatus) => void) | null;
 
   onAddObservation: (() => void) | null;
   /** Null when there are fewer than two observations to compare. Rendered as
@@ -107,6 +115,7 @@ export function ObjectHero({
   displayName, eyebrow, imageSrc, imageFailed, onImageError, onEditImage,
   telescopes, metrics, accent,
   isFavorite, onToggleFavorite,
+  processingStatus, onChangeProcessingStatus,
   onAddObservation, onCompare, onCombine, onDownloadAll, downloadPending = false, onSyncAllSubframes,
   onPlan, onEditDetails, onDelete,
   objectId, hideTargetActions = false,
@@ -304,6 +313,11 @@ export function ObjectHero({
                     className={`h-5 w-5 ${isFavorite ? 'fill-amber-400 text-amber-400' : ''}`}
                   />
                 </button>
+                <ProcessingStatusPill
+                  status={processingStatus}
+                  onChange={onChangeProcessingStatus}
+                  className="mt-1.5"
+                />
               </div>
 
               {telescopes.length > 0 && (
@@ -455,6 +469,73 @@ function OverflowMenu({ onEditDetails, onDelete, onShowLocation, onSyncAllSubfra
               Delete object
             </button>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Translucent-on-dark palette for each `ProcessingStatus`, matching the
+ *  hero's own glass idiom (`HeroAction`'s default/danger split) rather than
+ *  an ordinary light/dark app-background pair, which this always-dark hero
+ *  never has occasion to use. `ObjectCard.tsx`'s own overlay pill follows the
+ *  same reasoning, styled directly for its own (different) glass surface. */
+const PROCESSING_STATUS_HERO_STYLE: Record<ProcessingStatus, string> = {
+  unprocessed: 'bg-white/[0.07] text-white/70 ring-white/15 hover:bg-white/15 hover:text-white',
+  processing: 'bg-amber-500/15 text-amber-300 ring-amber-400/30 hover:bg-amber-500/25',
+  processed: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/30 hover:bg-emerald-500/25',
+};
+
+/**
+ * Where this object sits in the user's own processing pipeline. A dropdown
+ * for an admin (`onChange` set); a plain, non-interactive pill for a viewer
+ * (`onChange` null) — same read-only convention as every other hero action.
+ */
+function ProcessingStatusPill({ status, onChange, className = '' }: {
+  status: ProcessingStatus;
+  onChange: ((status: ProcessingStatus) => void) | null;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useClickOutside(wrapRef, () => setOpen(false), { enabled: open, closeOnEscape: true });
+
+  const pillClass = `inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium
+    ring-1 ring-inset backdrop-blur-md transition-colors ${PROCESSING_STATUS_HERO_STYLE[status]}`;
+
+  if (!onChange) {
+    return <span className={`${pillClass} ${className}`}>{PROCESSING_STATUS_LABEL[status]}</span>;
+  }
+
+  return (
+    <div ref={wrapRef} className={`relative ${className}`}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Set processing status"
+        className={`${pillClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60`}
+      >
+        {PROCESSING_STATUS_LABEL[status]}
+        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-2xl"
+        >
+          {PROCESSING_STATUS_ORDER.map(s => (
+            <button
+              key={s}
+              role="menuitem"
+              onClick={() => { setOpen(false); onChange(s); }}
+              className="flex w-full items-center justify-between gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
+            >
+              {PROCESSING_STATUS_LABEL[s]}
+              {s === status && <Check className="h-3.5 w-3.5 text-slate-400" />}
+            </button>
+          ))}
         </div>
       )}
     </div>
