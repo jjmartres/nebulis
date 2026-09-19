@@ -1,50 +1,5 @@
 import { fetchJSON } from './client';
 import type { AutoPlanFocus, PlanBlock, PlanCandidate } from '../planTypes';
-
-// ─── Wishlist ─────────────────────────────────────────────────────────────
-
-export interface WishlistItem {
-  id: string;
-  objectId: string;
-  name: string;
-  type: string;
-  constellation: string | null;
-  magnitude: number | null;
-  majorAxisArcmin: number | null;
-  priority: 'high' | 'medium' | 'low';
-  notes: string;
-  addedAt: string;
-}
-
-/** Add a DSO to the planner wishlist.  Returns the created (or existing) item.
- *  The server deduplicates by objectId, so a double-call is safe. */
-export const addToWishlist = (target: {
-  objectId: string;
-  name: string;
-  type?: string;
-  constellation?: string | null;
-  magnitude?: number | null;
-  majorAxisArcmin?: number | null;
-}) =>
-  fetchJSON<WishlistItem>('/wishlist', {
-    method: 'POST',
-    body: JSON.stringify({
-      objectId: target.objectId,
-      name: target.name,
-      type: target.type ?? '',
-      constellation: target.constellation ?? undefined,
-      magnitude: target.magnitude ?? undefined,
-      majorAxisArcmin: target.majorAxisArcmin ?? undefined,
-      priority: 'medium',
-      notes: '',
-    }),
-  });
-
-/** Remove a DSO from the wishlist by its catalog ID. */
-export const removeFromWishlist = (objectId: string) =>
-  fetchJSON<{ deleted: boolean }>(`/wishlist/object/${encodeURIComponent(objectId)}`, {
-    method: 'DELETE',
-  });
 import type { VisibleSkyMap } from '../visibilityCheck';
 import type { BlockVisibilityResult } from '../visibilityCheck';
 import type { MoonProximityResult } from '../moonProximity';

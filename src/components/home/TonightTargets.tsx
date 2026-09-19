@@ -8,36 +8,45 @@
  *   - Same header: amber circle icon badge + `text-lg font-bold` title +
  *     `text-[12px]` subtitle, with a `border-b` separator
  *   - Loading / error / empty states rendered inside the card body
- *   - DSO photo tiles + stat cells keep their own styling
  *
  * Features
  * ────────
- * • Add to Planner button on each tile (wishlist toggle, admin only)
- * • Shuffle button in the header right — random 10 from the full pool
+ * • Add to schedule button on each tile (admin only): creates a planned-session
+ *   block for tonight using the target's rise→set window capped to the dark
+ *   window. Invalidates `['planned-sessions']` so the Planner page reflects the
+ *   new block immediately.
+ * • Shuffle button in the header right — picks a fresh diverse mix each click.
+ * • Type-diversity selection: round-robin across nebula / galaxy / cluster /
+ *   supernova / double / other so the grid always shows a varied showcase.
  */
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Telescope, RotateCw, AlertCircle, Shuffle,
-  BookmarkPlus, BookmarkCheck,
+  CalendarPlus, CalendarCheck,
 } from 'lucide-react';
-import {
-  getPlannerTargets,
-  addToWishlist,
-  removeFromWishlist,
-  type PlannerTarget,
-} from '../../lib/api/planner';
+import { getPlannerTargets, type PlannerTarget } from '../../lib/api/planner';
+import { createPlannedSession, listPlannedSessions } from '../../lib/api/plannedSessions';
+import { bestSlotFor, type Interval } from '../../lib/plannerNight';
+import { DEFAULT_BLOCK_MINUTES } from '../planner/scheduleGeometry';
 import { formatTime } from '../../lib/forecastScore';
-import {
-  getCatalogStaticThumbnailUrl,
-  getCatalogThumbnailUrl,
-} from '../../lib/catalogImage';
+import { getCatalogStaticThumbnailUrl, getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import { useAuth } from '../../contexts/AuthContext';
+
+// ─── Props ────────────────────────────────────────────────────────────────
 
 interface Props {
   siteId: string | null;
   timeZone?: string;
   isDark: boolean;
+  /** Observer latitude — required by `bestSlotFor` to compute per-slot altitude. */
+  observerLat: number | null;
+  /** Observer longitude — required by `bestSlotFor` to compute per-slot altitude. */
+  observerLon: number | null;
+  /** ISO string for the start of tonight's dark window. */
+  darkWindowStart: string | null;
+  /** ISO string for the end of tonight's dark window. */
+  darkWindowEnd: string | null;
 }
 
 // ─── Type badge ───────────────────────────────────────────────────────────
@@ -101,10 +110,8 @@ function shuffle<T>(arr: T[]): T[] {
 
 // ─── Diversity picker ─────────────────────────────────────────────────────
 
-/** Broad object family used for diversity bucketing. */
 type ObjectFamily = 'nebula' | 'cluster' | 'galaxy' | 'supernova' | 'double' | 'other';
 
-/** Map a DSO type string to one of the broad families. */
 function familyOf(type: string): ObjectFamily {
   const l = type.toLowerCase();
   if (l.includes('galaxy'))    return 'galaxy';
@@ -116,17 +123,6 @@ function familyOf(type: string): ObjectFamily {
   return 'other';
 }
 
-/**
- * Pick `n` targets from `pool` with type diversity.
- *
- * Strategy: round-robin across the six families.  In each round, take the
- * best-scoring remaining candidate from every family that still has entries.
- * Repeat until `n` slots are filled.  The interleaved order ensures tiles of
- * the same type never cluster together.
- *
- * `pool` must already be sorted by descending `bestTonightScore` so that the
- * first candidate popped per family per round is always the best available.
- */
 function diversePick(pool: PlannerTarget[], n: number): PlannerTarget[] {
   const FAMILY_ORDER: ObjectFamily[] = ['nebula', 'galaxy', 'cluster', 'supernova', 'double', 'other'];
   const buckets = new Map<ObjectFamily, PlannerTarget[]>();
@@ -189,15 +185,19 @@ function TargetTile({
   timeZone,
   isDark,
   isAdmin,
-  onToggleWishlist,
-  wishlistPending,
+  isScheduled,
+  isScheduling,
+  onSchedule,
 }: {
   target: PlannerTarget;
   timeZone?: string;
   isDark: boolean;
   isAdmin: boolean;
-  onToggleWishlist: (target: PlannerTarget) => void;
-  wishlistPending: boolean;
+  /** True when this object has already been added to tonight's schedule. */
+  isScheduled: boolean;
+  /** True while the network request for this tile is in flight. */
+  isScheduling: boolean;
+  onSchedule: (target: PlannerTarget) => void;
 }) {
   const staticUrl = getCatalogStaticThumbnailUrl(target.id);
   const apiUrl    = getCatalogThumbnailUrl(target.id, target.majorAxisArcmin);
@@ -210,10 +210,6 @@ function TargetTile({
     target.maxAlt >= 30 ? (isDark ? 'text-slate-200' : 'text-slate-700') :
     'text-amber-500';
 
-  const onWishlist = target.isInWishlist;
-
-  // DSO tiles keep their own border/bg — slightly lighter than the outer card
-  // so they read as elevated elements inside it.
   const tileBg = isDark
     ? 'bg-slate-800/60 border-slate-700/60'
     : 'bg-white border-slate-200 shadow-sm';
@@ -242,22 +238,26 @@ function TargetTile({
           </span>
         </div>
 
-        {/* Add to Planner — admin only */}
+        {/* Add to schedule — admin only */}
         {isAdmin && (
           <button
-            onClick={() => onToggleWishlist(target)}
-            disabled={wishlistPending}
-            title={onWishlist ? 'Remove from planner wishlist' : 'Add to planner wishlist'}
-            aria-label={onWishlist ? `Remove ${displayName} from planner` : `Add ${displayName} to planner`}
-            className={`absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-sm transition-all disabled:opacity-50 ${
-              onWishlist
-                ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30 hover:bg-amber-400'
-                : 'bg-slate-950/60 text-white/70 hover:bg-slate-950/80 hover:text-amber-400 ring-1 ring-white/15'
+            onClick={() => onSchedule(target)}
+            disabled={isScheduled || isScheduling}
+            title={isScheduled ? 'Already in tonight\'s schedule' : 'Add to tonight\'s schedule'}
+            aria-label={isScheduled ? `${displayName} is in tonight's schedule` : `Add ${displayName} to tonight's schedule`}
+            className={`absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-sm transition-all ${
+              isScheduled
+                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 ring-2 ring-emerald-400/60'
+                : isScheduling
+                ? 'bg-slate-950/60 text-white/40 ring-1 ring-white/15 opacity-60'
+                : 'bg-slate-950/60 text-white/70 hover:bg-slate-950/80 hover:text-emerald-400 ring-1 ring-white/15'
             }`}
           >
-            {onWishlist
-              ? <BookmarkCheck className="h-3.5 w-3.5" strokeWidth={2.5} />
-              : <BookmarkPlus  className="h-3.5 w-3.5" strokeWidth={2.5} />
+            {isScheduling
+              ? <RotateCw className="h-3 w-3 animate-spin" strokeWidth={2.5} />
+              : isScheduled
+              ? <CalendarCheck className="h-3.5 w-3.5" strokeWidth={2.5} />
+              : <CalendarPlus  className="h-3.5 w-3.5" strokeWidth={2.5} />
             }
           </button>
         )}
@@ -327,12 +327,36 @@ function TargetTile({
 
 // ─── Section ──────────────────────────────────────────────────────────────
 
-export function TonightTargets({ siteId, timeZone, isDark }: Props) {
+export function TonightTargets({
+  siteId, timeZone, isDark,
+  observerLat, observerLon,
+  darkWindowStart, darkWindowEnd,
+}: Props) {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
-  const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
-  const [pendingId,   setPendingId  ] = useState<string | null>(null);
+  const [shuffledIds,  setShuffledIds ] = useState<string[] | null>(null);
+  const [schedulingId, setSchedulingId] = useState<string | null>(null);
+
+  // ── Tonight's planned sessions — persistent across navigation ─────────
+  // Queried from the global ['planned-sessions'] cache (same key as
+  // PlannerPage) so the green "scheduled" state survives unmount/remount.
+  // Enabled only when the dark window is known.
+  const sessionsQuery = useQuery({
+    queryKey: ['planned-sessions', darkWindowStart, darkWindowEnd],
+    queryFn: () =>
+      darkWindowStart && darkWindowEnd
+        ? listPlannedSessions({ from: darkWindowStart, to: darkWindowEnd })
+        : Promise.resolve([]),
+    enabled: darkWindowStart != null && darkWindowEnd != null,
+    staleTime: 0, // always fresh — we invalidate on every add
+  });
+
+  // Set of objectIds already scheduled tonight — survives page navigation.
+  const scheduledIds = useMemo<Set<string>>(
+    () => new Set((sessionsQuery.data ?? []).map(s => s.objectId)),
+    [sessionsQuery.data],
+  );
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['planner-tonight-home', siteId],
@@ -361,49 +385,90 @@ export function TonightTargets({ siteId, timeZone, isDark }: Props) {
   const handleShuffle = useCallback(() => {
     if (allTargets.length <= 10) return;
     const currentSet = new Set(displayed.map(t => t.id));
-    // Prefer targets not currently shown, then fall back to full pool.
     const pool = allTargets.filter(t => !currentSet.has(t.id));
     const source = pool.length >= 10 ? pool : allTargets;
-    // Shuffle within each family bucket so every click gives a fresh pick,
-    // then run diversePick to maintain type variety.
-    const shuffledPool = shuffle(source);
-    setShuffledIds(diversePick(shuffledPool, 10).map(t => t.id));
+    setShuffledIds(diversePick(shuffle(source), 10).map(t => t.id));
   }, [allTargets, displayed]);
 
-  const addMut = useMutation({
-    mutationFn: (target: PlannerTarget) =>
-      addToWishlist({
-        objectId: target.id,
-        name: target.commonNames[0] ?? target.ngcName ?? target.name,
-        type: target.type,
-        constellation: target.constellation,
-        magnitude: target.magnitude,
-        majorAxisArcmin: target.majorAxisArcmin,
-      }),
+  // ── Add to tonight's schedule, collision-free ─────────────────────────
+  // Strategy (mirrors PlannerPage's handleQuickAdd):
+  //   1. Fetch existing planned sessions for tonight's window.
+  //   2. Build a `busy: Interval[]` list from them.
+  //   3. Call `bestSlotFor` — it finds the `DEFAULT_BLOCK_MINUTES`-long slot
+  //      with the highest mean altitude that doesn't overlap any busy interval,
+  //      within the dark window.  If every free slot is taken it returns the
+  //      best slot anyway (with `clashes: true`) so the user can drag it later.
+  //   4. If no slot of any kind fits, surface a clear error.
+  const scheduleMut = useMutation({
+    mutationFn: async (target: PlannerTarget) => {
+      if (!darkWindowStart || !darkWindowEnd) {
+        throw new Error('No dark window available tonight — cannot schedule.');
+      }
+      if (observerLat == null || observerLon == null) {
+        throw new Error('Observer location is required to find the best slot.');
+      }
+
+      const windowStart = new Date(darkWindowStart);
+      const windowEnd   = new Date(darkWindowEnd);
+
+      // Fetch existing blocks for the night to build the busy list.
+      const existing = await listPlannedSessions({
+        from: windowStart.toISOString(),
+        to:   windowEnd.toISOString(),
+      });
+      const busy: Interval[] = existing.map(s => ({
+        start: new Date(s.startTime).getTime(),
+        end:   new Date(s.endTime).getTime(),
+      }));
+
+      // Find the best non-overlapping slot for this target.
+      const slot = bestSlotFor({
+        ra:              target.ra,
+        dec:             target.dec,
+        lat:             observerLat,
+        lon:             observerLon,
+        windowStart,
+        windowEnd,
+        durationMinutes: DEFAULT_BLOCK_MINUTES,
+        busy,
+      });
+
+      if (!slot) {
+        throw new Error(
+          `Cannot fit ${target.commonNames[0] ?? target.ngcName} into tonight's dark window ` +
+          `(${DEFAULT_BLOCK_MINUTES} min block doesn't fit between ${darkWindowStart} and ${darkWindowEnd}).`,
+        );
+      }
+
+      return createPlannedSession({
+        objectId:   target.id,
+        objectName: target.commonNames[0] ?? target.ngcName ?? target.name,
+        ra:         target.ra,
+        dec:        target.dec,
+        startTime:  slot.start.toISOString(),
+        endTime:    slot.end.toISOString(),
+      });
+    },
+
+    onSuccess: () => {
+      // Invalidate ALL planned-sessions queries — this refreshes both the
+      // Planner page's timeline and our own sessionsQuery above, so the
+      // green state is derived from real server data and survives navigation.
+      queryClient.invalidateQueries({ queryKey: ['planned-sessions'] });
+    },
+
     onSettled: () => {
-      setPendingId(null);
-      queryClient.invalidateQueries({ queryKey: ['planner-tonight-home', siteId] });
-      queryClient.invalidateQueries({ queryKey: ['planner-tonight'] });
+      setSchedulingId(null);
     },
   });
 
-  const removeMut = useMutation({
-    mutationFn: (objectId: string) => removeFromWishlist(objectId),
-    onSettled: () => {
-      setPendingId(null);
-      queryClient.invalidateQueries({ queryKey: ['planner-tonight-home', siteId] });
-      queryClient.invalidateQueries({ queryKey: ['planner-tonight'] });
-    },
-  });
+  const handleSchedule = useCallback((target: PlannerTarget) => {
+    if (schedulingId != null) return;
+    setSchedulingId(target.id);
+    scheduleMut.mutate(target);
+  }, [schedulingId, scheduleMut]);
 
-  const handleToggleWishlist = useCallback((target: PlannerTarget) => {
-    if (pendingId != null) return;
-    setPendingId(target.id);
-    if (target.isInWishlist) removeMut.mutate(target.id);
-    else addMut.mutate(target);
-  }, [pendingId, addMut, removeMut]);
-
-  // ── Shared design tokens (aligned with NightOverview / WeatherNight) ──
+  // ── Design tokens ──────────────────────────────────────────────────────
   const outerBg   = isDark ? 'bg-[#0e1117] border-slate-700/50' : 'bg-slate-50 border-slate-200 shadow-sm';
   const headerBdr = isDark ? 'border-slate-700/60' : 'border-slate-200';
   const footerBdr = isDark ? 'border-slate-700/60 text-slate-600' : 'border-slate-200 text-slate-400';
@@ -417,7 +482,6 @@ export function TonightTargets({ siteId, timeZone, isDark }: Props) {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className={`px-5 pt-5 pb-4 border-b ${headerBdr} flex flex-wrap items-center justify-between gap-3`}>
         <div className="flex items-center gap-3">
-          {/* Amber circle badge — matches NightOverview and WeatherNight */}
           <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
             isDark ? 'bg-amber-500/15' : 'bg-amber-50'
           }`}>
@@ -462,6 +526,16 @@ export function TonightTargets({ siteId, timeZone, isDark }: Props) {
       {/* ── Body ────────────────────────────────────────────────────────── */}
       <div className="px-5 py-5">
 
+        {/* Scheduling error toast */}
+        {scheduleMut.isError && (
+          <div className={`flex items-center gap-2 mb-4 px-3 py-2 rounded-xl text-xs ${
+            isDark ? 'bg-red-950/40 text-red-400 border border-red-800/40' : 'bg-red-50 text-red-600 border border-red-200'
+          }`}>
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {scheduleMut.error instanceof Error ? scheduleMut.error.message : 'Failed to add to schedule.'}
+          </div>
+        )}
+
         {/* Loading */}
         {isLoading && (
           <div className="flex items-center justify-center py-10">
@@ -494,8 +568,9 @@ export function TonightTargets({ siteId, timeZone, isDark }: Props) {
                 timeZone={timeZone}
                 isDark={isDark}
                 isAdmin={isAdmin}
-                onToggleWishlist={handleToggleWishlist}
-                wishlistPending={pendingId === target.id}
+                isScheduled={scheduledIds.has(target.id)}
+                isScheduling={schedulingId === target.id}
+                onSchedule={handleSchedule}
               />
             ))}
           </div>

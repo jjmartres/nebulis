@@ -237,6 +237,18 @@ export function HomePage() {
             siteId={effectiveSiteId}
             timeZone={tz}
             isDark={isDark}
+            observerLat={lat}
+            observerLon={lon}
+            darkWindowStart={
+              forecast.tonight.astronomicalTwilightEnd ||
+              forecast.tonight.nauticalTwilightEnd ||
+              null
+            }
+            darkWindowEnd={
+              forecast.tonight.astronomicalTwilightStart ||
+              forecast.tonight.nauticalTwilightStart ||
+              null
+            }
           />
         </>
       )}
