@@ -498,6 +498,40 @@ describe('apiAuth bypass-list anchoring', () => {
     expect(res.apiError).not.toHaveBeenCalled();
   });
 
+  // Same signed-`?t=` pattern, same reason (a browser <a download> click
+  // can't send an Authorization header), just for a calibration bundle ZIP
+  // instead of a whole-object one. The POST that mints the token always
+  // requires normal auth.
+  it('does NOT bypass auth for POST /library/calibrations/download/link', () => {
+    const { next, res } = check('/library/calibrations/download/link', 'POST');
+    expect(next).not.toHaveBeenCalled();
+    expect(res.apiError).toHaveBeenCalledWith(401, 'AUTH_REQUIRED', expect.stringContaining('Authentication required'));
+  });
+
+  it('does NOT bypass auth for GET /library/calibrations/download/abc123 without a token', () => {
+    mockedVerifyDownloadToken.mockReturnValue(false);
+    const { next, res } = check('/library/calibrations/download/abc123', 'GET');
+    expect(next).not.toHaveBeenCalled();
+    expect(res.apiError).toHaveBeenCalledWith(401, 'AUTH_REQUIRED', expect.stringContaining('Authentication required'));
+  });
+
+  it('bypasses auth for GET /library/calibrations/download/abc123 with a valid signed token', () => {
+    mockedVerifyDownloadToken.mockReturnValue(true);
+    const req = mockReq({ path: '/library/calibrations/download/abc123', method: 'GET', query: { t: 'valid-token' } });
+    const res = mockRes();
+    const next = vi.fn();
+    apiAuth(req, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(mockedVerifyDownloadToken).toHaveBeenCalledWith('valid-token', '/library/calibrations/download/abc123');
+    expect(res.apiError).not.toHaveBeenCalled();
+  });
+
+  it('does NOT bypass auth for GET /library/calibrations (the list route, not the download route)', () => {
+    const { next, res } = check('/library/calibrations', 'GET');
+    expect(next).not.toHaveBeenCalled();
+    expect(res.apiError).toHaveBeenCalledWith(401, 'AUTH_REQUIRED', expect.stringContaining('Authentication required'));
+  });
+
   it('still bypasses auth for HEAD /library/file', () => {
     const { next, res } = check('/library/file', 'HEAD');
     expect(next).toHaveBeenCalled();

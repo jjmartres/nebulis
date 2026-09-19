@@ -154,6 +154,19 @@ export function apiAuth(req: Request, res: Response, next: NextFunction) {
     }
   }
 
+  // Calibration bundle ZIP — same signed-`?t=` pattern as the whole-object ZIP
+  // above (a browser <a download> click cannot send an Authorization header),
+  // just with an opaque bundle id in place of an object id. See
+  // `POST /library/calibrations/download/link` in routes/library.ts.
+  if (isReadMethod && /^\/library\/calibrations\/download\/[^/]+\/?$/.test(req.path)) {
+    const t = req.query.t;
+    let scope = req.path;
+    try { scope = decodeURIComponent(req.path); } catch { /* keep raw */ }
+    if (typeof t === 'string' && verifyDownloadToken(t, scope)) {
+      return next();
+    }
+  }
+
   if (
     isReadMethod && (
       req.path.match(/^\/library\/file(\?|\/|$)/) ||

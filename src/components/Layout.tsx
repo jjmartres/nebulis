@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Settings, Library, Sparkles, EyeOff, CloudMoon, Calendar, Crosshair, RefreshCw, HelpCircle, LogOut, ShieldCheck, Eye, Images, BookOpen, Telescope, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Settings, Library, Sparkles, EyeOff, CloudMoon, Calendar, Crosshair, RefreshCw, HelpCircle, LogOut, ShieldCheck, Eye, Images, BookOpen, Aperture, Telescope, ChevronDown } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -197,6 +197,12 @@ export function Layout({ children }: LayoutProps) {
                 <NavLink to="/catalogs" active={location.pathname.startsWith('/catalogs')} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
                   <BookOpen className="w-4 h-4" />
                   <span>Catalogs</span>
+                </NavLink>
+              )}
+              {isVisible('calibrations') && (
+                <NavLink to="/calibrations" active={location.pathname.startsWith('/calibrations')} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
+                  <Aperture className="w-4 h-4" />
+                  <span>Calibrations</span>
                 </NavLink>
               )}
               <TourAnchor id="nav-settings">

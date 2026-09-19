@@ -31,6 +31,7 @@ const HelpPage = lazy(() => import('./pages/HelpPage').then(m => ({ default: m.H
 const LinkDevicePage = lazy(() => import('./pages/LinkDevicePage'));
 const CatalogsHub = lazy(() => import('./pages/CatalogsHub').then(m => ({ default: m.CatalogsHub })));
 const CatalogBoard = lazy(() => import('./pages/CatalogBoard').then(m => ({ default: m.CatalogBoard })));
+const CalibrationLibrary = lazy(() => import('./pages/CalibrationLibrary').then(m => ({ default: m.CalibrationLibrary })));
 import { LoginModal } from './components/LoginModal';
 import { ConnectionErrorScreen } from './components/ConnectionErrorScreen';
 import { SyncSubframesProvider } from './contexts/SyncSubframesContext';
@@ -150,6 +151,7 @@ function AppShell({ onboardingDismissed }: { onboardingDismissed: boolean }) {
               <Route path="/planner" element={<PlannerPage />} />
               <Route path="/catalogs" element={<CatalogsHub />} />
               <Route path="/catalogs/:catalog" element={<CatalogBoard />} />
+              <Route path="/calibrations" element={<CalibrationLibrary />} />
               <Route path="/wishlist" element={<Navigate to="/planner?tab=wishlist" replace />} />
               <Route path="/backup" element={<BackupStatus />} />
               <Route path="/settings" element={<SettingsPage />} />

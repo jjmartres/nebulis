@@ -190,7 +190,8 @@ const appSettingsStmts = {
     nightlyForecastPrefetchEnabled = ?,
     nightlyHousekeepingLastRun = ?,
     nightlyForecastLastRun = ?,
-    nightlyMaintenanceEnabled = ?
+    nightlyMaintenanceEnabled = ?,
+    calibrationExpiryDays = ?
     WHERE id = 1`),
   setApiKey: db.prepare('UPDATE appSettings SET apiKey = ? WHERE id = 1'),
 };
@@ -317,6 +318,7 @@ interface AppSettingsRow {
   nightlyHousekeepingLastRun: number | null;
   nightlyForecastLastRun: number | null;
   nightlyMaintenanceEnabled: number;
+  calibrationExpiryDays: number;
 }
 
 const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -383,6 +385,9 @@ function rowToSettings(row: AppSettingsRow): Record<string, unknown> {
     nightlyHousekeepingLastRun: row.nightlyHousekeepingLastRun ?? null,
     nightlyForecastLastRun: row.nightlyForecastLastRun ?? null,
     nightlyMaintenanceEnabled: Boolean(row.nightlyMaintenanceEnabled ?? 1),
+    // Bias/darks are trusted across sessions on a cooled camera, but not
+    // indefinitely — see calibrationScan.ts's isExpiredCalibration.
+    calibrationExpiryDays: row.calibrationExpiryDays ?? 180,
   };
 }
 
@@ -435,6 +440,9 @@ function saveSettingsRow(data: Record<string, unknown>): void {
     numOrNull(data.nightlyHousekeepingLastRun),
     numOrNull(data.nightlyForecastLastRun),
     boolToInt(data.nightlyMaintenanceEnabled, 1),
+    // Whole days, at least 1 — a 0 or negative value would mean "always
+    // expired", which reads as a bug rather than a deliberately short window.
+    Math.max(1, Math.round(num(data.calibrationExpiryDays, 180))),
   );
   settingsCache = null;
 }

@@ -14,6 +14,7 @@
  * plain names. That is what lets one set of rules serve both.
  */
 import { parseFilename } from '../telescopeFiles.js';
+import { isCalibrationFolderName } from './calibrationFolders.js';
 
 /** Folders that are purely containers: SeeStar dumps all planetary images here
  *  regardless of which planet was imaged. They must never appear as library
@@ -59,8 +60,10 @@ export function stripCaptureModeSuffix(folderName: string): string {
  *   STARTRAILS    star-trail composites, one output per capture run
  *   Normal_Photos / Panoramas / Burst / Videos
  *                 daytime and terrestrial capture modes
- *   Dark / Flat / Bias
- *                 ASIAIR calibration, which carries no target at all
+ *   Dark / Flat / Bias / Darks / Flats / FlatDark / ...
+ *                 calibration frames, no target of their own — see
+ *                 calibrationFolders.ts for the full recognized name list
+ *                 (singular, plural, and the flat-dark variants it adds)
  *   Preview / Snapshot / log
  *                 ASIAIR working output and device logs
  *
@@ -70,8 +73,6 @@ export function stripCaptureModeSuffix(folderName: string): string {
  * inventing an object per folder was worse than leaving them out.
  */
 const NON_OBJECT_FOLDERS = new Set([
-  'cali_frame',
-  'dwarf_dark',
   'restacked',
   'startrails',
   'normal_photos',
@@ -80,16 +81,19 @@ const NON_OBJECT_FOLDERS = new Set([
   'videos',
   // ASIAIR. `live` is deliberately absent: Live/<Target> holds real stacked
   // output and is discovered as an object like any other target folder.
-  'dark',
-  'flat',
-  'bias',
   'preview',
   'snapshot',
   'log',
 ]);
 
+/** Calibration folder names (cali_frame, dwarf_dark, dark/darks, flat/flats,
+ *  bias/biases, flatdark and its variants, ...) live in calibrationFolders.ts
+ *  rather than in NON_OBJECT_FOLDERS directly, since that module also owns
+ *  their per-frame-type classification and filename metadata parse. Both are
+ *  "this folder holds no observations" in the end, so isNonObjectFolder
+ *  remains the one function every caller checks. */
 export function isNonObjectFolder(name: string): boolean {
-  return NON_OBJECT_FOLDERS.has(name.toLowerCase());
+  return NON_OBJECT_FOLDERS.has(name.toLowerCase()) || isCalibrationFolderName(name);
 }
 
 /** The target a filename names, or null when it encodes none. parseFilename
