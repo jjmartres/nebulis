@@ -1,6 +1,6 @@
 import { useState, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, CalendarDays, Heart } from 'lucide-react';
+import { Sparkles, CalendarDays, Heart, FileArchive } from 'lucide-react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toggleFavorite, getLibraryObjectThumbnailUrl } from '../lib/api/library';
 import type { TelescopeProfile } from '../lib/api/telescopes';
@@ -206,12 +206,27 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
             {object.type}
           </span>
 
-{object.sessionCount !== undefined && object.sessionCount > 0 && (
-            <span className={`inline-flex items-center gap-1 text-xs ml-auto ${
-              isDark ? 'text-slate-500' : 'text-slate-400'
-            }`}>
-              <CalendarDays className="w-3 h-3" />
-              {object.sessionCount} observation{object.sessionCount !== 1 ? 's' : ''}
+{((object.sessionCount ?? 0) > 0 || (object.projectArchiveCount ?? 0) > 0) && (
+            <span className="ml-auto flex flex-col items-end gap-0.5">
+              {object.sessionCount !== undefined && object.sessionCount > 0 && (
+                <span className={`inline-flex items-center gap-1 text-xs ${
+                  isDark ? 'text-slate-500' : 'text-slate-400'
+                }`}>
+                  <CalendarDays className="w-3 h-3" />
+                  {object.sessionCount} observation{object.sessionCount !== 1 ? 's' : ''}
+                </span>
+              )}
+              {/* Only shown once a processing project (Siril/PixInsight .zip) has
+                  actually been archived for this object — most objects have none,
+                  and a permanent "0 projects" line would just be noise. */}
+              {(object.projectArchiveCount ?? 0) > 0 && (
+                <span className={`inline-flex items-center gap-1 text-xs ${
+                  isDark ? 'text-slate-500' : 'text-slate-400'
+                }`}>
+                  <FileArchive className="w-3 h-3" />
+                  {object.projectArchiveCount} project{object.projectArchiveCount !== 1 ? 's' : ''}
+                </span>
+              )}
             </span>
           )}
         </div>
