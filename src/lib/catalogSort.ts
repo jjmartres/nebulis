@@ -10,7 +10,7 @@ import { isOneOf } from './typeGuards';
 export const STATUS_FILTERS = ['all', 'imaged', 'remaining'] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 
-export const SORT_KEYS = ['catalog', 'name', 'magnitude', 'constellation'] as const;
+export const SORT_KEYS = ['catalog', 'name', 'magnitude', 'constellation', 'frameFit'] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
 /** Narrows the raw string a `<select>` hands back to a SortKey. */

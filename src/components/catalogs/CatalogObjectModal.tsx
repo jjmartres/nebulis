@@ -1,14 +1,21 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { X, ExternalLink, Telescope, CalendarDays, MapPin, ChevronLeft, ChevronRight, ZoomIn, EyeOff } from 'lucide-react';
+import { X, ExternalLink, Telescope, CalendarDays, MapPin, ChevronLeft, ChevronRight, ZoomIn, EyeOff, Frame } from 'lucide-react';
 import type { CatalogProgressObject } from '../../lib/api/catalogs';
 import { getCatalogObjectInfo } from '../../lib/api/catalog';
 import { getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import { computeBestImagingWindow, isUpTonight } from '../../lib/bestImagingWindow';
+import type { FitAssessment } from '../../lib/telescopeFov';
+import { FitBadge } from '../FitBadge';
+import { FramingModal, FRAMING_MOSAIC_ENABLED } from './FramingModal';
 
 interface Props {
   object: CatalogProgressObject;
+  /** How this object sits in the current telescope's frame — precomputed by
+   *  `CatalogBoard` (the same map that drives its tiles' badges and the
+   *  "Best frame fit" sort), `null` when the angular size isn't known. */
+  fit: FitAssessment | null;
   hasPrev: boolean;
   hasNext: boolean;
   onPrev: () => void;
@@ -154,6 +161,7 @@ function BestImagingChart({
 
 export function CatalogObjectModal({
   object,
+  fit,
   hasPrev,
   hasNext,
   onPrev,
@@ -170,6 +178,7 @@ export function CatalogObjectModal({
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasLocation = observerLat != null && observerLon != null;
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [framingOpen, setFramingOpen] = useState(false);
 
   // Close the lightbox when switching to a different catalog object.
   // Render-phase reset; the scroll-to-top is a real DOM effect, kept separate.
@@ -289,6 +298,7 @@ export function CatalogObjectModal({
                   Imaged ({object.sessionCount} session{object.sessionCount !== 1 ? 's' : ''})
                 </span>
               )}
+              {fit && <FitBadge tag={fit.tag} label={fit.short} title={fit.label} isDark={isDark} />}
             </div>
             <div className={`flex items-center flex-wrap gap-3 mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               <span>{object.type}</span>
@@ -424,6 +434,18 @@ export function CatalogObjectModal({
               <CalendarDays className="w-4 h-4" />
               Open in Planner
             </button>
+            {FRAMING_MOSAIC_ENABLED && (
+              <button
+                onClick={() => setFramingOpen(true)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition border ${
+                  isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+                title="Preview how this object frames in your telescope, and plan a mosaic"
+              >
+                <Frame className="w-4 h-4 text-sky-500" />
+                Framing &amp; Mosaic
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -464,6 +486,15 @@ export function CatalogObjectModal({
             </button>
           </div>
         </div>
+      )}
+
+      {framingOpen && (
+        <FramingModal
+          catalogId={object.id}
+          objectName={object.name}
+          isDark={isDark}
+          onClose={() => setFramingOpen(false)}
+        />
       )}
     </div>
   );

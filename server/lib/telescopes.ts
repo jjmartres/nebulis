@@ -76,6 +76,15 @@ export interface TelescopeProfile {
   /** telescopeTransports.id to force, overriding selectActiveTransport's
    *  local > ftp > smb heuristic. Null (default) means "Auto". */
   pinnedTransportId: string | null;
+  /** telescopeOpticalConfigs.id of whichever optical setup ("Native", "0.8x
+   *  Reducer", ...) is currently mounted, for kinds with no known fixed field
+   *  of view (`other`, `asiair`) — see resolveFov in src/lib/telescopeFov.ts.
+   *  Null means "use the oldest config" (or a generic fallback with none).
+   *  Ignored for kinds with a known FOV_PROFILES entry. Unlike
+   *  pinnedTransportId, there's no automatic heuristic this overrides — it's
+   *  a plain user choice, since nothing can detect which optical train is
+   *  physically attached. */
+  activeOpticalConfigId: string | null;
 }
 
 interface FullSettings {
@@ -111,6 +120,7 @@ interface TelescopeProfileRow {
   archiveAllFiles: number;
   trackDeviceIdentity: number;
   pinnedTransportId: string | null;
+  activeOpticalConfigId: string | null;
 }
 
 function asKind(value: string | undefined | null): TelescopeKind {
@@ -123,11 +133,11 @@ const profileStmts = {
   getAll: db.prepare<[], TelescopeProfileRow>('SELECT * FROM telescopeProfiles ORDER BY createdAt ASC'),
   getById: db.prepare<[string], TelescopeProfileRow>('SELECT * FROM telescopeProfiles WHERE id = ?'),
   insert: db.prepare(
-    `INSERT INTO telescopeProfiles (id, name, model, hostname, shareName, username, password, isActive, createdAt, kind, color, autoImportEnabled, autoImportInterval, connectionType, localPath, importJpg, importFits, importThumbnails, importSubFrames, importVideos, archiveAllFiles, trackDeviceIdentity)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO telescopeProfiles (id, name, model, hostname, shareName, username, password, isActive, createdAt, kind, color, autoImportEnabled, autoImportInterval, connectionType, localPath, importJpg, importFits, importThumbnails, importSubFrames, importVideos, archiveAllFiles, trackDeviceIdentity, activeOpticalConfigId)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ),
   update: db.prepare(
-    `UPDATE telescopeProfiles SET name = ?, model = ?, hostname = ?, shareName = ?, username = ?, password = ?, kind = ?, color = ?, autoImportEnabled = ?, autoImportInterval = ?, connectionType = ?, localPath = ?, importJpg = ?, importFits = ?, importThumbnails = ?, importSubFrames = ?, importVideos = ?, archiveAllFiles = ?, trackDeviceIdentity = ?, pinnedTransportId = ? WHERE id = ?`
+    `UPDATE telescopeProfiles SET name = ?, model = ?, hostname = ?, shareName = ?, username = ?, password = ?, kind = ?, color = ?, autoImportEnabled = ?, autoImportInterval = ?, connectionType = ?, localPath = ?, importJpg = ?, importFits = ?, importThumbnails = ?, importSubFrames = ?, importVideos = ?, archiveAllFiles = ?, trackDeviceIdentity = ?, pinnedTransportId = ?, activeOpticalConfigId = ? WHERE id = ?`
   ),
   delete: db.prepare('DELETE FROM telescopeProfiles WHERE id = ?'),
   count: db.prepare<[], { c: number }>('SELECT COUNT(*) as c FROM telescopeProfiles'),
@@ -258,6 +268,7 @@ function rowToProfile(row: TelescopeProfileRow): TelescopeProfile {
       ? true
       : Boolean(row.trackDeviceIdentity),
     pinnedTransportId: row.pinnedTransportId ?? null,
+    activeOpticalConfigId: row.activeOpticalConfigId ?? null,
   };
 }
 
@@ -534,6 +545,9 @@ export function createProfile(data: Partial<TelescopeProfile>): TelescopeProfile
     importVideos: data.importVideos ?? false,
     trackDeviceIdentity: data.trackDeviceIdentity ?? true,
     pinnedTransportId: null,
+    // A brand-new profile has no optical configs yet (those are added after
+    // creation, once an id exists to attach them to — see AddTelescopeModal).
+    activeOpticalConfigId: null,
   };
 
   profileStmts.insert.run(
@@ -551,6 +565,7 @@ export function createProfile(data: Partial<TelescopeProfile>): TelescopeProfile
     profile.importVideos ? 1 : 0,
     profile.archiveAllFiles ? 1 : 0,
     profile.trackDeviceIdentity ? 1 : 0,
+    profile.activeOpticalConfigId,
   );
 
   // Seed a matching transport row so the new model (profile + N transports) is
@@ -599,6 +614,7 @@ export function updateProfile(id: string, data: Partial<TelescopeProfile>): Tele
     updated.archiveAllFiles ? 1 : 0,
     updated.trackDeviceIdentity ? 1 : 0,
     updated.pinnedTransportId ?? null,
+    updated.activeOpticalConfigId ?? null,
     id
   );
 

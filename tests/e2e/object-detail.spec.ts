@@ -86,6 +86,76 @@ test.describe('Object Detail', () => {
   });
 });
 
+test.describe('Object Detail — Observations grouped by year', () => {
+  // Regression coverage for ObservationsSection.tsx: it groups observation
+  // cards by year, but only shows a year heading once an object has actually
+  // been shot across more than one year — a single-year object (the default
+  // mock, both nights in 2024) must stay one flat grid with no heading at
+  // all. Nothing in this file previously exercised the multi-year branch.
+  test.beforeEach(async ({ page }) => {
+    await mockAdminAuth(page);
+    await mockAllRoutes(page);
+    await page.route('**/api/library/objects/M42/sessions', r => r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, data: [
+        {
+          id: '2024-03-15', date: '2024-03-15', objectId: 'M42',
+          fileCount: 12, stackedCount: 1, fitsCount: 10, subFrameCount: 10, imageCount: 1, processedCount: 0,
+          thumbnailUrl: '/api/library/objects/M42/thumbnail',
+          filesUrl: '/api/library/objects/M42/sessions/2024-03-15/files',
+          weather: null,
+        },
+        {
+          id: '2023-11-02', date: '2023-11-02', objectId: 'M42',
+          fileCount: 8, stackedCount: 1, fitsCount: 6, subFrameCount: 6, imageCount: 1, processedCount: 0,
+          thumbnailUrl: '/api/library/objects/M42/thumbnail',
+          filesUrl: '/api/library/objects/M42/sessions/2023-11-02/files',
+          weather: null,
+        },
+        {
+          id: '2023-10-01', date: '2023-10-01', objectId: 'M42',
+          fileCount: 8, stackedCount: 1, fitsCount: 6, subFrameCount: 6, imageCount: 1, processedCount: 0,
+          thumbnailUrl: '/api/library/objects/M42/thumbnail',
+          filesUrl: '/api/library/objects/M42/sessions/2023-10-01/files',
+          weather: null,
+        },
+      ] }),
+    }));
+    await page.goto('/object/M42');
+  });
+
+  test('shows one heading per year, newest first, each with its own count', async ({ page }) => {
+    // The year heading span (`font-display ... tabular-nums`) is distinct
+    // from the plain `tabular-nums` year printed inside each card's own date
+    // line — matching on both classes together avoids that collision.
+    const headings = page.locator('span.tabular-nums.font-display');
+    await expect(headings).toHaveText(['2024', '2023']);
+  });
+
+  test('every night still appears, split across its year group', async ({ page }) => {
+    await expect(page.getByText(/Mar 15/).first()).toBeVisible();
+    await expect(page.getByText(/Nov 2/).first()).toBeVisible();
+    await expect(page.getByText(/Oct 1/).first()).toBeVisible();
+  });
+});
+
+test.describe('Object Detail — Observations NOT grouped when only one year', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockAdminAuth(page);
+    await mockAllRoutes(page);
+    await page.goto('/object/M42');
+  });
+
+  test('a single-year object shows no year heading at all', async ({ page }) => {
+    // Both mocked M42 nights are 2024 — a bare year heading would be pure
+    // noise here, so ObservationsSection must not render one.
+    await expect(page.locator('span.tabular-nums.font-display')).toHaveCount(0);
+    await expect(page.getByText(/Mar 15/).first()).toBeVisible();
+    await expect(page.getByText(/Feb 10/).first()).toBeVisible();
+  });
+});
+
 test.describe('Object Detail — Processed Images .fit toggle', () => {
   test.beforeEach(async ({ page }) => {
     await mockAdminAuth(page);

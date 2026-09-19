@@ -16,6 +16,7 @@
 - Sky Forecast: the "Upcoming Nights" outlook now covers three nights instead of two. The third night is about three days out, so its card is dimmed to show it is less certain.
 - macOS and Windows: "View Logs" in the menu bar (macOS) or taskbar (Windows) opens a live log viewer. Follow the server log as it's written, clear it, or save a copy to send with a support request. On Windows the viewer now opens right away and stays responsive while a large log streams in, reads and parses off the UI thread, and no longer re-checks the log path (which meant launching a helper process) on every refresh.
 - Docker: set the `LIBRARY_DIR` environment variable to keep your image library on a separate disk or mount, apart from the database and settings. While it is set, the library location is fixed by the deployment and cannot be changed from the app. See the Docker README.
+- Added a Gallery toggle to Settings -> General -> Navigation bar, so the Gallery menu item can be hidden from the top nav the same way Forecast, Planner, Catalogs, and Help already can.
 
 #### Updated
 - Import to Library: the "import in place" folder picker now has an "Or enter a path" box. Network shares and mapped drive letters never appear in the drive list (a mapped letter exists only in your own Windows sign-in session, and Nebulis runs as a service), so type the share's network path, like \\server\share\folder, to import a library straight off a NAS. Recently used paths are remembered.

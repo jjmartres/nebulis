@@ -6,7 +6,7 @@ import { cachedSmbListDir as smbListDir, BASE_PATH, isTelescopeOnline } from '..
 import { isObjectFolder, isSubFolder, getObjectFromSubFolder, normalizeCatalogId, getFileCategory } from '../lib/telescopeFiles.js';
 import { getCatalogEntry } from '../data/catalog.js';
 import { DATA_DIR } from '../lib/paths.js';
-import { getLibraryDir, getLibraryLocationInfo, isLibraryAvailable, isDefaultLocation, isNetworkLocation, isLibraryPinned, setLibraryPath, withTimeout, LIBRARY_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
+import { getLibraryDir, describeLibraryLocation, getLibraryLocationInfo, isLibraryAvailable, isDefaultLocation, isNetworkLocation, isLibraryPinned, setLibraryPath, withTimeout, LIBRARY_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
 import { isLibraryMigrating } from '../lib/libraryMaintenance.js';
 import { listVolumes, listDirectories, normalizeUserPath } from '../lib/volumes.js';
 import { locateFolderOnDisk, validateLocateInput, type LocateSample } from '../lib/folderLocate.js';
@@ -645,7 +645,14 @@ router.post('/library-location/reset', requireAdmin, async (req: Request, res: R
     res.apiError(409, 'LIBRARY_BUSY', 'The library is being moved. Wait for that to finish first.');
     return;
   }
-  const previousPath = getLibraryDir();
+  // describeLibraryLocation(), not getLibraryDir(): this is purely for the
+  // response/log message, and the location being described here is exactly
+  // the one about to be abandoned — including a network share this platform
+  // can't resolve a real path for (Linux/Docker), which is precisely the
+  // "gone for good" case this route exists to recover from. getLibraryDir()
+  // throws for that case (correctly, for an actual read/write), which would
+  // otherwise 500 this route before the reset it exists to perform ever ran.
+  const previousPath = describeLibraryLocation();
   if (isDefaultLocation()) {
     res.apiSuccess({ ok: true, changed: false, path: previousPath, previousPath });
     return;
