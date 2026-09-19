@@ -11,7 +11,7 @@ import { strictRateLimiter, burstyRateLimiter } from '../middleware/rateLimit.js
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { randomUUID, createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 import multer from 'multer';
 import { log } from '../lib/logger.js';
@@ -19,7 +19,8 @@ import { debugLog, isDebugLoggingEnabled } from '../lib/debugLogger.js';
 import { isErrnoException } from '../lib/errors.js';
 import { redactUrl } from '../lib/logSafe.js';
 import { THUMBNAILS_DIR } from '../lib/paths.js';
-import { getLibraryDir, isLibraryAvailable, withTimeout, LIBRARY_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
+import { getLibraryDir, isLibraryAvailable, statLibraryFileForServe, TimeoutError } from '../lib/libraryPath.js';
+import { runRender } from '../lib/renderQueue.js';
 import { mintDownloadToken, DOWNLOAD_TOKEN_TTL_MS } from '../lib/downloadToken.js';
 import { isLibraryMigrating } from '../lib/libraryMaintenance.js';
 import { getSite } from '../lib/observingSites.js';
@@ -90,13 +91,30 @@ import {
   createProcessingRun,
   getProcessingRun,
   getProcessingRunsForObject,
+  getProjectArchivesForObject,
+  addProjectArchive,
+  deleteProjectArchive,
+  getProjectArchivePath,
+  isProjectArchiveName,
+  projectArchiveMimeType,
   getObjectFolderName,
   scanImportFolder,
   LIBRARY_OBJECT_FILTERS,
   resolveObjectImagePath,
   objectThumbnailDiskCacheKey,
+  fileThumbnailDiskCacheKey,
 } from '../lib/localLibrary.js';
 import { getArchiveDir, listArchivedFolders, listArchiveScopes } from '../lib/library/archiveFolders.js';
+import { listCalibrationLibrary, findCalibrationBundle, calibrationBundleName, deleteCalibrationBundle } from '../lib/library/calibrationScan.js';
+import {
+  isAttachableCalibrationType,
+  attachCalibrationBundle,
+  detachCalibrationBundle,
+  findAttachmentsForBundle,
+  listAttachmentsForObject,
+  resolveAttachmentsForSession,
+} from '../lib/library/calibrationAttachments.js';
+import { stmts as objectStmts } from '../lib/library/objects.js';
 import { stageUploadDestPath } from '../lib/library/uploadPath.js';
 import {
   IMPORT_TMP_BASE,
@@ -210,6 +228,21 @@ async function requireLibraryReachable(res: Response): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+/**
+ * Map a failed `withTimeout(fs.*)` guard onto a response. A real ENOENT is a
+ * 404; a {@link TimeoutError} means the disk is slow or wedged right now (a
+ * burst of cold thumbnail renders saturating the threadpool is the common
+ * cause), which is transient, so answer 503 + Retry-After and let the client
+ * try again rather than caching a "missing image".
+ */
+function respondFsGuardError(res: Response, err: unknown): void {
+  if (err instanceof TimeoutError) {
+    res.status(503).set('Retry-After', '2').type('text/plain').send('Library is busy, retry shortly');
+  } else {
+    res.status(404).type('text/plain').send('Not found');
+  }
 }
 
 // ─── Zod schemas ─────────────────────────────────────────────────────────────
@@ -1019,6 +1052,268 @@ router.get('/archive/scopes', (_req: Request, res: Response) => {
   }
 });
 
+/**
+ * The Calibration Library: every bias/dark/flat/flat-dark folder currently
+ * archived (see calibrationScan.ts), grouped by telescope scope and frame
+ * type, with per-file metadata parsed from filenames where recognized. This
+ * is the dedicated, browsable home for calibration data — /archive above is
+ * the older plain-folder-listing view (still used by the per-telescope
+ * Settings modal), this one is what the top-nav "Calibrations" page reads.
+ *
+ * Flat/flat-dark settings groups are enriched with `attachments` here rather
+ * than in calibrationScan.ts, which stays a pure filesystem read with no
+ * database — this route is the one place calibration data and the
+ * attachments table meet. Bias/dark/mixed groups are never attachable (see
+ * calibrationAttachments.ts), so they are skipped rather than paying for a
+ * lookup that can never find anything.
+ */
+router.get('/calibrations', (_req: Request, res: Response) => {
+  try {
+    const groups = listCalibrationLibrary();
+    for (const group of groups) {
+      if (!isAttachableCalibrationType(group.type)) continue;
+      for (const set of group.settingsGroups) {
+        set.attachments = findAttachmentsForBundle(group.scope, group.folderName, set.key);
+      }
+    }
+    res.apiSuccess({ groups });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to list the calibration library';
+    res.apiError(500, 'CALIBRATIONS_LIST_FAILED', message);
+  }
+});
+
+// ─── Calibration bundle attachment (flats / flat-darks → object/session) ────
+//
+// Bias/darks are stable across sessions on a cooled camera and stay a shared,
+// reusable pool (the whole point of organizing them by settings). Flats and
+// their matching flat-darks are shot fresh per session and correct for that
+// session's optical-train state, so they are session-specific — this lets a
+// user point one at the object (and, optionally, the exact session date) it
+// was captured for. See calibrationAttachments.ts for the full reasoning.
+
+const AttachBundleBodySchema = z.object({
+  scope: z.string().nullable(),
+  folderName: z.string().min(1),
+  key: z.string().min(1),
+  objectId: z.string().min(1),
+  date: z.string().min(1).optional(),
+});
+
+router.post('/calibrations/attach', requireAdmin, (req: Request, res: Response) => {
+  const parsed = AttachBundleBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(400, 'INVALID_BODY', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  const { scope, folderName, key, objectId, date } = parsed.data;
+
+  const found = findCalibrationBundle(scope, folderName, key);
+  if (!found) {
+    res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this page loaded');
+    return;
+  }
+  if (!isAttachableCalibrationType(found.group.type)) {
+    res.apiError(
+      400,
+      'NOT_ATTACHABLE',
+      'Only flats and flat-darks can be attached to an object. Bias and darks are stable across sessions on a cooled camera and stay in the shared calibration pool.',
+    );
+    return;
+  }
+
+  const obj = objectStmts.getObject.get(objectId);
+  if (!obj || obj.deleted) {
+    res.apiError(404, 'OBJECT_NOT_FOUND', 'No such library object');
+    return;
+  }
+
+  const attachment = attachCalibrationBundle({
+    objectId,
+    date,
+    calibrationType: found.group.type,
+    scope,
+    folderName,
+    settingsKey: key,
+  });
+  res.apiSuccess({ attachment: { ...attachment, objectName: obj.objectName ?? obj.folderName } });
+});
+
+router.delete('/calibrations/attach/:id', requireAdmin, (req: Request, res: Response) => {
+  const ok = detachCalibrationBundle(String(req.params.id));
+  if (!ok) {
+    res.apiError(404, 'ATTACHMENT_NOT_FOUND', 'No such attachment');
+    return;
+  }
+  res.apiSuccess({ detached: true });
+});
+
+/** What's attached to one object — every session that has its own attachment
+ *  plus the whole-object one, or (with `?date=`) just what resolves for that
+ *  one session (a session-specific pick wins over the whole-object one). Not
+ *  read by the Calibration Library page itself (that page reads the reverse
+ *  direction via GET /calibrations above) — this is for a future object/
+ *  session detail view to show "flats attached: ...".*/
+router.get('/calibrations/attachments', (req: Request, res: Response) => {
+  const objectId = queryString(req.query.objectId);
+  if (!objectId) {
+    res.apiError(400, 'MISSING_OBJECT_ID', 'objectId is required');
+    return;
+  }
+  const date = queryString(req.query.date);
+  const attachments = date ? resolveAttachmentsForSession(objectId, date) : listAttachmentsForObject(objectId);
+  res.apiSuccess({ attachments });
+});
+
+/**
+ * Permanently deletes one bias/dark bundle's files from the archive — meant
+ * for a set flagged `isExpired` (older than the configured calibration
+ * expiry, Settings → Library → "Dark/bias validity") that the user wants to
+ * reclaim disk space from after re-shooting fresh ones, though nothing here
+ * requires it to actually be expired first. Restricted to bias/dark: flats/
+ * flat-darks are managed by attaching them to an object (see above), not by
+ * deleting them from here — deleting one out from under an active
+ * attachment would silently orphan it with no confirmation this route is
+ * built to give.
+ */
+const DeleteBundleBodySchema = z.object({
+  scope: z.string().nullable(),
+  folderName: z.string().min(1),
+  key: z.string().min(1),
+});
+
+router.delete('/calibrations/bundle', requireAdmin, (req: Request, res: Response) => {
+  const parsed = DeleteBundleBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(400, 'INVALID_BODY', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  const { scope, folderName, key } = parsed.data;
+
+  const found = findCalibrationBundle(scope, folderName, key);
+  if (!found) {
+    res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this page loaded');
+    return;
+  }
+  if (found.group.type !== 'bias' && found.group.type !== 'dark') {
+    res.apiError(
+      400,
+      'NOT_DELETABLE_HERE',
+      'Only bias and dark bundles can be deleted here. Flats and flat-darks are managed by attaching them to an object instead.',
+    );
+    return;
+  }
+
+  const result = deleteCalibrationBundle(scope, folderName, key);
+  res.apiSuccess(result);
+});
+
+// ─── Calibration bundle ZIP ───────────────────────────────────────────────
+//
+// A "bundle" is one CalibrationSettingsGroup — every frame sharing the same
+// exposure/binning/gain/TEC temperature, the grouping a stacking app actually
+// matches calibration frames by. Same two-step signed-URL flow as the
+// whole-object ZIP above (a browser <a download> click cannot send an
+// Authorization header): POST .../link mints a short-lived token, GET
+// consumes it. The (scope, folderName, key) selector is opaque-encoded into
+// the path itself (never a client-supplied file path) so the GET route can
+// re-derive the exact file list from a fresh, authoritative filesystem scan —
+// findCalibrationBundle() re-scans rather than trusting anything decoded here.
+
+interface CalibrationBundleSelector {
+  scope: string | null;
+  folderName: string;
+  key: string;
+}
+
+function encodeCalibrationBundleId(sel: CalibrationBundleSelector): string {
+  return Buffer.from(JSON.stringify(sel)).toString('base64url');
+}
+
+function decodeCalibrationBundleId(id: string): CalibrationBundleSelector | null {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(id, 'base64url').toString('utf8'));
+    if (
+      typeof parsed !== 'object' || parsed === null ||
+      !('folderName' in parsed) || !('key' in parsed) || !('scope' in parsed)
+    ) return null;
+    const { scope, folderName, key } = parsed as Record<string, unknown>;
+    if ((scope !== null && typeof scope !== 'string') || typeof folderName !== 'string' || typeof key !== 'string') {
+      return null;
+    }
+    return { scope, folderName, key };
+  } catch {
+    return null;
+  }
+}
+
+const CalibrationBundleLinkBodySchema = z.object({
+  scope: z.string().nullable(),
+  folderName: z.string().min(1),
+  key: z.string().min(1),
+});
+
+router.post('/calibrations/download/link', strictRateLimiter, (req: Request, res: Response) => {
+  const parsed = CalibrationBundleLinkBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(400, 'INVALID_BODY', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  const { scope, folderName, key } = parsed.data;
+  const found = findCalibrationBundle(scope, folderName, key);
+  if (!found) {
+    res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this page loaded');
+    return;
+  }
+
+  const id = encodeCalibrationBundleId({ scope, folderName, key });
+  // Scope must match the prefix-stripped path the browser GET produces, which
+  // the auth middleware compares against decodeURIComponent(req.path).
+  const token = mintDownloadToken(`/library/calibrations/download/${id}`);
+
+  res.apiSuccess({
+    url: `/api/v1/library/calibrations/download/${id}?t=${encodeURIComponent(token)}`,
+    filename: `${calibrationBundleName(found.group, found.set)}.zip`,
+    expiresInMs: DOWNLOAD_TOKEN_TTL_MS,
+  });
+});
+
+router.get('/calibrations/download/:id', strictRateLimiter, async (req: Request, res: Response) => {
+  const decoded = decodeCalibrationBundleId(String(req.params.id));
+  if (!decoded) {
+    res.apiError(400, 'INVALID_BUNDLE_ID', 'Malformed bundle id');
+    return;
+  }
+  const found = findCalibrationBundle(decoded.scope, decoded.folderName, decoded.key);
+  if (!found) {
+    res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this link was created');
+    return;
+  }
+
+  try {
+    const zipName = `${calibrationBundleName(found.group, found.set)}.zip`;
+    res.set('Content-Type', 'application/zip');
+    res.set('Content-Disposition', contentDispositionHeader('attachment', zipName));
+
+    const archive = archiver('zip', { zlib: { level: 1 } });
+    archive.on('error', (err: Error) => {
+      if (!res.headersSent) res.status(500).send(err.message);
+    });
+    archive.pipe(res);
+
+    for (const f of found.set.files) {
+      if (fs.existsSync(f.path)) {
+        archive.file(f.path, { name: f.name });
+      }
+    }
+
+    await archive.finalize();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Bundle download failed';
+    if (!res.headersSent) res.status(500).send(message);
+  }
+});
+
 router.get('/objects', (req: Request, res: Response) => {
   try {
     const search = typeof req.query.search === 'string' ? req.query.search : '';
@@ -1082,19 +1377,12 @@ router.get('/objects/:objectId', (req: Request, res: Response) => {
 });
 
 // ─── Thumbnail ────────────────────────────────────────────────────────────────
-
-/**
- * Fixed-length disk-cache key. A raw base64url of `path:WxH:mtime` grows with
- * the path, and a Dwarf's device-folder-plus-filename combination (session
- * folder name alone can run ~90 chars, doubled once for the raw file and again
- * for its "stacked-16_..." master) pushes the encoded key past the OS's
- * 255-byte filename-component limit. sharp's toFile() then fails to open the
- * temp file with ENAMETOOLONG, which the client sees as a 500 and the `<img>`
- * renders as broken. A hash is constant-length regardless of input length.
- */
-function thumbnailCacheKey(input: string): string {
-  return createHash('sha256').update(input).digest('base64url');
-}
+//
+// Disk-cache keys are sha256 hashes (objectThumbnailDiskCacheKey /
+// fileThumbnailDiskCacheKey in library/gallery.ts): a raw base64url of
+// `path:WxH:mtime` grows with the path, and a Dwarf's device-folder-plus-
+// filename combination pushes it past the OS's 255-byte filename-component
+// limit, so sharp's toFile() fails with ENAMETOOLONG and the `<img>` breaks.
 
 router.get('/objects/:objectId/thumbnail', async (req: Request, res: Response) => {
   try {
@@ -1116,17 +1404,25 @@ router.get('/objects/:objectId/thumbnail', async (req: Request, res: Response) =
     // (e.g. re-uploading a custom gallery_<id>.jpg, or a refreshed catalog
     // master) busts the disk-cached thumbnail. Without mtime, srcPath alone
     // would map to the same .jpg forever even after the source bytes change.
-    const mtimeMs = (await withTimeout(fs.promises.stat(srcPath), LIBRARY_IO_TIMEOUT_MS)).mtimeMs;
+    let mtimeMs: number;
+    try {
+      mtimeMs = (await statLibraryFileForServe(srcPath)).mtimeMs;
+    } catch (err) {
+      respondFsGuardError(res, err);
+      return;
+    }
     const cacheKey = objectThumbnailDiskCacheKey(srcPath, w, h, mtimeMs);
     const cachePath = path.join(THUMBNAILS_DIR, `${cacheKey}.jpg`);
 
     if (!fs.existsSync(cachePath)) {
       try {
         fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
-        await sharp(srcPath)
+        // Capped so a dashboard/calendar fan-out of cold thumbnails can't
+        // saturate the threadpool and time out sibling requests.
+        await runRender(() => sharp(srcPath)
           .resize(w, h, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 80, progressive: true })
-          .toFile(cachePath);
+          .toFile(cachePath));
       } catch (sharpErr) {
         const msg = sharpErr instanceof Error ? sharpErr.message : '';
         if (msg.includes('corrupt') || msg.includes('not a known file format')) {
@@ -1464,7 +1760,7 @@ router.get('/video', async (req: Request, res: Response) => {
 
   if (!(await requireLibraryReachable(res))) return;
   try {
-    await withTimeout(fs.promises.access(absPath), LIBRARY_IO_TIMEOUT_MS);
+    await statLibraryFileForServe(absPath);
   } catch {
     res.status(404).type('text/plain').send('Not found');
     return;
@@ -1565,21 +1861,18 @@ router.get('/file/thumbnail', burstyRateLimiter, async (req: Request, res: Respo
   }
 
   if (!(await requireLibraryReachable(res))) return;
-  try {
-    await withTimeout(fs.promises.access(absPath), LIBRARY_IO_TIMEOUT_MS);
-  } catch {
-    res.status(404).send('Not found');
-    return;
-  }
 
   // Cache key includes mtime, matching the object-thumbnail route above: without
   // it an in-place overwrite (a re-import replacing the same filename) serves the
-  // old thumbnail forever.
+  // old thumbnail forever. `stat` doubles as the existence guard.
   let mtimeMs = 0;
   try {
-    mtimeMs = (await withTimeout(fs.promises.stat(absPath), LIBRARY_IO_TIMEOUT_MS)).mtimeMs;
-  } catch { /* fall through with 0; a miss is better than a stale hit */ }
-  const cacheKey = thumbnailCacheKey(`${filePath}:${w}x${h}:${mtimeMs}`);
+    mtimeMs = (await statLibraryFileForServe(absPath)).mtimeMs;
+  } catch (err) {
+    respondFsGuardError(res, err);
+    return;
+  }
+  const cacheKey = fileThumbnailDiskCacheKey(filePath, w, h, mtimeMs);
   const cachePath = path.join(THUMBNAILS_DIR, `${cacheKey}.jpg`);
 
   try {
@@ -1588,8 +1881,10 @@ router.get('/file/thumbnail', burstyRateLimiter, async (req: Request, res: Respo
       // cannot display, which now includes a Dwarf's ~100 MB 32-bit float
       // `img_stacked_all.tif`. An observation page asks for the same file twice
       // at once (hero plus grid card), and without this each request starts its
-      // own 100 MB decode.
-      await renderThumbnailOnce(cacheKey, cachePath, absPath, w, h);
+      // own 100 MB decode. `runRender` additionally caps how many *distinct*
+      // renders run at once so a calendar-load burst can't starve the
+      // threadpool (which used to surface as 5s timeouts → 404s here).
+      await runRender(() => renderThumbnailOnce(cacheKey, cachePath, absPath, w, h));
     }
 
     res.set('Content-Type', 'image/jpeg');
@@ -1641,16 +1936,20 @@ router.get('/fits-thumbnail', async (req: Request, res: Response) => {
   if (!(await requireLibraryReachable(res))) return;
 
   try {
-    await withTimeout(fs.promises.access(absPath), LIBRARY_IO_TIMEOUT_MS);
-  } catch {
-    res.status(404).send('Not found');
+    await statLibraryFileForServe(absPath);
+  } catch (err) {
+    respondFsGuardError(res, err);
     return;
   }
 
   const thumbPath = fitsThumbnailPath(absPath, tier);
   try {
-    // No-ops if it already exists; otherwise parses + renders + writes.
-    await generateFitsThumbnail(absPath, tier);
+    // No-ops if it already exists; otherwise parses + renders + writes. The
+    // cache-hit check stays outside the render cap so a warm burst never
+    // queues; only an actual render takes a slot.
+    if (!fs.existsSync(thumbPath)) {
+      await runRender(() => generateFitsThumbnail(absPath, tier));
+    }
     // Read + send the buffer rather than res.sendFile: the thumbnail lives in a
     // `.thumbs/` directory, and Express's sendFile (via `send`) defaults to
     // dotfiles:'ignore', which 404s any path with a dot-prefixed segment.
@@ -1699,15 +1998,17 @@ router.get('/tiff-thumbnail', async (req: Request, res: Response) => {
   if (!(await requireLibraryReachable(res))) return;
 
   try {
-    await withTimeout(fs.promises.access(absPath), LIBRARY_IO_TIMEOUT_MS);
-  } catch {
-    res.status(404).send('Not found');
+    await statLibraryFileForServe(absPath);
+  } catch (err) {
+    respondFsGuardError(res, err);
     return;
   }
 
   const thumbPath = tiffThumbnailPath(absPath, tier);
   try {
-    await generateTiffThumbnail(absPath, tier);
+    if (!fs.existsSync(thumbPath)) {
+      await runRender(() => generateTiffThumbnail(absPath, tier));
+    }
     // Read + send the buffer rather than res.sendFile: the thumbnail lives in
     // a `.thumbs/` directory, and Express's sendFile (via `send`) defaults to
     // dotfiles:'ignore', which 404s any path with a dot-prefixed segment.
@@ -2634,6 +2935,121 @@ router.post('/objects/:objectId/processing-runs', requireAdmin, (req: Request, r
   const { dates, title, notes, software } = parsed.data;
   const run = createProcessingRun(objectId, dates, title?.trim() ?? '', notes?.trim() ?? '', software?.trim() ?? '');
   res.apiSuccess(run);
+});
+
+// ─── Processing-project archives (Siril/PixInsight project bundles) ───────────
+// The working project behind a finished processed image (process icons,
+// masters, logs, ...) — see server/lib/library/projectArchives.ts for the
+// domain reasoning. Object-scoped only, no session date.
+
+const projectArchiveUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, file, cb) => cb(null, `projectarchive_${randomUUID()}_${path.basename(file.originalname)}`),
+  }),
+  // 20 GB: a real PixInsight project (masters + every intermediate XISF
+  // process stage) or a full Siril working folder can run well past the 2 GB
+  // cap the processed-image uploader uses for one finished picture — this is
+  // meant to hold a whole project, not one file. multer streams to a temp
+  // file, so — same as every other uploader in this file — the ceiling bounds
+  // temp-disk usage, not memory; see checkArchiveUploadSpace below for the
+  // free-space guard that actually protects the disk at this size.
+  limits: { fileSize: 20 * 1024 * 1024 * 1024, fieldSize: 1 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, isProjectArchiveName(file.originalname)),
+});
+
+/**
+ * Free-space preflight for a project-archive upload, keyed off the
+ * Content-Length header before multer starts streaming the body anywhere.
+ *
+ * At up to 20 GB per upload this is not optional the way it might be for a
+ * small JSON body: the file lands in full at `os.tmpdir()` first (multer's
+ * diskStorage destination), which on a container/Docker host is routinely a
+ * small tmpfs sized off available RAM, not the library's own volume — a
+ * 20 GB upload can exhaust that long before it ever reaches the library
+ * directory it's ultimately destined for. Checked against *both* candidate
+ * volumes (mirrors the same per-request re-check /import/upload-temp already
+ * does against IMPORT_TMP_BASE) so a caller gets one clear 507 up front
+ * instead of an upload that runs for however long, then fails opaquely with
+ * ENOSPC partway through.
+ */
+function checkArchiveUploadSpace(req: Request, res: Response, next: () => void): void {
+  const contentLengthHeader = req.headers['content-length'];
+  const declaredBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : NaN;
+  if (Number.isFinite(declaredBytes)) {
+    const tmpSpace = checkFreeSpace(os.tmpdir(), declaredBytes, 'to stage this project archive upload');
+    if (!tmpSpace.ok) {
+      log.warn({ declaredBytes, free: tmpSpace.freeBytes, path: tmpSpace.path }, '[project-archives] refused: temp storage nearly full');
+      res.apiError(507, 'INSUFFICIENT_STORAGE', tmpSpace.message ?? 'Not enough temporary storage to stage this upload.');
+      return;
+    }
+    const libSpace = checkFreeSpace(getLibraryDir(), declaredBytes, 'to store this project archive');
+    if (!libSpace.ok) {
+      log.warn({ declaredBytes, free: libSpace.freeBytes, path: libSpace.path }, '[project-archives] refused: library volume nearly full');
+      res.apiError(507, 'INSUFFICIENT_STORAGE', libSpace.message ?? 'Not enough free space in your library to store this archive.');
+      return;
+    }
+  }
+  next();
+}
+
+router.get('/objects/:objectId/project-archives', (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  res.apiSuccess(getProjectArchivesForObject(objectId));
+});
+
+router.post(
+  '/objects/:objectId/project-archives',
+  requireAdmin,
+  checkArchiveUploadSpace,
+  projectArchiveUpload.single('archive'),
+  (req: Request, res: Response) => {
+    const objectId = String(req.params.objectId);
+    const file = req.file;
+    if (!file) {
+      res.apiError(400, 'NO_ARCHIVE', 'No archive file provided, or it was not a .zip');
+      return;
+    }
+
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const notes = typeof req.body?.notes === 'string' ? req.body.notes.trim() : '';
+    const software = typeof req.body?.software === 'string' ? req.body.software.trim() : '';
+
+    try {
+      const record = addProjectArchive(objectId, file.path, file.originalname, projectArchiveMimeType(), title, notes, software);
+      res.apiSuccess(record);
+    } catch (err) {
+      try { fs.unlinkSync(file.path); } catch { /* ignore */ }
+      res.apiError(500, 'UPLOAD_FAILED', err instanceof Error ? err.message : 'Upload failed');
+    }
+  },
+);
+
+router.delete('/objects/:objectId/project-archives/:id', requireAdmin, (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const record = getProjectArchivePath(id);
+  if (!record) {
+    res.apiError(404, 'NOT_FOUND', 'Project archive not found');
+    return;
+  }
+  deleteProjectArchive(id);
+  res.apiSuccess({ deleted: true, id });
+});
+
+/** Serve a project archive by id. Streamed via res.download rather than read
+ *  into a Buffer (see getProjectArchivePath's own doc comment) — these files
+ *  can legitimately be several GB. */
+router.get('/project-archives/:id', async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  if (!(await requireLibraryReachable(res))) return;
+  const file = getProjectArchivePath(id);
+  if (!file) {
+    res.status(404).send('Not found');
+    return;
+  }
+  res.download(file.filePath, file.name, err => {
+    if (err && !res.headersSent) res.status(500).send('Failed to send file');
+  });
 });
 
 // ─── Save edited telescope image back into the library folder ─────────────────

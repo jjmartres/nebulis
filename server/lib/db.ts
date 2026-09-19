@@ -540,6 +540,38 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_observingSites_default
     ON observingSites(isDefault) WHERE isDefault = 1;
   CREATE INDEX IF NOT EXISTS idx_observingSites_sort ON observingSites(sortOrder, createdAt);
+
+  -- Links a flat/flat-dark calibration bundle (server/lib/library/
+  -- calibrationScan.ts) to the object/session it was captured for. Unlike
+  -- bias/darks — stable across sessions on a cooled camera, safely reused
+  -- indefinitely — flats (and their matching flat-darks) are typically shot
+  -- fresh at the end of a session and correct for that session's specific
+  -- optical-train state (dust motes, focus position, camera rotation), so
+  -- they are NOT safely reusable across sessions the way bias/darks are.
+  -- This table is a pointer, not a copy: the calibration bytes stay in
+  -- _archive/ exactly where calibrationScan.ts already finds them — this
+  -- only remembers "this bundle belongs to this object/session".
+  --
+  -- date = '' is the "whole object" sentinel (applies to every session of
+  -- the object that has no more specific attachment of its own) rather than
+  -- NULL, so the unique index below actually enforces "at most one flat +
+  -- one flat-dark attachment per (object, date) slot" — SQLite treats every
+  -- NULL in a unique index as distinct from every other NULL, which would
+  -- silently defeat that constraint.
+  CREATE TABLE IF NOT EXISTS calibrationAttachments (
+    id              TEXT PRIMARY KEY,
+    objectId        TEXT NOT NULL REFERENCES libraryObjects(objectId) ON DELETE CASCADE,
+    date            TEXT NOT NULL DEFAULT '',
+    calibrationType TEXT NOT NULL,
+    scope           TEXT,
+    folderName      TEXT NOT NULL,
+    settingsKey     TEXT NOT NULL,
+    createdAt       TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_calibrationAttachments_slot
+    ON calibrationAttachments(objectId, date, calibrationType);
+  CREATE INDEX IF NOT EXISTS idx_calibrationAttachments_bundle
+    ON calibrationAttachments(scope, folderName, settingsKey);
 `);
 
 // ─── Column migrations for existing databases ────────────────────────────────
@@ -931,6 +963,22 @@ db.exec(`
 
   if (!loCols.some(c => c.name === 'layout')) {
     db.prepare("ALTER TABLE libraryObjects ADD COLUMN layout TEXT NOT NULL DEFAULT 'flat'").run();
+  }
+}
+
+// ─── Calibration expiry (Settings → Library) ─────────────────────────────────
+// Bias/darks are trusted across sessions on a cooled camera, but not
+// indefinitely — a sensor's dark current and read noise drift as it ages
+// (dust settling, gradual degradation). User-configurable in days (finer
+// grained than the months-based unit this started as); existing and fresh
+// installs alike default to 180 days — about 6 months, this feature's
+// original default (server/lib/library/calibrationScan.ts's
+// CALIBRATION_EXPIRY_DAYS_DEFAULT mirrors this same default for the rare
+// case the settings row itself is unreadable).
+{
+  const asExpiryCols = db.prepare<[], { name: string }>('PRAGMA table_info(appSettings)').all();
+  if (!asExpiryCols.some(c => c.name === 'calibrationExpiryDays')) {
+    db.prepare('ALTER TABLE appSettings ADD COLUMN calibrationExpiryDays INTEGER NOT NULL DEFAULT 180').run();
   }
 }
 

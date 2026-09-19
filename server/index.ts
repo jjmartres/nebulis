@@ -46,6 +46,7 @@ import { catalogsRouter } from './routes/catalogs.js';
 import { systemLogRouter } from './routes/systemLog.js';
 import { startPackUpdateChecker } from './lib/catalogPack/updater.js';
 import { startPlannerNightlyScheduler } from './lib/plannerNightlyPrefetch.js';
+import { prewarmSessionThumbnails } from './lib/library/sessionThumbnailPrewarm.js';
 import { startForecastRefresh } from './lib/forecastCache.js';
 import { startAppUpdateChecker } from './lib/appUpdate/updater.js';
 import { prewarmThumbnails } from './lib/catalogPrefetch.js';
@@ -705,6 +706,15 @@ function onListening(): void {
   startPlannerNightlyScheduler();
   startForecastRefresh();
 
+  // Warm the per-session (Nights calendar) thumbnail cache in the background,
+  // deferred so it never competes with the rest of startup. Idempotent, so a
+  // restart only renders whatever is genuinely missing.
+  setTimeout(() => {
+    void prewarmSessionThumbnails('boot').catch(err =>
+      console.warn('[session-thumb-prewarm] boot run failed:', err instanceof Error ? err.message : err),
+    );
+  }, 120_000).unref();
+
   // Advertise via mDNS. Deferred by one tick (via the async IIFE) so it never
   // blocks the listen callback above.
   void (async () => {
@@ -781,9 +791,22 @@ function onListening(): void {
 // closing first. headersTimeout must exceed keepAliveTimeout (Node
 // requirement) or the server logs a startup warning and silently uses
 // headersTimeout unmodified.
+// Node's server.requestTimeout defaults to 300_000ms (5 minutes) and covers
+// receiving the *entire* request body, not just headers — a slowloris guard
+// that quietly 408s any request still uploading past that mark, headers or
+// not. Nebulis routinely accepts large single-request uploads (a processed
+// image up to 2 GB, a processing-project .zip up to 20 GB) where 5 minutes is
+// nowhere near enough time on a typical home upload link (20 GB at 20 Mbps
+// upload is well over an hour) — every one of those was silently at risk of
+// this cutoff before it was ever exercised by a file big enough to notice.
+// Disabled outright (0) rather than just raised: this is a private,
+// self-hosted, admin-gated-for-writes app, not a multi-tenant service where
+// slowloris protection matters as much, and there is no per-route way to
+// override a server-level timeout once a request is already being parsed.
 function configureServerTimeouts(srv: import('http').Server): void {
   srv.keepAliveTimeout = 65_000;
   srv.headersTimeout = 66_000;
+  srv.requestTimeout = 0;
 }
 
 const activeServers: import('http').Server[] = [];

@@ -80,9 +80,12 @@ describe('processed images auto-win the session thumbnail', () => {
     expect(session.thumbnailUrl).toBe(expectedUrl('M2/processed/v2.jpg'));
   });
 
-  it('getLocalSessions: skips a processed image no browser can render', () => {
+  it('getLocalSessions: skips a processed image no browser can render, falling back to the session\'s own raw stacked file', () => {
     // An XISF/FITS deliverable can't be handed to an <img>, so a session with
-    // only that must still fall back to the raw stacked file.
+    // only that falls through past it. With no crown and no renderable
+    // processed image, the session falls back to its own raw stacked file
+    // rather than the object's reference image, so the card shows what this
+    // session actually captured.
     seedObjectWithStackedImage('M3', '2026-01-10');
     seedProcessedImage('M3', '2026-01-10', 'master.xisf', '2026-01-11T00:00:00.000Z');
 

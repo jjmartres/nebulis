@@ -1,5 +1,5 @@
-import type { AstroObject, Session, ProcessedImage, SessionCaptureSummary, ProcessingStatus } from '../../types';
-export type { ProcessedImage, ProcessingStatus };
+import type { AstroObject, Session, ProcessedImage, ProjectArchive, SessionCaptureSummary } from '../../types';
+export type { ProcessedImage, ProjectArchive };
 import { fetchJSON, authHeaders, BASE } from './client';
 import type { ConnectionType as TransportKind } from './telescopes';
 
@@ -137,6 +137,157 @@ export const getLibraryArchive = (telescopeId?: string) =>
  *  currently has archived data. */
 export const getArchiveScopes = () =>
   fetchJSON<Array<string | null>>('/library/archive/scopes');
+
+/** Mirrors server/lib/library/calibrationFolders.ts's CalibrationFrameType,
+ *  plus 'mixed' for Dwarf's blended CALI_FRAME folder. */
+export type CalibrationFrameType = 'bias' | 'dark' | 'flat' | 'flatDark' | 'mixed';
+
+/** Metadata parsed from a calibration frame's own filename, when it matched
+ *  the recognized ASIAIR/NINA-style pattern — see calibrationFolders.ts. */
+export interface CalibrationFrameInfo {
+  exposureSec?: number;
+  binning?: number;
+  gain?: number;
+  filterLabel?: string;
+  sensorTempC?: number;
+  /** ASIAIR's "Camera Angle" field (degrees of sensor/field rotation), not a
+   *  temperature — see server/lib/library/calibrationFolders.ts. */
+  cameraAngleDeg?: number;
+  capturedAt?: string;
+  sequence?: number;
+}
+
+export interface CalibrationFile {
+  name: string;
+  size: number;
+  modifiedAt: string;
+  /** Absolute path on the server — see server/lib/library/calibrationScan.ts. */
+  path: string;
+  info: CalibrationFrameInfo | null;
+}
+
+export interface CalibrationSubfolder {
+  name: string;
+  fileCount: number;
+  bytes: number;
+  modifiedAt: string | null;
+  files: CalibrationFile[];
+}
+
+/** A bundle of frames sharing the same exposure/binning/gain/TEC temperature
+ *  — the grouping that actually matters for matching calibration frames in
+ *  Siril/PixInsight, regardless of which subfolder they physically sit in.
+ *  `null` in any field means the filename didn't encode it. */
+export interface CalibrationSettingsGroup {
+  key: string;
+  exposureSec: number | null;
+  binning: number | null;
+  gain: number | null;
+  sensorTempC: number | null;
+  fileCount: number;
+  bytes: number;
+  modifiedAt: string | null;
+  files: CalibrationFile[];
+  /** Latest capture timestamp among this bundle's files. */
+  capturedAt: string | null;
+  /** True once older than Settings → Library → "Dark/bias validity" — bias/
+   *  dark bundles only, always false for flat/flat-dark/mixed. */
+  isExpired: boolean;
+  /** Where this bundle is attached — flat/flat-dark bundles only. Absent
+   *  (not just empty) for bias/dark/mixed groups, which can't be attached at
+   *  all — see calibrationAttachments.ts. */
+  attachments?: CalibrationAttachmentSummary[];
+}
+
+/** Flats (and their matching flat-darks) correct for the optical train's
+ *  state at capture time, so — unlike bias/darks, which stay valid across
+ *  sessions on a cooled camera — a flat set really only applies to the
+ *  session(s) it was shot for. This points one bundle at the object (and,
+ *  optionally, one specific session date) it belongs to. Mirrors
+ *  server/lib/library/calibrationAttachments.ts's CalibrationAttachmentSummary. */
+export interface CalibrationAttachmentSummary {
+  id: string;
+  objectId: string;
+  objectName: string;
+  /** '' means "applies to every session of this object with no more
+   *  specific attachment of its own". */
+  date: string;
+  calibrationType: 'flat' | 'flatDark';
+  scope: string | null;
+  folderName: string;
+  settingsKey: string;
+  createdAt: string;
+}
+
+export interface CalibrationGroup {
+  type: CalibrationFrameType;
+  typeLabel: string;
+  folderName: string;
+  scope: string | null;
+  scopeLabel: string;
+  fileCount: number;
+  bytes: number;
+  modifiedAt: string | null;
+  subfolders: CalibrationSubfolder[];
+  settingsGroups: CalibrationSettingsGroup[];
+}
+
+/** The Calibration Library: every bias/dark/flat/flat-dark folder currently
+ *  archived, grouped by telescope scope and frame type. See
+ *  server/lib/library/calibrationScan.ts. */
+export const getCalibrationLibrary = () =>
+  fetchJSON<{ groups: CalibrationGroup[] }>('/library/calibrations');
+
+/** Mints a short-lived signed URL for one calibration bundle's ZIP — same
+ *  two-step flow `requestObjectDownloadUrl` uses (a plain `<a download>`
+ *  click can't send an Authorization header): call this first, then point a
+ *  synthetic `<a>` at `url` and click it. */
+export const requestCalibrationBundleUrl = (scope: string | null, folderName: string, key: string) =>
+  fetchJSON<{ url: string; filename: string; expiresInMs: number }>(
+    '/library/calibrations/download/link',
+    { method: 'POST', body: JSON.stringify({ scope, folderName, key }) },
+  );
+
+/** Attach (or reattach — replaces whatever previously occupied this exact
+ *  object/date/type slot) a flat or flat-dark bundle to an object, optionally
+ *  scoped to one specific session date. Rejected server-side (400
+ *  NOT_ATTACHABLE) for a bias/dark/mixed bundle. */
+export const attachCalibrationBundle = (input: {
+  scope: string | null;
+  folderName: string;
+  key: string;
+  objectId: string;
+  date?: string;
+}) =>
+  fetchJSON<{ attachment: CalibrationAttachmentSummary }>(
+    '/library/calibrations/attach',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+
+export const detachCalibrationBundle = (attachmentId: string) =>
+  fetchJSON<{ detached: boolean }>(
+    `/library/calibrations/attach/${encodeURIComponent(attachmentId)}`,
+    { method: 'DELETE' },
+  );
+
+/** Every attachment on one object (both whole-object and any per-session
+ *  ones), or — with a date — just what resolves for that one session (a
+ *  session-specific pick wins over the whole-object one, per type). */
+export const getCalibrationAttachments = (objectId: string, date?: string) =>
+  fetchJSON<{ attachments: CalibrationAttachmentSummary[] }>(
+    `/library/calibrations/attachments?objectId=${encodeURIComponent(objectId)}${date ? `&date=${encodeURIComponent(date)}` : ''}`,
+  );
+
+/** Permanently deletes one bias/dark bundle's files from the archive —
+ *  irreversible, meant for a set flagged `isExpired`. Rejected server-side
+ *  (400 NOT_DELETABLE_HERE) for a flat/flat-dark bundle, which is managed by
+ *  attaching it to an object instead. */
+export const deleteCalibrationBundle = (scope: string | null, folderName: string, key: string) =>
+  fetchJSON<{ deleted: number; failed: number }>(
+    '/library/calibrations/bundle',
+    { method: 'DELETE', body: JSON.stringify({ scope, folderName, key }) },
+  );
+
 export interface LibraryObjectFilter {
   id: string;
   label: string;
@@ -895,6 +1046,110 @@ export const createProcessingRun = (
   fetchJSON<ProcessingRun>(
     `/library/objects/${encodeURIComponent(objectId)}/processing-runs`,
     { method: 'POST', body: JSON.stringify(data) },
+  );
+
+/** Validates the shape returned by the project-archive upload endpoint. */
+function parseProjectArchive(value: unknown): ProjectArchive {
+  const v = asRecord(value);
+  if (!v) throw new Error('Project archive response is not an object');
+  const reqStr = (key: string): string => {
+    const x = v[key];
+    if (typeof x !== 'string') {
+      throw new Error(`Project archive response missing string \`${key}\``);
+    }
+    return x;
+  };
+  const { size } = v;
+  if (typeof size !== 'number') {
+    throw new Error('Project archive response missing number `size`');
+  }
+  return {
+    id: reqStr('id'),
+    objectId: reqStr('objectId'),
+    filename: reqStr('filename'),
+    originalName: reqStr('originalName'),
+    title: reqStr('title'),
+    notes: reqStr('notes'),
+    software: reqStr('software'),
+    size,
+    mimeType: reqStr('mimeType'),
+    uploadedAt: reqStr('uploadedAt'),
+    url: reqStr('url'),
+    path: reqStr('path'),
+  };
+}
+
+// Processing-project archives — the Siril/PixInsight project bundle behind a
+// finished processed image (see ProjectArchive's own doc comment).
+export const getProjectArchives = (objectId: string) =>
+  fetchJSON<ProjectArchive[]>(`/library/objects/${encodeURIComponent(objectId)}/project-archives`);
+
+/**
+ * Upload a project archive, reporting progress and honoring cancellation —
+ * unlike every other single-`fetch` upload in this file, a project archive
+ * can be up to 20 GB, easily an hour-plus transfer on a home upload link, so
+ * a plain `await fetch(...)` with no feedback and no way to stop mid-flight
+ * is not good enough here (mirrors uploadFolderTemp's XHR-based approach,
+ * simplified to a single request instead of that function's multi-batch
+ * loop — there's exactly one file, so there is nothing to batch).
+ */
+export function uploadProjectArchive(
+  objectId: string,
+  file: File,
+  title: string,
+  notes: string,
+  software: string,
+  onProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<ProjectArchive> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+      return;
+    }
+    const formData = new FormData();
+    formData.append('archive', file, file.name);
+    formData.append('title', title);
+    formData.append('notes', notes);
+    formData.append('software', software);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE}/library/objects/${encodeURIComponent(objectId)}/project-archives`);
+    const hdrs = authHeaders();
+    Object.entries(hdrs).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) onProgress(e.loaded, e.total);
+      });
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          resolve(parseProjectArchive(body?.data ?? body));
+        } catch {
+          reject(new Error('Invalid response from server'));
+        }
+      } else {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          reject(new Error(body?.error?.message || body?.error || xhr.statusText));
+        } catch {
+          reject(new Error(xhr.statusText || `Upload failed (${xhr.status})`));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
+    signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(formData);
+  });
+}
+
+export const deleteProjectArchive = (objectId: string, id: string) =>
+  fetchJSON<{ deleted: boolean; id: string }>(
+    `/library/objects/${encodeURIComponent(objectId)}/project-archives/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
   );
 
 export const getLibraryFileUrl = (filePath: string) =>

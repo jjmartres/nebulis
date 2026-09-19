@@ -8,7 +8,7 @@ import { getCatalogEntry } from '../data/catalog.js';
 import { DATA_DIR } from '../lib/paths.js';
 import { getLibraryDir, describeLibraryLocation, getLibraryLocationInfo, isLibraryAvailable, isDefaultLocation, isNetworkLocation, isLibraryPinned, setLibraryPath, withTimeout, LIBRARY_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
 import { isLibraryMigrating } from '../lib/libraryMaintenance.js';
-import { listVolumes, listDirectories } from '../lib/volumes.js';
+import { listVolumes, listDirectories, normalizeUserPath } from '../lib/volumes.js';
 import { locateFolderOnDisk, validateLocateInput, type LocateSample } from '../lib/folderLocate.js';
 import { startMigration, getMigrationStatus } from '../lib/libraryMigration.js';
 import { renestObject, renestLibrary, getRenestStatus, countFlatObjects } from '../lib/library/libraryRenest.js';
@@ -507,17 +507,50 @@ router.get('/volumes', requireAdmin, async (_req: Request, res: Response) => {
   }
 });
 
+/**
+ * Turn a failed readdir into something the user can act on. The common Windows
+ * cases (a mapped drive letter the service can't see, a UNC share the Local
+ * System account can't authenticate to) otherwise surface as a bare "cannot
+ * read that folder" with no hint at the cause or the fix.
+ */
+function browseErrorMessage(target: string, err: unknown): string {
+  const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : '';
+  const onWindows = process.platform === 'win32';
+  const looksUnc = target.startsWith('\\\\') || target.startsWith('//');
+  const looksDriveLetter = /^[A-Za-z]:[\\/]/.test(target);
+
+  if (onWindows && looksUnc && (code === 'EACCES' || code === 'EPERM')) {
+    return `Nebulis reached ${target} but is not allowed to read it. The Nebulis service runs as the Windows "Local System" account, which cannot sign in to network shares. Run the Nebulis service as your own Windows user account, or connect the share under Settings, Storage.`;
+  }
+  if (onWindows && looksUnc && code === 'ENOENT') {
+    return `Network path not found: ${target}. Check the server name and share name, and that the share is online.`;
+  }
+  if (onWindows && looksDriveLetter && code === 'ENOENT') {
+    return `${target.slice(0, 2)} looks like a mapped drive letter. Those exist only inside your personal Windows sign-in session, and Nebulis runs as a background service that cannot see them. Use the share's full network path instead, for example \\\\server\\share\\folder.`;
+  }
+  if (code === 'ENOENT') return `Folder not found: ${target}`;
+  if (code === 'EACCES' || code === 'EPERM') return `Nebulis does not have permission to read ${target}.`;
+  if (code === 'ENOTDIR') return `That path is a file, not a folder: ${target}`;
+  return err instanceof Error ? err.message : 'Cannot read that folder';
+}
+
 // GET /api/v1/storage/browse?path=/abs/path — subdirectories for the folder picker
 router.get('/browse', requireAdmin, async (req: Request, res: Response) => {
-  const target = typeof req.query.path === 'string' ? req.query.path : '';
+  const target = normalizeUserPath(typeof req.query.path === 'string' ? req.query.path : '');
   if (!target || !path.isAbsolute(target)) {
-    res.apiError(400, 'INVALID_PATH', 'Provide an absolute path to browse.');
+    res.apiError(
+      400,
+      'INVALID_PATH',
+      process.platform === 'win32'
+        ? 'Provide a full path, like D:\\Astro or a network path like \\\\server\\share\\folder.'
+        : 'Provide an absolute path to browse.',
+    );
     return;
   }
   try {
     res.apiSuccess({ path: target, directories: await listDirectories(target) });
   } catch (err: unknown) {
-    res.apiError(400, 'BROWSE_FAILED', err instanceof Error ? err.message : 'Cannot read that folder');
+    res.apiError(400, 'BROWSE_FAILED', browseErrorMessage(target, err));
   }
 });
 

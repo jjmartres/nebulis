@@ -126,6 +126,25 @@ export function normalizeDesignation(id: string): string {
 }
 
 /**
+ * True when `id` (after the same case/space/prefix normalization
+ * `normalizeDesignation` applies) is shaped like a bare catalog designation —
+ * "IC4605", "ngc 7000", "Messier 31" — rather than free text. Used to gate a
+ * rewrite on "this is provably a designation" instead of "this merely starts
+ * like one", the same distinction `DESIGNATION_RE`'s doc comment above exists
+ * to enforce.
+ */
+export function isDesignationShaped(id: string): boolean {
+  let s = id.trim().toUpperCase().replace(/\s+/g, '');
+  s = s
+    .replace(/^SHARPLESS-?/, 'SH2-')
+    .replace(/^SH2-?(\d)/, 'SH2-$1')
+    .replace(/^CALDWELL-?(\d)/, 'C$1')
+    .replace(/^MESSIER-?(\d)/, 'M$1')
+    .replace(/^BARNARD-?(\d)/, 'B$1');
+  return DESIGNATION_RE.test(s);
+}
+
+/**
  * Resolve any catalog alias to its canonical ID.
  *
  * Canonical means: the single ID under which images and descriptions are

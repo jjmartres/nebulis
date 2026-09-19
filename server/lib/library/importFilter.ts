@@ -169,6 +169,32 @@ export function isDwarfInternalArtifact(filename: string): boolean {
   return /^img_(reference|stacked_counter)\.[a-z0-9]+$/i.test(filename);
 }
 
+/** Dwarf's own on-device JPEG render of the live stack (`stacked.jpg`, seen
+ *  alongside `stacked_thumbnail.jpg`). It is a real photograph, not a working
+ *  artifact like the two above. Matched on the bare stem ("stacked", nothing
+ *  else) so it can never catch a SeeStar/ASIAIR deliverable — those filenames
+ *  always carry a target and timestamp.
+ *
+ *  Whether it is redundant depends on the session: a Dwarf session that also
+ *  wrote the real science-quality output (`img_stacked_all.tif` and/or a
+ *  `stacked-<N>_...` rolling stack — see isDwarfMasterStack / isDwarfRollingStack)
+ *  has a strictly better image sitting right next to it, but some Dwarf
+ *  layouts write only stacked.jpg with nothing else, where it is the
+ *  session's sole deliverable. Callers must gate hiding this file on
+ *  `isDwarfMasterStack`/`isDwarfRollingStack` finding a sibling in the same
+ *  session — never hide it unconditionally. */
+export function isDwarfDeviceStackPreview(filename: string): boolean {
+  return /^stacked\.[a-z0-9]+$/i.test(filename);
+}
+
+/** A Dwarf II USB rolling stack (`stacked-16_<target>_...`), the same
+ *  science-quality output `dwarfRollingStackMatch` in telescopeFiles.ts
+ *  recognizes by full filename — this only needs the discriminating prefix,
+ *  since it is used purely to detect a sibling's presence, not to parse one. */
+export function isDwarfRollingStack(filename: string): boolean {
+  return /^stacked-\d+_/i.test(filename);
+}
+
 const KEEP: ImportDecision = { import: true };
 
 function drop(filename: string, reason: ImportSkipReason, detail: string): ImportDecision {

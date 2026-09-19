@@ -62,6 +62,18 @@ describe('isNonObjectFolder', () => {
     expect(isNonObjectFolder('Videos')).toBe(true);
   });
 
+  it('matches calibration folders — singular, plural, and flat-dark variants — case-insensitively', () => {
+    // A NAS/manually-organized calibration library commonly uses plural
+    // folder names (Darks, Flats) and per-camera-setup subfolders, unlike
+    // ASIAIR's own flat singular layout. Both must be excluded from object
+    // discovery the same way, via calibrationFolders.ts.
+    for (const name of ['Bias', 'Dark', 'Flat', 'Darks', 'Flats', 'Biases', 'FlatDark', 'FlatDarks']) {
+      expect(isNonObjectFolder(name)).toBe(true);
+      expect(isNonObjectFolder(name.toLowerCase())).toBe(true);
+      expect(isNonObjectFolder(name.toUpperCase())).toBe(true);
+    }
+  });
+
   it('does not match real object folders or Dwarf session folders', () => {
     expect(isNonObjectFolder('M31')).toBe(false);
     expect(isNonObjectFolder('NGC 7000')).toBe(false);

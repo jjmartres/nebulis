@@ -1,8 +1,33 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { HardDrive, FolderOpen, ChevronRight, ArrowUp, RefreshCw, Telescope } from 'lucide-react';
+import { HardDrive, FolderOpen, ChevronRight, ArrowUp, RefreshCw, Telescope, CornerDownLeft, Clock } from 'lucide-react';
 import { listVolumes, browseDirectory, type VolumeInfo, type DirectoryEntry } from '../../lib/api/storage';
 import { formatBytes } from '../../lib/utils';
+
+const RECENT_PATHS_KEY = 'nebulis_import_recent_paths';
+const MAX_RECENT_PATHS = 5;
+
+function getRecentPaths(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_PATHS_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberRecentPath(p: string): string[] {
+  const next = [p, ...getRecentPaths().filter(x => x.toLowerCase() !== p.toLowerCase())].slice(0, MAX_RECENT_PATHS);
+  try {
+    localStorage.setItem(RECENT_PATHS_KEY, JSON.stringify(next));
+  } catch {
+    // Private mode or blocked storage: recent paths are a convenience, not
+    // required. The typed path still works this session.
+  }
+  return next;
+}
 
 /**
  * Browse the server's own filesystem and select a folder to import in place.
@@ -11,6 +36,11 @@ import { formatBytes } from '../../lib/utils';
  * browser. Reuses the same `/storage/volumes` + `/storage/browse` endpoints as
  * the library-location picker. `onChange` fires with the folder currently shown
  * (that is the folder that will be imported), or null before a drive is chosen.
+ *
+ * A path can also be typed or pasted directly. Network shares (`\\host\share`)
+ * and mapped drive letters never show up in the drive list: a mapped letter
+ * exists only inside the signed-in user's Windows session and Nebulis runs as a
+ * service, so a UNC path is the only way to point the in-place import at a NAS.
  */
 export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
   isDark: boolean;
@@ -22,6 +52,10 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
 }) {
   const [volume, setVolume] = useState<VolumeInfo | null>(null);
   const [browsePath, setBrowsePath] = useState<string | null>(null);
+  const [manualPath, setManualPath] = useState('');
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [checkingManual, setCheckingManual] = useState(false);
+  const [recentPaths, setRecentPaths] = useState<string[]>(getRecentPaths);
 
   const { data: volumesData, isLoading: volumesLoading, refetch: refetchVolumes } = useQuery({
     queryKey: ['storage-volumes'],
@@ -39,6 +73,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
 
   function goTo(path: string | null) {
     setBrowsePath(path);
+    setManualError(null);
     onChange(path);
   }
 
@@ -54,6 +89,29 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
     if (!suggestedPath) return;
     setVolume({ path: suggestedPath, label: 'Telescope folder', totalBytes: 0, freeBytes: 0, writable: true, external: true });
     goTo(suggestedPath);
+  }
+
+  /** Open a path the user typed or pasted (a drive path like D:\Astro, or a
+   *  network path like \\server\share\folder). Verified against the server
+   *  before it's accepted so a wrong or unreachable path shows why here rather
+   *  than failing later in the scan. The server-normalized path becomes the
+   *  synthetic volume floor. */
+  async function goToTypedPath(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed || checkingManual) return;
+    setCheckingManual(true);
+    setManualError(null);
+    try {
+      const result = await browseDirectory(trimmed);
+      setVolume({ path: result.path, label: 'Custom path', totalBytes: 0, freeBytes: 0, writable: true, external: true });
+      goTo(result.path);
+      setRecentPaths(rememberRecentPath(result.path));
+      setManualPath('');
+    } catch (err) {
+      setManualError(err instanceof Error ? err.message : 'Cannot read that folder.');
+    } finally {
+      setCheckingManual(false);
+    }
   }
 
   const atVolumeRoot = volume ? browsePath === volume.path : true;
@@ -117,6 +175,60 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
             {(volumesData?.volumes ?? []).length === 0 && (
               <div className={`text-sm ${sub}`}>No drives found. Connect a drive and refresh.</div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Enter a path directly. Network shares and mapped drives don't appear in
+          the list above (a mapped letter only exists in the user's own Windows
+          session, and Nebulis runs as a service), so a UNC path is the way to
+          reach a NAS. */}
+      <div>
+        <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>Or enter a path</span>
+        <form
+          className="flex items-center gap-2 mt-2"
+          onSubmit={e => { e.preventDefault(); void goToTypedPath(manualPath); }}
+        >
+          <input
+            type="text"
+            value={manualPath}
+            onChange={e => { setManualPath(e.target.value); setManualError(null); }}
+            placeholder={'\\\\server\\share\\folder  or  D:\\Astrophotography'}
+            spellCheck={false}
+            autoCapitalize="none"
+            autoCorrect="off"
+            className={`flex-1 min-w-0 px-3 py-2 rounded-lg border text-sm font-mono outline-none transition ${
+              isDark
+                ? 'bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-600 focus:border-accent-500/60'
+                : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-accent-400'
+            }`}
+          />
+          <button
+            type="submit"
+            disabled={!manualPath.trim() || checkingManual}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-50"
+          >
+            {checkingManual ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CornerDownLeft className="w-3.5 h-3.5" />}
+            Open
+          </button>
+        </form>
+        {manualError && <p className="text-xs text-red-500 mt-1.5">{manualError}</p>}
+        {recentPaths.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <Clock className={`w-3 h-3 shrink-0 ${sub}`} />
+            {recentPaths.map(p => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => void goToTypedPath(p)}
+                title={p}
+                className={`max-w-[16rem] truncate px-2 py-1 rounded-md text-xs font-mono border transition ${
+                  isDark ? 'border-slate-800 text-slate-400 hover:bg-slate-800/50' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
           </div>
         )}
       </div>

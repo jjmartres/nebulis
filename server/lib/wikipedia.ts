@@ -25,6 +25,22 @@ const ENDPOINT = 'https://en.wikipedia.org/api/rest_v1/page/summary/';
 const USER_AGENT = 'Nebulis/1.0 (https://nebulis.app - astronomy companion app)';
 const TIMEOUT_MS = 5000;
 
+// The summary endpoint's `thumbnail.source` is sized for the article preview
+// card (a few hundred px wide), not for use as a cached "master" image. We
+// cache this thumbnail on disk and later upscale it to fill a 1920x1080 TV
+// screen (catalog.ts's `?fill=cover` path deliberately allows enlargement
+// there), so a small preview reads as visibly blurry on a big screen.
+// Wikimedia's thumbnail server accepts any width in the URL's `<n>px-`
+// segment and renders up to the original image's real resolution, so
+// requesting a much larger rendition here fixes it at the source — no
+// upscaling needed downstream, and no cost to Wikipedia since it's the same
+// on-the-fly thumbnailer just asked for a different size.
+const REQUESTED_THUMBNAIL_WIDTH = 1920;
+
+export function upsizeThumbnailUrl(url: string, width: number): string {
+  return url.replace(/\/(\d+)px-([^/]+)$/, `/${width}px-$2`);
+}
+
 /**
  * Fetch a Wikipedia page summary for the given title.
  *
@@ -77,7 +93,9 @@ export async function fetchWikipediaSummary(
     return {
       extract,
       wikiUrl: data.content_urls?.desktop?.page ?? '',
-      thumbnailUrl: data.thumbnail?.source ?? null,
+      thumbnailUrl: data.thumbnail?.source
+        ? upsizeThumbnailUrl(data.thumbnail.source, REQUESTED_THUMBNAIL_WIDTH)
+        : null,
     };
   } catch (err) {
     // Re-throw AbortError from the caller-supplied signal so prefetch jobs

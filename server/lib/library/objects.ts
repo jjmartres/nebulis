@@ -17,7 +17,7 @@ import {
   isRealFile,
   sessionNightFor,
 } from '../telescopeFiles.js';
-import { resolveCanonicalId, expandSearchAliases, getAliasesForCanonical } from '../catalogAliases.js';
+import { resolveCanonicalId, expandSearchAliases, getAliasesForCanonical, normalizeDesignation, isDesignationShaped } from '../catalogAliases.js';
 import { getCatalogEntry } from '../../data/catalog.js';
 import { SOLAR_SYSTEM_LOOKUP_KEYS } from '../../data/solar-system-catalog.js';
 import { parseFitsHeader } from '../fitsParser.js';
@@ -153,6 +153,29 @@ export interface ProcessedImageRow {
   uploadedAt: string;
   runId: string | null;
   source: ProcessedImageSource;
+}
+
+/** A user-uploaded archive of an external post-processing project (a Siril
+ *  `.siril`/log bundle, a PixInsight `.xipp`/process-icons/masters bundle,
+ *  ...) — the working files behind a finished processed image, not the image
+ *  itself. Object-scoped only (no session date): a project routinely draws on
+ *  more than one night's subs, so there is no single observation to anchor it
+ *  to, the same reasoning `sessionProcessedImages.date` being nullable exists
+ *  for a Dwarf RESTACKED image. See server/lib/library/projectArchives.ts. */
+export interface ProjectArchiveRow {
+  id: string;
+  objectId: string;
+  filename: string;
+  originalName: string;
+  title: string;
+  notes: string;
+  /** Free-text, e.g. "PixInsight", "Siril" — not an enum, since users name
+   *  their tools inconsistently (version suffixes, GraXpert, APP, ...) and
+   *  nothing downstream branches on this value today. */
+  software: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
 }
 
 export interface ImportHistoryRow {
@@ -360,6 +383,23 @@ db.prepare(`CREATE TABLE IF NOT EXISTS processingRunSessions (
   PRIMARY KEY (runId, date)
 )`).run();
 
+// Processing-project archives (Siril/PixInsight project bundles, see
+// ProjectArchiveRow above) — a fresh table, not a migration of anything
+// older, so it needs no ALTER TABLE dance.
+db.prepare(`CREATE TABLE IF NOT EXISTS projectArchives (
+  id           TEXT PRIMARY KEY,
+  objectId     TEXT NOT NULL,
+  filename     TEXT NOT NULL,
+  originalName TEXT NOT NULL,
+  title        TEXT NOT NULL DEFAULT '',
+  notes        TEXT NOT NULL DEFAULT '',
+  software     TEXT NOT NULL DEFAULT '',
+  size         INTEGER NOT NULL DEFAULT 0,
+  mimeType     TEXT NOT NULL DEFAULT '',
+  uploadedAt   TEXT NOT NULL
+)`).run();
+db.prepare('CREATE INDEX IF NOT EXISTS idx_projectArchives_object ON projectArchives(objectId)').run();
+
 // sessionProcessedImages.runId — added after initial schema. NULL means the
 // image predates processing runs; backfilled below into one-session runs so
 // every processed image ends up with a run and "which nights" is uniform.
@@ -535,6 +575,50 @@ db.prepare(`CREATE TABLE IF NOT EXISTS processingRunSessions (
     })();
     db.pragma('foreign_keys = ON');
     console.log('[library] objectId corruption repair complete');
+  }
+}
+
+// Repair: a mosaic capture's filename puts the "mosaic" mode token BEFORE the
+// target (SeeStar: "Stacked_210_mosaic_NGC 6992_10.0s_LP_..."), but
+// parseFilename's Stacked_ pattern didn't know to treat it as a separate
+// token, so any object imported via the folder-import wizard (or the
+// planetary-container expansion, both of which derive the object name from
+// filenames rather than trusting an existing folder) landed with objectId
+// "mosaic_<designation>" — e.g. "mosaic_IC4605" — instead of
+// "<designation>_mosaic", the suffix form every live-synced mosaic object
+// already uses and the only form normalizeCatalogId/DESIGNATION_RE know how
+// to resolve to catalog data. The object was left with no catalog match:
+// type "Unknown", no coordinates, no "Tonight" score. Fixed going forward in
+// parseFilename; this repairs objects already imported under the broken id.
+//
+// Only rewrites ids where stripping the "mosaic_" prefix leaves something
+// provably designation-shaped, so a legitimate custom object name that merely
+// starts with "Mosaic_..." is never touched. Idempotent, and a no-op on a DB
+// that never hit the bug.
+{
+  const MOSAIC_PREFIX_RE = /^(?:mosai[ck]|mosiac)_(.+)$/i;
+  const candidates = db
+    .prepare<[], { objectId: string }>('SELECT objectId FROM libraryObjects')
+    .all()
+    .map(({ objectId }) => {
+      const m = objectId.match(MOSAIC_PREFIX_RE);
+      if (!m || !isDesignationShaped(m[1])) return null;
+      return { objectId, fixed: `${normalizeDesignation(m[1])}_mosaic` };
+    })
+    .filter((c): c is { objectId: string; fixed: string } => c !== null);
+
+  if (candidates.length > 0) {
+    console.log(`[library] Repairing ${candidates.length} mosaic object(s) with a misparsed objectId...`);
+    db.pragma('foreign_keys = OFF');
+    db.transaction(() => {
+      for (const { objectId, fixed } of candidates) {
+        db.prepare(`UPDATE libraryObjects SET folderName = ? WHERE objectId = ? AND (folderName = objectId OR folderName IS NULL OR folderName = '')`).run(objectId, objectId);
+        const mode = rekeyLibraryObject(objectId, fixed, { skipManifest: true });
+        console.log(`[library]   ${objectId} → ${fixed} (${mode})`);
+      }
+    })();
+    db.pragma('foreign_keys = ON');
+    console.log('[library] mosaic objectId repair complete');
   }
 }
 
@@ -947,6 +1031,32 @@ export const stmts = {
   getRestackedImageByName: db.prepare<[string, string], { id: string }>(
     `SELECT id FROM sessionProcessedImages WHERE objectId = ? AND originalName = ? AND source = 'dwarf-restack' LIMIT 1`,
   ),
+
+  // Processing-project archives (Siril/PixInsight project bundles)
+  // `uploadedAt` is millisecond-resolution, so two archives added within the
+  // same millisecond (never happens for a real human upload, but a fast
+  // scripted sequence or a quick test can hit it) would otherwise tie and
+  // leave "newest first" to whatever order SQLite happens to return —
+  // `rowid DESC` breaks the tie deterministically in true insertion order
+  // (rowid is monotonically increasing on this ordinary, non-WITHOUT-ROWID
+  // table) without changing anything for the common case of distinct
+  // timestamps, where it's never reached.
+  getProjectArchivesForObject: db.prepare<[string], ProjectArchiveRow>(
+    'SELECT * FROM projectArchives WHERE objectId = ? ORDER BY uploadedAt DESC, rowid DESC',
+  ),
+  // Batched count for the library grid (one query for every object, mirroring
+  // getAllSessions below, rather than one COUNT(*) per object per list load).
+  getProjectArchiveCounts: db.prepare<[], { objectId: string; count: number }>(
+    'SELECT objectId, COUNT(*) as count FROM projectArchives GROUP BY objectId',
+  ),
+  getProjectArchive: db.prepare<[string], ProjectArchiveRow>(
+    'SELECT * FROM projectArchives WHERE id = ?',
+  ),
+  insertProjectArchive: db.prepare(
+    `INSERT INTO projectArchives (id, objectId, filename, originalName, title, notes, software, size, mimeType, uploadedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ),
+  deleteProjectArchiveRow: db.prepare('DELETE FROM projectArchives WHERE id = ?'),
 
   // Import history
   insertHistory: db.prepare(
@@ -1617,6 +1727,11 @@ export function getLocalObjects(userId = '', search = '') {
   const favoriteSet = new Set<string>(
     stmts.getAllFavorites.all(userId).map(r => r.objectId),
   );
+  // Same batching reasoning as sessionsByObject above: one GROUP BY query for
+  // every object's processing-project-archive count, not one per object.
+  const projectArchiveCountByObject = new Map<string, number>(
+    stmts.getProjectArchiveCounts.all().map(r => [r.objectId, r.count]),
+  );
 
   return objects.map(obj => {
     const sessionRows = sessionsByObject.get(obj.objectId) ?? [];
@@ -1707,6 +1822,7 @@ export function getLocalObjects(userId = '', search = '') {
       filesUrl: `${LIBRARY_API_BASE}/objects/${encodeURIComponent(obj.objectId)}/files`,
       subFramesUrl: null,
       sessionCount: sessions.length,
+      projectArchiveCount: projectArchiveCountByObject.get(obj.objectId) ?? 0,
       lastSessionDate: sessions.filter(d => d && d !== 'unknown').sort().at(-1) ?? null,
       lastImport: obj.lastImport,
       source: 'local' as const, // `as const` is a type-preserving literal widening — not a type assertion.

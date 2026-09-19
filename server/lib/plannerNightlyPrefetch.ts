@@ -18,6 +18,7 @@ import { getActiveSite } from './observingSites.js';
 import { findCachedMaster, prewarmThumbnails } from './catalogPrefetch.js';
 import { prefetchSkyImage } from './skyImage.js';
 import { purgeJunkFiles, purgeStaleImportTmp, pruneImportLog } from './library/housekeeping.js';
+import { prewarmSessionThumbnails } from './library/sessionThumbnailPrewarm.js';
 import { pruneSystemLog } from './systemLog.js';
 import { refreshForecastCache } from './forecastCache.js';
 import { checkAndUpdatePacks } from './catalogPack/updater.js';
@@ -141,6 +142,12 @@ async function runNightlyTasks(): Promise<void> {
     await runPlannerNightlyPrefetch();
   } catch (err) {
     console.error('[nightly] Planner prefetch failed:', err instanceof Error ? err.message : err);
+  }
+
+  try {
+    await prewarmSessionThumbnails('nightly');
+  } catch (err) {
+    console.error('[nightly] Session thumbnail prewarm failed:', err instanceof Error ? err.message : err);
   }
 
   try {
