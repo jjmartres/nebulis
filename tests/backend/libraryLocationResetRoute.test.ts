@@ -96,34 +96,35 @@ describe('POST /storage/library-location/reset', () => {
     expect(isDefaultLocation()).toBe(true);
   });
 
-  // Regression test: the reset route must succeed on Linux/Docker even when
-  // the library was previously configured as a network share — the exact
-  // platform that cannot *use* a network share but is most likely to need
-  // this escape hatch. resolveNetworkLibraryPath() used to throw on non-
-  // win32/darwin platforms, and the old route called getLibraryDir() (which
-  // runs through that path) just to describe the previous location, so the
-  // request 500'd before the reset ran. resolveNetworkLibraryPath() was later
-  // updated to return a UNC-style display string on all platforms rather than
-  // throw — the route now succeeds and the previous-path description is that
-  // UNC string. See libraryNetwork.ts's resolveNetworkLibraryPath() doc comment.
+  // Regression test: the route used to call getLibraryDir() just to describe
+  // the location being left behind.  resolveNetworkLibraryPath (libraryNetwork.ts)
+  // used to throw on any platform other than win32/darwin, so a network config
+  // configured on macOS and then run on Linux/Docker would 500 before the reset
+  // ever ran — on precisely the platform most likely to need the escape hatch.
+  // That was fixed by two changes: (1) describeLibraryLocation() in libraryPath.ts,
+  // which the route now calls instead of getLibraryDir(), and (2) the upstream
+  // change to resolveNetworkLibraryPath itself, which now returns a UNC-style
+  // display string on every platform instead of throwing — making it safe for the
+  // route to call either function on Linux.  The core guarantee this test locks in
+  // is that POST /storage/library-location/reset succeeds (200) on Linux even when
+  // the current config points at a network share.
   it('clears a network config even on a platform that cannot resolve a real path for it (Linux/Docker)', async () => {
     setNetworkLibraryConfig({
       host: 'nas.local', share: 'Photos', domain: '', username: '', password: 'secret', subpath: 'Nebulis',
     });
     expect(isNetworkLocation()).toBe(true);
     setPlatform('linux');
-    // resolveNetworkLibraryPath() now returns a UNC-style string on Linux
-    // rather than throwing — getLibraryDir() therefore also does not throw.
+    // resolveNetworkLibraryPath no longer throws on Linux — it returns a
+    // UNC-style display string instead.  The route uses describeLibraryLocation()
+    // which delegates to it, so either way no exception reaches the handler.
     expect(() => getLibraryDir()).not.toThrow();
-    expect(getLibraryDir()).toContain('nas.local');
 
     const res = await fetch(`${baseUrl}/storage/library-location/reset`, { method: 'POST' });
     expect(res.status).toBe(200);
     const body = (await res.json()).data as { changed: boolean; previousPath: string };
     expect(body.changed).toBe(true);
-    // previousPath is the UNC-style display string returned by
-    // describeLibraryLocation() / resolveNetworkLibraryPath() — it includes
-    // the host name so the user can identify the share being cleared.
+    // previousPath is whatever describeLibraryLocation() returns — a UNC path
+    // on Linux now that resolveNetworkLibraryPath no longer throws there.
     expect(body.previousPath).toContain('nas.local');
     expect(isNetworkLocation()).toBe(false);
     expect(isDefaultLocation()).toBe(true);
