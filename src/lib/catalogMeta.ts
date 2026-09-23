@@ -7,14 +7,17 @@
 
 export interface CatalogMeta {
   id: string;
-  label: string;
-  /** Year and author line shown above the title. */
+  /** Resolved via t(labelKey, { ns: 'catalogs' }) at the consumer — this
+   *  module has no useTranslation() of its own (plain data, not a component). */
+  labelKey: string;
+  /** Year and author line shown above the title. Left untranslated: it's a
+   *  historical date + a person's name, not a sentence. */
   credit: string;
   total: number;
   /** One short sentence. Used on the board hero, where space is tight. */
-  tagline: string;
+  taglineKey: string;
   /** Two or three sentences explaining what the program is and who it suits. */
-  blurb: string;
+  blurbKey: string;
   /**
    * Hero object candidates, tried in order. Later entries cover the case
    * where the first object has no cached master and the live DSS2 fetch
@@ -26,38 +29,38 @@ export interface CatalogMeta {
 export const CATALOG_LIST: CatalogMeta[] = [
   {
     id: 'messier',
-    label: 'Messier',
+    labelKey: 'catalogMeta.messier.label',
     credit: '1774 · Charles Messier',
     total: 110,
-    tagline: '110 bright showpieces logged by a comet hunter who kept mistaking them for comets.',
-    blurb: 'Messier logged these 110 fuzzy patches while hunting comets, so he would stop mistaking them for new ones. Every entry is bright enough for a small telescope, which makes this the list most imagers finish first.',
+    taglineKey: 'catalogMeta.messier.tagline',
+    blurbKey: 'catalogMeta.messier.blurb',
     heroIds: ['M42', 'M31', 'M8', 'M51'],
   },
   {
     id: 'caldwell',
-    label: 'Caldwell',
+    labelKey: 'catalogMeta.caldwell.label',
     credit: '1995 · Patrick Moore',
     total: 109,
-    tagline: '109 showpieces Messier left out, ordered by declination and reaching deep south.',
-    blurb: 'Patrick Moore picked 109 bright showpieces that Messier left out, ordered by declination and reaching deep into the southern sky. Expect targets the Messier list misses, including the Veil, the Helix, and the Double Cluster.',
+    taglineKey: 'catalogMeta.caldwell.tagline',
+    blurbKey: 'catalogMeta.caldwell.blurb',
     heroIds: ['C33', 'C63', 'C14', 'C49'],
   },
   {
     id: 'herschel400',
-    label: 'Herschel 400',
+    labelKey: 'catalogMeta.herschel400.label',
     credit: '1980 · Astronomical League',
     total: 400,
-    tagline: '400 fainter objects from William Herschel\'s own sweeps. The natural step after Messier.',
-    blurb: '400 objects drawn from William Herschel\'s own sweeps of the sky, chosen as the natural challenge after Messier. Fainter, smaller, and mostly galaxies, so it rewards long integration and dark skies.',
+    taglineKey: 'catalogMeta.herschel400.tagline',
+    blurbKey: 'catalogMeta.herschel400.blurb',
     heroIds: ['NGC891', 'NGC7331', 'NGC2903', 'NGC253'],
   },
   {
     id: 'sharpless',
-    label: 'Sharpless',
+    labelKey: 'catalogMeta.sharpless.label',
     credit: '1959 · Stewart Sharpless',
     total: 313,
-    tagline: '313 clouds of glowing hydrogen, the emission nebulae behind many of the sky\'s familiar names.',
-    blurb: 'Stewart Sharpless catalogued 313 HII regions from the National Geographic sky survey plates. These are the hydrogen-alpha clouds narrowband imagers chase: large, faint, and full of structure. Some carry familiar names like the Cave, the Wizard, and the Pacman, but plenty are unnamed fields waiting for a long exposure.',
+    taglineKey: 'catalogMeta.sharpless.tagline',
+    blurbKey: 'catalogMeta.sharpless.blurb',
     heroIds: ['Sh2-171', 'Sh2-220', 'Sh2-142', 'Sh2-184'],
   },
 ];

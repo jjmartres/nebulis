@@ -50,7 +50,6 @@ import { caldwellToNgcId, CALDWELL_FALLBACK_COORDS } from '../lib/caldwellCatalo
 import { getOverride, saveOverride, deleteOverride, getOverrideRecord } from '../lib/catalogOverrides.js';
 import { getCuratedDescription } from '../lib/curatedDescriptions.js';
 import { lookupTimeZoneForCoordinates } from '../lib/observerTimezone.js';
-import { filterRecommendations } from '../lib/filterRecommendations.js';
 
 /** Max requested thumbnail size — caps Sharp work and disk usage. */
 const MAX_REQUEST_DIMENSION = 1920;
@@ -620,10 +619,9 @@ router.get('/:id/info', (_req: Request, res: Response) => {
   // consulted in this route).
   const override = getOverride(id);
 
-  const resolvedType = override?.type ?? obj?.objectType ?? entry?.type ?? 'Unknown';
   const info = {
     name: override?.name ?? obj?.objectName ?? entry?.name ?? id,
-    type: resolvedType,
+    type: override?.type ?? obj?.objectType ?? entry?.type ?? 'Unknown',
     constellation: override?.constellation ?? obj?.constellation ?? entry?.constellation ?? 'Unknown',
     magnitude: override?.magnitude ?? obj?.magnitude ?? entry?.magnitude ?? null,
     description: override?.description ?? description,
@@ -638,7 +636,6 @@ router.get('/:id/info', (_req: Request, res: Response) => {
     wikiUrl,
     alsoKnownAs: getAlsoKnownAs(id),
     override: getOverrideRecord(id) ?? null,
-    filterRecommendations: filterRecommendations(resolvedType),
   };
 
   // When the object is in the library but has no description yet, trigger a

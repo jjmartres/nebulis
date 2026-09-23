@@ -9,7 +9,9 @@
  */
 import type { ReactNode } from 'react';
 import { CloudSun, Star, Sunrise, Sunset, Timer } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ForecastHour } from '../../lib/api/planner';
+import { translateMoonPhase } from '../../lib/moonPhaseLabel';
 import {
   calculateVisibilityScore,
   formatTime,
@@ -52,6 +54,9 @@ interface Props {
   /** The site picker + refresh control, shown top-right beside the page
    *  title. Passed in already decided (only known when a location is set). */
   siteControl?: ReactNode;
+  /** The light-pollution tile. Built by the page, which owns the active site
+   *  and the detect action, and rendered as a fifth tile in the key-times row. */
+  lightPollution?: ReactNode;
 }
 
 /** Minimum per-hour score for an hour to count as worth being outside for. */
@@ -93,19 +98,27 @@ function findBestWindow(scored: { hour: ForecastHour; vis: VisibilityResult }[])
   };
 }
 
-function StatPill({ icon, label, value, sub }: {
+/** A key-facts tile in the hero. Exported so the light-pollution tile, which
+ *  owns its own data, can sit in the same row rather than inventing a second
+ *  look for the same thing. */
+export function StatPill({ icon, label, value, sub, action, valueClass }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   sub?: string;
+  /** Rendered at the right end of the label row, e.g. a re-detect button. */
+  action?: React.ReactNode;
+  /** Overrides the value's colour, e.g. the Bortle class's own tone. */
+  valueClass?: string;
 }) {
   return (
     <div className="rounded-2xl bg-white/[0.06] px-4 py-3 ring-1 ring-inset ring-white/10 backdrop-blur-md">
       <div className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.14em] text-white/45">
         {icon}
         {label}
+        {action && <span className="ml-auto">{action}</span>}
       </div>
-      <div className="mt-1.5 font-display text-lg font-semibold leading-none text-white tabular-nums">
+      <div className={`mt-1.5 font-display text-lg font-semibold leading-none tabular-nums ${valueClass ?? 'text-white'}`}>
         {value}
       </div>
       {sub && <div className="mt-1.5 text-[11px] leading-tight text-white/45">{sub}</div>}
@@ -114,13 +127,14 @@ function StatPill({ icon, label, value, sub }: {
 }
 
 export function TonightHero({
-  hours, tonight, timeZone, darkWindow, tempUnit, selectedTime, onSelect, accent, siteControl,
+  hours, tonight, timeZone, darkWindow, tempUnit, selectedTime, onSelect, accent, siteControl, lightPollution,
 }: Props) {
+  const { t } = useTranslation('forecast');
   const fmt = (iso: string | null) => (iso ? formatTime(iso, timeZone) : null);
 
   const scored = hours.map(h => ({
     hour: h,
-    vis: calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow),
+    vis: calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow, t),
   }));
 
   // The headline rating averages only the hours inside the usable window, so a
@@ -147,8 +161,8 @@ export function TonightHero({
     : null;
 
   const darkLabel = tonight.darkHours > 0
-    ? { value: `${tonight.darkHours}h`, sub: 'Astronomical dark' }
-    : { value: `${tonight.nauticalDarkHours}h`, sub: 'Nautical dark' };
+    ? { value: `${tonight.darkHours}h`, sub: t('tonightHero.astronomicalDark') }
+    : { value: `${tonight.nauticalDarkHours}h`, sub: t('tonightHero.nauticalDark') };
 
   const astroDusk = fmt(tonight.astronomicalTwilightEnd) ?? fmt(tonight.nauticalTwilightEnd);
   const astroDawn = fmt(tonight.astronomicalTwilightStart) ?? fmt(tonight.nauticalTwilightStart);
@@ -181,10 +195,10 @@ export function TonightHero({
           <div>
             <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
               <CloudSun className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
-              Sky Forecast
+              {t('tonightHero.title')}
             </h1>
             <p className="mt-2 text-[13px] text-white/55">
-              Astronomy weather conditions for tonight and upcoming nights
+              {t('tonightHero.subtitle')}
             </p>
           </div>
           {siteControl}
@@ -196,13 +210,13 @@ export function TonightHero({
             <ScoreDial score={nightScore} size={132} showLabel={false} />
             <div className="min-w-0">
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
-                Tonight
+                {t('tonightHero.tonight')}
               </div>
               <h2
                 className="font-display text-4xl font-bold leading-none tracking-tight sm:text-5xl"
                 style={{ color: hex, textShadow: `0 0 28px ${hex}4d` }}
               >
-                {scoreLabel(nightScore)}
+                {scoreLabel(nightScore, t)}
               </h2>
               {headlineAdvice && (
                 <p className="mt-3 max-w-md text-sm leading-relaxed text-white/65">
@@ -224,53 +238,56 @@ export function TonightHero({
             />
             <div className="min-w-0 leading-tight">
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
-                Moon
+                {t('tonightHero.moon')}
               </div>
               <div className="mt-1 truncate font-display text-lg font-semibold text-white">
-                {tonight.moonPhase}
+                {translateMoonPhase(t, tonight.moonPhase)}
               </div>
               <div className="mt-0.5 truncate text-sm text-white/55 tabular-nums">
-                {Math.round(tonight.moonIllumination)}% illuminated
+                {t('tonightHero.illuminated', { percent: Math.round(tonight.moonIllumination) })}
               </div>
               {/* Allowed to wrap rather than truncate: a half-printed
                   "Sets 4:0" reads as a real time. */}
               {(tonight.moonRise || tonight.moonSet) && (
                 <div className="mt-1.5 text-[11px] text-white/40 tabular-nums">
-                  {fmt(tonight.moonRise) && `Rises ${fmt(tonight.moonRise)}`}
+                  {fmt(tonight.moonRise) && t('tonightHero.rises', { time: fmt(tonight.moonRise) })}
                   {fmt(tonight.moonRise) && fmt(tonight.moonSet) && ' · '}
-                  {fmt(tonight.moonSet) && `Sets ${fmt(tonight.moonSet)}`}
+                  {fmt(tonight.moonSet) && t('tonightHero.sets', { time: fmt(tonight.moonSet) })}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Key times */}
-        <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {/* Key times, plus light pollution once the page supplies that tile.
+            Both column counts are spelled out rather than interpolated:
+            Tailwind only emits a class it can see as a whole string. */}
+        <div className={`mt-7 grid grid-cols-2 gap-3 ${lightPollution ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           <StatPill
             icon={<Timer className="h-3.5 w-3.5" />}
-            label="Dark hours"
+            label={t('tonightHero.darkHours')}
             value={darkLabel.value}
             sub={darkLabel.sub}
           />
           <StatPill
             icon={<Sunset className="h-3.5 w-3.5" />}
-            label="Sunset"
+            label={t('tonightHero.sunset')}
             value={formatTime(tonight.sunset, timeZone)}
-            sub={astroDusk ? `Dark by ${astroDusk}` : 'No dark window'}
+            sub={astroDusk ? t('tonightHero.darkBy', { time: astroDusk }) : t('tonightHero.noDarkWindow')}
           />
           <StatPill
             icon={<Sunrise className="h-3.5 w-3.5" />}
-            label="Sunrise"
+            label={t('tonightHero.sunrise')}
             value={formatTime(tonight.sunrise, timeZone)}
-            sub={astroDawn ? `Dawn from ${astroDawn}` : 'No dark window'}
+            sub={astroDawn ? t('tonightHero.dawnFrom', { time: astroDawn }) : t('tonightHero.noDarkWindow')}
           />
           <StatPill
             icon={<Star className="h-3.5 w-3.5" />}
-            label="Best window"
-            value={best ? `${fmt(best.start)} to ${fmt(best.end)}` : 'None tonight'}
-            sub={best ? `${best.hours}h averaging ${best.avg}` : `Nothing reaches ${USABLE_SCORE}`}
+            label={t('tonightHero.bestWindow')}
+            value={best ? t('tonightHero.windowRange', { start: fmt(best.start), end: fmt(best.end) }) : t('tonightHero.noneTonight')}
+            sub={best ? t('tonightHero.windowAverage', { hours: best.hours, avg: best.avg }) : t('tonightHero.nothingReaches', { score: USABLE_SCORE })}
           />
+          {lightPollution}
         </div>
 
         {/* The night itself */}

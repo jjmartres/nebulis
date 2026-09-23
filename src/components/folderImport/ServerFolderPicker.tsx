@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { HardDrive, FolderOpen, ChevronRight, ArrowUp, RefreshCw, Telescope, CornerDownLeft, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { listVolumes, browseDirectory, type VolumeInfo, type DirectoryEntry } from '../../lib/api/storage';
 import { formatBytes } from '../../lib/utils';
 
@@ -56,6 +57,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
   const [manualError, setManualError] = useState<string | null>(null);
   const [checkingManual, setCheckingManual] = useState(false);
   const [recentPaths, setRecentPaths] = useState<string[]>(getRecentPaths);
+  const { t } = useTranslation('library');
 
   const { data: volumesData, isLoading: volumesLoading, refetch: refetchVolumes } = useQuery({
     queryKey: ['storage-volumes'],
@@ -87,7 +89,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
    *  than climbing arbitrarily high — the same guarantee a real drive gives. */
   function useSuggestedPath() {
     if (!suggestedPath) return;
-    setVolume({ path: suggestedPath, label: 'Telescope folder', totalBytes: 0, freeBytes: 0, writable: true, external: true });
+    setVolume({ path: suggestedPath, label: t('serverFolderPicker.telescopeFolder'), totalBytes: 0, freeBytes: 0, writable: true, external: true });
     goTo(suggestedPath);
   }
 
@@ -103,12 +105,12 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
     setManualError(null);
     try {
       const result = await browseDirectory(trimmed);
-      setVolume({ path: result.path, label: 'Custom path', totalBytes: 0, freeBytes: 0, writable: true, external: true });
+      setVolume({ path: result.path, label: t('serverFolderPicker.customPath'), totalBytes: 0, freeBytes: 0, writable: true, external: true });
       goTo(result.path);
       setRecentPaths(rememberRecentPath(result.path));
       setManualPath('');
     } catch (err) {
-      setManualError(err instanceof Error ? err.message : 'Cannot read that folder.');
+      setManualError(err instanceof Error ? err.message : t('serverFolderPicker.cannotReadFolder'));
     } finally {
       setCheckingManual(false);
     }
@@ -129,7 +131,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
         >
           <span className={`text-sm font-medium flex items-center gap-2 ${body}`}>
             <Telescope className="w-4 h-4 shrink-0 text-accent-500" />
-            Known path for this telescope
+            {t('serverFolderPicker.knownPath')}
           </span>
           <div className={`text-xs font-mono mt-0.5 truncate ${sub}`} title={suggestedPath}>{suggestedPath}</div>
         </button>
@@ -138,17 +140,17 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
       {/* Drives */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>Drives</span>
+          <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>{t('serverFolderPicker.drives')}</span>
           <button
             type="button"
             onClick={() => refetchVolumes()}
             className={`text-xs inline-flex items-center gap-1 ${sub} hover:opacity-80`}
           >
-            <RefreshCw className="w-3 h-3" /> Refresh
+            <RefreshCw className="w-3 h-3" /> {t('serverFolderPicker.refresh')}
           </button>
         </div>
         {volumesLoading ? (
-          <div className={`text-sm ${sub}`}>Looking for drives...</div>
+          <div className={`text-sm ${sub}`}>{t('serverFolderPicker.lookingForDrives')}</div>
         ) : (
           <div className="space-y-1.5">
             {(volumesData?.volumes ?? []).map(v => (
@@ -167,13 +169,13 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
                     <HardDrive className="w-4 h-4 shrink-0 text-accent-500" />
                     {v.label}
                   </span>
-                  <span className={`text-xs tabular-nums shrink-0 ${sub}`}>{formatBytes(v.freeBytes)} free</span>
+                  <span className={`text-xs tabular-nums shrink-0 ${sub}`}>{t('serverFolderPicker.freeSpace', { amount: formatBytes(v.freeBytes) })}</span>
                 </div>
                 <div className={`text-xs font-mono mt-0.5 truncate ${sub}`} title={v.path}>{v.path}</div>
               </button>
             ))}
             {(volumesData?.volumes ?? []).length === 0 && (
-              <div className={`text-sm ${sub}`}>No drives found. Connect a drive and refresh.</div>
+              <div className={`text-sm ${sub}`}>{t('serverFolderPicker.noDrivesFound')}</div>
             )}
           </div>
         )}
@@ -184,7 +186,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
           session, and Nebulis runs as a service), so a UNC path is the way to
           reach a NAS. */}
       <div>
-        <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>Or enter a path</span>
+        <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>{t('serverFolderPicker.orEnterPath')}</span>
         <form
           className="flex items-center gap-2 mt-2"
           onSubmit={e => { e.preventDefault(); void goToTypedPath(manualPath); }}
@@ -193,7 +195,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
             type="text"
             value={manualPath}
             onChange={e => { setManualPath(e.target.value); setManualError(null); }}
-            placeholder={'\\\\server\\share\\folder  or  D:\\Astrophotography'}
+            placeholder={t('serverFolderPicker.pathPlaceholder')}
             spellCheck={false}
             autoCapitalize="none"
             autoCorrect="off"
@@ -209,7 +211,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-50"
           >
             {checkingManual ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CornerDownLeft className="w-3.5 h-3.5" />}
-            Open
+            {t('serverFolderPicker.open')}
           </button>
         </form>
         {manualError && <p className="text-xs text-red-500 mt-1.5">{manualError}</p>}
@@ -236,7 +238,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
       {/* Folder navigation */}
       {volume && (
         <div>
-          <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>Folder to import</span>
+          <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>{t('serverFolderPicker.folderToImport')}</span>
           <div className="flex items-center gap-2 mt-2 mb-2">
             <button
               type="button"
@@ -247,7 +249,7 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
                 goTo(parent || volume.path);
               }}
               className={`shrink-0 p-1.5 rounded-lg ${canGoUp ? (isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100') : 'opacity-40'}`}
-              title="Up one folder"
+              title={t('serverFolderPicker.upOneFolder')}
             >
               <ArrowUp className={`w-4 h-4 ${body}`} />
             </button>
@@ -270,11 +272,11 @@ export function ServerFolderPicker({ isDark, onChange, suggestedPath }: {
               </button>
             ))}
             {(browseData?.directories ?? []).length === 0 && (
-              <div className={`px-3 py-2.5 text-xs ${sub}`}>This folder has no subfolders.</div>
+              <div className={`px-3 py-2.5 text-xs ${sub}`}>{t('serverFolderPicker.noSubfolders')}</div>
             )}
           </div>
           <p className={`text-xs mt-2 ${sub}`}>
-            Nebulis will import the folder shown above. Open a subfolder to go deeper, or use the up arrow.
+            {t('serverFolderPicker.importHint')}
           </p>
         </div>
       )}

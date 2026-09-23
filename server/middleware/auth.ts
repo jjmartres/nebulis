@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { timingSafeEqual } from 'crypto';
-import { verifyToken, getUserCount, getUserTokenVersion, getUserById, type UserRole } from '../lib/auth.js';
+import { verifyToken, getUserCount, getUserById, type UserRole } from '../lib/auth.js';
 import { getApiKey } from '../lib/telescopes.js';
 import { isDeviceActive, touchDevice } from '../lib/devicePairing.js';
 import { verifyDownloadToken } from '../lib/downloadToken.js';
@@ -40,8 +40,15 @@ interface TokenRejection {
  * admin's device token stops carrying admin rights (role is re-read live,
  * not trusted from the signed-but-stale claim).
  *
- * For login tokens (no `jti`): unchanged tokenVersion check, which is how
- * password changes already invalidate them.
+ * For login tokens (no `jti`): the tokenVersion check is unchanged, which is
+ * how password changes already invalidate them, but the ROLE is now taken from
+ * the DB here too. Trusting the signed claim meant a role change did not reach
+ * an already-issued token at all: a demoted admin kept admin rights (user
+ * management, library deletes, folder import, satellite detect) until the
+ * 30-day expiry or a password change, while `/auth/me` reported the live role,
+ * so the UI showed "viewer" and the server still authorized admin. The lookup
+ * below replaces the separate tokenVersion query, so it costs the same single
+ * SELECT by primary key.
  */
 function resolveTokenAuth(payload: ReturnType<typeof verifyToken>): TokenIdentity | TokenRejection {
   if (payload.jti) {
@@ -56,16 +63,19 @@ function resolveTokenAuth(payload: ReturnType<typeof verifyToken>): TokenIdentit
     return { userId: owner.id, username: owner.username, role: owner.role };
   }
 
-  // Login token: verify tokenVersion hasn't been bumped since issue.
-  // Bumped on password change; version 0 is the default for existing accounts.
-  const dbVersion = getUserTokenVersion(payload.userId);
-  if (dbVersion === undefined) {
+  // Login token: one lookup by primary key serves both checks. tokenVersion
+  // catches a password change (version 0 is the default for existing
+  // accounts); the role comes from the same row so a role change takes effect
+  // on tokens that are already out in the world. The token itself stays valid
+  // (the holder is not logged out), they simply stop being admin.
+  const owner = getUserById(payload.userId);
+  if (!owner) {
     return { status: 401, code: 'USER_NOT_FOUND', message: 'Account no longer exists. Please log in again.' };
   }
-  if ((payload.tokenVersion ?? 0) !== dbVersion) {
+  if ((payload.tokenVersion ?? 0) !== owner.tokenVersion) {
     return { status: 401, code: 'SESSION_INVALIDATED', message: 'Session invalidated. Please log in again.' };
   }
-  return { userId: payload.userId, username: payload.username, role: payload.role };
+  return { userId: owner.id, username: owner.username, role: owner.role };
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
@@ -276,10 +286,20 @@ export function apiAuth(req: Request, res: Response, next: NextFunction) {
   // calls POST /auth/register first (which is in the PUBLIC_AUTH list above
   // and bypasses this branch), then attaches the issued Bearer token to
   // every subsequent write.
+  //
+  // The role granted here is `viewer`, NOT `admin`. Admin-on-reads meant that
+  // any LAN neighbour could hit the admin-gated GETs on an unconfigured
+  // install: `GET /storage/browse` alone is an arbitrary-filesystem directory
+  // listing, alongside /storage/volumes, /storage/db-backups, /devices/admin/all
+  // and /auth/users. Nothing in the first-run flow needs those before the first
+  // user exists (the SPA's pre-auth boot only calls /auth/status, and the
+  // folder pickers that use /storage/* are Settings and Import surfaces that
+  // are reached with the admin token minted by registration); after registering,
+  // the user is an admin and every one of them works as before.
   if (!configuredKey && !hasUsers) {
     const method = (req.method || 'GET').toUpperCase();
     if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
-      req.userRole = 'admin';
+      req.userRole = 'viewer';
       return next();
     }
     res.apiError(401, 'SETUP_REQUIRED',

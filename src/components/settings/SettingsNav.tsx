@@ -12,17 +12,18 @@ import {
 } from 'lucide-react';
 import { cloneElement, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { getUpdateStatus } from '../../lib/api/update';
 import { TourAnchor } from '../tour/TourAnchor';
 
 export interface SettingsNavItem {
   id: string;
-  label: string;
+  labelKey: string;
 }
 
 interface SettingsNavGroup {
   id: string;
-  label: string;
+  labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   danger?: boolean;
   adminOnly?: boolean;
@@ -34,38 +35,43 @@ interface SettingsNavGroup {
 /** Ids are load-bearing: `Settings.tsx` reads `?tab=` from three external deep
  *  links (TonightPanel, BackupStatus, and Settings' own What's New link), so
  *  they stay stable even where the label shown to the user has changed
- *  (`hardware` → "Telescopes", `danger` → "Advanced"). */
+ *  (`hardware` → "Telescopes", `danger` → "Advanced").
+ *
+ * `labelKey` rather than `label`: this array is built at module load, before
+ * any component (and its useTranslation() hook) exists, so it cannot carry
+ * translated text directly — consumers resolve it with t(labelKey, { ns:
+ * 'settings' }). */
 export const SETTINGS_NAV: SettingsNavGroup[] = [
-  { id: 'general', label: 'General', icon: Settings },
-  { id: 'library', label: 'Library', icon: Library },
-  { id: 'updates', label: 'Updates', icon: Download, adminOnly: true },
+  { id: 'general', labelKey: 'nav.general', icon: Settings },
+  { id: 'library', labelKey: 'nav.library', icon: Library },
+  { id: 'updates', labelKey: 'nav.updates', icon: Download, adminOnly: true },
   {
     id: 'account',
-    label: 'Account',
+    labelKey: 'nav.account',
     icon: User,
     adminOnly: true,
     items: [
-      { id: 'users', label: 'Users' },
-      { id: 'devices', label: 'Devices' },
+      { id: 'users', labelKey: 'nav.users' },
+      { id: 'devices', labelKey: 'nav.devices' },
     ],
   },
-  { id: 'hardware', label: 'Telescopes', icon: Telescope, adminOnly: true },
-  { id: 'sky', label: 'Sky', icon: Compass, adminOnly: true },
+  { id: 'hardware', labelKey: 'nav.hardware', icon: Telescope, adminOnly: true },
+  { id: 'sky', labelKey: 'nav.sky', icon: Compass, adminOnly: true },
   {
     id: 'storage',
-    label: 'Storage',
+    labelKey: 'nav.storage',
     icon: HardDrive,
     adminOnly: true,
     items: [
-      { id: 'location', label: 'Location' },
-      { id: 'organize', label: 'Organize' },
-      { id: 'cleanup', label: 'Cleanup' },
-      { id: 'backups', label: 'Backups' },
+      { id: 'location', labelKey: 'nav.location' },
+      { id: 'organize', labelKey: 'nav.organize' },
+      { id: 'cleanup', labelKey: 'nav.cleanup' },
+      { id: 'backups', labelKey: 'nav.backups' },
     ],
   },
-  { id: 'log', label: 'System Log', icon: ScrollText, adminOnly: true },
-  { id: 'danger', label: 'Advanced', icon: AlertTriangle, danger: true, adminOnly: true },
-  { id: 'about', label: 'About', icon: Info },
+  { id: 'log', labelKey: 'nav.log', icon: ScrollText, adminOnly: true },
+  { id: 'danger', labelKey: 'nav.danger', icon: AlertTriangle, danger: true, adminOnly: true },
+  { id: 'about', labelKey: 'nav.about', icon: Info },
 ];
 
 interface Props {
@@ -85,6 +91,7 @@ export function SettingsNav({
   isDark,
   isAdmin = true,
 }: Props) {
+  const { t } = useTranslation('settings');
   const visible = SETTINGS_NAV.filter(g => !g.adminOnly || isAdmin);
 
   // Same query key as SoftwareUpdateCard / the top nav's Settings badge, so
@@ -105,7 +112,7 @@ export function SettingsNav({
         <div className={`px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${
           isDark ? 'text-slate-600' : 'text-slate-400'
         }`}>
-          Settings
+          {t('sidebarHeading')}
         </div>
         <ul className="space-y-0.5">
           {visible.map(group => {
@@ -128,7 +135,7 @@ export function SettingsNav({
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  {group.label}
+                  {t(group.labelKey)}
                   {group.id === 'updates' && hasUpdateAvailable && (
                     <span className="ml-auto flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none shrink-0">
                       1
@@ -151,7 +158,7 @@ export function SettingsNav({
                                 : isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-800'
                             }`}
                           >
-                            {item.label}
+                            {t(item.labelKey)}
                           </button>
                         </li>
                       );
@@ -173,7 +180,7 @@ export function SettingsNav({
           activeId={activeGroupId}
           items={visible.map(g => ({
             id: g.id,
-            label: g.label,
+            label: t(g.labelKey),
             icon: g.icon,
             danger: g.danger,
             badge: g.id === 'updates' && hasUpdateAvailable,
@@ -193,7 +200,7 @@ export function SettingsNav({
           return (
             <TabStrip
               activeId={activeItemId ?? activeGroup.items[0].id}
-              items={activeGroup.items.map(i => ({ id: i.id, label: i.label }))}
+              items={activeGroup.items.map(i => ({ id: i.id, label: t(i.labelKey) }))}
               onSelect={onNavigateItem}
               isDark={isDark}
               compact

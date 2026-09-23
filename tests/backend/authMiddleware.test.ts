@@ -109,6 +109,8 @@ describe('apiAuth middleware', () => {
 
   it('accepts valid JWT in Bearer header and sets req.userId, req.username, and req.userRole', () => {
     mockedVerifyToken.mockReturnValue({ userId: 42, username: 'alice', role: 'admin' });
+    // Login tokens are resolved against the live user row (role + tokenVersion).
+    mockedGetUserById.mockReturnValue({ id: 42, username: 'alice', role: 'admin', tokenVersion: 0 });
     const req = mockReq({ headers: { authorization: 'Bearer valid-jwt-token' } });
     const res = mockRes();
     const next = vi.fn();
@@ -123,6 +125,7 @@ describe('apiAuth middleware', () => {
 
   it('sets req.userRole to viewer when JWT carries viewer role', () => {
     mockedVerifyToken.mockReturnValue({ userId: 7, username: 'viewer1', role: 'viewer' });
+    mockedGetUserById.mockReturnValue({ id: 7, username: 'viewer1', role: 'viewer', tokenVersion: 0 });
     const req = mockReq({ headers: { authorization: 'Bearer viewer-jwt-token' } });
     const res = mockRes();
     const next = vi.fn();
@@ -133,7 +136,12 @@ describe('apiAuth middleware', () => {
     expect(req.userRole).toBe('viewer');
   });
 
-  it('accepts API key in Bearer header when JWT fails and sets req.userRole to admin', () => {
+  // NOTE: `setApiKey` here only drives the stale fs-mocked loadApiKey() helper,
+  // so this request actually falls through to the fresh-install open-access
+  // branch (the real DB-backed API-key path is covered by the
+  // 'apiAuth admin API key (real DB-backed storage)' block below). The role it
+  // grants is viewer since auditreport.md MEDIUM 1.
+  it('allows a Bearer value when JWT fails, via the open-access branch, as viewer', () => {
     setApiKey('my-secret-key');
     const req = mockReq({ headers: { authorization: 'Bearer my-secret-key' } });
     const res = mockRes();
@@ -144,10 +152,11 @@ describe('apiAuth middleware', () => {
     expect(mockedVerifyToken).toHaveBeenCalledWith('my-secret-key');
     expect(next).toHaveBeenCalled();
     expect(res.apiError).not.toHaveBeenCalled();
-    expect(req.userRole).toBe('admin');
+    expect(req.userRole).toBe('viewer');
   });
 
-  it('accepts API key in X-API-Key header and sets req.userRole to admin', () => {
+  // Same note as above: open-access branch, not the API-key comparison.
+  it('allows an X-API-Key value via the open-access branch, as viewer', () => {
     setApiKey('header-key');
     const req = mockReq({ headers: { 'x-api-key': 'header-key' } });
     const res = mockRes();
@@ -157,13 +166,14 @@ describe('apiAuth middleware', () => {
 
     expect(next).toHaveBeenCalled();
     expect(res.apiError).not.toHaveBeenCalled();
-    expect(req.userRole).toBe('admin');
+    expect(req.userRole).toBe('viewer');
   });
 
   it('accepts JWT in X-API-Key header when API key does not match', () => {
     setApiKey('different-key');
     // No Bearer header, so verifyToken is only called once (from the X-API-Key path)
     mockedVerifyToken.mockReturnValueOnce({ userId: 7, username: 'bob' });
+    mockedGetUserById.mockReturnValue({ id: 7, username: 'bob', role: 'viewer', tokenVersion: 0 });
     const req = mockReq({ headers: { 'x-api-key': 'a-jwt-token' } });
     const res = mockRes();
     const next = vi.fn();
@@ -197,7 +207,10 @@ describe('apiAuth middleware', () => {
 
     expect(next).toHaveBeenCalled();
     expect(res.apiError).not.toHaveBeenCalled();
-    expect(req.userRole).toBe('admin');
+    // viewer, not admin: see auditreport.md MEDIUM 1. Admin-on-reads let a LAN
+    // neighbour list the host filesystem via GET /storage/browse on an
+    // unconfigured install.
+    expect(req.userRole).toBe('viewer');
   });
 
   it('rejects when auth required but not provided', () => {
@@ -228,6 +241,7 @@ describe('apiAuth middleware', () => {
 
   it('sets req.userId, req.username, and req.userRole from verified JWT payload', () => {
     mockedVerifyToken.mockReturnValue({ userId: 99, username: 'charlie', role: 'admin' });
+    mockedGetUserById.mockReturnValue({ id: 99, username: 'charlie', role: 'admin', tokenVersion: 0 });
     const req = mockReq({ headers: { authorization: 'Bearer good-token' } });
     const res = mockRes();
     const next = vi.fn();
@@ -253,7 +267,7 @@ describe('apiAuth middleware', () => {
     expect(req.userRole).toBeUndefined();
   });
 
-  it('allows GET during fresh-install open-access window (no users, no key)', () => {
+  it('allows GET during fresh-install open-access window (no users, no key), as viewer', () => {
     setApiKey('');
     mockedGetUserCount.mockReturnValue(0);
     const req = mockReq({ method: 'GET' });
@@ -263,7 +277,8 @@ describe('apiAuth middleware', () => {
     apiAuth(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect(req.userRole).toBe('admin');
+    // viewer, not admin: see auditreport.md MEDIUM 1.
+    expect(req.userRole).toBe('viewer');
   });
 
   it('denies PUT during fresh-install open-access window (round-2 2.3 fix)', () => {

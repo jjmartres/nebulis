@@ -26,6 +26,7 @@
 import { altAz } from './astroCalc.js';
 import { checkMoonProximity, type MoonProximityResult } from './moonProximity.js';
 import { objectEverVisible, type VisibleSkyMap } from './visibilityCheck.js';
+import { typeInClass } from './objectCategories.js';
 
 export const AUTO_PLAN_FOCUSES = ['all', 'galaxies', 'nebulae', 'clusters'] as const;
 export type AutoPlanFocus = (typeof AUTO_PLAN_FOCUSES)[number];
@@ -81,9 +82,9 @@ export interface PlanBlock {
 
 function matchesFocus(t: PlanCandidate, focus: AutoPlanFocus): boolean {
   if (focus === 'all') return true;
-  if (focus === 'galaxies') return t.type.toLowerCase().includes('galaxy');
-  if (focus === 'nebulae') return /nebula|emission|reflection|planetary/i.test(t.type);
-  if (focus === 'clusters') return /cluster/i.test(t.type);
+  if (focus === 'galaxies') return typeInClass(t.type, 'galaxy');
+  if (focus === 'nebulae') return typeInClass(t.type, 'nebula');
+  if (focus === 'clusters') return typeInClass(t.type, 'cluster');
   return true;
 }
 

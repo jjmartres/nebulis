@@ -383,6 +383,7 @@ const spec = {
           nightlyMaintenanceEnabled: { type: 'boolean', description: 'Master switch for the whole nightly maintenance batch' },
           nightlyHousekeepingLastRun: nullable({ type: 'integer', description: 'Unix ms of the last run, read-only' }),
           nightlyForecastLastRun: nullable({ type: 'integer', description: 'Unix ms of the last run, read-only' }),
+          calibrationExpiryDays: { type: 'integer', description: 'Days an archived bias/dark bundle stays valid before the Calibrations page flags it expired' },
         },
       },
     },

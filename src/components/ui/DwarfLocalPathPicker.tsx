@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Usb, FolderOpen, RotateCw, Check } from 'lucide-react';
 import { listDwarfMounts } from '../../lib/api/telescopes';
 
@@ -20,6 +21,7 @@ export function DwarfLocalPathPicker({
   isDark: boolean;
   autoFocus?: boolean;
 }) {
+  const { t } = useTranslation('common');
   const { data, isFetching, refetch } = useQuery({
     queryKey: ['dwarf-mounts'],
     queryFn: () => listDwarfMounts(),
@@ -35,7 +37,7 @@ export function DwarfLocalPathPicker({
 
   return (
     <div>
-      <label className={labelClass}>Dwarf USB storage path</label>
+      <label className={labelClass}>{t('dwarfLocalPathPicker.usbStoragePath')}</label>
 
       {mounts.length > 0 && (
         <div className="mb-2 space-y-1">
@@ -68,7 +70,7 @@ export function DwarfLocalPathPicker({
         <FolderOpen className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
         <input
           type="text"
-          placeholder={mounts.length > 0 ? 'Or paste a custom path...' : '/Volumes/DWARF_3 or D:\\'}
+          placeholder={mounts.length > 0 ? t('localPathPicker.customPathPlaceholder') : t('dwarfLocalPathPicker.defaultPathPlaceholder')}
           value={localPath}
           onChange={e => setLocalPath(e.target.value)}
           className={inputClass}
@@ -81,8 +83,8 @@ export function DwarfLocalPathPicker({
           className={`p-2 rounded-lg transition flex-shrink-0 ${
             isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
           } disabled:opacity-50`}
-          aria-label="Refresh detected mounts"
-          title="Refresh detected mounts"
+          aria-label={t('dwarfLocalPathPicker.refreshMounts')}
+          title={t('dwarfLocalPathPicker.refreshMounts')}
         >
           <RotateCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
         </button>
@@ -90,8 +92,8 @@ export function DwarfLocalPathPicker({
 
       <p className={helperClass}>
         {mounts.length > 0
-          ? `Detected ${mounts.length} Dwarf USB volume${mounts.length === 1 ? '' : 's'}. Pick one or paste a custom path.`
-          : 'Plug the Dwarf into this computer via USB and tap refresh. The volume usually appears as DWARF_3 or similar.'}
+          ? t('dwarfLocalPathPicker.detected', { count: mounts.length })
+          : t('dwarfLocalPathPicker.plugIn')}
       </p>
     </div>
   );

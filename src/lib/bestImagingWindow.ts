@@ -8,6 +8,7 @@
  */
 import { altAz } from './altaz';
 import { nightWindowFor, plannerToday } from './nightWindow';
+import { monthLabels } from './formatLocale';
 
 interface MonthlyAltSample {
   /** Mid-month Date (15th of each month, current or next year) */
@@ -32,8 +33,6 @@ interface BestImagingWindow {
   everVisible: boolean;
 }
 
-const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
 /**
  * Sample an object's max-altitude-at-darkness for the 12 months starting from
  * the current calendar month. Uses the 15th of each month as an anchor; checks
@@ -48,10 +47,11 @@ export function computeBestImagingWindow(
 ): BestImagingWindow {
   const now = new Date();
   const months: MonthlyAltSample[] = [];
+  const monthAbbr = monthLabels();
 
   for (let i = 0; i < 12; i++) {
     const anchor = new Date(now.getFullYear(), now.getMonth() + i, 15, 12, 0, 0);
-    const label = MONTH_ABBR[anchor.getMonth()];
+    const label = monthAbbr[anchor.getMonth()];
 
     const night = nightWindowFor(anchor, lat, lon);
     if (!night) {

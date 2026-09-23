@@ -1,5 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Star, Images, AlertCircle, Search, Filter, ArrowUpDown, Check, Sparkles,
 } from 'lucide-react';
@@ -20,11 +22,11 @@ import { isOptionValue } from '../lib/typeGuards';
 
 type SortKey = 'name-asc' | 'name-desc' | 'date-desc' | 'date-asc';
 
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'name-asc',  label: 'Name (A–Z)' },
-  { value: 'name-desc', label: 'Name (Z–A)' },
-  { value: 'date-desc', label: 'Newest first' },
-  { value: 'date-asc',  label: 'Oldest first' },
+const SORT_OPTIONS: { value: SortKey; labelKey: string }[] = [
+  { value: 'name-asc',  labelKey: 'galleryPage.sortNameAsc' },
+  { value: 'name-desc', labelKey: 'galleryPage.sortNameDesc' },
+  { value: 'date-desc', labelKey: 'galleryPage.sortDateDesc' },
+  { value: 'date-asc',  labelKey: 'galleryPage.sortDateAsc' },
 ];
 
 const SORT_STORAGE_KEY = 'nebulis-gallery-sort';
@@ -38,7 +40,9 @@ function readStoredSort(): SortKey {
 }
 
 export function ImageGalleryPage() {
+  const { t } = useTranslation('library');
   const { isDark, isNight, isSpace } = useTheme();
+  const { isAdmin } = useAuth();
   // The hero is night-side in every theme (a picture of the sky), so it takes
   // the bright accent hex directly rather than the light-mode-darkened token,
   // matching the Observations, Planner and Catalog banners.
@@ -106,8 +110,8 @@ export function ImageGalleryPage() {
       .filter(f => f.id !== ALL_FILTER_ID && enabledIds.has(f.id))
       .map(f => ({ id: f.id, label: f.label }));
     const typeChips = typeFilters
-      .filter(t => enabledIds.has(t.id))
-      .map(t => ({ id: t.id, label: t.label }));
+      .filter(tf => enabledIds.has(tf.id))
+      .map(tf => ({ id: tf.id, label: tf.label }));
     return [...groupChips, ...typeChips];
   }, [objectFilters, typeFilters, enabledIds]);
 
@@ -267,7 +271,7 @@ export function ImageGalleryPage() {
           <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
           <input
             type="text"
-            placeholder="Search by object name..."
+            placeholder={t('galleryPage.searchPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className={`w-full pl-10 pr-4 py-2.5 rounded-full text-sm ring-1 ring-inset transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 ${
@@ -287,7 +291,10 @@ export function ImageGalleryPage() {
             }`}
           >
             <ArrowUpDown className="w-4 h-4" />
-            {SORT_OPTIONS.find(o => o.value === sortKey)?.label}
+            {(() => {
+              const opt = SORT_OPTIONS.find(o => o.value === sortKey);
+              return opt ? t(opt.labelKey) : null;
+            })()}
           </button>
           {sortOpen && (
             <div className={`absolute right-0 top-full mt-1.5 z-20 w-44 rounded-2xl border shadow-lg overflow-hidden ${
@@ -307,7 +314,7 @@ export function ImageGalleryPage() {
                         : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                   {sortKey === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
                 </button>
               ))}
@@ -322,10 +329,10 @@ export function ImageGalleryPage() {
           <button
             type="button"
             onClick={() => setFilterMenuOpen(o => !o)}
-            aria-label="Customize filters"
+            aria-label={t('galleryPage.customizeFilters')}
             aria-haspopup="menu"
             aria-expanded={filterMenuOpen}
-            title="Customize filters"
+            title={t('galleryPage.customizeFilters')}
             className={`flex items-center justify-center w-8 h-8 rounded-full ring-1 ring-inset transition-colors ${
               filterMenuOpen
                 ? isDark ? 'bg-slate-800 ring-slate-600 text-slate-200' : 'bg-slate-100 ring-slate-300 text-slate-700'
@@ -360,7 +367,7 @@ export function ImageGalleryPage() {
           }`}
         >
           <Star className={`w-3.5 h-3.5 ${effectiveFilterId === FAVORITES_FILTER_ID ? 'fill-current' : ''}`} />
-          Favorites
+          {t('galleryPage.favorites')}
         </button>
         {/* Independent of the type/Favorites radio group above: a checkbox, not
             a chip in that set, since "processed" is a different axis (kind of
@@ -379,7 +386,7 @@ export function ImageGalleryPage() {
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
-          Processed only
+          {t('galleryPage.processedOnly')}
         </button>
         <button
           onClick={() => setActiveFilterId(ALL_FILTER_ID)}
@@ -391,7 +398,7 @@ export function ImageGalleryPage() {
                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
           }`}
         >
-          All
+          {t('galleryPage.all')}
         </button>
         {chips.map(chip => (
           <button
@@ -412,13 +419,13 @@ export function ImageGalleryPage() {
 
       {!isLoading && !error && images && (
         <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {filtered.length} image{filtered.length !== 1 ? 's' : ''}
+          {t('galleryPage.count', { count: filtered.length })}
           {effectiveFilterId === FAVORITES_FILTER_ID
-            ? ' favorited'
+            ? t('galleryPage.favoritedSuffix')
             : effectiveFilterId !== ALL_FILTER_ID
               ? ` · ${filterLabel(effectiveFilterId, objectFilters, typeFilters)}`
-              : ' in library'}
-          {processedOnly ? ' · Processed only' : ''}
+              : t('galleryPage.inLibrarySuffix')}
+          {processedOnly ? t('galleryPage.processedOnlySuffix') : ''}
         </p>
       )}
 
@@ -433,8 +440,8 @@ export function ImageGalleryPage() {
       ) : error ? (
         <div className={`text-center py-16 space-y-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
           <AlertCircle className="w-12 h-12 mx-auto text-accent-500/50" />
-          <p className={`text-lg font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Unable to load images</p>
-          <p className="mt-1 text-sm">{error instanceof Error ? error.message : "We couldn't load your images right now. Refresh to retry, or check that the Nebulis server is running."}</p>
+          <p className={`text-lg font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{t('galleryPage.unableToLoad')}</p>
+          <p className="mt-1 text-sm">{error instanceof Error ? error.message : t('galleryPage.loadErrorFallback')}</p>
         </div>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -455,15 +462,15 @@ export function ImageGalleryPage() {
           </div>
           <div className="space-y-2">
             <p className={`text-xl font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-              {effectiveFilterId === FAVORITES_FILTER_ID ? 'No favorited images yet'
-                : processedOnly ? 'No processed images yet'
-                : search || effectiveFilterId !== ALL_FILTER_ID ? 'No images match your filters'
-                : 'No images in library'}
+              {effectiveFilterId === FAVORITES_FILTER_ID ? t('galleryPage.noFavoritedYet')
+                : processedOnly ? t('galleryPage.noProcessedYet')
+                : search || effectiveFilterId !== ALL_FILTER_ID ? t('galleryPage.noMatchFilters')
+                : t('galleryPage.noImagesInLibrary')}
             </p>
             <p className="text-sm max-w-sm mx-auto">
-              {effectiveFilterId === FAVORITES_FILTER_ID ? 'Star an image to add it to your favorites.'
-                : processedOnly ? 'Upload a processed image from an observation page to see it here.'
-                : 'Import images from your SeeStar telescope to see them here.'}
+              {effectiveFilterId === FAVORITES_FILTER_ID ? t('galleryPage.starToFavorite')
+                : processedOnly ? t('galleryPage.uploadProcessedHint')
+                : t('galleryPage.importFromTelescopeHint')}
             </p>
           </div>
         </div>
@@ -473,6 +480,7 @@ export function ImageGalleryPage() {
       {viewerIndex !== null && filtered.length > 0 && (
         <ImageViewer
           images={filtered} initialIndex={viewerIndex}
+          isAdmin={isAdmin}
           onClose={() => setViewerIndex(null)}
           onToggleFavorite={handleToggleFavorite}
         />

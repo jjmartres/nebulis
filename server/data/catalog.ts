@@ -317,6 +317,69 @@ export function searchCatalog(query: string): CatalogEntry[] {
   return scored.sort((a, b) => b.score - a.score).map(r => r.entry);
 }
 
+/**
+ * Compact a display name for equality comparison: lowercase, strip accents,
+ * and drop every character that is not a letter or digit. This is what makes
+ * "Bode's Galaxy", "Bodes Galaxy" and "bodes  galaxy" the same name, and it is
+ * deliberately stricter than `searchCatalog` (which is word-based and so needs
+ * a literal token match, punctuation included).
+ */
+function compactName(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Exact-name lookup that ignores case, spaces, and punctuation.
+ *
+ * The folder-import path asks "is this folder name an object's name?" far more
+ * often than it asks "does this text appear somewhere in the catalog", and
+ * `searchCatalog` answers the second question: its word-token AND match needs
+ * every token, punctuation included, so a folder literally named after an
+ * object whose catalog name has an apostrophe never resolved. This returns a
+ * match only on a full compact equality against a display name or one of
+ * OpenNGC's common names, so it can never select a partial/fuzzy candidate.
+ *
+ * Built once and memoized: a folder import asks this once per object folder,
+ * and a library can hold thousands, so a per-call scan of the catalog would be
+ * thousands of full passes. Curated entries are inserted first so a curated
+ * display name wins a collision, matching `searchCatalog`'s ordering.
+ */
+let _compactNameIndex: Map<string, CatalogEntry> | null = null;
+
+function compactNameIndex(): Map<string, CatalogEntry> {
+  if (_compactNameIndex) return _compactNameIndex;
+  const index = new Map<string, CatalogEntry>();
+  const put = (name: string, entry: CatalogEntry): void => {
+    const key = compactName(name);
+    if (key && !index.has(key)) index.set(key, entry);
+  };
+
+  for (const e of catalog) put(e.name, e);
+  for (const ngc of openNgcData) {
+    const messierStr = ngc.messier != null ? String(ngc.messier) : null;
+    const fromNgc = (displayName: string): CatalogEntry => ({
+      id: messierStr ?? ngc.id,
+      name: displayName,
+      type: ngc.type,
+      constellation: ngc.constellation ?? '',
+      magnitude: ngc.magnitude ?? undefined,
+      description: '',
+      ra: ngc.ra != null ? String(ngc.ra) : undefined,
+      dec: ngc.dec != null ? String(ngc.dec) : undefined,
+    });
+    if (ngc.name) put(ngc.name, fromNgc(ngc.name));
+    for (const common of ngc.commonNames ?? []) put(common, fromNgc(common));
+  }
+
+  _compactNameIndex = index;
+  return index;
+}
+
+export function findCatalogEntryByExactName(query: string): CatalogEntry | undefined {
+  const key = compactName(query);
+  return key ? compactNameIndex().get(key) : undefined;
+}
+
 export function getAllCatalogEntries(): CatalogEntry[] {
   return catalog;
 }

@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { getLibraryDir, isNetworkLocation, getLibraryLocationInfo } from '../libraryPath.js';
-import { getFolderName } from './objects.js';
+import { getFolderName, resolveContainedObjectDir } from './objects.js';
 import { getLocalFiles } from './observations.js';
 
 export interface DiskLocation {
@@ -77,11 +77,19 @@ function diskLocation(relPath: string): DiskLocation {
 }
 
 export async function getObjectLocation(objectId: string, date?: string): Promise<ObjectLocation> {
-  const folderName = getFolderName(objectId);
-  const object = diskLocation(folderName);
+  // Only ever describe a directory that is genuinely inside the library. The
+  // folder name falls back to the raw id on a DB miss, so `path.join(root, id)`
+  // used to answer with an absolute path outside the library plus an exists
+  // oracle for it. An unresolvable id now reports an empty, non-existent
+  // location instead of a real path.
+  const objDir = resolveContainedObjectDir(objectId);
+  const folderName = objDir ? getFolderName(objectId) : '';
+  const object = objDir
+    ? diskLocation(folderName)
+    : { relPath: '', path: '', exists: false };
 
   let session: DiskLocation | null = null;
-  if (date) {
+  if (date && objDir) {
     const sub = sessionSubdir(objectId, date);
     session = diskLocation(sub ? `${folderName}/${sub}` : folderName);
   }

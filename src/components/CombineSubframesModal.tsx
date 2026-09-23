@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import { X, Download, RotateCw, CheckSquare, Square, Layers, PackageCheck, XCircle, AlertCircle, Filter } from 'lucide-react';
 import {
   getLibrarySessions,
@@ -13,6 +14,7 @@ import { useTheme } from '../hooks/useTheme';
 import { Modal } from './ui/Modal';
 import { CloseConfirm } from './ui/CloseConfirm';
 import { rememberCombinedSessions } from '../lib/lastCombinedSessions';
+import { formatDate } from '../lib/formatLocale';
 
 interface Props {
   objectId: string;
@@ -20,21 +22,26 @@ interface Props {
 }
 
 type Phase = 'select' | 'filter-select' | 'preparing' | 'done';
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 
-const FILTER_LABELS: Record<string, string> = {
-  IRCUT: 'IR Cut',
-  LP: 'Light Pollution (LP)',
-  LPRO: 'Light Pollution (LPRO)',
-  Ha: 'Hydrogen Alpha (Ha)',
-  OIII: 'Oxygen III (OIII)',
-  SII: 'Sulfur II (SII)',
-  Astro: 'Astro',
-  'Duo-Band': 'Duo-Band',
-  DualBand: 'Dual-Band',
+// Filter codes are a fixed, known set reported by the telescope firmware, not
+// free text, so each maps to its own translated key rather than being passed
+// through t() directly.
+const FILTER_LABEL_KEYS: Record<string, string> = {
+  IRCUT: 'observationDetail.combineSubframesModal.filterLabels.ircut',
+  LP: 'observationDetail.combineSubframesModal.filterLabels.lp',
+  LPRO: 'observationDetail.combineSubframesModal.filterLabels.lpro',
+  Ha: 'observationDetail.combineSubframesModal.filterLabels.ha',
+  OIII: 'observationDetail.combineSubframesModal.filterLabels.oiii',
+  SII: 'observationDetail.combineSubframesModal.filterLabels.sii',
+  Astro: 'observationDetail.combineSubframesModal.filterLabels.astro',
+  'Duo-Band': 'observationDetail.combineSubframesModal.filterLabels.duoBand',
+  DualBand: 'observationDetail.combineSubframesModal.filterLabels.dualBand',
 };
 
-function filterLabel(f: string): string {
-  return FILTER_LABELS[f] ?? f;
+function filterLabel(t: TFunc, f: string): string {
+  const key = FILTER_LABEL_KEYS[f];
+  return key ? t(key) : f;
 }
 
 function formatBytes(bytes: number): string {
@@ -42,14 +49,15 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatTime(ms: number): string {
+function formatTime(t: TFunc, ms: number): string {
   const s = Math.round(ms / 1000);
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m ${s % 60}s`;
+  if (s < 60) return t('observationDetail.combineSubframesModal.durationSeconds', { count: s });
+  return t('observationDetail.combineSubframesModal.durationMinutesSeconds', { minutes: Math.floor(s / 60), seconds: s % 60 });
 }
 
 export function CombineSubframesModal({ objectId, onClose }: Props) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [phase, setPhase] = useState<Phase>('select');
   const [zipSize, setZipSize] = useState(0);
@@ -184,7 +192,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
       } else if (status.status === 'error' || status.status === 'cancelled') {
         stopPolling();
         jobIdRef.current = null;
-        if (status.status === 'error') setError(status.error ?? 'Archive failed');
+        if (status.status === 'error') setError(status.error ?? t('observationDetail.combineSubframesModal.archiveFailed'));
         setPhase('select');
         setSubframesArchiveStatus(null);
       }
@@ -214,7 +222,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
       pollRef.current = setInterval(() => pollStatus(jobId), 500);
     } catch (err) {
       if (!cancelledRef.current) {
-        setError(err instanceof Error ? err.message : 'Download failed');
+        setError(err instanceof Error ? err.message : t('observationDetail.combineSubframesModal.downloadFailed'));
         setPhase('select');
       }
     }
@@ -265,7 +273,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
     <Modal
       isOpen
       onClose={requestClose}
-      title="Combine Subframes and Download"
+      title={t('observationDetail.combineSubframesModal.title')}
       className={`relative w-full max-w-lg rounded-2xl shadow-2xl flex flex-col ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white shadow-xl'
       }`}
@@ -277,7 +285,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
               ? <Filter className="w-4 h-4 text-accent-500" />
               : <Layers className="w-4 h-4 text-accent-500" />}
             <h2 className={`font-display font-semibold text-base ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-              {phase === 'filter-select' ? 'Select Filter Types' : 'Combine Subframes & Download'}
+              {phase === 'filter-select' ? t('observationDetail.combineSubframesModal.selectFilterTypes') : t('observationDetail.combineSubframesModal.headerTitle')}
             </h2>
           </div>
           {(phase === 'select' || phase === 'filter-select') && (
@@ -299,7 +307,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
               </div>
             ) : sessionsWithSubs.length === 0 ? (
               <div className={`text-center py-10 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                No sessions with downloaded subframes found.
+                {t('observationDetail.combineSubframesModal.noSessionsFound')}
               </div>
             ) : (
               <>
@@ -312,7 +320,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                   {allSelected
                     ? <CheckSquare className="w-4 h-4 text-accent-500 shrink-0" />
                     : <Square className="w-4 h-4 shrink-0" />}
-                  Select all
+                  {t('observationDetail.combineSubframesModal.selectAll')}
                 </button>
 
                 <div className={`border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`} />
@@ -320,10 +328,10 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                 {sessionsWithSubs.map(session => {
                   const isChecked = selected.has(session.date);
                   const label = session.date !== 'unknown'
-                    ? new Date(session.date + 'T12:00:00').toLocaleDateString('en-US', {
+                    ? formatDate(new Date(session.date + 'T12:00:00'), {
                         year: 'numeric', month: 'long', day: 'numeric',
                       })
-                    : 'Unknown date';
+                    : t('observationDetail.combineSubframesModal.unknownDate');
 
                   return (
                     <button
@@ -342,7 +350,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                       <span className={`text-xs px-2 py-0.5 rounded-md ${
                         isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'
                       }`}>
-                        {session.subFrameCount} subframe{session.subFrameCount !== 1 ? 's' : ''}
+                        {t('observationDetail.combineSubframesModal.subframeCount', { count: session.subFrameCount })}
                       </span>
                     </button>
                   );
@@ -353,7 +361,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
         ) : phase === 'filter-select' ? (
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2 max-h-96">
             <p className={`text-xs pb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Multiple filter types were used across the selected sessions. Choose which to include.
+              {t('observationDetail.combineSubframesModal.multipleFilterTypesHint')}
             </p>
 
             <button
@@ -365,7 +373,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
               {allFiltersSelected
                 ? <CheckSquare className="w-4 h-4 text-accent-500 shrink-0" />
                 : <Square className="w-4 h-4 shrink-0" />}
-              Select all
+              {t('observationDetail.combineSubframesModal.selectAll')}
             </button>
 
             <div className={`border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`} />
@@ -385,7 +393,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                   {isChecked
                     ? <CheckSquare className="w-4 h-4 text-accent-500 shrink-0" />
                     : <Square className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />}
-                  <span className="flex-1 text-left">{filterLabel(f)}</span>
+                  <span className="flex-1 text-left">{filterLabel(t, f)}</span>
                   <span className={`text-xs font-mono px-2 py-0.5 rounded-md ${
                     isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'
                   }`}>
@@ -403,12 +411,12 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
               </div>
               <div>
                 <p className={`font-medium text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                  Building Archive…
+                  {t('observationDetail.combineSubframesModal.buildingArchive')}
                 </p>
                 <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                   {jobStatus
-                    ? `${jobStatus.filesDone} of ${jobStatus.filesTotal} files packed`
-                    : `Preparing ${totalSubFrames} subframe${totalSubFrames !== 1 ? 's' : ''}…`}
+                    ? t('observationDetail.combineSubframesModal.filesPacked', { done: jobStatus.filesDone, total: jobStatus.filesTotal })
+                    : t('observationDetail.combineSubframesModal.preparingSubframes', { count: totalSubFrames })}
                 </p>
               </div>
             </div>
@@ -428,15 +436,15 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                 <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>
                   {jobStatus && jobStatus.elapsedMs > 0 ? (
                     etaMs !== null && etaMs > 500
-                      ? `~${formatTime(etaMs)} remaining`
-                      : `${formatTime(jobStatus.elapsedMs)} elapsed`
+                      ? t('observationDetail.combineSubframesModal.timeRemaining', { time: formatTime(t, etaMs) })
+                      : t('observationDetail.combineSubframesModal.timeElapsed', { time: formatTime(t, jobStatus.elapsedMs) })
                   ) : null}
                 </span>
               </div>
             </div>
 
             <p className={`text-center text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              The browser will start downloading once the archive is ready.
+              {t('observationDetail.combineSubframesModal.browserWillDownload')}
             </p>
 
             <div className="flex justify-center">
@@ -449,7 +457,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                 }`}
               >
                 <XCircle className="w-4 h-4" />
-                Cancel
+                {t('confirmModal.cancel', { ns: 'common' })}
               </button>
             </div>
           </div>
@@ -460,17 +468,19 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
             </div>
             <div>
               <p className={`font-medium text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                Download started
+                {t('observationDetail.combineSubframesModal.downloadStarted')}
               </p>
               <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                {zipSize > 0 ? `${formatBytes(zipSize)} ZIP` : 'Your ZIP file'} is downloading via your browser.
+                {zipSize > 0
+                  ? t('observationDetail.combineSubframesModal.zipDownloadingSized', { size: formatBytes(zipSize) })
+                  : t('observationDetail.combineSubframesModal.zipDownloadingGeneric')}
               </p>
             </div>
             <button
               onClick={onClose}
               className="mt-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition"
             >
-              Close
+              {t('observationDetail.combineSubframesModal.closeButton')}
             </button>
           </div>
         )}
@@ -490,9 +500,14 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                 ? <CheckSquare className="w-4 h-4 text-accent-500 shrink-0 mt-0.5" />
                 : <Square className={`w-4 h-4 shrink-0 mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />}
               <span className="flex-1">
-                <span className="block font-medium">Combine into a single lights folder for Siril</span>
+                <span className="block font-medium">{t('observationDetail.combineSubframesModal.sirilLayoutOption')}</span>
                 <span className={`block text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Puts every subframe in <span className="font-mono">{objectId}/lights/</span> instead of keeping the per-session folders.
+                  <Trans
+                    i18nKey="observationDetail.combineSubframesModal.sirilLayoutHint"
+                    ns="observations"
+                    values={{ path: `${objectId}/lights/` }}
+                    components={{ 1: <span className="font-mono" /> }}
+                  />
                 </span>
               </span>
             </button>
@@ -510,8 +525,8 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
             ) : (
               <p className={`text-xs flex-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 {selected.size > 0
-                  ? `${selected.size} session${selected.size !== 1 ? 's' : ''} · ${totalSubFrames} subframe${totalSubFrames !== 1 ? 's' : ''}`
-                  : 'Select sessions to combine'}
+                  ? `${t('observationDetail.combineSubframesModal.sessionsSelectedCount', { count: selected.size })} · ${t('observationDetail.combineSubframesModal.subframeCount', { count: totalSubFrames })}`
+                  : t('observationDetail.combineSubframesModal.selectSessionsPrompt')}
               </p>
             )}
             <div className="flex gap-2 shrink-0">
@@ -521,7 +536,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                   isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
                 }`}
               >
-                Cancel
+                {t('confirmModal.cancel', { ns: 'common' })}
               </button>
               <button
                 onClick={handleDownload}
@@ -531,7 +546,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                 {filtersLoading && selected.size > 0
                   ? <RotateCw className="w-4 h-4 animate-spin" />
                   : <Download className="w-4 h-4" />}
-                Combine &amp; Download
+                {t('observationDetail.combineSubframesModal.combineAndDownload')}
               </button>
             </div>
           </div>
@@ -542,8 +557,8 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
           <div className={`px-5 py-4 border-t flex items-center justify-between gap-3 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
             <p className={`text-xs flex-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
               {selectedFilters.size > 0
-                ? `${selectedFilters.size} of ${availableFilters.length} filter type${availableFilters.length !== 1 ? 's' : ''} selected`
-                : 'Select at least one filter type'}
+                ? t('observationDetail.combineSubframesModal.filterTypesSelected', { count: availableFilters.length, selected: selectedFilters.size })
+                : t('observationDetail.combineSubframesModal.selectAtLeastOneFilter')}
             </p>
             <div className="flex gap-2 shrink-0">
               <button
@@ -552,7 +567,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                   isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
                 }`}
               >
-                Back
+                {t('observationDetail.combineSubframesModal.back')}
               </button>
               <button
                 onClick={handleFilterDownload}
@@ -560,7 +575,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Download className="w-4 h-4" />
-                Combine &amp; Download
+                {t('observationDetail.combineSubframesModal.combineAndDownload')}
               </button>
             </div>
           </div>
@@ -568,7 +583,7 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
 
         {confirmingClose && (
           <CloseConfirm
-            message="Discard your session selection?"
+            message={t('observationDetail.combineSubframesModal.discardSelection')}
             onCancel={() => setConfirmingClose(false)}
             onDiscard={() => { setConfirmingClose(false); onClose(); }}
             isDark={isDark}

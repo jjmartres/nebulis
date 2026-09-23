@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   X, Type, Crop, SlidersHorizontal, MousePointer,
   AlignLeft, AlignCenter, AlignRight,
@@ -69,10 +70,10 @@ interface Props {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FONTS = [
-  { label: 'Sans-serif', value: 'Arial, sans-serif' },
-  { label: 'Serif',      value: 'Georgia, serif' },
-  { label: 'Monospace',  value: "'Courier New', monospace" },
-  { label: 'Impact',     value: 'Impact, fantasy' },
+  { labelKey: 'imageEditorModal.fonts.sansSerif', value: 'Arial, sans-serif' },
+  { labelKey: 'imageEditorModal.fonts.serif',      value: 'Georgia, serif' },
+  { labelKey: 'imageEditorModal.fonts.monospace',  value: "'Courier New', monospace" },
+  { labelKey: 'imageEditorModal.fonts.impact',     value: 'Impact, fantasy' },
 ];
 
 const LINE_HEIGHT_RATIO = 1.35;
@@ -172,6 +173,7 @@ function eventToCanvasPx(e: React.MouseEvent<HTMLCanvasElement>): { x: number; y
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, sourceKind, overwriteTarget, onClose, onSaved }: Props) {
+  const { t } = useTranslation('library');
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef       = useRef<HTMLImageElement | null>(null);
@@ -222,7 +224,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
   // Save
   const [savingMode, setSavingMode] = useState<'new' | 'overwrite' | null>(null);
   const saving = savingMode !== null;
-  const defaultSaveTitle = `${imageName.replace(/\.[^.]+$/, '')} (edited)`;
+  const defaultSaveTitle = `${imageName.replace(/\.[^.]+$/, '')} ${t('imageEditorModal.save.editedSuffix')}`;
   const [saveTitle, setSaveTitle] = useState(defaultSaveTitle);
   const [saveError, setSaveError] = useState('');
   // Reset the (user-editable) save title if the image being edited changes.
@@ -778,7 +780,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
       // preset that was never actually persisted, and it silently vanishes
       // next time the list reloads from the server.
       setPresetsOverride(null);
-      setSaveError('Failed to save watermark preset. Try again.');
+      setSaveError(t('imageEditorModal.presets.saveFailed'));
     }
   };
 
@@ -791,7 +793,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
       setPresetsOverride(null);
     } catch {
       setPresetsOverride(null);
-      setSaveError('Failed to delete watermark preset. Try again.');
+      setSaveError(t('imageEditorModal.presets.deleteFailed'));
     }
   };
 
@@ -864,10 +866,10 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
       });
 
       const blob = await new Promise<Blob>((resolve, reject) =>
-        offscreen.toBlob(b => b ? resolve(b) : reject(new Error('Export failed')), 'image/jpeg', 0.93),
+        offscreen.toBlob(b => b ? resolve(b) : reject(new Error(t('imageEditorModal.save.exportFailed'))), 'image/jpeg', 0.93),
       );
 
-      const title = saveTitle.trim() || `${imageName.replace(/\.[^.]+$/, '')} (edited)`;
+      const title = saveTitle.trim() || `${imageName.replace(/\.[^.]+$/, '')} ${t('imageEditorModal.save.editedSuffix')}`;
       const file  = new File([blob], `${title}.jpg`, { type: 'image/jpeg' });
 
       if (mode === 'overwrite' && overwriteTarget) {
@@ -885,7 +887,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
       onSaved();
       onClose();
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Save failed');
+      setSaveError(err instanceof Error ? err.message : t('imageEditorModal.save.saveFailed'));
     } finally {
       setSavingMode(null);
     }
@@ -964,8 +966,8 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
         <div className={`flex-shrink-0 flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
           <div className="flex items-center gap-2 min-w-0">
             <Pencil className="w-4 h-4 text-accent-500 flex-shrink-0" />
-            <span className={`font-semibold text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>Edit Image</span>
-            <span className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>- {imageName}</span>
+            <span className={`font-semibold text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{t('imageEditorModal.header.title')}</span>
+            <span className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('imageEditorModal.header.namePrefix', { name: imageName })}</span>
           </div>
           <button onClick={onClose} className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
             <X className="w-4 h-4" />
@@ -979,8 +981,8 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
           <div ref={containerRef} className={`flex-1 min-w-0 flex items-center justify-center p-6 ${isDark ? 'bg-[#0d0d14]' : 'bg-slate-100'}`}>
             {imgError ? (
               <div className="text-center space-y-1">
-                <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Failed to load image.</p>
-                <p className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>Close and reopen to try again.</p>
+                <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('imageEditorModal.loadError.failed')}</p>
+                <p className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{t('imageEditorModal.loadError.retryHint')}</p>
               </div>
             ) : !imgLoaded ? (
               <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
@@ -1003,17 +1005,17 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
             {/* Tool selector */}
             <div className={`flex-shrink-0 p-3 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
               <div className="grid grid-cols-4 gap-1">
-                <button onClick={() => setActiveTool('select')} className={toolBtn(activeTool === 'select')} title="Select">
-                  <MousePointer className="w-4 h-4" />Select
+                <button onClick={() => setActiveTool('select')} className={toolBtn(activeTool === 'select')} title={t('imageEditorModal.tools.select')}>
+                  <MousePointer className="w-4 h-4" />{t('imageEditorModal.tools.select')}
                 </button>
-                <button onClick={() => setActiveTool('text')} className={toolBtn(activeTool === 'text')} title="Text">
-                  <Type className="w-4 h-4" />Text
+                <button onClick={() => setActiveTool('text')} className={toolBtn(activeTool === 'text')} title={t('imageEditorModal.tools.text')}>
+                  <Type className="w-4 h-4" />{t('imageEditorModal.tools.text')}
                 </button>
-                <button onClick={() => setActiveTool('crop')} className={toolBtn(activeTool === 'crop')} title="Crop">
-                  <Crop className="w-4 h-4" />Crop
+                <button onClick={() => setActiveTool('crop')} className={toolBtn(activeTool === 'crop')} title={t('imageEditorModal.tools.crop')}>
+                  <Crop className="w-4 h-4" />{t('imageEditorModal.tools.crop')}
                 </button>
-                <button onClick={() => setActiveTool('adjust')} className={toolBtn(activeTool === 'adjust')} title="Adjust">
-                  <SlidersHorizontal className="w-4 h-4" />Adjust
+                <button onClick={() => setActiveTool('adjust')} className={toolBtn(activeTool === 'adjust')} title={t('imageEditorModal.tools.adjust')}>
+                  <SlidersHorizontal className="w-4 h-4" />{t('imageEditorModal.tools.adjust')}
                 </button>
               </div>
             </div>
@@ -1025,14 +1027,14 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
               {activeTool === 'select' && (
                 <>
                   <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                    Click a text label to select and drag it. Press Delete to remove.
+                    {t('imageEditorModal.selectPanel.hint')}
                   </p>
                   <button onClick={addWatermark} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
-                    <Type className="w-3.5 h-3.5 opacity-60" />Add watermark
+                    <Type className="w-3.5 h-3.5 opacity-60" />{t('imageEditorModal.selectPanel.addWatermark')}
                   </button>
                   {textLayers.length > 0 && (
                     <div className="space-y-1">
-                      <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>Text layers</p>
+                      <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{t('imageEditorModal.selectPanel.textLayers')}</p>
                       {textLayers.map(l => (
                         <button key={l.id} onClick={() => { setSelectedId(l.id); loadLayerIntoSidebar(l); setActiveTool('text'); }}
                           className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition ${
@@ -1042,7 +1044,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                           }`}
                         >
                           <span className="w-3 h-3 rounded-full flex-shrink-0 border border-slate-600" style={{ backgroundColor: l.color }} />
-                          <span className="truncate flex-1 text-left">{(l.text || '(empty)').replace(/\n/g, ' ')}</span>
+                          <span className="truncate flex-1 text-left">{(l.text || t('imageEditorModal.selectPanel.emptyLayerLabel')).replace(/\n/g, ' ')}</span>
                         </button>
                       ))}
                     </div>
@@ -1054,44 +1056,44 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
               {activeTool === 'text' && (
                 <>
                   <button onClick={addWatermark} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
-                    <Type className="w-3.5 h-3.5 opacity-60" />Add watermark
+                    <Type className="w-3.5 h-3.5 opacity-60" />{t('imageEditorModal.selectPanel.addWatermark')}
                   </button>
 
                   <div>
-                    <label className={label}>Content</label>
+                    <label className={label}>{t('imageEditorModal.textPanel.content')}</label>
                     <textarea value={tText} onChange={e => setTText(e.target.value)}
-                      placeholder="Your text…" rows={3}
+                      placeholder={t('imageEditorModal.textPanel.contentPlaceholder')} rows={3}
                       className={`${inputCls} resize-none`}
                     />
-                    {!selectedId && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>Click canvas to place text</p>}
+                    {!selectedId && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{t('imageEditorModal.textPanel.clickToPlaceHint')}</p>}
                   </div>
 
                   <div>
-                    <label className={label}>Font</label>
+                    <label className={label}>{t('imageEditorModal.textPanel.font')}</label>
                     <select value={tFont} onChange={e => setTFont(e.target.value)} className={inputCls}>
-                      {FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                      {FONTS.map(f => <option key={f.value} value={f.value}>{t(f.labelKey)}</option>)}
                     </select>
                   </div>
 
                   <div>
-                    <label className={label}>Size</label>
+                    <label className={label}>{t('imageEditorModal.textPanel.size')}</label>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setTSize(s => Math.max(8, s - 4))} className={`w-8 h-8 rounded-lg text-lg font-bold flex items-center justify-center transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>−</button>
-                      <span className={`flex-1 text-center text-sm tabular-nums font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{tSize}px</span>
+                      <span className={`flex-1 text-center text-sm tabular-nums font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{t('imageEditorModal.textPanel.sizeValue', { size: tSize })}</span>
                       <button onClick={() => setTSize(s => Math.min(250, s + 4))} className={`w-8 h-8 rounded-lg text-lg font-bold flex items-center justify-center transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>+</button>
                     </div>
                   </div>
 
                   <div>
                     <label className={`flex justify-between text-xs font-medium mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <span>Angle</span>
+                      <span>{t('imageEditorModal.textPanel.angle')}</span>
                       <span className="tabular-nums">{tAngle > 0 ? `+${tAngle}` : tAngle}°</span>
                     </label>
                     <input type="range" min={-90} max={90} value={tAngle} onChange={e => setTAngle(+e.target.value)} className="w-full accent-accent-500" />
                   </div>
 
                   <div>
-                    <label className={label}>Color</label>
+                    <label className={label}>{t('imageEditorModal.textPanel.color')}</label>
                     <div className="flex items-center gap-2">
                       <input type="color" value={tColor} onChange={e => setTColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
                       <span className={`text-xs font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{tColor}</span>
@@ -1107,7 +1109,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                   </div>
 
                   <div>
-                    <label className={label}>Style & align</label>
+                    <label className={label}>{t('imageEditorModal.textPanel.styleAndAlign')}</label>
                     <div className="flex gap-1">
                       <button onClick={() => setTBold(b => !b)} className={`${toggleBtn(tBold)} font-bold`}>B</button>
                       <button onClick={() => setTItalic(i => !i)} className={`${toggleBtn(tItalic)} italic`}>I</button>
@@ -1119,7 +1121,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
 
                   <div>
                     <label className={`flex justify-between text-xs font-medium mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <span>Opacity</span><span className="tabular-nums">{tOpacity}%</span>
+                      <span>{t('imageEditorModal.textPanel.opacity')}</span><span className="tabular-nums">{tOpacity}%</span>
                     </label>
                     <input type="range" min={10} max={100} value={tOpacity} onChange={e => setTOpacity(+e.target.value)} className="w-full accent-accent-500" />
                   </div>
@@ -1128,15 +1130,15 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                     <button onClick={() => { setTextLayers(prev => prev.filter(l => l.id !== selectedId)); setSelectedId(null); }}
                       className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 transition"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />Delete selected text
+                      <Trash2 className="w-3.5 h-3.5" />{t('imageEditorModal.textPanel.deleteSelectedText')}
                     </button>
                   )}
 
                   {/* Watermark presets */}
                   <div className={`border-t pt-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`text-[10px] font-semibold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Saved Presets</span>
-                      <button onClick={() => setShowSavePreset(s => !s)} title="Save as preset"
+                      <span className={`text-[10px] font-semibold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('imageEditorModal.presets.savedPresets')}</span>
+                      <button onClick={() => setShowSavePreset(s => !s)} title={t('imageEditorModal.presets.saveAsPresetTitle')}
                         className={`p-1 rounded transition ${isDark ? 'hover:bg-slate-800 text-slate-500' : 'hover:bg-slate-100 text-slate-400'}`}>
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -1146,7 +1148,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                       <div className="flex gap-1 mb-2">
                         <input value={savePresetName} onChange={e => setSavePresetName(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') saveAsPreset(); if (e.key === 'Escape') setShowSavePreset(false); }}
-                          placeholder="Preset name…"
+                          placeholder={t('imageEditorModal.presets.namePlaceholder')}
                           className={`flex-1 px-2 py-1 rounded-lg text-xs border ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200 placeholder-slate-600' : 'bg-white border-slate-300 text-slate-700 placeholder-slate-400'}`}
                           autoFocus
                         />
@@ -1161,22 +1163,22 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                       <Loader2 className="w-4 h-4 animate-spin text-slate-500 mx-auto" />
                     ) : presetsQueryError ? (
                       <p className="text-[10px] text-red-400">
-                        Couldn't load saved presets. Try reopening the editor.
+                        {t('imageEditorModal.presets.loadFailed')}
                       </p>
                     ) : presets.length === 0 ? (
                       <p className={`text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                        No saved presets. Click + to save current settings.
+                        {t('imageEditorModal.presets.empty')}
                       </p>
                     ) : (
                       <div className="space-y-1">
                         {presets.map(p => (
                           <div key={p.id} className={`flex items-center gap-1 px-2 py-1.5 rounded-lg ${isDark ? 'bg-slate-800/60' : 'bg-slate-50'}`}>
                             <span className={`flex-1 text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{p.name}</span>
-                            <button onClick={() => applyPreset(p)} title="Apply"
+                            <button onClick={() => applyPreset(p)} title={t('imageEditorModal.presets.applyTitle')}
                               className={`p-1 rounded transition ${isDark ? 'hover:bg-slate-700 text-accent-400' : 'hover:bg-accent-50 text-accent-600'}`}>
                               <BookmarkCheck className="w-3 h-3" />
                             </button>
-                            <button onClick={() => deletePreset(p.id)} title="Delete"
+                            <button onClick={() => deletePreset(p.id)} title={t('imageEditorModal.presets.deleteTitle')}
                               className={`p-1 rounded transition text-red-400 ${isDark ? 'hover:bg-slate-700' : 'hover:bg-red-50'}`}>
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -1192,20 +1194,20 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
               {activeTool === 'crop' && (
                 <>
                   <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                    Drag to draw a crop box. Drag edges or corners to resize. Drag inside to move. Press Enter or click Apply to confirm.
+                    {t('imageEditorModal.cropPanel.hint')}
                   </p>
                   {cropDraft && (
                     <button onClick={confirmCrop}
                       className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-accent-500 text-white hover:bg-accent-600 transition">
-                      <Check className="w-3.5 h-3.5" />Apply crop
+                      <Check className="w-3.5 h-3.5" />{t('imageEditorModal.cropPanel.applyCrop')}
                     </button>
                   )}
                   {appliedCrop && (
                     <>
-                      <div className={`text-xs rounded-lg px-3 py-2 ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Crop applied</div>
+                      <div className={`text-xs rounded-lg px-3 py-2 ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>{t('imageEditorModal.cropPanel.cropApplied')}</div>
                       <button onClick={resetCrop}
                         className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
-                        <RotateCcw className="w-3.5 h-3.5" />Reset crop
+                        <RotateCcw className="w-3.5 h-3.5" />{t('imageEditorModal.cropPanel.resetCrop')}
                       </button>
                     </>
                   )}
@@ -1215,31 +1217,31 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
               {/* ── ADJUST ── */}
               {activeTool === 'adjust' && (
                 <>
-                  {adjRow('brightness', 'Brightness')}
-                  {adjRow('contrast',   'Contrast')}
-                  {adjRow('saturation', 'Saturation')}
+                  {adjRow('brightness', t('imageEditorModal.adjustPanel.brightness'))}
+                  {adjRow('contrast',   t('imageEditorModal.adjustPanel.contrast'))}
+                  {adjRow('saturation', t('imageEditorModal.adjustPanel.saturation'))}
 
                   <div>
                     <p className={`flex justify-between text-xs font-medium mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      <span>Rotate</span>
+                      <span>{t('imageEditorModal.adjustPanel.rotate')}</span>
                       {rotation !== 0 && <span className="tabular-nums">{rotation}°</span>}
                     </p>
                     <div className="flex gap-1">
                       <button onClick={() => rotateBy(-90)}
                         className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
                       >
-                        <RotateCcw className="w-3.5 h-3.5" />Left
+                        <RotateCcw className="w-3.5 h-3.5" />{t('imageEditorModal.adjustPanel.left')}
                       </button>
                       <button onClick={() => rotateBy(90)}
                         className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
                       >
-                        <RotateCw className="w-3.5 h-3.5" />Right
+                        <RotateCw className="w-3.5 h-3.5" />{t('imageEditorModal.adjustPanel.right')}
                       </button>
                     </div>
                   </div>
 
                   <div>
-                    <p className={`text-xs font-medium mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Flip</p>
+                    <p className={`text-xs font-medium mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('imageEditorModal.adjustPanel.flip')}</p>
                     <div className="flex gap-1">
                       <button onClick={() => setFlipH(f => !f)}
                         className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition ${
@@ -1248,7 +1250,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                             : isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                         }`}
                       >
-                        <FlipHorizontal2 className="w-3.5 h-3.5" />Horizontal
+                        <FlipHorizontal2 className="w-3.5 h-3.5" />{t('imageEditorModal.adjustPanel.horizontal')}
                       </button>
                       <button onClick={() => setFlipV(f => !f)}
                         className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition ${
@@ -1257,7 +1259,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                             : isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                         }`}
                       >
-                        <FlipVertical2 className="w-3.5 h-3.5" />Vertical
+                        <FlipVertical2 className="w-3.5 h-3.5" />{t('imageEditorModal.adjustPanel.vertical')}
                       </button>
                     </div>
                   </div>
@@ -1265,7 +1267,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                   {(adj.brightness !== 0 || adj.contrast !== 0 || adj.saturation !== 0 || flipH || flipV || rotation !== 0) && (
                     <button onClick={() => { setAdj({ brightness: 0, contrast: 0, saturation: 0 }); setFlipH(false); setFlipV(false); setRotation(0); }}
                       className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
-                      <RotateCcw className="w-3.5 h-3.5" />Reset all
+                      <RotateCcw className="w-3.5 h-3.5" />{t('imageEditorModal.adjustPanel.resetAll')}
                     </button>
                   )}
                 </>
@@ -1275,7 +1277,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
             {/* Save */}
             <div className={`flex-shrink-0 p-3 border-t space-y-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
               <div>
-                <label className={label}>Title</label>
+                <label className={label}>{t('imageEditorModal.save.title')}</label>
                 <input type="text" value={saveTitle} onChange={e => setSaveTitle(e.target.value)} className={inputCls} />
               </div>
               {saveError && <p className="text-xs text-red-400">{saveError}</p>}
@@ -1285,7 +1287,7 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                   className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   {savingMode === 'overwrite' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {savingMode === 'overwrite' ? 'Saving…' : 'Save'}
+                  {savingMode === 'overwrite' ? t('imageEditorModal.save.saving') : t('imageEditorModal.save.save')}
                 </button>
               )}
 
@@ -1297,15 +1299,15 @@ export function ImageEditorModal({ imageUrl, imageName, objectId, date, isDark, 
                 }`}
               >
                 {savingMode === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                {savingMode === 'new' ? 'Saving…' : 'Save as new version'}
+                {savingMode === 'new' ? t('imageEditorModal.save.saving') : t('imageEditorModal.save.saveAsNewVersion')}
               </button>
 
               <p className={`text-[10px] text-center ${isDark ? 'text-slate-700' : 'text-slate-400'}`}>
                 {overwriteTarget
                   ? sourceKind === 'telescope'
-                    ? 'Save replaces this file. New version keeps the original and adds an edited copy.'
-                    : 'Save replaces this image. New version keeps the original in Processed Images.'
-                  : sourceKind === 'telescope' ? 'Saves alongside the original telescope images' : 'Saves to Processed Images'}
+                    ? t('imageEditorModal.save.footerOverwriteTelescope')
+                    : t('imageEditorModal.save.footerOverwriteProcessed')
+                  : sourceKind === 'telescope' ? t('imageEditorModal.save.footerNewTelescope') : t('imageEditorModal.save.footerNewProcessed')}
               </p>
             </div>
 

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { Modal } from '../ui/Modal';
 
@@ -27,8 +28,9 @@ export function PlanConflictDialog({
   onCancel,
   pending = false,
 }: PlanConflictDialogProps) {
+  const { t } = useTranslation('planner');
   const { isDark } = useTheme();
-  const title = `You already have a plan for ${nightLabel}`;
+  const title = t('planConflictDialog.title', { nightLabel });
 
   return (
     <Modal
@@ -43,8 +45,7 @@ export function PlanConflictDialog({
         {title}
       </h2>
       <p className={`text-sm mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        {existingCount} {existingCount === 1 ? 'target is' : 'targets are'} already scheduled for{' '}
-        {nightLabel}. Replace that plan with these picks, or add them alongside it?
+        {t('planConflictDialog.body', { count: existingCount, nightLabel })}
       </p>
       <div className="flex flex-col gap-2">
         <button
@@ -52,7 +53,7 @@ export function PlanConflictDialog({
           disabled={pending}
           className="px-4 py-2 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Replace the plan
+          {t('planConflictDialog.replace')}
         </button>
         <button
           onClick={() => { if (!pending) onAdd(); }}
@@ -61,7 +62,7 @@ export function PlanConflictDialog({
             isDark ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
-          Add to the existing plan
+          {t('planConflictDialog.addToExisting')}
         </button>
         <button
           onClick={onCancel}
@@ -69,7 +70,7 @@ export function PlanConflictDialog({
             isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'
           }`}
         >
-          Cancel
+          {t('planConflictDialog.cancel')}
         </button>
       </div>
     </Modal>

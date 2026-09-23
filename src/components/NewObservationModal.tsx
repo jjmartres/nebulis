@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { useTheme } from '../hooks/useTheme';
@@ -25,12 +26,13 @@ export function NewObservationModal({
   onSuccess: (result: NewObservationResult) => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Log Observation"
+      title={t('newObservationPage.title')}
       className={`w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}
@@ -39,10 +41,10 @@ export function NewObservationModal({
       <div className={`flex items-center justify-between gap-4 px-6 py-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
         <div>
           <h2 className={`font-display text-lg font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Log Observation
+            {t('newObservationPage.title')}
           </h2>
           <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Record a viewing session - optionally attach an image and notes.
+            {t('newObservationPage.subtitle')}
           </p>
         </div>
         <button
@@ -50,7 +52,7 @@ export function NewObservationModal({
           className={`shrink-0 p-1.5 rounded-lg transition ${
             isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
           }`}
-          aria-label="Close"
+          aria-label={t('newObservationPage.closeAriaLabel')}
         >
           <X className="w-5 h-5" />
         </button>

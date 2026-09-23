@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { log } from '../lib/logger.js';
 import { cachedSmbListDir as smbListDir, BASE_PATH, isTelescopeOnline } from '../lib/smbCache.js';
 import { isObjectFolder, isSubFolder, getObjectFromSubFolder, normalizeCatalogId, getFileCategory } from '../lib/telescopeFiles.js';
 import { getCatalogEntry } from '../data/catalog.js';
 import { DATA_DIR } from '../lib/paths.js';
-import { getLibraryDir, describeLibraryLocation, getLibraryLocationInfo, isLibraryAvailable, isDefaultLocation, isNetworkLocation, isLibraryPinned, setLibraryPath, withTimeout, LIBRARY_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
+import { getLibraryDir, describeLibraryLocation, getLibraryLocationInfo, isLibraryAvailable, isDefaultLocation, isNetworkLocation, isLibraryPinned, setLibraryPath, withTimeout, LIBRARY_IO_TIMEOUT_MS, LIBRARY_STATS_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
 import { isLibraryMigrating } from '../lib/libraryMaintenance.js';
 import { listVolumes, listDirectories, normalizeUserPath } from '../lib/volumes.js';
 import { locateFolderOnDisk, validateLocateInput, type LocateSample } from '../lib/folderLocate.js';
@@ -224,18 +226,74 @@ router.get('/', async (_req: Request, res: Response) => {
   }
 });
 
+const execFileAsync = promisify(execFile);
+
+// Decimal (SI, /1000) rather than binary (/1024): matches what Finder and
+// Disk Utility report for disk capacity, so this figure lines up with what
+// the user sees there for the same bytes. Keep in sync with the client copy
+// in src/lib/utils.ts.
+const SIZE_KB = 1000;
+const SIZE_MB = SIZE_KB * 1000;
+const SIZE_GB = SIZE_MB * 1000;
+
 function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes < SIZE_KB) return `${bytes} B`;
+  if (bytes < SIZE_MB) return `${(bytes / SIZE_KB).toFixed(1)} KB`;
+  if (bytes < SIZE_GB) return `${(bytes / SIZE_MB).toFixed(1)} MB`;
+  return `${(bytes / SIZE_GB).toFixed(2)} GB`;
 }
 
 // ─── System storage ──────────────────────────────────────────────────
 
 /**
+ * macOS-only: total/free bytes for the APFS container holding `targetPath`,
+ * read straight from `diskutil` instead of `statfs`. This is the number
+ * Finder and Disk Utility show as "Available" — it counts purgeable space
+ * (local Time Machine snapshots, other reclaimable-on-demand data) as free.
+ * `statfs`'s `f_bavail` does NOT count purgeable space, so on a volume
+ * carrying local snapshots it under-reports free space, sometimes by
+ * hundreds of gigabytes, even though nothing is actually stopping that
+ * space from being used. Returns null on any failure (non-APFS volume,
+ * `diskutil`/`df` missing, timeout) so the caller falls back to statfs.
+ */
+async function getMacApfsContainerStats(targetPath: string): Promise<{ total: number; free: number } | null> {
+  if (process.platform !== 'darwin') return null;
+  try {
+    // diskutil only accepts a device id or a mount point, not an arbitrary
+    // subdirectory ("Could not find disk: ..."), so resolve the mount point
+    // that actually owns targetPath first.
+    const { stdout: dfOut } = await withTimeout(
+      execFileAsync('df', ['-P', targetPath]),
+      LIBRARY_IO_TIMEOUT_MS,
+    );
+    const lastLine = dfOut.trim().split('\n').pop();
+    const mountPoint = lastLine?.trim().split(/\s+/).pop();
+    if (!mountPoint) return null;
+
+    const { stdout: plistOut } = await withTimeout(
+      execFileAsync('diskutil', ['info', '-plist', mountPoint]),
+      LIBRARY_IO_TIMEOUT_MS,
+    );
+    // Regex over the plist XML rather than a full plist parser: these two
+    // keys are always emitted as a flat <key>/<integer> pair, and a missing
+    // match (non-APFS volume) is exactly the null-fallback case we want.
+    const freeMatch = plistOut.match(/<key>APFSContainerFree<\/key>\s*<integer>(\d+)<\/integer>/);
+    const totalMatch = plistOut.match(/<key>APFSContainerSize<\/key>\s*<integer>(\d+)<\/integer>/);
+    if (!freeMatch || !totalMatch) return null;
+
+    const free = Number(freeMatch[1]);
+    const total = Number(totalMatch[1]);
+    if (!Number.isFinite(free) || !Number.isFinite(total) || total <= 0) return null;
+    return { total, free };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Disk usage for the volume holding `targetPath`, via fs.statfsSync (works on
- * macOS, Linux, and Windows; no shell).
+ * macOS, Linux, and Windows; no shell), refined on macOS by
+ * `getMacApfsContainerStats` above so purgeable space isn't counted as used.
  *
  * `used` is derived as total - free, NOT taken from a per-volume "used" figure.
  * On APFS (and any shared-container filesystem) a single volume's own block
@@ -252,10 +310,18 @@ async function getDiskStats(targetPath: string): Promise<{ total: number; used: 
   try {
     const s = await withTimeout(fs.promises.statfs(targetPath), LIBRARY_IO_TIMEOUT_MS);
     const blockSize = Number(s.bsize);
-    const total = Number(s.blocks) * blockSize;
-    // bavail = blocks free to an unprivileged process (what's actually usable),
-    // which is the figure Finder/Explorer treat as "free".
-    const free = Number(s.bavail) * blockSize;
+    let total = Number(s.blocks) * blockSize;
+    // bavail = blocks free to an unprivileged process. On macOS this excludes
+    // purgeable space, which Finder/Disk Utility (and users) treat as free;
+    // getMacApfsContainerStats supplies the corrected figure when available.
+    let free = Number(s.bavail) * blockSize;
+
+    const apfs = await getMacApfsContainerStats(targetPath);
+    if (apfs) {
+      total = apfs.total;
+      free = apfs.free;
+    }
+
     const used = Math.max(0, total - free);
     if (total <= 0) return null;
     return { total, used, free };
@@ -324,12 +390,17 @@ function dirStats(dir: string): { size: number; files: number } {
 }
 
 /** Async, timeout-bounded twin of dirStats() for the library tree, which may
- *  live on a network share where a sync walk would block the whole event loop. */
+ *  live on a network share where a sync walk would block the whole event loop.
+ *  Uses LIBRARY_STATS_IO_TIMEOUT_MS (not the shorter interactive-request bound)
+ *  because this only ever runs off the background cache refresh below, never a
+ *  request handler directly. A file whose stat times out is dropped from BOTH
+ *  size and files, not just size, so the two figures stay consistent with each
+ *  other rather than fileCount silently outrunning size. */
 async function dirStatsAsync(dir: string): Promise<{ size: number; files: number }> {
   let size = 0, files = 0;
   let entries: fs.Dirent[];
   try {
-    entries = await withTimeout(fs.promises.readdir(dir, { withFileTypes: true }), LIBRARY_IO_TIMEOUT_MS);
+    entries = await withTimeout(fs.promises.readdir(dir, { withFileTypes: true }), LIBRARY_STATS_IO_TIMEOUT_MS);
   } catch {
     return { size, files };
   }
@@ -339,8 +410,10 @@ async function dirStatsAsync(dir: string): Promise<{ size: number; files: number
       const sub = await dirStatsAsync(full);
       size += sub.size; files += sub.files;
     } else if (e.isFile()) {
-      try { size += (await withTimeout(fs.promises.stat(full), LIBRARY_IO_TIMEOUT_MS)).size; } catch { /* skip */ }
-      files++;
+      try {
+        size += (await withTimeout(fs.promises.stat(full), LIBRARY_STATS_IO_TIMEOUT_MS)).size;
+        files++;
+      } catch { /* skip: dropped from both size and files together */ }
     }
   }
   return { size, files };
@@ -449,7 +522,7 @@ async function computeLibraryStats(): Promise<void> {
 
     let entries: fs.Dirent[] = [];
     try {
-      entries = await withTimeout(fs.promises.readdir(LIBRARY_DIR, { withFileTypes: true }), LIBRARY_IO_TIMEOUT_MS);
+      entries = await withTimeout(fs.promises.readdir(LIBRARY_DIR, { withFileTypes: true }), LIBRARY_STATS_IO_TIMEOUT_MS);
     } catch { /* library dir missing or unresponsive */ }
 
     for (const e of entries) {
@@ -648,10 +721,11 @@ router.post('/library-location/reset', requireAdmin, async (req: Request, res: R
   // describeLibraryLocation(), not getLibraryDir(): this is purely for the
   // response/log message, and the location being described here is exactly
   // the one about to be abandoned — including a network share this platform
-  // can't resolve a real path for (Linux/Docker), which is precisely the
-  // "gone for good" case this route exists to recover from. getLibraryDir()
-  // throws for that case (correctly, for an actual read/write), which would
-  // otherwise 500 this route before the reset it exists to perform ever ran.
+  // can't act on (Linux/Docker), which is precisely the "gone for good" case
+  // this route exists to recover from. Both functions resolve through the same
+  // never-throwing path builder today, so this is about intent rather than
+  // behaviour: describing what is about to be cleared must never be able to
+  // fail the reset itself.
   const previousPath = describeLibraryLocation();
   if (isDefaultLocation()) {
     res.apiSuccess({ ok: true, changed: false, path: previousPath, previousPath });

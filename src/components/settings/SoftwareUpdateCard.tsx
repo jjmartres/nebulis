@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, Download, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { Settings as SettingsType } from '../../types';
 import { getUpdateStatus, checkForUpdate, applyUpdate } from '../../lib/api/update';
@@ -24,6 +25,7 @@ export function SoftwareUpdateCard({
   form: Partial<SettingsType>;
   setForm: React.Dispatch<React.SetStateAction<Partial<SettingsType>>>;
 }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const channel = form.updateChannel ?? 'stable';
   const [changelogMode, setChangelogMode] = useState<'history' | 'whats-new' | null>(null);
@@ -66,8 +68,8 @@ export function SoftwareUpdateCard({
 
   return (
     <Sec
-      title="Software updates"
-      description="Updates are signed and verified before they install."
+      title={t('softwareUpdate.title')}
+      description={t('softwareUpdate.description')}
       isDark={isDark}
     >
       {/* A plain padded block, not a second card: `Sec` already draws the card,
@@ -75,7 +77,7 @@ export function SoftwareUpdateCard({
       <div className={`px-5 py-5 space-y-3 border-b ${isDark ? 'border-slate-800/70' : 'border-slate-100'}`}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className={`text-sm font-medium ${strong}`}>Current version</div>
+            <div className={`text-sm font-medium ${strong}`}>{t('softwareUpdate.currentVersion')}</div>
             {status ? (
               <>
                 <div className={`text-xs mt-0.5 ${muted}`}>
@@ -87,19 +89,19 @@ export function SoftwareUpdateCard({
                     onClick={() => setShowWhatsNew(true)}
                     className={`text-xs ${isDark ? 'text-accent-400 hover:text-accent-300' : 'text-accent-600 hover:text-accent-500'} hover:underline`}
                   >
-                    What's new
+                    {t('softwareUpdate.whatsNew')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setChangelogMode('history')}
                     className={`text-xs ${isDark ? 'text-accent-400 hover:text-accent-300' : 'text-accent-600 hover:text-accent-500'} hover:underline`}
                   >
-                    Release notes
+                    {t('softwareUpdate.releaseNotes')}
                   </button>
                 </div>
               </>
             ) : (
-              <div className={`text-xs mt-0.5 ${muted}`}>Loading…</div>
+              <div className={`text-xs mt-0.5 ${muted}`}>{t('softwareUpdate.loading')}</div>
             )}
           </div>
           {isDesktop && (
@@ -114,15 +116,14 @@ export function SoftwareUpdateCard({
               } disabled:opacity-50`}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${check.isPending ? 'animate-spin' : ''}`} />
-              {check.isPending ? 'Checking…' : 'Check for updates'}
+              {check.isPending ? t('softwareUpdate.checking') : t('softwareUpdate.checkForUpdates')}
             </button>
           )}
         </div>
 
         {!isDesktop && status && (
           <p className={`text-xs leading-relaxed ${muted}`}>
-            This build updates through its host. Docker installs update with a new image pull;
-            browser and app-store installs update through their platform.
+            {t('softwareUpdate.nonDesktopNote')}
           </p>
         )}
 
@@ -135,22 +136,23 @@ export function SoftwareUpdateCard({
             <Download className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-medium ${strong}`}>
-                Version {status.latestVersion}{status.latestBuild ? ` (build ${status.latestBuild})` : ''} is available
-                {status.mandatory && ' (required)'}
+                {t('softwareUpdate.versionAvailable', { version: status.latestVersion })}
+                {status.latestBuild && ` ${t('softwareUpdate.buildSuffix', { build: status.latestBuild })}`}
+                {status.mandatory && ` ${t('softwareUpdate.required')}`}
               </div>
               <div className={`text-xs mt-0.5 ${muted}`}>
                 {status.platform === 'win-x64'
                   ? status.staged
-                    ? 'Downloaded and verified. Installing restarts the Nebulis service briefly.'
-                    : 'Downloading in the background. Install becomes available once it is ready.'
-                  : 'Installing restarts Nebulis to finish the update.'}
+                    ? t('softwareUpdate.installNoteWindowsStaged')
+                    : t('softwareUpdate.installNoteWindowsDownloading')
+                  : t('softwareUpdate.installNoteOther')}
               </div>
               <button
                 type="button"
                 onClick={() => setChangelogMode('whats-new')}
                 className={`text-xs mt-1 inline-block ${isDark ? 'text-accent-400' : 'text-accent-600'} hover:underline`}
               >
-                What's new
+                {t('softwareUpdate.whatsNew')}
               </button>
             </div>
             <button
@@ -161,7 +163,7 @@ export function SoftwareUpdateCard({
                 isDark ? 'bg-accent-500 text-slate-950 hover:bg-accent-400' : 'bg-accent-600 text-white hover:bg-accent-500'
               } disabled:opacity-50`}
             >
-              {apply.isSuccess ? 'Installing…' : apply.isPending ? 'Starting…' : 'Install now'}
+              {apply.isSuccess ? t('softwareUpdate.installing') : apply.isPending ? t('softwareUpdate.starting') : t('softwareUpdate.installNow')}
             </button>
           </div>
         )}
@@ -172,9 +174,9 @@ export function SoftwareUpdateCard({
         {isDesktop && status && !status.updateAvailable && status.lastCheckedAt && !status.lastError && (
           <div className={`flex items-center gap-2 text-xs ${muted}`}>
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            You're on the latest {channel} version
+            {t(`softwareUpdate.upToDate_${channel}`)}
             {status.latestVersion
-              ? ` (${status.latestVersion}${status.latestBuild ? `, build ${status.latestBuild}` : ''}).`
+              ? ` (${status.latestVersion}${status.latestBuild ? `, ${t('softwareUpdate.buildSuffix', { build: status.latestBuild })}` : ''}).`
               : '.'}
           </div>
         )}
@@ -185,21 +187,21 @@ export function SoftwareUpdateCard({
         {isDesktop && status?.lastError && !status.updateAvailable && (
           <div className="flex items-start gap-2 text-xs text-amber-500">
             <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-            <span>Last check could not complete: {status.lastError}</span>
+            <span>{t('softwareUpdate.lastCheckFailed', { error: status.lastError })}</span>
           </div>
         )}
 
         {check.isError && (
           <div className="flex items-center gap-2 text-xs text-red-500">
             <AlertTriangle className="w-3.5 h-3.5" />
-            {check.error instanceof Error ? check.error.message : 'Could not check for updates.'}
+            {check.error instanceof Error ? check.error.message : t('softwareUpdate.checkFailed')}
           </div>
         )}
 
         {apply.isError && (
           <div className="flex items-center gap-2 text-xs text-red-500">
             <AlertTriangle className="w-3.5 h-3.5" />
-            {apply.error instanceof Error ? apply.error.message : 'Could not start the update.'}
+            {apply.error instanceof Error ? apply.error.message : t('softwareUpdate.updateStartFailed')}
           </div>
         )}
       </div>
@@ -207,8 +209,8 @@ export function SoftwareUpdateCard({
       {isDesktop && (
         <>
           <Row
-            label="Check for updates automatically"
-            description="Updates download in the background so they install faster."
+            label={t('softwareUpdate.autoUpdate.label')}
+            description={t('softwareUpdate.autoUpdate.description')}
             isDark={isDark}
           >
             <Toggle
@@ -217,15 +219,15 @@ export function SoftwareUpdateCard({
             />
           </Row>
           <Row
-            label="Update channel"
-            description="Stable is recommended; Beta ships earlier, with more risk."
+            label={t('softwareUpdate.channel.label')}
+            description={t('softwareUpdate.channel.description')}
             isDark={isDark}
           >
             <Seg
               value={channel}
               options={[
-                { id: 'stable', label: 'Stable' },
-                { id: 'beta', label: 'Beta' },
+                { id: 'stable', label: t('softwareUpdate.channel.stable') },
+                { id: 'beta', label: t('softwareUpdate.channel.beta') },
               ]}
               onChange={(id) => setForm(f => ({ ...f, updateChannel: id }))}
               isDark={isDark}

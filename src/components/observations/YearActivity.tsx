@@ -12,14 +12,10 @@
  *
  * Lives on the hero, so it is white-on-dark in every theme.
  */
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { MonthBucket } from '../../lib/observationStats';
-
-const MONTH_INITIALS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+import { monthLabels } from '../../lib/formatLocale';
 
 /** Track height for the bars. Fixed, so a year with one busy month does not
  *  come out taller than a quiet one. */
@@ -43,8 +39,11 @@ interface Props {
 export function YearActivity({
   year, buckets, selectedMonth, onSelectMonth, onYearChange, yearsWithData, accent,
 }: Props) {
+  const { t } = useTranslation('observations');
   const peak = Math.max(1, ...buckets.map(b => b.nights));
   const yearTotal = buckets.reduce((sum, b) => sum + b.sessions, 0);
+  const monthInitials = monthLabels('narrow');
+  const monthNames = monthLabels('long');
 
   // Step to the next year that actually holds something, rather than walking
   // through empty ones.
@@ -72,8 +71,8 @@ export function YearActivity({
         </div>
         <span className="text-[11px] tabular-nums text-white/40">
           {yearTotal === 0
-            ? 'Nothing recorded'
-            : `${yearTotal} session${yearTotal === 1 ? '' : 's'} this year`}
+            ? t('yearActivity.nothingRecorded')
+            : t('yearActivity.sessionsThisYear', { count: yearTotal })}
         </span>
       </div>
 
@@ -86,8 +85,13 @@ export function YearActivity({
           const active = selectedMonth === month;
           const height = nights === 0 ? 0 : Math.max(MIN_BAR, (nights / peak) * TRACK_HEIGHT);
           const label = nights === 0
-            ? `${MONTH_NAMES[month]} ${year}, nothing recorded`
-            : `${MONTH_NAMES[month]} ${year}, ${nights} night${nights === 1 ? '' : 's'}, ${sessions} session${sessions === 1 ? '' : 's'}`;
+            ? t('yearActivity.monthNothingRecorded', { month: monthNames[month], year })
+            : t('yearActivity.monthSummary', {
+                month: monthNames[month],
+                year,
+                nightsPart: t('yearActivity.nightsCount', { count: nights }),
+                sessionsPart: t('yearActivity.sessionsCount', { count: sessions }),
+              });
 
           return (
             <button
@@ -136,7 +140,7 @@ export function YearActivity({
               <span className={`text-[10px] font-medium transition-colors ${
                 active ? 'text-white' : 'text-white/40 group-hover:text-white/70'
               }`}>
-                {MONTH_INITIALS[month]}
+                {monthInitials[month]}
               </span>
             </button>
           );
@@ -152,11 +156,12 @@ function YearStep({ direction, target, onClick }: {
   target: number;
   onClick: () => void;
 }) {
+  const { t } = useTranslation('observations');
   const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
   return (
     <button
       onClick={onClick}
-      aria-label={`Go to ${target}`}
+      aria-label={t('yearActivity.goToYear', { year: target })}
       title={`${target}`}
       className="rounded-lg p-1 text-white/50 outline-none transition-colors
         hover:bg-white/10 hover:text-white

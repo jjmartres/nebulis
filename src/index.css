@@ -133,6 +133,26 @@ html {
     0 0 0 1px rgba(15, 23, 42, 0.08);
 }
 
+/* Shared interior floor for the "title + one-line subtitle + stat row"
+   banners (Library, Backup, Catalogs, Settings, Calibrations, Help). Each
+   used to carry its own `min-h-[9.5rem] ... sm:min-h-[11.5rem]` utility pair,
+   and Calibrations' banner ended up 20px taller than Library's purely because
+   its subtitle was long enough to wrap a second line, while Help's — the one
+   banner in the group with no stat row — sat 9px shorter than the rest
+   because it had nothing to push past the floor. Centralized for the same
+   "near-identical copies drift" reason `.hero-panel` is; set high enough that
+   a stat row (the tallest normal content in this group) sets the floor
+   itself, so every banner in the group renders at the same height regardless
+   of which one happens to have the most content that day. */
+.hero-min-h {
+  min-height: 9.5rem;
+}
+@media (min-width: 640px) {
+  .hero-min-h {
+    min-height: 11rem;
+  }
+}
+
 /* ─── Dark theme ──────────────────────────────────────────────── */
 .dark {
   color-scheme: dark;

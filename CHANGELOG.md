@@ -1,9 +1,32 @@
 # Changelog
-## Unreleased
+## 2.1.0 (272) - September 20th, 2026
 ### New
-- Catalogs: every object in the catalog now shows filter recommendations for your rig — one suggestion for a colour camera and one for a mono camera, based on the object's type. Open any object's detail panel to see the recommendation, with a tooltip explaining why that filter choice suits that target.
-- Library: each object now has a processing status — Unprocessed, Processing, or Processed — that you set yourself to track where it stands in your own editing pipeline (Siril, PixInsight, etc.). It shows as a colored pill next to the favorite button on the object page, where an admin can click it to change it; on the Library grid, the same pill shows on a card next to its favorite icon once set to Processing or Processed, so an untouched object stays uncluttered. It's a manual label only — the app never sets or changes it based on how many processed images or archives you've uploaded for the object.
-- Library: added a Status filter, next to the telescope filter, to show only Unprocessed, Processing, or Processed objects.
+- Localization: the web app is now available in German, French, and Spanish (Settings -> General -> Language), AI-translated and not yet checked by a native speaker. If you spot a wrong or awkward phrase, or want to contribute a language that isn't listed, open a pull request against the public GitHub repo (nebulis-app/nebulis) - src/locales/CONTRIBUTING-TRANSLATIONS.md walks through exactly what to change and how. You can also send translation feedback to support@nebulis.app.
+- Wishlist: starring an object now builds a real wishlist, reachable from a new top-nav section or the Planner toolbar, with search, priority, notes, scheduling, and JSON export/import. Targets not up tonight show a 12-month altitude chart of their best months instead.
+- Calibrations: a new top-nav section (optional) groups your bias, dark, flat, and flat-dark frames by exposure, binning, gain, and sensor temperature, with one-click ZIP downloads per group, an expiry flag for old dark/bias sets, and the ability to attach flats to the object or night they belong to. (Settings -> Telescopes) (@jjmartres)
+- Processing Projects: archive your Siril or PixInsight working project (.zip, up to 20 GB) from an object page, with upload progress, cancel, download, and delete. (@jjmartres)
+- Library: objects get a manual Processing status (Unprocessed / Processing / Processed) with a matching filter. (@jjmartres)
+- Catalogs: catalog objects now suggest filters for color and mono cameras based on object type. (@jjmartres)
+- Sky Forecast: an hourly imaging window table (clouds, seeing, Moon, humidity, wind, dew risk) and a Light pollution tile (Bortle class, auto-filled) now sit under tonight's hero, with the same Bortle tile in the Planner's weather popup. (@jjmartres)
+- Planner: a Varied mix button spreads targets across nebulae, galaxies, and clusters instead of just the best scorers, and each target has an arrow that expands its altitude chart in place.
+- Library: object pages get a Reclassify option (the "..." menu) for fixing a target whose designation was ambiguous or wrong on import, with an option to remember the fix for future imports.
+- Image viewer: Gallery and Processed Images get a fullscreen button and a Rotate button (90° steps, view-only).
+- Dwarf: timelapse and video clips are now imported, grouped into their own "DWARF Videos" object.
+
+### Updated
+- Planner: the target list and details dialog are less cluttered, with peak altitude shown as a short "88° · 04:50" and the details dialog leading with Add to Tonight.
+- Navigation bar: the top nav now sizes itself to the room it actually has instead of shrinking labels past eight items, and a newly turned-on item lands next to where it belongs instead of always at the end.
+- Observations: the List view now pages through your observations instead of loading them all at once.
+- Planner: quick-adding a target with the "+" button now avoids the Moon the same way "Plan My Night" already does.
+
+### Fixes
+- Catalog filters: supernova remnants now show up consistently as nebulae across the Planner, Catalogs board, and library breakdown.
+- Wishlist: objects missing magnitude, size, or constellation data now star correctly instead of silently failing to add.
+- Settings: the Data Sources note now says what's actually sent (site coordinates for weather and light pollution, object names for catalog lookups).
+- Storage: on macOS, free space now counts purgeable space (like local Time Machine snapshots) as free, matching what Finder and Disk Utility show, instead of reporting hundreds of gigabytes less than what's actually available.
+- Fixed several popups and dialogs not closing on Esc, and the Planner's altitude chart nudging the details dialog as its caption changed length.
+- Navigation bar: labels now stay full size whenever they fit between the logo and the telescope status pill, instead of tightening unnecessarily on windows that had room to spare.
+
 ## 2.0.2 (263) - September 15th, 2026
 ### Updated
 - Added a prewarm task for calendar view observation thumbnails to speed up rendering on mobile clients
@@ -21,7 +44,6 @@
 - Sky Forecast: the "Upcoming Nights" outlook now covers three nights instead of two. The third night is about three days out, so its card is dimmed to show it is less certain.
 - macOS and Windows: "View Logs" in the menu bar (macOS) or taskbar (Windows) opens a live log viewer. Follow the server log as it's written, clear it, or save a copy to send with a support request. On Windows the viewer now opens right away and stays responsive while a large log streams in, reads and parses off the UI thread, and no longer re-checks the log path (which meant launching a helper process) on every refresh.
 - Docker: set the `LIBRARY_DIR` environment variable to keep your image library on a separate disk or mount, apart from the database and settings. While it is set, the library location is fixed by the deployment and cannot be changed from the app. See the Docker README.
-- Added a Gallery toggle to Settings -> General -> Navigation bar, so the Gallery menu item can be hidden from the top nav the same way Forecast, Planner, Catalogs, and Help already can.
 
 #### Updated
 - Import to Library: the "import in place" folder picker now has an "Or enter a path" box. Network shares and mapped drive letters never appear in the drive list (a mapped letter exists only in your own Windows sign-in session, and Nebulis runs as a service), so type the share's network path, like \\server\share\folder, to import a library straight off a NAS. Recently used paths are remembered.

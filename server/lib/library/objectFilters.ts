@@ -1,3 +1,5 @@
+import { OBJECT_CLASS_TOKENS } from '../objectCategories.js';
+
 export interface LibraryObjectFilter {
   id: string;
   label: string;
@@ -44,9 +46,12 @@ export const LIBRARY_OBJECT_FILTERS: LibraryObjectFilter[] = [
   // as a target to deserve its own chip instead of being buried in the group.
   { id: 'comet', label: 'Comet', matchTypes: ['Comet'], matchMode: 'exact' },
   { id: 'star', label: 'Star', matchTypes: [...STAR_OBJECT_TYPES], matchMode: 'exact' },
-  { id: 'galaxy', label: 'Galaxy', matchTypes: ['Galaxy'] },
-  { id: 'nebula', label: 'Nebula', matchTypes: ['Nebula'] },
-  { id: 'cluster', label: 'Cluster', matchTypes: ['Cluster'] },
+  // The three coarse families take their tokens from the shared table in
+  // server/lib/objectCategories.ts, so the Library's chips can no longer drift
+  // from the Planner's or the Catalogs board's idea of what a nebula is.
+  { id: 'galaxy', label: 'Galaxy', matchTypes: [...OBJECT_CLASS_TOKENS.galaxy] },
+  { id: 'nebula', label: 'Nebula', matchTypes: [...OBJECT_CLASS_TOKENS.nebula] },
+  { id: 'cluster', label: 'Cluster', matchTypes: [...OBJECT_CLASS_TOKENS.cluster] },
   { id: 'supernova-remnant', label: 'Supernova Remnant', matchTypes: ['Supernova Remnant'] },
   { id: 'planetary-nebula', label: 'Planetary Nebula', matchTypes: ['Planetary Nebula'] },
   // Last, and deliberately present even when it is empty: this is the worklist

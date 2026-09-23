@@ -12,6 +12,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, RefreshCw, RotateCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getForecastForSite, type ForecastHour } from '../lib/api/planner';
 import { getSettings } from '../lib/api/settings';
 import { getSites, getActiveSite, setActiveSite, type ObservingSite } from '../lib/api/sites';
@@ -22,11 +23,13 @@ import { smoothHours, type DarkWindow } from '../lib/forecastScore';
 import { TonightHero } from '../components/forecast/TonightHero';
 import { HourDetail } from '../components/forecast/HourDetail';
 import { ImagingWindow } from '../components/forecast/ImagingWindow';
+import { LightPollutionPill } from '../components/forecast/LightPollutionPill';
 import { NightOutlookCard } from '../components/forecast/NightOutlookCard';
 import { RatingLegend } from '../components/ui/RatingLegend';
 import { hoursForNight } from '../lib/forecastNights';
 
 export function ForecastPage() {
+  const { t } = useTranslation('forecast');
   const { isDark, isNight, isSpace } = useTheme();
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-accent-500';
   // The hero sits on a night-sky panel in every theme, so it takes the bright
@@ -127,6 +130,9 @@ export function ForecastPage() {
     // guards the same way (see src/lib/altaz.ts, src/lib/timeFormat.ts,
     // server/lib/timezone.ts) — this was the one that didn't.
     try {
+      // 'en-CA' is locale-invariant PARSING (its short date format is exactly
+      // YYYY-MM-DD, used here as a lookup key), not display — see
+      // src/lib/formatLocale.ts's header comment.
       return new Intl.DateTimeFormat('en-CA', {
         timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
       }).format(d);
@@ -162,10 +168,10 @@ export function ForecastPage() {
         }}
         disabled={refreshing || !effectiveSiteId}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/50 transition hover:bg-white/10 hover:text-white/80 disabled:opacity-40"
-        title="Refresh forecast"
+        title={t('forecastPage.refreshTitle')}
       >
         <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-        Refresh
+        {t('forecastPage.refresh')}
       </button>
     </div>
   );
@@ -181,7 +187,7 @@ export function ForecastPage() {
           isNight={isNight}
           isSpace={isSpace}
           subText={subText}
-          description="The forecast needs your latitude and longitude to fetch weather conditions."
+          description={t('forecastPage.locationPromptDescription')}
           invalidateKeys={[['forecast']]}
         />
       )}
@@ -196,10 +202,10 @@ export function ForecastPage() {
         <div className={`text-center py-12 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <AlertCircle className="w-10 h-10 mx-auto mb-3 text-danger-500/50" />
           <p className={isDark ? 'text-slate-400' : 'text-slate-500'}>
-            {error instanceof Error ? error.message : 'Failed to load forecast'}
+            {error instanceof Error ? error.message : t('forecastPage.loadFailed')}
           </p>
           <p className={`mt-2 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            Make sure your location is set in Settings, then refresh.
+            {t('forecastPage.setLocationHint')}
           </p>
         </div>
       )}
@@ -217,12 +223,13 @@ export function ForecastPage() {
               onSelect={(h) => setSelectedHour(prev => (prev?.time === h.time ? null : h))}
               accent={accent}
               siteControl={siteControl}
+              lightPollution={<LightPollutionPill site={currentSite} />}
             />
           ) : (
             <div className={`rounded-2xl border p-6 text-sm ${
               isDark ? 'bg-slate-900 border-slate-800 text-slate-500' : 'bg-white border-slate-200 text-slate-400'
             }`}>
-              No hourly data available for tonight's observing window.
+              {t('forecastPage.noHourlyData')}
             </div>
           )}
 
@@ -256,7 +263,7 @@ export function ForecastPage() {
           {upcomingNights.length > 0 && (
             <div>
               <h2 className={`font-display text-lg font-semibold mb-4 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                The nights ahead
+                {t('forecastPage.nightsAhead')}
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {upcomingNights.map(night => (
@@ -274,7 +281,7 @@ export function ForecastPage() {
           )}
 
           <p className={`text-[11px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-            Source: {[forecast.sources.weather, forecast.sources.seeing].filter(Boolean).join(', ')}
+            {t('forecastPage.source', { sources: [forecast.sources.weather, forecast.sources.seeing].filter(Boolean).join(', ') })}
           </p>
         </>
       )}

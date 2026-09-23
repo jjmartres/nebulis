@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { getRenestStatus, startRenest } from '../../lib/api/storage';
 import { Sec } from './SettingsUI';
 
@@ -14,6 +15,7 @@ import { Sec } from './SettingsUI';
  * exists to bring older ones across.
  */
 export function ReorganizeLibrarySection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function ReorganizeLibrarySection({ isDark }: { isDark: boolean }) {
       await queryClient.invalidateQueries({ queryKey: ['observations'] });
       await queryClient.invalidateQueries({ queryKey: ['gallery'] });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Reorganize failed');
+      setError(err instanceof Error ? err.message : t('folderLayout.reorganizeFailed'));
     } finally {
       setStarting(false);
     }
@@ -58,36 +60,28 @@ export function ReorganizeLibrarySection({ isDark }: { isDark: boolean }) {
 
   return (
     <Sec
-      title="Folder layout"
-      description="How this library stores each object's files on disk."
+      title={t('folderLayout.title')}
+      description={t('folderLayout.description')}
       isDark={isDark}
     >
       <div className="px-5 py-5 space-y-4">
         {flatObjects === 0 && !running && !summary && (
           <p className={`text-[13px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-            Every object uses the current layout: one folder per session, with files kept
-            under the names your telescope gave them. Nothing to do.
+            {t('folderLayout.currentLayoutOk')}
           </p>
         )}
 
         {flatObjects > 0 && !running && (
           <>
             <p className={`text-[13px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              {flatObjects === 1
-                ? '1 object still uses the old layout,'
-                : `${flatObjects} objects still use the old layout,`}{' '}
-              where every night's files share a single folder. Reorganizing gives each session
-              its own folder, so new imports into these objects can keep the file names your
-              telescope uses.
+              {t('folderLayout.oldLayoutInfo', { count: flatObjects })}
             </p>
             <div
               className={`rounded-lg px-3.5 py-3 text-[12px] leading-relaxed ${
                 isDark ? 'bg-amber-500/10 text-amber-200/90' : 'bg-amber-50 text-amber-900'
               }`}
             >
-              Files already in your library keep the names they were given when they were
-              imported. Those original names were not recorded at the time, so they cannot be
-              restored. Re-importing from the telescope is the only way to get them back.
+              {t('folderLayout.namesWarning')}
             </div>
           </>
         )}
@@ -95,8 +89,8 @@ export function ReorganizeLibrarySection({ isDark }: { isDark: boolean }) {
         {running && status && (
           <div className="space-y-2">
             <div className={`text-[13px] ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              Reorganizing {status.objectsDone} of {status.objectsTotal}
-              {status.currentObject ? `: ${status.currentObject}` : ''}
+              {t('folderLayout.progress', { done: status.objectsDone, total: status.objectsTotal })}
+              {status.currentObject ? t('folderLayout.progressCurrent', { name: status.currentObject }) : ''}
             </div>
             <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
               <div
@@ -115,15 +109,9 @@ export function ReorganizeLibrarySection({ isDark }: { isDark: boolean }) {
                 : isDark ? 'bg-emerald-500/10 text-emerald-200/90' : 'bg-emerald-50 text-emerald-900'
             }`}
           >
-            Reorganized {summary.objects} {summary.objects === 1 ? 'object' : 'objects'},
-            moving {summary.moved} {summary.moved === 1 ? 'file' : 'files'}.
-            {summary.failed > 0 && (
-              <>
-                {' '}
-                {summary.failed} {summary.failed === 1 ? 'object' : 'objects'} could not be
-                converted and were left as they were. Check the server log, then run it again.
-              </>
-            )}
+            {t('folderLayout.summaryObjects', { count: summary.objects })}
+            {t('folderLayout.summaryMoved', { count: summary.moved })}
+            {summary.failed > 0 && t('folderLayout.summaryFailed', { count: summary.failed })}
           </div>
         )}
 
@@ -146,7 +134,7 @@ export function ReorganizeLibrarySection({ isDark }: { isDark: boolean }) {
                   disabled={starting || running}
                   className={`${btnBase} bg-accent-500 hover:bg-accent-600 text-white`}
                 >
-                  {starting ? 'Starting…' : 'Yes, reorganize'}
+                  {starting ? t('folderLayout.starting') : t('folderLayout.yesReorganize')}
                 </button>
                 <button
                   onClick={() => setConfirming(false)}
@@ -156,10 +144,10 @@ export function ReorganizeLibrarySection({ isDark }: { isDark: boolean }) {
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                   }`}
                 >
-                  Cancel
+                  {t('folderLayout.cancel')}
                 </button>
                 <span className={`text-[12px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Files are moved, never deleted. You can keep using Nebulis afterwards as normal.
+                  {t('folderLayout.movedNeverDeleted')}
                 </span>
               </>
             ) : (
@@ -171,7 +159,7 @@ export function ReorganizeLibrarySection({ isDark }: { isDark: boolean }) {
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
-                Reorganize library
+                {t('folderLayout.reorganizeLibrary')}
               </button>
             )}
           </div>

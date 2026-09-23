@@ -1,8 +1,8 @@
 {
   "name": "nebulis-web",
   "private": true,
-  "version": "2.0.2",
-  "buildNumber": 264,
+  "version": "2.1.0",
+  "buildNumber": 272,
   "type": "module",
   "packageManager": "pnpm@10.30.3",
   "scripts": {
@@ -45,6 +45,8 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.1",
     "helmet": "^8.2.0",
+    "i18next": "^26.4.2",
+    "i18next-browser-languagedetector": "^8.2.1",
     "jsonwebtoken": "^9.0.3",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.21.0",
@@ -53,6 +55,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-i18next": "^17.0.13",
     "react-router-dom": "^7.18.2",
     "satellite.js": "^7.0.1",
     "sharp": "^0.35.4",

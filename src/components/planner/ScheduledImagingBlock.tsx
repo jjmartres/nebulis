@@ -14,7 +14,8 @@
  */
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { AlertTriangle, ArrowUp, GripVertical, Info, Moon, X } from 'lucide-react';
+import { AlertTriangle, ArrowUp, Frame, GripVertical, Info, Moon, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatHm, SNAP_MINUTES, TIMELINE_GUTTER_PX } from './scheduleGeometry';
 import type { PlannedSession } from '../../lib/api/plannedSessions';
 import type { VisibilityVerdict } from '../../lib/visibilityCheck';
@@ -27,6 +28,12 @@ const MIN_IMAGING_ALT = 20;
 const COMPACT_HEIGHT = 74;
 /** Below this even the thumbnail is dropped. */
 const TINY_HEIGHT = 44;
+/** Above this the top-anchored content leaves enough empty space below it
+ *  that a single-object block (e.g. one target imaged for hours because
+ *  nothing else was scheduled after it) reads as broken rather than long.
+ *  A bottom-anchored end-time echo fills that space and orients the user
+ *  without needing to scroll to the block's lower edge. */
+const LONG_BLOCK_HEIGHT = COMPACT_HEIGHT * 3;
 
 interface ScheduledImagingBlockProps {
   session: PlannedSession;
@@ -54,6 +61,10 @@ interface ScheduledImagingBlockProps {
   onDelete: (id: number) => void;
   onResize: (id: number, edge: 'top' | 'bottom', deltaMinutes: number, commit: boolean) => void;
   onShowDetails: (session: PlannedSession) => void;
+  /** Jumps straight to the Framing & Mosaic modal for this block, preloaded
+   *  with its saved mosaic. Only rendered when the block actually has one
+   *  (`session.framingSetup`) — see FramingModal.tsx. */
+  onShowFraming?: (session: PlannedSession) => void;
   /** Provisional Y delta during a drag (px). Parent uses this to render motion. */
   dragDeltaY?: number;
   /** True while the block's create POST is still in-flight (optimistic temp id). */
@@ -80,10 +91,12 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
   onDelete,
   onResize,
   onShowDetails,
+  onShowFraming,
   dragDeltaY = 0,
   isSaving = false,
   observerTimezone,
 }: ScheduledImagingBlockProps) {
+  const { t } = useTranslation('planner');
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `block:${session.id}`,
     data: { kind: 'block', sessionId: session.id } satisfies BlockDragData,
@@ -118,15 +131,15 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
   // One line of warning text, worst first. Below the compact threshold there is
   // no room for it and the tooltip carries the detail instead.
   const warning = belowHorizon
-    ? 'Sets below the horizon during this block'
+    ? t('scheduledImagingBlock.setsBelowHorizon')
     : verdict === 'none' || verdict === 'partial'
       ? verdictReason
       : moonVerdict !== 'ok'
         ? moonReason
         : lowInSky && minAlt != null
-          ? `Low in the sky, down to ${Math.round(minAlt)}°`
+          ? t('scheduledImagingBlock.lowInSky', { deg: Math.round(minAlt) })
           : hasOverlap
-            ? 'Overlaps another block'
+            ? t('scheduledImagingBlock.overlapsAnother')
             : '';
 
   return (
@@ -171,11 +184,11 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
           <div className="flex min-w-0 items-center gap-1.5">
             <GripVertical className="h-3 w-3 shrink-0 opacity-40" />
             <span className="truncate text-sm font-semibold">{displayName ?? session.objectName}</span>
-            {isSaving && <span className="shrink-0 text-[10px] opacity-60">Saving...</span>}
+            {isSaving && <span className="shrink-0 text-[10px] opacity-60">{t('scheduledImagingBlock.saving')}</span>}
           </div>
 
           <div className="text-[11px] text-white/60 tabular-nums">
-            {formatHm(start, observerTimezone)} to {formatHm(end, observerTimezone)}
+            {t('scheduledImagingBlock.timeRange', { start: formatHm(start, observerTimezone), end: formatHm(end, observerTimezone) })}
           </div>
 
           {!compact && (
@@ -183,19 +196,19 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
               {minAlt != null && maxAlt != null && (
                 <Chip tone={belowHorizon ? 'bad' : lowInSky ? 'warn' : 'ok'}>
                   <ArrowUp className="h-2.5 w-2.5" />
-                  {Math.round(minAlt)}° to {Math.round(maxAlt)}°
+                  {t('scheduledImagingBlock.altitudeRange', { min: Math.round(minAlt), max: Math.round(maxAlt) })}
                 </Chip>
               )}
               {moonVerdict !== 'ok' && (
                 <Chip tone={moonVerdict === 'warning' ? 'bad' : 'warn'}>
                   <Moon className="h-2.5 w-2.5" />
-                  Moon
+                  {t('scheduledImagingBlock.moon')}
                 </Chip>
               )}
               {hasOverlap && (
                 <Chip tone="warn">
                   <AlertTriangle className="h-2.5 w-2.5" />
-                  Overlap
+                  {t('scheduledImagingBlock.overlap')}
                 </Chip>
               )}
             </div>
@@ -211,12 +224,23 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
 
       {!isSaving && (
         <div className="absolute right-1 top-1 z-10 flex items-center gap-0.5 opacity-70 transition group-hover:opacity-100">
+          {session.framingSetup && onShowFraming && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onShowFraming(session); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-sky-300 transition hover:bg-white/20"
+              aria-label={t('scheduledImagingBlock.showFraming')}
+              title={t('scheduledImagingBlock.showFraming')}
+            >
+              <Frame className="h-3 w-3" />
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onShowDetails(session); }}
             onPointerDown={(e) => e.stopPropagation()}
             className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
-            aria-label="Show object details"
-            title="Show details"
+            aria-label={t('scheduledImagingBlock.showObjectDetails')}
+            title={t('scheduledImagingBlock.showDetails')}
           >
             <Info className="h-3 w-3" />
           </button>
@@ -224,11 +248,17 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
             onClick={(e) => { e.stopPropagation(); onDelete(session.id); }}
             onPointerDown={(e) => e.stopPropagation()}
             className="flex h-5 w-5 items-center justify-center rounded-full transition hover:bg-white/20"
-            aria-label="Remove scheduled block"
-            title="Remove"
+            aria-label={t('scheduledImagingBlock.removeScheduledBlock')}
+            title={t('scheduledImagingBlock.remove')}
           >
             <X className="h-3 w-3" />
           </button>
+        </div>
+      )}
+
+      {height >= LONG_BLOCK_HEIGHT && (
+        <div className="absolute bottom-1.5 left-3.5 text-[10px] text-white/35 tabular-nums">
+          {t('scheduledImagingBlock.until', { time: formatHm(end, observerTimezone) })}
         </div>
       )}
 
@@ -259,6 +289,7 @@ interface ResizeHandleProps {
 }
 
 function ResizeHandle({ edge, pxPerMinute, onResize, disabled }: ResizeHandleProps) {
+  const { t } = useTranslation('planner');
   const [active, setActive] = useState(false);
   const startYRef = useRef<number | null>(null);
   const lastSnappedRef = useRef(0);
@@ -317,7 +348,7 @@ function ResizeHandle({ edge, pxPerMinute, onResize, disabled }: ResizeHandlePro
         active ? 'bg-accent-400/50' : 'hover:bg-accent-400/30'
       }`}
       onPointerDown={handlePointerDown}
-      aria-label={`Resize ${edge}`}
+      aria-label={edge === 'top' ? t('scheduledImagingBlock.resizeTop') : t('scheduledImagingBlock.resizeBottom')}
     />
   );
 }

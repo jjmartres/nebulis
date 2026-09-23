@@ -8,7 +8,8 @@ test.describe('Gallery', () => {
   });
 
   test('shows page heading', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /night sky library/i })).toBeVisible();
+    // The library hero's title is the i18n `libraryHero.title` string, "Library".
+    await expect(page.getByRole('heading', { level: 1, name: 'Library' })).toBeVisible();
   });
 
   test('renders all objects from API', async ({ page }) => {
@@ -18,8 +19,9 @@ test.describe('Gallery', () => {
   });
 
   test('shows session count on cards', async ({ page }) => {
-    // M42 has 3 sessions
-    await expect(page.getByText(/3\s+session/i).first()).toBeVisible();
+    // Cards render the observation count (objectCard.observationCount), not
+    // "sessions". M42 has 3 observations.
+    await expect(page.getByRole('link', { name: /Orion Nebula.*3 observations/i })).toBeVisible();
   });
 
   test('shows type labels on cards', async ({ page }) => {
@@ -94,7 +96,8 @@ test.describe('Gallery', () => {
 
   test('empty search result shows no-results state', async ({ page }) => {
     await page.getByPlaceholder(/search/i).fill('XYZNOTFOUND');
-    await expect(page.getByText(/no objects found/i)).toBeVisible();
+    // gallery.noSearchMatches: "No objects match your search".
+    await expect(page.getByText(/no objects match your search/i)).toBeVisible();
   });
 
   test('clicking an object card navigates to object detail', async ({ page }) => {
@@ -103,27 +106,39 @@ test.describe('Gallery', () => {
   });
 
   test('import status is visible when not running', async ({ page }) => {
-    // Last run time should show somewhere in the import UI
-    await expect(page.getByRole('button', { name: /import/i }).first()).toBeVisible();
+    // Import status moved off the Library page: triggering a sync and reporting
+    // its progress both live in the telescope pill's dropdown in the top nav
+    // (Layout.tsx). Idle, the pill reports how many scopes are online.
+    await expect(page.getByRole('button', { name: /\d+\/\d+ online/i })).toBeVisible();
   });
 
   test('import button triggers import and shows progress', async ({ page }) => {
-    // Override import status to show running after click
-    let callCount = 0;
-    await page.route('**/api/library/import/status', r => {
-      callCount++;
-      r.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, data: callCount > 1 ? MOCK.importRunning : MOCK.importStatus }),
-      });
+    // The Library page's old "From Telescope" button is gone; the nav pill now
+    // owns sync. Report a run in progress only after the POST starts, so the
+    // assertion cannot pass on a stale idle poll.
+    let syncStarted = false;
+    const envelope = (data: unknown) => ({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, data }),
+    });
+    await page.route('**/api/library/import/status', r =>
+      r.fulfill(envelope(syncStarted ? MOCK.importRunning : MOCK.importStatus)));
+    await page.route('**/api/library/import', r => {
+      if (r.request().method() === 'POST') {
+        syncStarted = true;
+        r.fulfill(envelope({ started: true, objectId: null }));
+      } else {
+        r.fulfill(envelope(MOCK.importStatus));
+      }
     });
 
-    // Trigger import
-    await page.getByRole('button', { name: /import/i }).first().click();
+    // Open the telescope status pill and sync the configured scope.
+    await page.getByRole('button', { name: /\d+\/\d+ online/i }).click();
+    await page.getByRole('button', { name: /^sync seestar s50$/i }).click();
 
-    // Progress indicator appears
-    await expect(page.getByText(/importing/i).or(page.getByText(/in progress/i))).toBeVisible({ timeout: 5000 });
+    // Progress indicator appears: the pill switches to its syncing label.
+    await expect(page.getByRole('button', { name: /^syncing\.\.\.$/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('shows loading state while fetching', async ({ page }) => {
@@ -143,10 +158,16 @@ test.describe('Gallery', () => {
   });
 
   test('nav links are rendered', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /observations/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /planner/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /wishlist/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /storage/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /settings/i })).toBeVisible();
+    // The standalone Wishlist and Storage links are gone: the web wishlist
+    // surface was removed, and Storage is reached directly or from Settings.
+    // Forecast is hidden by default, so it is not part of the default nav strip.
+    await expect(page.getByRole('link', { name: 'Library', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Gallery', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Observations', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Planner', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Catalogs', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Calibrations', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Help', exact: true })).toBeVisible();
   });
 });

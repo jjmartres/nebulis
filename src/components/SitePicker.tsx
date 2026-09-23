@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { MapPin, ChevronDown, Check, Settings2 } from 'lucide-react';
 import { useClickOutside } from '../hooks/useClickOutside';
 import { SiteManagerModal } from './SiteManagerModal';
@@ -33,6 +34,7 @@ export function SitePicker({
   onSelect: (siteId: string) => void;
   isSwitching?: boolean;
 }) {
+  const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const [showManager, setShowManager] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
@@ -69,7 +71,7 @@ export function SitePicker({
         type="button"
         onClick={() => setOpen(o => !o)}
         disabled={isSwitching}
-        title={sites.length > 1 ? 'Switch observing site' : 'Manage observing sites'}
+        title={sites.length > 1 ? t('sitePicker.switchSite') : t('sitePicker.manageSites')}
         // A persistent border + background, not just a hover state — without
         // it, the pill reads as plain status text (like "Saved" or the moon
         // phase next to it) rather than something you can click.
@@ -98,7 +100,7 @@ export function SitePicker({
         >
           {sites.length > 1 && (
             <li className={`px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Observing sites
+              {t('sitePicker.observingSites')}
             </li>
           )}
           {sites.map(site => (
@@ -127,7 +129,7 @@ export function SitePicker({
               }`}
             >
               <Settings2 className="w-3.5 h-3.5 shrink-0" />
-              Manage locations...
+              {t('sitePicker.manageLocations')}
             </button>
           </li>
         </ul>,

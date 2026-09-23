@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface ThumbEntry {
   key: string;
@@ -49,6 +50,7 @@ export function LightboxThumbStrip({
   onSelect,
   window: fallbackSide = 10,
 }: Props) {
+  const { t } = useTranslation('library');
   const stripRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -147,7 +149,7 @@ export function LightboxThumbStrip({
           <button
             type="button"
             onClick={() => onSelect(Math.max(0, index - page))}
-            title={`Jump back ${Math.min(start, page)} images`}
+            title={t('lightboxThumbStrip.jumpBack', { count: Math.min(start, page) })}
             className={markerClass}
           >
             +{start}
@@ -186,7 +188,7 @@ export function LightboxThumbStrip({
           <button
             type="button"
             onClick={() => onSelect(Math.min(entries.length - 1, index + page))}
-            title={`Jump forward ${Math.min(entries.length - end, page)} images`}
+            title={t('lightboxThumbStrip.jumpForward', { count: Math.min(entries.length - end, page) })}
             className={markerClass}
           >
             +{entries.length - end}

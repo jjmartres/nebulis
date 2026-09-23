@@ -11,6 +11,7 @@
  * The month navigation used to live in the grid's own header; it moved here so
  * there is a single control row for whichever view is open.
  */
+import { useTranslation } from 'react-i18next';
 import {
   Calendar, ChevronDown, ChevronLeft, ChevronRight,
   List, Map as MapIcon, Share2, Telescope,
@@ -45,10 +46,10 @@ interface Props {
   onGoToToday: () => void;
 }
 
-const VIEWS: { id: ObservationsView; label: string; Icon: typeof Calendar }[] = [
-  { id: 'calendar', label: 'Calendar', Icon: Calendar },
-  { id: 'list', label: 'List', Icon: List },
-  { id: 'map', label: 'Map', Icon: MapIcon },
+const VIEWS: { id: ObservationsView; labelKey: string; Icon: typeof Calendar }[] = [
+  { id: 'calendar', labelKey: 'toolbar.viewCalendar', Icon: Calendar },
+  { id: 'list', labelKey: 'toolbar.viewList', Icon: List },
+  { id: 'map', labelKey: 'toolbar.viewMap', Icon: MapIcon },
 ];
 
 export function ObservationsToolbar({
@@ -58,6 +59,7 @@ export function ObservationsToolbar({
   monthLabel, year, month, onPickMonthYear,
   isCurrentMonth, onNavigateMonth, onGoToToday,
 }: Props) {
+  const { t } = useTranslation('observations');
   const controlBase = isDark
     ? 'bg-slate-900/70 ring-slate-700/60 text-slate-200'
     : 'bg-white ring-slate-200 text-slate-800';
@@ -78,12 +80,12 @@ export function ObservationsToolbar({
         {/* View switch */}
         <div
           role="group"
-          aria-label="View"
+          aria-label={t('toolbar.viewGroup')}
           className={`inline-flex items-center gap-0.5 self-start rounded-full p-0.5 ring-1 ring-inset sm:justify-self-start ${
             isDark ? 'bg-slate-900/70 ring-slate-700/60' : 'bg-white ring-slate-200'
           }`}
         >
-          {VIEWS.map(({ id, label, Icon }) => {
+          {VIEWS.map(({ id, labelKey, Icon }) => {
             const active = view === id;
             // The active pill is filled in light mode and tinted in dark, rather
             // than tinted in both. A tint reads well on a dark surface, but
@@ -108,7 +110,7 @@ export function ObservationsToolbar({
                   }`}
               >
                 <Icon className="h-3.5 w-3.5" />
-                {label}
+                {t(labelKey)}
               </button>
             );
           })}
@@ -120,7 +122,7 @@ export function ObservationsToolbar({
           <div className="flex items-center justify-center gap-1 sm:justify-self-center">
             <button
               onClick={() => onNavigateMonth(-1)}
-              aria-label="Previous month"
+              aria-label={t('toolbar.previousMonth')}
               className={`rounded-lg p-1.5 transition ${stepBtn}`}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -134,7 +136,7 @@ export function ObservationsToolbar({
             />
             <button
               onClick={() => onNavigateMonth(1)}
-              aria-label="Next month"
+              aria-label={t('toolbar.nextMonth')}
               className={`rounded-lg p-1.5 transition ${stepBtn}`}
             >
               <ChevronRight className="h-4 w-4" />
@@ -144,7 +146,7 @@ export function ObservationsToolbar({
                 onClick={onGoToToday}
                 className={`ml-1 rounded-full px-3 py-1.5 text-xs font-medium transition ${todayBtn}`}
               >
-                Today
+                {t('toolbar.today')}
               </button>
             )}
           </div>
@@ -172,13 +174,13 @@ export function ObservationsToolbar({
               <select
                 value={telescopeFilter}
                 onChange={e => onTelescopeFilterChange(e.target.value)}
-                aria-label="Filter by telescope"
+                aria-label={t('toolbar.filterByTelescope')}
                 className={`cursor-pointer appearance-none rounded-full py-1.5 pl-9 pr-8 text-xs ring-1 ring-inset transition
                   focus:outline-none focus:ring-2 focus:ring-accent-500/40 ${controlBase}`}
               >
-                <option value={ALL_TELESCOPES_FILTER}>All telescopes</option>
-                {telescopes.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                <option value={ALL_TELESCOPES_FILTER}>{t('toolbar.allTelescopes')}</option>
+                {telescopes.map(scope => (
+                  <option key={scope.id} value={scope.id}>{scope.name}</option>
                 ))}
               </select>
               <ChevronDown
@@ -201,7 +203,7 @@ export function ObservationsToolbar({
               }`}
             >
               <Share2 className="h-3.5 w-3.5" />
-              Share
+              {t('toolbar.share')}
             </button>
           )}
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { RotateCw, AlertCircle } from 'lucide-react';
 import { parseFits, renderFitsThumbnail, type Colormap } from '../lib/fits';
 import { fetchBinary } from '../lib/api/client';
@@ -27,6 +28,7 @@ export const FitsThumbnail = memo(function FitsThumbnail({
   isDark,
   maxDim = 256,
 }: FitsThumbnailProps) {
+  const { t } = useTranslation('errors');
   // All hooks must be declared before any conditional return (Rules of Hooks).
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,7 +66,7 @@ export const FitsThumbnail = memo(function FitsThumbnail({
   // given library URL never change.
   const fitsQuery = useQuery({
     queryKey: ['fits-binary', url],
-    queryFn: async ({ signal }) => parseFits(await fetchBinary(url, signal)),
+    queryFn: async ({ signal }) => parseFits(await fetchBinary(url, signal, t), t),
     enabled: !useServerThumb && inView,
     staleTime: Infinity,
     retry: false,
@@ -128,7 +130,7 @@ export const FitsThumbnail = memo(function FitsThumbnail({
         <div className={`w-full h-full flex flex-col items-center justify-center gap-1 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
           <AlertCircle className={`w-4 h-4 ${isDark ? 'text-slate-600' : 'text-slate-400'}`} />
           <span className={`text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-            {error ?? 'Error'}
+            {error ?? t('genericShort')}
           </span>
         </div>
       )}

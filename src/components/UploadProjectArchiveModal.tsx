@@ -1,14 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { FileArchive, X, AlertTriangle, Loader2, UploadCloud } from 'lucide-react';
 import { uploadProjectArchive } from '../lib/api/library';
 import { formatBytes } from '../lib/utils';
 import { useTheme } from '../hooks/useTheme';
+import { Modal } from './ui/Modal';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   objectId: string;
+  // Pre-fills the drop zone with a file the caller already picked up (e.g.
+  // from an inline dropzone rendered before this modal was open), so the
+  // user isn't asked to drop or browse for the same file twice.
+  initialFile?: File | null;
 }
 
 /**
@@ -21,13 +27,14 @@ interface Props {
  * object-scoped for.
  *
  * A real project archive can run up to 20 GB (see the server's
- * projectArchiveUpload limit) — easily an hour or more on a home upload
- * link — so, unlike UploadProcessedModal's bare "Uploading…" spinner, this
+ * projectArchiveUpload limit), easily an hour or more on a home upload
+ * link, so, unlike UploadProcessedModal's bare "Uploading..." spinner, this
  * shows real progress and lets the user actually cancel a transfer already
  * in flight rather than just disabling the button.
  */
-export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) {
+export function UploadProjectArchiveModal({ isOpen, onClose, objectId, initialFile }: Props) {
   const { isDark, isNight, isSpace } = useTheme();
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState('');
@@ -43,6 +50,15 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
 
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-accent-500';
 
+  const handleSelectFile = useCallback((f: File) => {
+    if (!/\.zip$/i.test(f.name)) {
+      setError(t('objectDetail.uploadProjectArchiveModal.onlyZipError'));
+      return;
+    }
+    setError('');
+    setFile(f);
+  }, [t]);
+
   useEffect(() => {
     if (!isOpen) return;
     setTitle('');
@@ -53,22 +69,17 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
     setIsDragging(false);
     setIsUploading(false);
     setProgress(null);
-  }, [isOpen]);
+    if (initialFile) handleSelectFile(initialFile);
+    // Only re-run when the modal opens or a new pre-picked file arrives, not
+    // on every handleSelectFile identity change (it depends on `t`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialFile]);
 
   // Abort an in-flight transfer if the modal unmounts outright (not just
   // closes via the Cancel button below, which already aborts explicitly) —
   // otherwise a multi-GB upload keeps running against a component with
   // nothing left to receive its result.
   useEffect(() => () => abortRef.current?.abort(), []);
-
-  const handleSelectFile = useCallback((f: File) => {
-    if (!/\.zip$/i.test(f.name)) {
-      setError('Only .zip archives are accepted.');
-      return;
-    }
-    setError('');
-    setFile(f);
-  }, []);
 
   const handleUpload = useCallback(async () => {
     if (!file || isUploading) return;
@@ -91,14 +102,14 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError('');
       } else {
-        setError(err instanceof Error ? err.message : 'Upload failed');
+        setError(err instanceof Error ? err.message : t('objectDetail.uploadProjectArchiveModal.uploadFailed'));
       }
     } finally {
       abortRef.current = null;
       setIsUploading(false);
       setProgress(null);
     }
-  }, [file, isUploading, objectId, title, notes, software, queryClient, onClose]);
+  }, [file, isUploading, objectId, title, notes, software, queryClient, onClose, t]);
 
   const handleCancel = useCallback(() => {
     if (isUploading) {
@@ -108,12 +119,17 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
     onClose();
   }, [isUploading, onClose]);
 
-  if (!isOpen) return null;
-
   const pct = progress && progress.total > 0 ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : 0;
 
+  // Guards both Escape and backdrop-click, matching the header X button's own
+  // `disabled={isUploading}` — the "Cancel upload" button is the deliberate,
+  // explicit way to abort a transfer already in flight.
+  const handleModalClose = () => {
+    if (!isUploading) onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <Modal isOpen={isOpen} onClose={handleModalClose} title={t('objectDetail.uploadProjectArchiveModal.title')} backdropClassName="bg-black/70">
       <div className={`w-full max-w-lg rounded-2xl border shadow-2xl ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
         <div className={`flex items-center justify-between p-5 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
           <div className="flex items-center gap-3">
@@ -121,13 +137,13 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
               <FileArchive className={`w-4 h-4 ${accentText}`} />
             </div>
             <h3 className={`font-display font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Upload Processing Project
+              {t('objectDetail.uploadProjectArchiveModal.title')}
             </h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleModalClose}
             disabled={isUploading}
-            title={isUploading ? 'Use Cancel below to stop the upload' : 'Close'}
+            title={isUploading ? t('objectDetail.uploadProjectArchiveModal.closeDisabledHint') : t('objectDetail.uploadProjectArchiveModal.close')}
             className={`p-2 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
           >
             <X className="w-4 h-4" />
@@ -171,7 +187,11 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
                       />
                     </div>
                     <p className={`text-xs text-center tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {pct}% · {formatBytes(progress.loaded)} of {formatBytes(progress.total)}
+                      {t('objectDetail.uploadProjectArchiveModal.progressStatus', {
+                        pct,
+                        loaded: formatBytes(progress.loaded),
+                        total: formatBytes(progress.total),
+                      })}
                     </p>
                   </div>
                 ) : (
@@ -186,10 +206,10 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
                   <UploadCloud className={`w-6 h-6 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                 </div>
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Drop your project .zip here or click to browse
+                  {t('objectDetail.uploadProjectArchiveModal.dropHere')}
                 </p>
                 <p className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                  Process icons, masters, logs — whatever Siril/PixInsight exported. Up to 20 GB.
+                  {t('objectDetail.uploadProjectArchiveModal.acceptedFormatsHint')}
                 </p>
               </div>
             )}
@@ -204,14 +224,14 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
 
           <div className="space-y-1">
             <label className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Title <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>(optional)</span>
+              {t('objectDetail.uploadProjectArchiveModal.titleLabel')}
             </label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
               disabled={isUploading}
-              placeholder="e.g. HOO integration, v2"
+              placeholder={t('objectDetail.uploadProjectArchiveModal.titlePlaceholder')}
               className={`w-full px-3 py-2 rounded-lg border text-sm transition disabled:opacity-50 ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-600 focus:border-violet-500'
@@ -222,14 +242,14 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
 
           <div className="space-y-1">
             <label className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Software <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>(optional)</span>
+              {t('objectDetail.uploadProjectArchiveModal.softwareLabel')}
             </label>
             <input
               type="text"
               value={software}
               onChange={e => setSoftware(e.target.value)}
               disabled={isUploading}
-              placeholder="e.g. PixInsight, Siril"
+              placeholder={t('objectDetail.uploadProjectArchiveModal.softwarePlaceholder')}
               className={`w-full px-3 py-2 rounded-lg border text-sm transition disabled:opacity-50 ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-600 focus:border-violet-500'
@@ -240,13 +260,13 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
 
           <div className="space-y-1">
             <label className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Notes <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>(optional)</span>
+              {t('objectDetail.uploadProjectArchiveModal.notesLabel')}
             </label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               disabled={isUploading}
-              placeholder="Which sessions this draws on, processing steps, anything future-you should know…"
+              placeholder={t('objectDetail.uploadProjectArchiveModal.notesPlaceholder')}
               rows={3}
               className={`w-full px-3 py-2 rounded-lg border text-sm resize-none transition disabled:opacity-50 ${
                 isDark
@@ -269,7 +289,7 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
             onClick={handleCancel}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
           >
-            {isUploading ? 'Cancel upload' : 'Cancel'}
+            {isUploading ? t('objectDetail.uploadProjectArchiveModal.cancelUpload') : t('objectDetail.uploadProjectArchiveModal.cancel')}
           </button>
           <button
             onClick={handleUpload}
@@ -281,10 +301,10 @@ export function UploadProjectArchiveModal({ isOpen, onClose, objectId }: Props) 
             }`}
           >
             {isUploading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {isUploading ? `Uploading… ${pct}%` : 'Upload Project'}
+            {isUploading ? t('objectDetail.uploadProjectArchiveModal.uploading', { pct }) : t('objectDetail.uploadProjectArchiveModal.uploadProject')}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

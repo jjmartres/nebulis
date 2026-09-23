@@ -1,10 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Settings, Library, Sparkles, EyeOff, CloudMoon, Calendar, Crosshair, RefreshCw, HelpCircle, LogOut, ShieldCheck, Eye, Images, BookOpen, Aperture, Telescope, ChevronDown } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { Sun, Moon, Settings, Library, Sparkles, EyeOff, CloudMoon, Calendar, Crosshair, RefreshCw, HelpCircle, LogOut, ShieldCheck, Eye, Images, BookOpen, Aperture, Telescope, ChevronDown, Star } from 'lucide-react';
+import { useState, useRef, useLayoutEffect, cloneElement, isValidElement, type ReactElement } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import { useTheme, type Theme } from '../hooks/useTheme';
-import { useNavVisibility } from '../hooks/useNavVisibility';
+import { useNavVisibility, type NavItemId } from '../hooks/useNavVisibility';
 import { getAllTelescopeStatus } from '../lib/api/telescopes';
 import { getImportStatus, formatTransportSuffix, triggerImport } from '../lib/api/library';
 import { getCurrentUser } from '../lib/api/auth';
@@ -23,12 +24,66 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-const themeOptions: { id: Theme; label: string; icon: ReactNode }[] = [
-  { id: 'light', label: 'Light', icon: <Sun className="w-4 h-4" /> },
-  { id: 'dark', label: 'Dark', icon: <Moon className="w-4 h-4" /> },
-  { id: 'space', label: 'Space', icon: <Sparkles className="w-4 h-4" /> },
-  { id: 'night', label: 'Night', icon: <EyeOff className="w-4 h-4" /> },
+const themeOptions: { id: Theme; labelKey: string; icon: ReactNode }[] = [
+  { id: 'light', labelKey: 'appearance.light.label', icon: <Sun className="w-4 h-4" /> },
+  { id: 'dark', labelKey: 'appearance.dark.label', icon: <Moon className="w-4 h-4" /> },
+  { id: 'space', labelKey: 'appearance.space.label', icon: <Sparkles className="w-4 h-4" /> },
+  { id: 'night', labelKey: 'appearance.night.label', icon: <EyeOff className="w-4 h-4" /> },
 ];
+
+/** Total horizontal breathing room kept between the nav strip and the logo or
+ *  the right-hand cluster, before the strip is allowed to stay at full size.
+ *  Half of it lands on each side. */
+const NAV_STRIP_CLEARANCE = 24;
+
+/** Route/icon/active-match/tour-anchor per top-nav item, keyed by the same
+ *  `NavItemId` the Settings → General "Navigation bar" list uses to control
+ *  visibility and order. `settings`'s update badge is handled separately in
+ *  the render loop since it depends on query state, not anything static here.
+ *
+ *  Exported so tests/frontend/tourAnchors.test.ts can add these `tourAnchorId`
+ *  values to its known-anchor set: its static scan looks for a literal
+ *  `<TourAnchor id="...">` in JSX, which this file no longer has now that the
+ *  nav strip renders from `orderedItems` instead of one hardcoded link per
+ *  item — same "third kind of dynamic id" case that file's own doc comment
+ *  anticipates (it already does this for SETTINGS_NAV). */
+export const NAV_LINK_CONFIG: Record<NavItemId, {
+  to: string;
+  icon: ReactNode;
+  isActive: (pathname: string) => boolean;
+  tourAnchorId?: string;
+}> = {
+  library: {
+    to: '/', icon: <Library className="w-4 h-4" />, isActive: (p) => p === '/', tourAnchorId: 'nav-library',
+  },
+  gallery: {
+    to: '/image-gallery', icon: <Images className="w-4 h-4" />, isActive: (p) => p === '/image-gallery', tourAnchorId: 'nav-gallery',
+  },
+  observations: {
+    to: '/observations', icon: <Calendar className="w-4 h-4" />, isActive: (p) => p.startsWith('/observations'), tourAnchorId: 'nav-observations',
+  },
+  forecast: {
+    to: '/forecast', icon: <CloudMoon className="w-4 h-4" />, isActive: (p) => p === '/forecast',
+  },
+  planner: {
+    to: '/planner', icon: <Crosshair className="w-4 h-4" />, isActive: (p) => p === '/planner',
+  },
+  wishlist: {
+    to: '/wishlist', icon: <Star className="w-4 h-4" />, isActive: (p) => p.startsWith('/wishlist'),
+  },
+  catalogs: {
+    to: '/catalogs', icon: <BookOpen className="w-4 h-4" />, isActive: (p) => p.startsWith('/catalogs'),
+  },
+  calibrations: {
+    to: '/calibrations', icon: <Aperture className="w-4 h-4" />, isActive: (p) => p.startsWith('/calibrations'),
+  },
+  settings: {
+    to: '/settings', icon: <Settings className="w-4 h-4" />, isActive: (p) => p === '/settings', tourAnchorId: 'nav-settings',
+  },
+  help: {
+    to: '/help', icon: <HelpCircle className="w-4 h-4" />, isActive: (p) => p === '/help', tourAnchorId: 'nav-help',
+  },
+};
 
 function avatarInitials(name: string): string {
   const letters = name.match(/\b[A-Za-z]/g) ?? [];
@@ -38,8 +93,33 @@ function avatarInitials(name: string): string {
 }
 
 export function Layout({ children }: LayoutProps) {
+  const { t, i18n } = useTranslation(['common', 'settings']);
   const { theme, setTheme, isDark, isNight, isSpace, showNebulaBackdrop } = useTheme();
-  const { isVisible } = useNavVisibility();
+  const { isVisible, orderedItems } = useNavVisibility();
+  const visibleNavItems = orderedItems.filter(item => isVisible(item.id));
+  // Nav strip sizing is a measured decision, not an item count. The strip
+  // lives between the logo and the right-hand cluster, so how many labels fit
+  // depends on the room those two leave, and that room changes with the
+  // viewport far more than with the item count. A plain "more than 8 items
+  // means compact" rule shrank the bar on a 2560px screen that had 85px to
+  // spare, while doing nothing about the same 11 items overlapping both
+  // neighbours on a 1280px one. The sizing effect below measures instead, and
+  // only tightens the strip when the full-size one genuinely does not fit.
+  const [isCompactNav, setIsCompactNav] = useState(false);
+  // How far the strip slides from the bar's centre to keep its clearance. The
+  // logo is much narrower than the status cluster, so centring the strip by
+  // construction throws away the extra room on the logo's side; the shift
+  // spends it instead of shrinking the labels to fit the smaller side.
+  const [navShift, setNavShift] = useState(0);
+  const navBarRef = useRef<HTMLDivElement | null>(null);
+  const navLogoRef = useRef<HTMLAnchorElement | null>(null);
+  const navStripRef = useRef<HTMLDivElement | null>(null);
+  const navRightRef = useRef<HTMLDivElement | null>(null);
+  // Width the strip needs at full size. Only measurable while it is rendered
+  // at full size, so it is cached and reused to decide when it can grow back.
+  const fullNavWidthRef = useRef<number | null>(null);
+  const navMeasuredForRef = useRef<string | null>(null);
+  const navSignature = `${i18n.language}|${visibleNavItems.map(item => item.id).join(',')}`;
   const { active: tourActive, step: tourStep } = useTour();
   const { isAdmin } = useAuth();
   const location = useLocation();
@@ -99,6 +179,96 @@ export function Layout({ children }: LayoutProps) {
 
   useClickOutside(dropdownRef, () => setProfileOpen(false));
 
+  // Sizing and placement pass for the nav strip. Runs in a layout effect so
+  // the decision is applied before paint: on a narrow screen the strip renders
+  // at full size for one commit, is measured, and tightens without the user
+  // ever seeing the in-between frame.
+  //
+  // `fullNavWidthRef` is the whole reason the sizing is not a one-liner. The
+  // width the strip needs at full size can only be read while it is rendered at
+  // full size, so it is cached, and the cached number is what decides when there
+  // is room to grow back. Changing the item set or the language changes those
+  // widths, so the signature below throws the cache away and measures again.
+  useLayoutEffect(() => {
+    const strip = navStripRef.current;
+    const bar = navBarRef.current;
+    const logo = navLogoRef.current;
+    const right = navRightRef.current;
+    if (!strip || !bar || !logo || !right) return;
+
+    const fit = () => {
+      const barRect = bar.getBoundingClientRect();
+      const centre = barRect.left + barRect.width / 2;
+      const logoRight = logo.getBoundingClientRect().right;
+      const rightLeft = right.getBoundingClientRect().left;
+      const needed = Math.ceil(strip.getBoundingClientRect().width);
+      // Every pixel between the logo and the status cluster is room the strip
+      // can use. Judging it against the room mirrored about the bar's centre
+      // instead spends only the smaller side: the logo is ~120px and the
+      // status cluster ~250px, so at 1470px the full-size labels had ~80px to
+      // spare in the gap and still rendered compact.
+      const gap = rightLeft - logoRight;
+
+      if (!isCompactNav) {
+        // This measurement is the only chance to read the full-size width, so
+        // cache it before deciding to shrink away from it.
+        fullNavWidthRef.current = needed;
+      }
+
+      const fullWidth = fullNavWidthRef.current;
+      if (fullWidth == null) {
+        // No full-size measurement for this item set yet. Render one, then
+        // let the next pass decide.
+        setIsCompactNav(false);
+      } else {
+        setIsCompactNav(fullWidth + NAV_STRIP_CLEARANCE > gap);
+      }
+
+      // Stay centred on the bar while that keeps the clearance on both sides,
+      // and slide toward the roomier neighbour when it does not. The strip is
+      // centred by construction, so without the slide the extra room on the
+      // logo's side stays unusable and the labels shrink to fit the cluster's
+      // side alone. Clamping the centre to the two clearance edges moves the
+      // strip the least it can: zero whenever the centred position is legal.
+      const half = needed / 2 + NAV_STRIP_CLEARANCE / 2;
+      const lowestCentre = logoRight + half;
+      const highestCentre = rightLeft - half;
+      const target = lowestCentre > highestCentre
+        // Narrower than the strip needs even in compact form. Nothing left to
+        // protect, so fall back to the centred position.
+        ? centre
+        : Math.min(Math.max(centre, lowestCentre), highestCentre);
+      setNavShift(Math.round(target - centre));
+    };
+
+    if (navMeasuredForRef.current !== navSignature) {
+      navMeasuredForRef.current = navSignature;
+      fullNavWidthRef.current = null;
+    }
+
+    fit();
+
+    // Inter and Space Grotesk are self-hosted and load with font-display:
+    // swap, so a cold first paint measures the fallback face's metrics. Those
+    // differ enough from Inter's to flip the decision when a width sits right
+    // on the boundary, so measure again once the real faces are in.
+    let cancelled = false;
+    document.fonts?.ready.then(() => { if (!cancelled) fit(); });
+
+    // The logo and the status cluster change width on their own (a longer
+    // hostname, the sync pill appearing, the update badge), so watching only
+    // the bar would miss room appearing or disappearing. The strip is watched
+    // too: switching it between full size and compact changes the width its
+    // own fit is judged against, and re-measuring on that change is what lets
+    // the cached full-size number settle before it is next trusted.
+    const observer = new ResizeObserver(fit);
+    for (const el of [bar, logo, right, strip]) observer.observe(el);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [isCompactNav, navSignature]);
+
   function handleLogout() {
     clearAuthToken();
     window.location.reload();
@@ -134,7 +304,7 @@ export function Layout({ children }: LayoutProps) {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:rounded focus:bg-accent-500 focus:text-white focus:text-sm focus:font-medium"
       >
-        Skip to main content
+        {t('layout.skipToMainContent')}
       </a>
       {/* Navigation */}
       {/* `app-nav` is the hook the theme overrides in index.css target. Without
@@ -149,89 +319,61 @@ export function Layout({ children }: LayoutProps) {
               : 'bg-white/80 border-slate-200'
       }`}>
         <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative flex items-center justify-between h-16">
+          <div ref={navBarRef} className="relative flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 group">
+            <Link to="/" ref={navLogoRef} className="flex items-center gap-3 group">
               <img src="/nebulis-64.png" alt="Nebulis" className="w-7 h-7" />
               <span className="font-display font-bold text-2xl tracking-tight">
                 Neb<span className="text-amber-500">ulis</span>
               </span>
             </Link>
 
-            {/* Nav links — absolutely centered so the strip stays in the middle
-                of the bar regardless of how wide the logo or right-side group get. */}
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
-              <TourAnchor id="nav-library">
-                <NavLink to="/" active={location.pathname === '/'} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
-                  <Library className="w-4 h-4" />
-                  <span>Library</span>
-                </NavLink>
-              </TourAnchor>
-              {isVisible('gallery') && (
-                <TourAnchor id="nav-gallery">
-                  <NavLink to="/image-gallery" active={location.pathname === '/image-gallery'} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
-                    <Images className="w-4 h-4" />
-                    <span>Gallery</span>
+            {/* Nav links — centered on the bar's centre and slid off it only
+                as far as the clearance needs (see `navShift`), so the strip
+                does not move for the logos or status text changing width.
+                Order and visibility both come from Settings → General →
+                Navigation bar (useNavVisibility); `settings` is always visible
+                there but still freely reorderable. Whether the items render at
+                full size or compact is measured against the room between the
+                logo and the right-side cluster, not counted — see the sizing
+                effect above. The translate is inline rather than Tailwind's
+                `-translate-x-1/2` so the shift composes with the centring. */}
+            <div
+              ref={navStripRef}
+              className={`absolute left-1/2 flex items-center ${isCompactNav ? 'gap-0.5' : 'gap-1'}`}
+              style={{ transform: `translateX(calc(-50% + ${navShift}px))` }}
+            >
+              {visibleNavItems.map(item => {
+                const cfg = NAV_LINK_CONFIG[item.id];
+                const icon = isCompactNav && isValidElement(cfg.icon)
+                  ? cloneElement(cfg.icon as ReactElement<{ className?: string }>, { className: 'w-3.5 h-3.5' })
+                  : cfg.icon;
+                const link = (
+                  <NavLink
+                    to={cfg.to}
+                    active={cfg.isActive(location.pathname)}
+                    activeClass={activeNavClass}
+                    isDark={isDark}
+                    isNight={isNight}
+                    compact={isCompactNav}
+                  >
+                    {icon}
+                    <span>{t(item.labelKey)}</span>
+                    {item.id === 'settings' && hasUpdateAvailable && <NavUpdateBadge />}
                   </NavLink>
-                </TourAnchor>
-              )}
-              <TourAnchor id="nav-observations">
-                <NavLink to="/observations" active={location.pathname.startsWith('/observations')} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
-                  <Calendar className="w-4 h-4" />
-                  <span>Observations</span>
-                </NavLink>
-              </TourAnchor>
-              {isVisible('forecast') && (
-                <NavLink to="/forecast" active={location.pathname === '/forecast'} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
-                  <CloudMoon className="w-4 h-4" />
-                  <span>Forecast</span>
-                </NavLink>
-              )}
-              {isVisible('planner') && (
-                <NavLink to="/planner" active={location.pathname === '/planner' || location.pathname === '/wishlist'} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
-                  <Crosshair className="w-4 h-4" />
-                  <span>Planner</span>
-                </NavLink>
-              )}
-              {isVisible('catalogs') && (
-                <NavLink to="/catalogs" active={location.pathname.startsWith('/catalogs')} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
-                  <BookOpen className="w-4 h-4" />
-                  <span>Catalogs</span>
-                </NavLink>
-              )}
-              {isVisible('calibrations') && (
-                <NavLink to="/calibrations" active={location.pathname.startsWith('/calibrations')} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
-                  <Aperture className="w-4 h-4" />
-                  <span>Calibrations</span>
-                </NavLink>
-              )}
-              <TourAnchor id="nav-settings">
-                <NavLink
-                  to="/settings"
-                  active={location.pathname === '/settings'}
-                  activeClass={activeNavClass}
-                  isDark={isDark}
-                  isNight={isNight}
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>Settings</span>
-                  {hasUpdateAvailable && <NavUpdateBadge />}
-                </NavLink>
-              </TourAnchor>
-              {isVisible('help') && (
-                <TourAnchor id="nav-help">
-                  <NavLink to="/help" active={location.pathname === '/help'} activeClass={activeNavClass} isDark={isDark} isNight={isNight}>
-                    <HelpCircle className="w-4 h-4" />
-                    <span>Help</span>
-                  </NavLink>
-                </TourAnchor>
-              )}
+                );
+                return cfg.tourAnchorId ? (
+                  <TourAnchor key={item.id} id={cfg.tourAnchorId}>{link}</TourAnchor>
+                ) : (
+                  <span key={item.id}>{link}</span>
+                );
+              })}
             </div>
 
             {/* Right-aligned cluster: telescope sync indicator + profile/theme avatar.
                 Stays flush right via the parent's justify-between, while the nav strip
                 above floats absolutely centered between this group and the logo. */}
-            <div className="flex items-center">
+            <div ref={navRightRef} className="flex items-center">
               {/* Telescope online / sync indicator. Same dropdown shape for
                   one scope or several: the aggregate pill ("N of M online")
                   opens a popover listing each scope with its own dot, status
@@ -258,10 +400,13 @@ export function Layout({ children }: LayoutProps) {
                   <button
                     onClick={() => !showSyncPlaceholder && setScopesOpen(s => !s)}
                     title={showSyncPlaceholder
-                      ? 'Add a telescope in Settings, then sync from here'
+                      ? t('layout.syncPlaceholderTitle')
                       : isSyncing
-                        ? `Syncing ${importStatusData?.currentObject || 'starting'}${formatTransportSuffix(importStatusData?.telescopeName, importStatusData?.transportKind)}...`
-                        : `${onlineCount} of ${allStatus.length} telescope${allStatus.length === 1 ? '' : 's'} online`}
+                        ? t('layout.syncingTitle', {
+                            object: importStatusData?.currentObject || t('layout.startingFallback'),
+                            suffix: formatTransportSuffix(importStatusData?.telescopeName, importStatusData?.transportKind),
+                          })
+                        : t('layout.onlineStatus', { online: onlineCount, count: allStatus.length })}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium select-none transition-all ${
                       showSyncPlaceholder
                         ? isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'
@@ -284,7 +429,7 @@ export function Layout({ children }: LayoutProps) {
                       <Telescope className="w-3.5 h-3.5 shrink-0" />
                     )}
                     <span className="hidden sm:inline">
-                      {showSyncPlaceholder ? 'Sync' : isSyncing ? 'Syncing...' : `${onlineCount}/${allStatus.length} online`}
+                      {showSyncPlaceholder ? t('layout.syncPill') : isSyncing ? t('layout.syncingPill') : t('layout.onlinePill', { online: onlineCount, count: allStatus.length })}
                     </span>
                     {/* Signals "this opens something" — the pill used to look like
                         a static status badge with no hint it was clickable. */}
@@ -305,9 +450,9 @@ export function Layout({ children }: LayoutProps) {
                         <span className={`text-[11px] font-semibold uppercase tracking-wider ${
                           isDark ? 'text-slate-500' : 'text-slate-400'
                         }`}>
-                          {showAllScopes ? 'Telescopes' : 'Telescope'}
+                          {t('layout.telescopesHeading', { count: allStatus.length })}
                         </span>
-                        {showAllScopes && (
+                        {showAllScopes && isAdmin && (
                           <button
                             onClick={() => syncMutation.mutate({ all: true })}
                             disabled={isSyncing || syncMutation.isPending}
@@ -316,7 +461,7 @@ export function Layout({ children }: LayoutProps) {
                             }`}
                           >
                             <RefreshCw className="w-3 h-3" />
-                            Sync all
+                            {t('layout.syncAll')}
                           </button>
                         )}
                       </div>
@@ -350,23 +495,29 @@ export function Layout({ children }: LayoutProps) {
                             </div>
                             <div className={`text-[11px] truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                               {!s.configured
-                                ? 'No host configured'
+                                ? t('layout.noHostConfigured')
                                 : s.online
-                                  ? `${s.hostname} · ${s.latencyMs}ms`
-                                  : `${s.hostname} · offline`}
+                                  ? t('layout.hostnameLatency', { hostname: s.hostname, ms: s.latencyMs })
+                                  : t('layout.hostnameOffline', { hostname: s.hostname })}
                             </div>
                           </div>
+                          {/* Syncing writes to the library server-side, which is
+                              admin-only (POST /api/library/import). Hide the
+                              trigger for viewers so the offer matches what the
+                              API will actually allow. */}
+                          {isAdmin && (
                           <button
                             onClick={() => syncMutation.mutate({ telescopeId: s.id })}
                             disabled={!s.configured || isSyncing || syncMutation.isPending}
-                            title={isThisSyncing ? `Syncing ${s.name}...` : `Sync ${s.name}`}
-                            aria-label={isThisSyncing ? `Syncing ${s.name}...` : `Sync ${s.name}`}
+                            title={isThisSyncing ? t('layout.syncingRow', { name: s.name }) : t('layout.syncRow', { name: s.name })}
+                            aria-label={isThisSyncing ? t('layout.syncingRow', { name: s.name }) : t('layout.syncRow', { name: s.name })}
                             className={`shrink-0 p-1.5 rounded-lg transition-colors disabled:opacity-30 ${
                               isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
                             }`}
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${isThisSyncing ? 'animate-spin' : ''}`} />
                           </button>
+                          )}
                         </div>
                         );
                       })}
@@ -377,7 +528,7 @@ export function Layout({ children }: LayoutProps) {
                           isDark ? 'border-slate-800 text-accent-400 hover:bg-slate-800/50' : 'border-slate-100 text-accent-600 hover:bg-slate-50'
                         }`}
                       >
-                        Open backup status →
+                        {t('layout.openBackupStatus')}
                       </Link>
                     </div>
                   )}
@@ -409,7 +560,7 @@ export function Layout({ children }: LayoutProps) {
                             ? 'ring-slate-700 bg-slate-800 text-slate-300 hover:ring-slate-500'
                             : 'ring-slate-200 bg-slate-100 text-slate-600 hover:ring-slate-300'
                   }`}
-                  title="Profile & settings"
+                  title={t('layout.profileSettingsTitle')}
                 >
                   {currentUser ? avatarInitials(currentUser.displayName || currentUser.username) : '?'}
                 </button>
@@ -445,7 +596,7 @@ export function Layout({ children }: LayoutProps) {
                           <p className={`text-sm font-semibold truncate ${
                             isNight ? 'text-red-300' : isDark ? 'text-slate-200' : 'text-slate-800'
                           }`}>
-                            {currentUser?.displayName || currentUser?.username || 'Open Access'}
+                            {currentUser?.displayName || currentUser?.username || t('layout.openAccess')}
                           </p>
                           {currentUser?.email && (
                             <p className={`text-xs truncate ${
@@ -471,8 +622,8 @@ export function Layout({ children }: LayoutProps) {
                                   : 'bg-slate-100 text-slate-500'
                           }`}>
                             {currentUser.role === 'admin'
-                              ? <><ShieldCheck className="w-2.5 h-2.5" />Admin</>
-                              : <><Eye className="w-2.5 h-2.5" />Viewer</>
+                              ? <><ShieldCheck className="w-2.5 h-2.5" />{t('layout.roleAdmin')}</>
+                              : <><Eye className="w-2.5 h-2.5" />{t('layout.roleViewer')}</>
                             }
                           </span>
                         )}
@@ -483,7 +634,7 @@ export function Layout({ children }: LayoutProps) {
                     <div className={`px-3 py-2.5`}>
                       <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 px-1 ${
                         isNight ? 'text-red-900' : isDark ? 'text-slate-600' : 'text-slate-400'
-                      }`}>Theme</p>
+                      }`}>{t('layout.themeHeading')}</p>
                       <div className="grid grid-cols-2 gap-1">
                         {themeOptions.map(opt => (
                           <button
@@ -511,7 +662,7 @@ export function Layout({ children }: LayoutProps) {
                             }>
                               {opt.icon}
                             </span>
-                            <span className="text-xs font-medium">{opt.label}</span>
+                            <span className="text-xs font-medium">{t(opt.labelKey, { ns: 'settings' })}</span>
                             {theme === opt.id && (
                               <div className={`ml-auto w-1.5 h-1.5 rounded-full ${
                                 isNight ? 'bg-red-500' : isSpace ? 'bg-violet-400' : 'bg-accent-500'
@@ -538,7 +689,7 @@ export function Layout({ children }: LayoutProps) {
                           }`}
                         >
                           <LogOut className="w-4 h-4" />
-                          Sign out
+                          {t('layout.signOut')}
                         </button>
                       </div>
                     )}
@@ -565,6 +716,7 @@ function NavLink({
   activeClass,
   isDark,
   isNight,
+  compact,
   children,
 }: {
   to: string;
@@ -572,12 +724,20 @@ function NavLink({
   activeClass: string;
   isDark: boolean;
   isNight: boolean;
+  compact: boolean;
   children: ReactNode;
 }) {
   return (
     <Link
       to={to}
-      className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl transition-all ${
+      // `transition-colors`, not `transition-all`: the `compact` flag changes
+      // this element's padding, gap and font size, and the nav strip is sized
+      // by measuring itself. A transition on those properties meant the sizing
+      // effect sometimes read a width part-way through the shrink and cached it
+      // as the full-size cost. Colour transitions are all the nav item needs.
+      className={`relative flex items-center rounded-xl font-medium transition-colors ${
+        compact ? 'gap-1 px-2.5 py-1.5 text-xs' : 'gap-1.5 px-3 py-2 text-sm'
+      } ${
         active
           ? activeClass
           : isNight

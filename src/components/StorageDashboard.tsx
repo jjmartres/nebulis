@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { Trash2, Calendar, Image, AlertCircle, ArrowUpDown, FolderOpen } from 'lucide-react';
 import { getStorageStats, getSystemStorage, getLibraryStorage } from '../lib/api/storage';
 import { useTheme } from '../hooks/useTheme';
 import { formatBytes } from '../lib/utils';
+import { formatDate as formatLocaleDate, formatNumber } from '../lib/formatLocale';
 import { Sec } from './settings/SettingsUI';
 import { isSeestarKind, toTelescopeKind } from '../lib/telescopePresets';
 
@@ -13,7 +16,7 @@ function formatDate(dateStr: string | null): string {
   // noon rather than parsing as UTC midnight, which renders as the previous
   // calendar day for any user west of UTC.
   const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatLocaleDate(d, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 type SortKey = 'name' | 'totalSize' | 'fileCount' | 'subFrameCount' | 'oldestFile' | 'newestFile';
@@ -23,6 +26,7 @@ type SortDir = 'asc' | 'desc';
 const PAGE_SIZE = 10;
 
 export function StorageDashboard({ embedded = false }: { embedded?: boolean } = {}) {
+  const { t } = useTranslation('settings');
   const { isDark } = useTheme();
 
   // Telescope table state
@@ -158,7 +162,7 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
   }: { page: number; totalPages: number; onPrev: () => void; onNext: () => void; total: number; pageSize: number }) => (
     <div className={`flex items-center justify-between px-4 py-3 border-t ${isDark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-200 bg-slate-50'}`}>
       <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-        {pg * pageSize + 1}–{Math.min((pg + 1) * pageSize, total)} of {total}
+        {t('storageDashboard.pageRange', { from: pg * pageSize + 1, to: Math.min((pg + 1) * pageSize, total), total })}
       </span>
       <div className="flex items-center gap-2">
         <button
@@ -168,7 +172,7 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
             isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          Previous
+          {t('storageDashboard.previous')}
         </button>
         <button
           onClick={onNext}
@@ -177,7 +181,7 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
             isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          Next
+          {t('storageDashboard.next')}
         </button>
       </div>
     </div>
@@ -218,16 +222,16 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
         {!embedded && (
           <div className="text-center space-y-3">
             <h1 className={`font-display text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Storage Dashboard
+              {t('storageDashboard.loadingTitle')}
             </h1>
           </div>
         )}
         <div className={`text-center py-16 space-y-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
           <AlertCircle className="w-12 h-12 mx-auto text-accent-500/50" />
           <div>
-            <p className={`text-lg font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Failed to load storage data</p>
-            <p className="mt-1 text-sm">{error instanceof Error ? error.message : 'An unexpected error occurred'}</p>
-            <p className="mt-2 text-sm opacity-60">Refresh the page to try again.</p>
+            <p className={`text-lg font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{t('storageDashboard.loadFailed')}</p>
+            <p className="mt-1 text-sm">{error instanceof Error ? error.message : t('storageDashboard.unexpectedError')}</p>
+            <p className="mt-2 text-sm opacity-60">{t('storageDashboard.refreshToRetry')}</p>
           </div>
         </div>
       </div>
@@ -249,25 +253,25 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
       {!embedded && (
         <div className="text-center space-y-3">
           <h1 className={`font-display text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Storage
+            {t('storageDashboard.title')}
           </h1>
           <p className={`text-lg max-w-2xl mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Disk usage for your local server and SeeStar telescope
+            {t('storageDashboard.subtitle')}
           </p>
         </div>
       )}
 
       {/* ── Local Server Storage ──────────────────────────────────── */}
       <Sec
-        title="Local Server"
-        description="Host machine running this dashboard."
+        title={t('storageDashboard.localServer.title')}
+        description={t('storageDashboard.localServer.description')}
         isDark={isDark}
         actions={
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
             isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
           }`}>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Online
+            {t('storageDashboard.online')}
           </span>
         }
       >
@@ -279,7 +283,8 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
-                    <span className="font-semibold">{systemStorage.disk.usedFormatted}</span> used of{' '}
+                    <span className="font-semibold">{systemStorage.disk.usedFormatted}</span>{' '}
+                    {t('storageDashboard.usedOfMiddle')}{' '}
                     <span className="font-semibold">{systemStorage.disk.totalFormatted}</span>
                   </span>
                   <span className={`font-mono font-semibold ${
@@ -301,26 +306,26 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
                   />
                 </div>
                 <div className={`flex justify-between text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  <span>{systemStorage.disk.freeFormatted} free</span>
-                  <span>{systemStorage.disk.totalFormatted} total</span>
+                  <span>{t('storageDashboard.free', { amount: systemStorage.disk.freeFormatted })}</span>
+                  <span>{t('storageDashboard.total', { amount: systemStorage.disk.totalFormatted })}</span>
                 </div>
               </div>
             ) : (
-              <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Disk info unavailable on this platform</p>
+              <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('storageDashboard.diskInfoUnavailable')}</p>
             )}
 
             {/* Stat tiles */}
             <div className="grid grid-cols-3 gap-3">
               <div className={tileClass}>
-                <p className={tileLabel}>Disk Total</p>
+                <p className={tileLabel}>{t('storageDashboard.diskTotal')}</p>
                 <p className={tileValue}>{systemStorage.disk?.totalFormatted ?? '-'}</p>
               </div>
               <div className={tileClass}>
-                <p className={tileLabel}>Disk Free</p>
+                <p className={tileLabel}>{t('storageDashboard.diskFree')}</p>
                 <p className={tileValue}>{systemStorage.disk?.freeFormatted ?? '-'}</p>
               </div>
               <div className={tileClass}>
-                <p className={tileLabel}>App Data</p>
+                <p className={tileLabel}>{t('storageDashboard.appData')}</p>
                 <p className={tileValue}>{systemStorage.dataDir.sizeFormatted}</p>
               </div>
             </div>
@@ -329,7 +334,7 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
             <div className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
               <FolderOpen className="w-4 h-4 text-teal-400 shrink-0" />
               <div className="min-w-0">
-                <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Data directory</p>
+                <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('storageDashboard.dataDirectory')}</p>
                 <p className={`text-sm font-mono truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{systemStorage.dataDir.path}</p>
               </div>
             </div>
@@ -352,9 +357,9 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
               <table className="w-full text-sm">
                 <thead>
                   <tr className={isDark ? 'bg-slate-800/60' : 'bg-slate-50'}>
-                    <LibSortHeader label="Object" field="name" />
-                    <LibSortHeader label="Total Size" field="size" />
-                    <LibSortHeader label="Files" field="fileCount" />
+                    <LibSortHeader label={t('storageDashboard.libraryTable.object')} field="name" />
+                    <LibSortHeader label={t('storageDashboard.libraryTable.totalSize')} field="size" />
+                    <LibSortHeader label={t('storageDashboard.libraryTable.files')} field="fileCount" />
                   </tr>
                 </thead>
                 <tbody>
@@ -370,11 +375,18 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
                       <td className={`px-4 py-3.5 font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
                         <div className="flex items-center gap-2">
                           <Image className="w-4 h-4 text-teal-400 shrink-0" />
-                          {obj.name}
+                          <Link
+                            to={`/object/${encodeURIComponent(obj.objectId)}`}
+                            className={`truncate rounded transition-colors hover:underline ${
+                              isDark ? 'hover:text-accent-300' : 'hover:text-accent-700'
+                            }`}
+                          >
+                            {obj.name}
+                          </Link>
                         </div>
                       </td>
                       <td className={`px-4 py-3.5 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{obj.sizeFormatted}</td>
-                      <td className={`px-4 py-3.5 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{obj.fileCount.toLocaleString()}</td>
+                      <td className={`px-4 py-3.5 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{formatNumber(obj.fileCount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -396,7 +408,7 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
         {libraryStorage && libSorted.length === 0 && (
           <div className={`text-center py-8 space-y-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
             <Trash2 className="w-7 h-7 mx-auto opacity-30" />
-            <p className="text-sm">No library objects found</p>
+            <p className="text-sm">{t('storageDashboard.libraryTable.noObjects')}</p>
           </div>
         )}
       </div>
@@ -408,15 +420,15 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
           external drive the library now lives on. */}
       {systemStorage?.libraryDisk && (
         <Sec
-          title="Library Drive"
-          description="External drive holding your relocated library."
+          title={t('storageDashboard.libraryDrive.title')}
+          description={t('storageDashboard.libraryDrive.description')}
           isDark={isDark}
           actions={
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
               isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
             }`}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Connected
+              {t('storageDashboard.connected')}
             </span>
           }
         >
@@ -425,7 +437,8 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
-                <span className="font-semibold">{systemStorage.libraryDisk.usedFormatted}</span> used of{' '}
+                <span className="font-semibold">{systemStorage.libraryDisk.usedFormatted}</span>{' '}
+                {t('storageDashboard.usedOfMiddle')}{' '}
                 <span className="font-semibold">{systemStorage.libraryDisk.totalFormatted}</span>
               </span>
               <span className={`font-mono font-semibold ${
@@ -447,32 +460,40 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
               />
             </div>
             <div className={`flex justify-between text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              <span>{systemStorage.libraryDisk.freeFormatted} free</span>
-              <span>{systemStorage.libraryDisk.totalFormatted} total</span>
+              <span>{t('storageDashboard.free', { amount: systemStorage.libraryDisk.freeFormatted })}</span>
+              <span>{t('storageDashboard.total', { amount: systemStorage.libraryDisk.totalFormatted })}</span>
             </div>
           </div>
 
           {/* Stat tiles */}
           <div className="grid grid-cols-3 gap-3">
             <div className={tileClass}>
-              <p className={tileLabel}>Disk Total</p>
+              <p className={tileLabel}>{t('storageDashboard.diskTotal')}</p>
               <p className={tileValue}>{systemStorage.libraryDisk.totalFormatted}</p>
             </div>
             <div className={tileClass}>
-              <p className={tileLabel}>Disk Free</p>
+              <p className={tileLabel}>{t('storageDashboard.diskFree')}</p>
               <p className={tileValue}>{systemStorage.libraryDisk.freeFormatted}</p>
             </div>
             <div className={tileClass}>
-              <p className={tileLabel}>Library Size</p>
+              <p className={tileLabel}>{t('storageDashboard.librarySize')}</p>
               <p className={tileValue}>{libraryStorage ? formatBytes(libSorted.reduce((s, o) => s + o.size, 0)) : '-'}</p>
             </div>
           </div>
+
+          {/* Library Size only ever covers this app's own library folder, so
+              it legitimately reads far below Total/Free when the drive also
+              holds unrelated data — spelled out here so that isn't mistaken
+              for a miscalculation. */}
+          <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            {t('storageDashboard.libraryDrive.librarySizeNote')}
+          </p>
 
           {/* Library path */}
           <div className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
             <FolderOpen className="w-4 h-4 text-blue-400 shrink-0" />
             <div className="min-w-0">
-              <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Library location</p>
+              <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('storageDashboard.libraryLocation')}</p>
               <p className={`text-sm font-mono truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{systemStorage.libraryDisk.path}</p>
             </div>
           </div>
@@ -483,8 +504,8 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
       {/* ── SeeStar Storage ────────────────────────────────────────── */}
       {isSeestar && (
       <Sec
-        title="SeeStar Telescope"
-        description="Objects on the telescope's SD card / internal share."
+        title={t('storageDashboard.seestarTelescope.title')}
+        description={t('storageDashboard.seestarTelescope.description')}
         isDark={isDark}
         actions={
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -493,7 +514,7 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
               : isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'
           }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${telescopeOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-            {telescopeOnline ? 'Online' : 'Offline'}
+            {telescopeOnline ? t('storageDashboard.online') : t('storageDashboard.offline')}
           </span>
         }
       >
@@ -503,15 +524,15 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
             {/* Stat tiles */}
             <div className="grid grid-cols-3 gap-3">
               <div className={tileClass}>
-                <p className={tileLabel}>Total Size</p>
+                <p className={tileLabel}>{t('storageDashboard.telescopeTable.totalSize')}</p>
                 <p className={tileValue}>{formatBytes(totalSize)}</p>
               </div>
               <div className={tileClass}>
-                <p className={tileLabel}>Total Files</p>
-                <p className={tileValue}>{totalFiles.toLocaleString()}</p>
+                <p className={tileLabel}>{t('storageDashboard.telescopeTable.totalFiles')}</p>
+                <p className={tileValue}>{formatNumber(totalFiles)}</p>
               </div>
               <div className={tileClass}>
-                <p className={tileLabel}>Objects</p>
+                <p className={tileLabel}>{t('storageDashboard.telescopeTable.objects')}</p>
                 <p className={tileValue}>{objectCount}</p>
               </div>
             </div>
@@ -523,12 +544,12 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
                   <table className="w-full text-sm">
                     <thead>
                       <tr className={isDark ? 'bg-slate-800/60' : 'bg-slate-50'}>
-                        <SortHeader label="Name" field="name" />
-                        <SortHeader label="Total Size" field="totalSize" />
-                        <SortHeader label="Files" field="fileCount" />
-                        <SortHeader label="Sub-frames" field="subFrameCount" />
-                        <SortHeader label="Oldest" field="oldestFile" />
-                        <SortHeader label="Newest" field="newestFile" />
+                        <SortHeader label={t('storageDashboard.telescopeTable.name')} field="name" />
+                        <SortHeader label={t('storageDashboard.telescopeTable.totalSize')} field="totalSize" />
+                        <SortHeader label={t('storageDashboard.telescopeTable.files')} field="fileCount" />
+                        <SortHeader label={t('storageDashboard.telescopeTable.subFrames')} field="subFrameCount" />
+                        <SortHeader label={t('storageDashboard.telescopeTable.oldest')} field="oldestFile" />
+                        <SortHeader label={t('storageDashboard.telescopeTable.newest')} field="newestFile" />
                       </tr>
                     </thead>
                     <tbody>
@@ -544,12 +565,19 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
                           <td className={`px-4 py-3.5 font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
                             <div className="flex items-center gap-2">
                               <Image className="w-4 h-4 text-accent-500 shrink-0" />
-                              {obj.name}
+                              <Link
+                                to={`/object/${encodeURIComponent(obj.id)}`}
+                                className={`truncate rounded transition-colors hover:underline ${
+                                  isDark ? 'hover:text-accent-300' : 'hover:text-accent-700'
+                                }`}
+                              >
+                                {obj.name}
+                              </Link>
                             </div>
                           </td>
                           <td className={`px-4 py-3.5 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{formatBytes(obj.totalSize)}</td>
-                          <td className={`px-4 py-3.5 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{obj.fileCount.toLocaleString()}</td>
-                          <td className={`px-4 py-3.5 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{obj.subFrameCount.toLocaleString()}</td>
+                          <td className={`px-4 py-3.5 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{formatNumber(obj.fileCount)}</td>
+                          <td className={`px-4 py-3.5 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{formatNumber(obj.subFrameCount)}</td>
                           <td className={`px-4 py-3.5 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                             <div className="flex items-center gap-1.5">
                               <Calendar className="w-3.5 h-3.5 shrink-0" />
@@ -583,7 +611,7 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
             {sorted.length === 0 && (
               <div className={`text-center py-10 space-y-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 <Trash2 className="w-8 h-8 mx-auto opacity-30" />
-                <p className="text-sm">No storage data available</p>
+                <p className="text-sm">{t('storageDashboard.telescopeTable.noData')}</p>
               </div>
             )}
           </>

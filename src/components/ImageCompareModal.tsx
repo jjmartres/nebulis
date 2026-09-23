@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Columns, GripVertical, ImageOff, Layers, Clock } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { previewSrcFor } from '../lib/sessionImageSrc';
@@ -25,6 +26,7 @@ interface ImageCompareModalProps {
 }
 
 export function ImageCompareModal({ leftFile, rightFile, onClose, isDark }: ImageCompareModalProps) {
+  const { t } = useTranslation('library');
   const [mode, setMode] = useState<'side-by-side' | 'slider'>('slider');
   const [sliderPos, setSliderPos] = useState(50);
 
@@ -32,7 +34,7 @@ export function ImageCompareModal({ leftFile, rightFile, onClose, isDark }: Imag
     <Modal
       isOpen
       onClose={onClose}
-      title="Compare Images"
+      title={t('imageCompareModal.title')}
       className="w-full h-full max-w-none flex flex-col bg-black/95 backdrop-blur-sm"
     >
       {/* Header */}
@@ -42,7 +44,7 @@ export function ImageCompareModal({ leftFile, rightFile, onClose, isDark }: Imag
         <div className="flex items-center gap-3">
           <Columns className="w-5 h-5 text-accent-500" />
           <span className={`font-semibold text-sm ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-            Compare Images
+            {t('imageCompareModal.title')}
           </span>
         </div>
 
@@ -56,7 +58,7 @@ export function ImageCompareModal({ leftFile, rightFile, onClose, isDark }: Imag
                 : isDark ? 'bg-slate-900 text-slate-400 hover:bg-slate-800' : 'bg-white text-slate-500 hover:bg-slate-50'
             }`}
           >
-            <Columns className="w-3.5 h-3.5 inline mr-1.5" />Side by Side
+            <Columns className="w-3.5 h-3.5 inline mr-1.5" />{t('compareView.sideBySide')}
           </button>
           <button
             onClick={() => setMode('slider')}
@@ -66,14 +68,14 @@ export function ImageCompareModal({ leftFile, rightFile, onClose, isDark }: Imag
                 : isDark ? 'bg-slate-900 text-slate-400 hover:bg-slate-800' : 'bg-white text-slate-500 hover:bg-slate-50'
             }`}
           >
-            <GripVertical className="w-3.5 h-3.5 inline mr-1.5" />Slider
+            <GripVertical className="w-3.5 h-3.5 inline mr-1.5" />{t('compareView.slider')}
           </button>
         </div>
 
         <button
           onClick={onClose}
           className={`p-2 rounded-lg transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
-          title="Close (Esc)"
+          title={t('imageCompareModal.closeTitle')}
         >
           <X className="w-5 h-5" />
         </button>
@@ -91,8 +93,8 @@ export function ImageCompareModal({ leftFile, rightFile, onClose, isDark }: Imag
       <div className="flex-1 overflow-auto px-5 py-4">
         {mode === 'side-by-side' ? (
           <div className="grid grid-cols-2 gap-4 h-full">
-            <CompareImage src={previewSrcFor(leftFile)} alt="Image 1" isDark={isDark} />
-            <CompareImage src={previewSrcFor(rightFile)} alt="Image 2" isDark={isDark} />
+            <CompareImage src={previewSrcFor(leftFile)} alt={t('imageCompareModal.imageSlot', { slot: 1 })} isDark={isDark} />
+            <CompareImage src={previewSrcFor(rightFile)} alt={t('imageCompareModal.imageSlot', { slot: 2 })} isDark={isDark} />
           </div>
         ) : (
           <div className="flex flex-col gap-3 h-full">
@@ -106,7 +108,7 @@ export function ImageCompareModal({ leftFile, rightFile, onClose, isDark }: Imag
             }`}>
               <img
                 src={previewSrcFor(rightFile)}
-                alt="Image 2"
+                alt={t('imageCompareModal.imageSlot', { slot: 2 })}
                 className="w-full h-full object-contain"
                 style={{ display: 'block' }}
               />
@@ -116,7 +118,7 @@ export function ImageCompareModal({ leftFile, rightFile, onClose, isDark }: Imag
               >
                 <img
                   src={previewSrcFor(leftFile)}
-                  alt="Image 1"
+                  alt={t('imageCompareModal.imageSlot', { slot: 1 })}
                   className="h-full object-contain"
                   style={{ width: `${10000 / sliderPos}%`, maxWidth: 'none' }}
                 />
@@ -186,14 +188,15 @@ function FileLabel({ file, slot, isDark }: { file: CompareFile; slot: 1 | 2; isD
 }
 
 function CompareImage({ src, alt, isDark }: { src: string; alt: string; isDark: boolean }) {
+  const { t } = useTranslation('library');
   const [error, setError] = useState(false);
   return (
     <div className={`rounded-xl overflow-hidden border h-full ${isDark ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-slate-50'}`}>
       {error ? (
         <div className={`flex flex-col items-center justify-center h-full py-20 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
           <ImageOff className="w-8 h-8 mb-2" />
-          <span className="text-sm">Failed to load</span>
-          <span className="text-xs opacity-60 mt-1">Close and reopen to try again.</span>
+          <span className="text-sm">{t('imageCompareModal.failedToLoad')}</span>
+          <span className="text-xs opacity-60 mt-1">{t('imageCompareModal.reopenHint')}</span>
         </div>
       ) : (
         <img src={src} alt={alt} className="w-full h-full object-contain" onError={() => setError(true)} />

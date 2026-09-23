@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Sparkles, X, ImagePlus, AlertTriangle, Loader2, Layers, CheckSquare, Square } from 'lucide-react';
 import { uploadProcessedImage, createProcessingRun, getLibrarySessions } from '../lib/api/library';
 import { consumeCombinedSessions } from '../lib/lastCombinedSessions';
 import { canPreviewLocally, processedFormatLabel, PROCESSED_UPLOAD_EXTENSIONS } from '../lib/processedFormats';
 import { useTheme } from '../hooks/useTheme';
+import { Modal } from './ui/Modal';
 
 interface Props {
   isOpen: boolean;
@@ -16,6 +18,7 @@ interface Props {
 
 export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialFile }: Props) {
   const { isDark, isNight, isSpace } = useTheme();
+  const { t } = useTranslation('observations');
   const queryClient = useQueryClient();
 
   const [uploadTitle, setUploadTitle] = useState('');
@@ -126,16 +129,19 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
       ]);
       onClose();
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+      setUploadError(err instanceof Error ? err.message : t('observationDetail.uploadProcessedModal.uploadFailed'));
     } finally {
       setIsUploading(false);
     }
   }, [uploadFile, isUploading, objectId, date, uploadTitle, uploadNotes, software, combineMultiple, selectedDates, queryClient, onClose]);
 
-  if (!isOpen) return null;
+  // Guards both Escape and backdrop-click while an upload is in flight.
+  const handleModalClose = () => {
+    if (!isUploading) onClose();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <Modal isOpen={isOpen} onClose={handleModalClose} title={t('observationDetail.uploadProcessedModal.title')} backdropClassName="bg-black/70">
       <div className={`w-full max-w-lg rounded-2xl border shadow-2xl ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
         <div className={`flex items-center justify-between p-5 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
           <div className="flex items-center gap-3">
@@ -143,12 +149,13 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
               <Sparkles className={`w-4 h-4 ${accentText}`} />
             </div>
             <h3 className={`font-display font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Upload Processed Image
+              {t('observationDetail.uploadProcessedModal.title')}
             </h3>
           </div>
           <button
-            onClick={onClose}
-            className={`p-2 rounded-lg transition ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
+            onClick={handleModalClose}
+            disabled={isUploading}
+            className={`p-2 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -170,7 +177,7 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
           >
             {uploadPreview ? (
               <div className="relative">
-                <img src={uploadPreview} alt="Preview" className="w-full max-h-48 object-contain rounded-xl" />
+                <img src={uploadPreview} alt={t('observationDetail.uploadProcessedModal.previewAlt')} className="w-full max-h-48 object-contain rounded-xl" />
                 <div className={`absolute bottom-0 left-0 right-0 rounded-b-xl px-3 py-2 text-xs ${isDark ? 'bg-black/60 text-slate-300' : 'bg-white/80 text-slate-600'}`}>
                   {uploadFile?.name} · {uploadFile ? (uploadFile.size / 1024 / 1024).toFixed(1) : 0} MB
                 </div>
@@ -181,13 +188,13 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
                  gets no sign their file was accepted. */
               <div className="flex flex-col items-center justify-center gap-2 py-8">
                 <div className={`px-3 py-2 rounded-lg font-mono text-sm font-bold ${isDark ? 'bg-slate-800 text-accent-400' : 'bg-slate-100 text-accent-600'}`}>
-                  {processedFormatLabel(uploadFile.name) ?? 'FILE'}
+                  {processedFormatLabel(uploadFile.name) ?? t('observationDetail.uploadProcessedModal.genericFile')}
                 </div>
                 <p className={`text-sm font-medium px-4 text-center break-all ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                   {uploadFile.name}
                 </p>
                 <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {(uploadFile.size / 1024 / 1024).toFixed(1)} MB · stored for download, not previewed
+                  {t('observationDetail.uploadProcessedModal.sizeStoredNote', { size: (uploadFile.size / 1024 / 1024).toFixed(1) })}
                 </p>
               </div>
             ) : (
@@ -196,10 +203,10 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
                   <ImagePlus className={`w-6 h-6 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                 </div>
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Drop your image here or click to browse
+                  {t('observationDetail.uploadProcessedModal.dropHere')}
                 </p>
                 <p className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                  JPG, PNG, TIFF, XISF, FITS, PSD, RAW · up to 2 GB
+                  {t('observationDetail.uploadProcessedModal.acceptedFormatsHint')}
                 </p>
               </div>
             )}
@@ -214,13 +221,13 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
 
           <div className="space-y-1">
             <label className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Title <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>(optional)</span>
+              {t('observationDetail.uploadProcessedModal.titleLabel')} <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>{t('newObservationForm.optional')}</span>
             </label>
             <input
               type="text"
               value={uploadTitle}
               onChange={e => setUploadTitle(e.target.value)}
-              placeholder="e.g. Final HOO version, PixInsight processed"
+              placeholder={t('observationDetail.uploadProcessedModal.titlePlaceholder')}
               className={`w-full px-3 py-2 rounded-lg border text-sm transition ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-600 focus:border-violet-500'
@@ -231,12 +238,12 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
 
           <div className="space-y-1">
             <label className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Notes <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>(optional)</span>
+              {t('observationDetail.uploadProcessedModal.notesLabel')} <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>{t('newObservationForm.optional')}</span>
             </label>
             <textarea
               value={uploadNotes}
               onChange={e => setUploadNotes(e.target.value)}
-              placeholder="Processing notes, software used, integration time…"
+              placeholder={t('observationDetail.uploadProcessedModal.notesPlaceholder')}
               rows={3}
               className={`w-full px-3 py-2 rounded-lg border text-sm resize-none transition ${
                 isDark
@@ -258,12 +265,12 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
                 ? <CheckSquare className={`w-4 h-4 shrink-0 ${accentText}`} />
                 : <Square className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />}
               <Layers className="w-3.5 h-3.5 shrink-0 opacity-60" />
-              <span className="flex-1 text-left">Combine multiple nights</span>
+              <span className="flex-1 text-left">{t('observationDetail.uploadProcessedModal.combineMultipleNights')}</span>
             </button>
             {combineMultiple && (
               <div className={`px-3 pb-3 space-y-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
                 <p className={`text-xs pt-2.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Which nights does this stack combine?
+                  {t('observationDetail.uploadProcessedModal.whichNightsQuestion')}
                 </p>
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {sessions.map(s => {
@@ -291,7 +298,7 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
                   type="text"
                   value={software}
                   onChange={e => setSoftware(e.target.value)}
-                  placeholder="Software used (optional)"
+                  placeholder={t('observationDetail.uploadProcessedModal.softwarePlaceholder')}
                   className={`w-full px-3 py-1.5 rounded-lg border text-xs transition ${
                     isDark
                       ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-600 focus:border-violet-500'
@@ -312,11 +319,11 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
 
         <div className="flex items-center justify-end gap-3 px-5 pb-5">
           <button
-            onClick={onClose}
+            onClick={handleModalClose}
             disabled={isUploading}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
           >
-            Cancel
+            {t('confirmModal.cancel', { ns: 'common' })}
           </button>
           <button
             onClick={handleUpload}
@@ -328,10 +335,10 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
             }`}
           >
             {isUploading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {isUploading ? 'Uploading…' : 'Upload Image'}
+            {isUploading ? t('observationDetail.uploadProcessedModal.uploading') : t('observationDetail.uploadProcessedModal.uploadImage')}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

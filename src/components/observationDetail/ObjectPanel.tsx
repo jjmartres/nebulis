@@ -7,6 +7,7 @@
  * page. The description reads as prose and the numbers get a proper grid under
  * a rule, at the same scale as every other fact on the page.
  */
+import { useTranslation } from 'react-i18next';
 import { ExternalLink, Info } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { formatDec, formatDistanceLy, formatRa } from '../../lib/observationDisplay';
@@ -32,27 +33,28 @@ export function ObjectPanel({ displayName, info, magnitude, distanceLy, alsoKnow
   alsoKnownAs?: string[];
 }) {
   const { isDark, isNight, isSpace } = useTheme();
+  const { t } = useTranslation('observations');
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-accent-500';
 
   const facts: { label: string; value: string; hint?: string }[] = [];
-  if (info?.type) facts.push({ label: 'Type', value: info.type });
-  if (info?.constellation) facts.push({ label: 'Constellation', value: info.constellation });
-  if (magnitude != null) facts.push({ label: 'Magnitude', value: magnitude.toFixed(2) });
-  if (distanceLy != null) facts.push({ label: 'Distance', value: formatDistanceLy(distanceLy) });
+  if (info?.type) facts.push({ label: t('observationDetail.objectPanel.type'), value: info.type });
+  if (info?.constellation) facts.push({ label: t('observationDetail.objectPanel.constellation'), value: info.constellation });
+  if (magnitude != null) facts.push({ label: t('observationDetail.objectPanel.magnitude'), value: magnitude.toFixed(2) });
+  if (distanceLy != null) facts.push({ label: t('observationDetail.objectPanel.distance'), value: formatDistanceLy(distanceLy) });
   if (info?.size) {
     facts.push({
-      label: 'Angular size',
+      label: t('observationDetail.objectPanel.angularSize'),
       value: info.size,
-      hint: 'Apparent angular size as seen from Earth, measured in arcminutes (′). The full Moon is about 30′ across for comparison.',
+      hint: t('observationDetail.objectPanel.angularSizeHint'),
     });
   }
-  if (info?.ra) facts.push({ label: 'RA', value: formatRa(String(info.ra)) });
-  if (info?.dec) facts.push({ label: 'Dec', value: formatDec(String(info.dec)) });
+  if (info?.ra) facts.push({ label: t('observationDetail.objectPanel.ra'), value: formatRa(String(info.ra)) });
+  if (info?.dec) facts.push({ label: t('observationDetail.objectPanel.dec'), value: formatDec(String(info.dec)) });
 
   const hasDescription = !!info?.description;
 
   return (
-    <SessionPanel title={`About ${displayName}`} icon={Info}>
+    <SessionPanel title={t('observationDetail.objectPanel.about', { name: displayName })} icon={Info}>
       {hasDescription && (
         <p className={`text-[13px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
           {info!.description}
@@ -60,7 +62,7 @@ export function ObjectPanel({ displayName, info, magnitude, distanceLy, alsoKnow
       )}
 
       {!hasDescription && facts.length === 0 && (
-        <PanelEmpty>No catalog entry for this object yet.</PanelEmpty>
+        <PanelEmpty>{t('observationDetail.objectPanel.noCatalogEntry')}</PanelEmpty>
       )}
 
       {facts.length > 0 && (
@@ -78,7 +80,7 @@ export function ObjectPanel({ displayName, info, magnitude, distanceLy, alsoKnow
           <span className={`text-[10.5px] font-medium uppercase tracking-[0.12em] ${
             isDark ? 'text-slate-500' : 'text-slate-400'
           }`}>
-            Also known as
+            {t('observationDetail.objectPanel.alsoKnownAs')}
           </span>
           {alsoKnownAs.map(aka => (
             <span
@@ -101,7 +103,7 @@ export function ObjectPanel({ displayName, info, magnitude, distanceLy, alsoKnow
           className={`mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium transition hover:underline ${accentText}`}
         >
           <ExternalLink className="h-3.5 w-3.5" />
-          Read more on Wikipedia
+          {t('observationDetail.objectPanel.readOnWikipedia')}
         </a>
       )}
     </SessionPanel>

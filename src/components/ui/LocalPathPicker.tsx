@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Usb, FolderOpen, RotateCw, Check, Tag } from 'lucide-react';
 import { listDetectedDrives, type DetectedDrive } from '../../lib/api/telescopes';
 
@@ -38,6 +39,7 @@ export function LocalPathPicker({
   isDark: boolean;
   autoFocus?: boolean;
 }) {
+  const { t } = useTranslation('common');
   const { data, isFetching, refetch } = useQuery({
     queryKey: ['drives'],
     queryFn: () => listDetectedDrives(),
@@ -71,7 +73,7 @@ export function LocalPathPicker({
 
   return (
     <div>
-      <label className={labelClass}>{noun} USB storage path</label>
+      <label className={labelClass}>{t('localPathPicker.usbStoragePath', { noun })}</label>
 
       {drives.length > 0 && (
         <div className="mb-2 space-y-1">
@@ -101,7 +103,7 @@ export function LocalPathPicker({
                     isDark ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-amber-50 text-amber-700 border border-amber-200'
                   }`}>
                     <Tag className="w-3 h-3" />
-                    Already added as {d.alreadyKnownProfileName}
+                    {t('localPathPicker.alreadyAddedAs', { name: d.alreadyKnownProfileName })}
                   </span>
                 )}
                 {selected && <Check className="w-4 h-4 text-teal-500 flex-shrink-0" />}
@@ -115,7 +117,7 @@ export function LocalPathPicker({
         <FolderOpen className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
         <input
           type="text"
-          placeholder={drives.length > 0 ? 'Or paste a custom path...' : placeholderHint}
+          placeholder={drives.length > 0 ? t('localPathPicker.customPathPlaceholder') : placeholderHint}
           value={localPath}
           onChange={e => setLocalPath(e.target.value)}
           className={inputClass}
@@ -128,8 +130,8 @@ export function LocalPathPicker({
           className={`p-2 rounded-lg transition flex-shrink-0 ${
             isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
           } disabled:opacity-50`}
-          aria-label="Refresh detected drives"
-          title="Refresh detected drives"
+          aria-label={t('localPathPicker.refreshDrives')}
+          title={t('localPathPicker.refreshDrives')}
         >
           <RotateCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
         </button>
@@ -137,8 +139,8 @@ export function LocalPathPicker({
 
       <p className={helperClass}>
         {drives.length > 0
-          ? `Detected ${drives.length} ${noun} volume${drives.length === 1 ? '' : 's'}. Pick one or paste a custom path.`
-          : `Plug the ${noun} into this computer via USB and tap refresh.`}
+          ? t('localPathPicker.detected', { count: drives.length, noun })
+          : t('localPathPicker.plugIn', { noun })}
       </p>
     </div>
   );

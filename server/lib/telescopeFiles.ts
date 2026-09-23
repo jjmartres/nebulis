@@ -85,13 +85,50 @@ export const FITS_EXTENSIONS = new Set(['.fit', '.fits', '.fts']);
  */
 export function parseFilename(filename: string): ParsedFilename {
   const parsed = parseFilenameFormat(filename);
-  if (parsed.type === 'sub' && !FITS_EXTENSIONS.has(parsed.extension)) {
+  // Every pattern below builds its date by slicing digits straight out of the
+  // name, so a hand-named file or a firmware typo ("20240230", "20241345",
+  // "20230229") produced a string that is not a real calendar day. That string
+  // then became a live session key (getSessionKey) and was written back into
+  // the on-disk canonical name by importNaming.ts. An impossible date means the
+  // date/time part of the name cannot be trusted, so drop both fields: `date`
+  // drives session membership and `timestamp` drives ordering, and keeping half
+  // a bad stamp would only move the error. Consumers already treat a missing
+  // `date` as "no date signal" (sessionNightFor -> null; deriveFileDate falls
+  // through to FITS/folder/mtime).
+  const withDate = parsed.date && !isPlausibleCalendarDate(parsed.date)
+    ? { ...parsed, date: undefined, timestamp: undefined }
+    : parsed;
+  if (withDate.type === 'sub' && !FITS_EXTENSIONS.has(withDate.extension)) {
     // subIndex is dropped with it: an index only means something for a frame
     // in the capture sequence, and keeping it would let a preview sort itself
     // in among the real ones.
-    return { ...parsed, type: 'thumbnail', isThumbnail: true, subIndex: undefined, framePreview: true };
+    return { ...withDate, type: 'thumbnail', isThumbnail: true, subIndex: undefined, framePreview: true };
   }
-  return parsed;
+  return withDate;
+}
+
+/**
+ * True when `YYYY-MM-DD` is a real calendar date: month 1-12, day 1-31, and the
+ * day actually exists in that month and year (2024-02-29 passes, 2023-02-29 and
+ * 2024-02-30 do not). Round-trips the components through `Date`, so anything
+ * Date has to roll over was never a real date.
+ *
+ * Shared with the folder-name date hint in library/dateDerivation.ts, which
+ * needs the same rule for the same reason.
+ */
+export function isPlausibleCalendarDate(date: string): boolean {
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return false;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
 }
 
 /** Pattern matching only. Call `parseFilename`, which applies the rules that

@@ -35,8 +35,10 @@ import {
 } from './libraryFiles.js';
 import { listObjectFiles, getObjectLayout } from './libraryLayout.js';
 import { rekeyLibraryObject } from './libraryRekey.js';
+import { setDesignationRedirect } from './designationRedirects.js';
 import { deleteCaptureInfoForObject } from './captureInfo.js';
 import { getStartrailsObjectId, patchStartrailsObjectMeta } from './dwarfStartrails.js';
+import { getVideosObjectId, patchVideosObjectMeta } from './dwarfVideos.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1016,6 +1018,9 @@ export const stmts = {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ),
   deleteProcessedImageRow: db.prepare('DELETE FROM sessionProcessedImages WHERE id = ?'),
+  deleteProcessedImageRowByPath: db.prepare(
+    'DELETE FROM sessionProcessedImages WHERE objectId = ? AND filename = ?',
+  ),
   // Point an existing row at freshly-overwritten file bytes (image editor
   // "Save" in place). Identity columns (objectId, date, title, notes, runId)
   // are deliberately left alone.
@@ -1189,24 +1194,80 @@ export function applyCatalogMetaToLibraryObject(objectId: string): boolean {
   return true;
 }
 
+/**
+ * Reclassify a library object to a different catalog identity (Object Detail
+ * → "..." → Reclassify). Exists because a telescope folder's designation is
+ * sometimes ambiguous — a target with several valid NGC/IC/Sharpless/Caldwell
+ * numbers, or a plain wrong pick — and the object gets created under the
+ * wrong id with no way to correct it afterward.
+ *
+ * Reuses `rekeyLibraryObject`, the same primitive the boot-time space-strip
+ * and catalog-alias-fold migrations use: it auto-detects rename (destination
+ * id has no row yet) vs merge (destination already exists, in which case
+ * colliding rows are dropped and fileCount/lastImport fold into it) across
+ * every objectId-scoped table. Deliberately DB-only, same as those
+ * migrations: `relPath` (not `folderName`) is the authoritative on-disk
+ * pointer for every moved file, so a stale-looking folder name after a
+ * reclassify is cosmetic, not broken — physical directory consolidation is a
+ * separate, best-effort concern (see repairAliasDirectories) and out of scope
+ * here.
+ *
+ * When `remember` is set, records a redirect so a future import or sub-frame
+ * sync of this object's current (wrong) designation routes straight to the
+ * new one instead of recreating the mistake — see designationRedirects.ts.
+ *
+ * Throws if `objectId` has no row, or if `targetCatalogId` already resolves
+ * to the same object.
+ */
+export function reclassifyObject(
+  objectId: string,
+  targetCatalogId: string,
+  opts: { remember: boolean; userId?: string | null },
+): { mode: 'rename' | 'merge'; objectId: string } {
+  const exists = db
+    .prepare<[string], { objectId: string }>('SELECT objectId FROM libraryObjects WHERE objectId = ?')
+    .get(objectId);
+  if (!exists) throw new Error(`No library object "${objectId}"`);
+
+  const newId = resolveCanonicalId(normalizeDesignation(targetCatalogId));
+  if (newId === objectId) throw new Error('Already classified as this object');
+
+  db.pragma('foreign_keys = OFF');
+  let mode: 'rename' | 'merge' | 'noop';
+  try {
+    mode = db.transaction(() => {
+      const result = rekeyLibraryObject(objectId, newId);
+      applyCatalogMetaToLibraryObject(newId);
+      if (opts.remember) setDesignationRedirect(objectId, newId, opts.userId ?? undefined);
+      return result;
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+  if (mode === 'noop') throw new Error('Already classified as this object');
+
+  return { mode, objectId: newId };
+}
+
 // Backfill: populate catalog columns for any existing rows that have NULL catalogId or distanceLy
 {
-  // Excludes the synthetic Star Trails object: it has no catalog entry by
-  // design, so catalogId/distanceLy are permanently null for it and it would
-  // otherwise match this query on *every* boot forever, and resolveCatalogMeta
-  // returns the same generic 'Unknown'/empty placeholders for any id it
-  // doesn't recognize -- unconditionally overwriting the curated values
-  // patchStartrailsObjectMeta just applied below, undoing the self-heal on
-  // every single restart. This bit a real deploy: the boot-time self-heal
-  // call ran and its UPDATE visibly took effect when tested standalone, but
-  // moments later this block silently clobbered it back to 'Unknown' before
-  // the object was ever read, because module top-level code runs in file
-  // order and this block used to sit after it.
+  // Excludes the synthetic Star Trails and Videos objects: neither has a
+  // catalog entry by design, so catalogId/distanceLy are permanently null for
+  // them and they would otherwise match this query on *every* boot forever,
+  // and resolveCatalogMeta returns the same generic 'Unknown'/empty
+  // placeholders for any id it doesn't recognize -- unconditionally
+  // overwriting the curated values patchStartrailsObjectMeta/
+  // patchVideosObjectMeta just applied below, undoing the self-heal on every
+  // single restart. This bit a real deploy: the boot-time self-heal call ran
+  // and its UPDATE visibly took effect when tested standalone, but moments
+  // later this block silently clobbered it back to 'Unknown' before the
+  // object was ever read, because module top-level code runs in file order
+  // and this block used to sit after it.
   const needsBackfill = db
-    .prepare<[string], { objectId: string }>(
-      `SELECT objectId FROM libraryObjects WHERE (catalogId IS NULL OR distanceLy IS NULL) AND deleted = 0 AND objectId != ?`,
+    .prepare<[string, string], { objectId: string }>(
+      `SELECT objectId FROM libraryObjects WHERE (catalogId IS NULL OR distanceLy IS NULL) AND deleted = 0 AND objectId NOT IN (?, ?)`,
     )
-    .all(getStartrailsObjectId());
+    .all(getStartrailsObjectId(), getVideosObjectId());
 
   if (needsBackfill.length > 0) {
     const update = db.prepare(
@@ -1237,14 +1298,14 @@ export function applyCatalogMetaToLibraryObject(objectId: string): boolean {
 // getCatalogEntry, which merges catalogOverrides.
 {
   const bareNameRows = db
-    .prepare<[string], { objectId: string }>(
+    .prepare<[string, string], { objectId: string }>(
       `SELECT objectId FROM libraryObjects
-       WHERE deleted = 0 AND objectId != ?
+       WHERE deleted = 0 AND objectId NOT IN (?, ?)
          AND (objectName = objectId
               OR objectName = catalogId
               OR REPLACE(objectName, ' ', '') = catalogId)`,
     )
-    .all(getStartrailsObjectId());
+    .all(getStartrailsObjectId(), getVideosObjectId());
 
   if (bareNameRows.length > 0) {
     const update = db.prepare(
@@ -1262,18 +1323,20 @@ export function applyCatalogMetaToLibraryObject(objectId: string): boolean {
   }
 }
 
-// Apply the Star Trails object's curated name/type/constellation/description
-// (see patchStartrailsObjectMeta) once per boot, after every other migration
-// above -- in particular after the catalog backfill immediately above, which
-// would otherwise overwrite it right back (see the comment on that block).
-// This used to only get (re)applied when an import run actually touched the
-// object, so a device that hasn't synced since the patch was added -- or a
-// row created before it existed -- could sit stale indefinitely with
-// objectType 'Unknown', which is also what the frontend keys its "hide
-// Plan/Compare/Combine, no constellation" behavior on (see
-// src/lib/dwarfStartrails.ts), so a stale row silently got the full
-// normal-object UI instead. Harmless no-op when the row doesn't exist yet.
+// Apply the Star Trails and Videos objects' curated name/type/constellation/
+// description (see patchStartrailsObjectMeta / patchVideosObjectMeta) once
+// per boot, after every other migration above -- in particular after the
+// catalog backfill immediately above, which would otherwise overwrite it
+// right back (see the comment on that block). This used to only get
+// (re)applied when an import run actually touched the object, so a device
+// that hasn't synced since the patch was added -- or a row created before it
+// existed -- could sit stale indefinitely with objectType 'Unknown', which is
+// also what the frontend keys its "hide Plan/Compare/Combine, no
+// constellation" behavior on (see src/lib/dwarfStartrails.ts), so a stale row
+// silently got the full normal-object UI instead. Harmless no-op when the
+// row doesn't exist yet.
 patchStartrailsObjectMeta(getStartrailsObjectId());
+patchVideosObjectMeta(getVideosObjectId());
 
 // ─── Enrichment: fetch external data and store in DB ────────────────────────
 // Note: enrichStmt is lazily prepared after migrations run.
@@ -1567,14 +1630,34 @@ export function getObjectFolderName(objectId: string): string {
   return getFolderName(objectId);
 }
 
-/** Resolve `<LIBRARY_DIR>/<folder for objectId>[/...extra]`, or null if the
- *  result would escape LIBRARY_DIR. getFolderName falls back to the raw
- *  objectId on a DB miss, so a crafted objectId with traversal tokens would
- *  otherwise reach every caller that joins it onto LIBRARY_DIR unchecked. */
+/** Resolve `<LIBRARY_DIR>/<folder for objectId>[/...extra]`, or null when the
+ *  object has no usable folder name or the result is not a STRICT descendant of
+ *  the library root.
+ *
+ *  getFolderName falls back to the raw objectId on a DB miss, so without the
+ *  checks below a crafted objectId reached every caller that joins it onto
+ *  LIBRARY_DIR unchecked:
+ *
+ *   - `'.'` (or `''`) resolved to the library root itself, which callers then
+ *     treated as a valid object directory — `DELETE /library/objects/%2e`
+ *     recursively deleted the whole library, marker file included.
+ *   - `'../../etc'` (Express decodes `%2F` inside a param) escaped the root
+ *     entirely, for reads as well as deletes.
+ *
+ *  A folder name is therefore required to be a single ordinary path segment, and
+ *  the resolved directory must be strictly below a normalized root — which also
+ *  means a configured library path with a trailing separator can no longer fail
+ *  a legitimate lookup. */
 export function resolveContainedObjectDir(objectId: string, ...extra: string[]): string | null {
-  const LIBRARY_DIR = getLibraryDir();
-  const dir = path.resolve(LIBRARY_DIR, getFolderName(objectId), ...extra);
-  if (dir !== LIBRARY_DIR && !dir.startsWith(LIBRARY_DIR + path.sep)) return null;
+  const root = path.resolve(getLibraryDir());
+  const folderName = getFolderName(objectId);
+  if (!folderName || folderName === '.' || folderName === '..') return null;
+  if (folderName.includes('/') || folderName.includes('\\')) return null;
+  // Catches Windows drive-absolute and device-prefixed names on every platform.
+  if (path.basename(folderName) !== folderName) return null;
+
+  const dir = path.resolve(root, folderName, ...extra);
+  if (dir === root || !dir.startsWith(root + path.sep)) return null;
   return dir;
 }
 
@@ -1918,9 +2001,13 @@ export function deleteLocalObject(objectId: string): void {
   });
   tombstoneAndPurgeRows();
 
-  // Now safe to remove files.
+  // Now safe to remove files. resolveContainedObjectDir already refuses the
+  // library root and anything outside it; the strict-descendant test is asserted
+  // again here, at the one call site where getting it wrong recursively deletes
+  // every user file plus the library marker.
+  const root = path.resolve(getLibraryDir());
   const objDir = resolveContainedObjectDir(objectId);
-  if (objDir && fs.existsSync(objDir)) {
+  if (objDir && objDir !== root && objDir.startsWith(root + path.sep) && fs.existsSync(objDir)) {
     try { fs.rmSync(objDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 }
@@ -2054,13 +2141,30 @@ export function deleteLocalFile(relativePath: string): void {
   if (fullPath !== LIBRARY_DIR && !fullPath.startsWith(LIBRARY_DIR + path.sep)) {
     throw new Error('Invalid path');
   }
-  if (!fs.existsSync(fullPath)) throw new Error('File not found');
 
-  fs.unlinkSync(fullPath);
+  // A processed image lives at "<folder>/processed/<filename>" and its
+  // identity is a sessionProcessedImages row, not a libraryFiles one. That row
+  // can outlive the file (deleted by hand outside the app, or orphaned by an
+  // earlier delete that only removed the file) — best-effort unlink here, the
+  // same way deleteProcessedImage does, so a missing file can't make the row
+  // undeletable forever. A raw file staying strict is deliberate: this path
+  // has real derived state (session/file-count rebuild below) that a raw
+  // libraryFiles row backs, so a genuinely missing raw file still surfaces.
+  const relSegments = normalized.split(path.sep);
+  const isProcessedPath = relSegments.length === 3 && relSegments[1] === 'processed';
+
+  if (fs.existsSync(fullPath)) {
+    fs.unlinkSync(fullPath);
+  } else if (!isProcessedPath) {
+    throw new Error('File not found');
+  }
 
   // Update DB for the affected object — first segment is the folderName (may have spaces)
   const firstSegment = normalized.split(path.sep)[0];
   const objectId = stmts.getObjectByFolderName.get(firstSegment)?.objectId ?? firstSegment;
+  if (isProcessedPath) {
+    stmts.deleteProcessedImageRowByPath.run(objectId, relSegments[2]);
+  }
   const objDir = path.join(LIBRARY_DIR, firstSegment);
   // Drop the row before rebuilding sessions below, so the resolver doesn't
   // still report a night for the file we just unlinked.

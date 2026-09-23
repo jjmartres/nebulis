@@ -141,4 +141,17 @@ describe('getAllLibraryImages — pagination', () => {
     expect(page1.items.map(i => i.path)).toEqual(legacy.items.slice(0, 5).map(i => i.path));
     expect(page2.items.map(i => i.path)).toEqual(legacy.items.slice(5, 10).map(i => i.path));
   });
+
+  it('excludes Dwarf internal working artifacts (img_reference.*/img_stacked_counter.*)', () => {
+    const expected = seedLibrary(1);
+    // Drop Dwarf's internal artifacts alongside the real deliverable in the
+    // same object folder the seed helper already created.
+    const folder = path.dirname(expected[0]);
+    fs.writeFileSync(path.join(LIBRARY_DIR, folder, 'img_reference.png'), 'x');
+    fs.writeFileSync(path.join(LIBRARY_DIR, folder, 'img_stacked_counter.png'), 'x');
+    invalidateAllImagesCache();
+
+    const result = getAllLibraryImages('');
+    expect(result.items.map(i => i.path)).toEqual(expected);
+  });
 });

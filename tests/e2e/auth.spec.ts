@@ -105,19 +105,23 @@ test.describe('Logout', () => {
   });
 
   test('sign out clears token and reloads to login', async ({ page }) => {
-    await mockAdminAuth(page);
     await mockAllRoutes(page);
-    await page.goto('/');
-
-    await page.locator('button[title="Profile & settings"]').click();
-
-    // After sign-out the page reloads; ensure authStatus says hasUsers=true so login shows
+    // hasUsers=true so the login gate appears the moment the token is gone.
     await page.route('**/api/auth/status', r =>
       r.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ ok: true, data: { hasUsers: true, requiresSetup: false } }),
       }));
+
+    await page.goto('/');
+    // Seed the session with page.evaluate rather than mockAdminAuth: that helper
+    // uses addInitScript, which re-plants the token on the very reload sign-out
+    // triggers, so the login modal could never appear.
+    await page.evaluate(() => window.localStorage.setItem('nebulis_auth_token', 'admin-test-token'));
+    await page.reload();
+
+    await page.locator('button[title="Profile & settings"]').click();
 
     await page.getByRole('button', { name: /sign out/i }).click();
 

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { MapPin, Search, Loader2, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { createSite, updateSite, type ObservingSite, type ObservingSiteInput } from '../../lib/api/sites';
 import { fetchLocationInfo, searchLocations, type GeocodeSearchResult } from '../../lib/api/catalog';
@@ -25,6 +26,7 @@ export function SiteEditorModal({
   existing?: ObservingSite;
   onClose: (savedId?: string) => void;
 }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const isEdit = !!existing;
   const inputClass = getInputClass(isDark);
@@ -53,7 +55,7 @@ export function SiteEditorModal({
   function detectLocation() {
     if (!navigator.geolocation) {
       setDetectStatus('error');
-      setDetectError('Geolocation is not supported by this browser.');
+      setDetectError(t('siteEditorModal.geolocationUnsupported'));
       return;
     }
     setDetectStatus('detecting');
@@ -72,10 +74,10 @@ export function SiteEditorModal({
         setDetectStatus('error');
         setDetectError(
           err.code === 1
-            ? 'Location access denied - allow it in your browser and try again.'
+            ? t('siteEditorModal.geolocationDenied')
             : err.code === 2
-              ? 'Location unavailable. Try entering coordinates manually.'
-              : 'Location request timed out.',
+              ? t('siteEditorModal.geolocationUnavailable')
+              : t('siteEditorModal.geolocationTimedOut'),
         );
       },
       { timeout: 10000, maximumAge: 300000 },
@@ -105,7 +107,7 @@ export function SiteEditorModal({
     <Modal
       isOpen
       onClose={() => { if (!mutation.isPending) onClose(); }}
-      title={isEdit ? 'Edit observing site' : 'Add observing site'}
+      title={isEdit ? t('siteEditorModal.dialogTitleEdit') : t('siteEditorModal.dialogTitleAdd')}
       className={`w-full max-w-md rounded-2xl border shadow-2xl ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}
     >
         <div className={`flex items-center justify-between p-5 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
@@ -114,7 +116,7 @@ export function SiteEditorModal({
               <MapPin className="w-4 h-4 text-teal-500" />
             </div>
             <h3 className={`font-display font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              {isEdit ? 'Edit Observing Site' : 'Add Observing Site'}
+              {isEdit ? t('siteEditorModal.editTitle') : t('siteEditorModal.addTitle')}
             </h3>
           </div>
           <button
@@ -128,15 +130,15 @@ export function SiteEditorModal({
         <div className="p-5 space-y-4">
           {mutation.error && (
             <div className={`p-3 rounded-lg border text-sm ${isDark ? 'bg-red-950/30 border-red-900/50 text-red-200' : 'bg-red-50 border-red-200 text-red-800'}`}>
-              {mutation.error instanceof Error ? mutation.error.message : 'Failed to save site.'}
+              {mutation.error instanceof Error ? mutation.error.message : t('siteEditorModal.saveFailed')}
             </div>
           )}
           <div>
-            <label className={labelClass}>Name</label>
+            <label className={labelClass}>{t('siteEditorModal.nameLabel')}</label>
             <input
               type="text"
               className={inputClass}
-              placeholder="e.g. Backyard, Dark Sky Site"
+              placeholder={t('siteEditorModal.namePlaceholder')}
               value={name}
               onChange={e => setName(e.target.value)}
             />
@@ -158,26 +160,26 @@ export function SiteEditorModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Latitude</label>
+              <label className={labelClass}>{t('siteEditorModal.latitudeLabel')}</label>
               <input
                 type="number"
                 step="0.0001"
                 min="-90"
                 max="90"
-                placeholder="e.g. 40.7128"
+                placeholder={t('siteEditorModal.latitudePlaceholder')}
                 className={inputClass}
                 value={latitude ?? ''}
                 onChange={e => setLatitude(e.target.value === '' ? null : parseFloat(e.target.value))}
               />
             </div>
             <div>
-              <label className={labelClass}>Longitude</label>
+              <label className={labelClass}>{t('siteEditorModal.longitudeLabel')}</label>
               <input
                 type="number"
                 step="0.0001"
                 min="-180"
                 max="180"
-                placeholder="e.g. -74.0060"
+                placeholder={t('siteEditorModal.longitudePlaceholder')}
                 className={inputClass}
                 value={longitude ?? ''}
                 onChange={e => setLongitude(e.target.value === '' ? null : parseFloat(e.target.value))}
@@ -197,7 +199,7 @@ export function SiteEditorModal({
               }`}
             >
               <MapPin className="w-4 h-4" />
-              {detectStatus === 'detecting' ? 'Detecting…' : 'Use current location'}
+              {detectStatus === 'detecting' ? t('siteEditorModal.detecting') : t('siteEditorModal.useCurrentLocation')}
             </button>
             {hasLocation && (
               <button
@@ -208,11 +210,11 @@ export function SiteEditorModal({
                 }`}
               >
                 <X className="w-4 h-4" />
-                Clear
+                {t('siteEditorModal.clear')}
               </button>
             )}
             {detectStatus === 'success' && (
-              <span className="text-sm text-emerald-500 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Detected</span>
+              <span className="text-sm text-emerald-500 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> {t('siteEditorModal.detected')}</span>
             )}
             {detectStatus === 'error' && (
               <span className="text-sm text-red-400 flex items-center gap-1.5"><AlertCircle className="w-4 h-4" /> {detectError}</span>
@@ -221,7 +223,7 @@ export function SiteEditorModal({
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className={labelClass}>Minimum altitude</label>
+              <label className={labelClass}>{t('siteEditorModal.minAltitudeLabel')}</label>
               <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{minAlt}°</span>
             </div>
             <input
@@ -233,7 +235,7 @@ export function SiteEditorModal({
               onChange={e => setMinAlt(parseInt(e.target.value, 10))}
               className="w-full accent-accent-500"
             />
-            <p className={helperClass}>The Planner hides targets below this altitude for this site.</p>
+            <p className={helperClass}>{t('siteEditorModal.minAltitudeHelp')}</p>
           </div>
         </div>
 
@@ -243,7 +245,7 @@ export function SiteEditorModal({
             onClick={() => onClose()}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            Cancel
+            {t('siteEditorModal.cancel')}
           </button>
           <button
             type="button"
@@ -252,7 +254,7 @@ export function SiteEditorModal({
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-50"
           >
             {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isEdit ? 'Save changes' : 'Add site'}
+            {isEdit ? t('siteEditorModal.saveChanges') : t('siteEditorModal.addSite')}
           </button>
         </div>
     </Modal>
@@ -276,6 +278,7 @@ function SiteLocationSearch({
   onClear: () => void;
   onSelect: (r: GeocodeSearchResult) => void;
 }) {
+  const { t } = useTranslation('settings');
   const labelClass = getLabelClass(isDark);
   const helperClass = getHelperClass(isDark);
 
@@ -349,13 +352,13 @@ function SiteLocationSearch({
 
   return (
     <div className="relative" ref={wrapRef}>
-      <label className={labelClass}>Search for a place</label>
+      <label className={labelClass}>{t('siteEditorModal.searchForPlace')}</label>
       <div className="relative">
         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
         <input
           type="text"
           autoComplete="off"
-          placeholder="City, state, country…"
+          placeholder={t('siteEditorModal.searchPlaceholder')}
           className={`${getInputClass(isDark)} pl-9 pr-9`}
           value={displayValue}
           onChange={e => { setQuery(e.target.value); setOpen(true); scheduleSearch(e.target.value); }}
@@ -371,8 +374,8 @@ function SiteLocationSearch({
           <button
             type="button"
             onClick={onClear}
-            aria-label="Clear location"
-            title="Clear location"
+            aria-label={t('siteEditorModal.clearLocation')}
+            title={t('siteEditorModal.clearLocation')}
             className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors ${
               isDark ? 'text-slate-500 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
             }`}
@@ -381,7 +384,7 @@ function SiteLocationSearch({
           </button>
         ) : null}
       </div>
-      <p className={helperClass}>Type a city to auto-fill coordinates and timezone</p>
+      <p className={helperClass}>{t('siteEditorModal.searchHelp')}</p>
 
       {showDropdown && (
         <ul
@@ -392,7 +395,7 @@ function SiteLocationSearch({
         >
           {!loading && results.length === 0 && (
             <li className={`px-3 py-2.5 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              No matches found
+              {t('siteEditorModal.noMatches')}
             </li>
           )}
           {results.map((r, i) => (

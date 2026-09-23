@@ -3,12 +3,15 @@
  * what to point the telescope at, and the raw numbers behind it.
  */
 import { CloudRain, Droplets, Star, Wind, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ForecastHour } from '../../lib/api/planner';
 import {
   calculateVisibilityScore,
   formatTemp,
   formatTime,
   formatWind,
+  scoreLabel,
+  SEEING_KEYS,
   type DarkWindow,
 } from '../../lib/forecastScore';
 import { ScoreDial } from '../ui/ScoreDial';
@@ -23,8 +26,6 @@ interface Props {
   timeZone?: string;
   darkWindow: DarkWindow | null;
 }
-
-const SEEING_NAMES = ['', 'Excellent', 'Good', 'Average', 'Poor', 'Bad'];
 
 function BreakdownBar({ label, value, detail, isDark }: {
   label: string;
@@ -63,12 +64,13 @@ function Stat({ children, isDark, title }: { children: React.ReactNode; isDark: 
 export function HourDetail({
   hour, moonIllumination, isDark, onClose, tempUnit, windUnit, timeZone, darkWindow,
 }: Props) {
-  const vis = calculateVisibilityScore(hour, moonIllumination, timeZone, darkWindow);
+  const { t } = useTranslation('forecast');
+  const vis = calculateVisibilityScore(hour, moonIllumination, timeZone, darkWindow, t);
 
   return (
     <div
       role="region"
-      aria-label={`Conditions at ${formatTime(hour.time, timeZone)}`}
+      aria-label={t('hourDetail.conditionsAt', { time: formatTime(hour.time, timeZone) })}
       className={`relative overflow-hidden rounded-2xl border p-5 sm:p-6 ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
       }`}
@@ -80,7 +82,7 @@ export function HourDetail({
 
       <button
         onClick={onClose}
-        aria-label="Close hour detail"
+        aria-label={t('hourDetail.closeAriaLabel')}
         // z-10 keeps it above the `relative` content row below, which otherwise
         // paints over the button and swallows the click.
         className={`absolute right-4 top-4 z-10 rounded-lg p-1.5 transition ${
@@ -91,7 +93,7 @@ export function HourDetail({
       </button>
 
       <div className="relative flex flex-wrap items-start gap-6 pr-10">
-        <ScoreDial score={vis.score} size={104} />
+        <ScoreDial score={vis.score} size={104} label={scoreLabel(vis.score, t)} />
 
         <div className="min-w-[16rem] flex-1">
           <div className={`text-[11px] font-medium uppercase tracking-[0.16em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -106,21 +108,21 @@ export function HourDetail({
 
           <div className="mt-4 flex flex-wrap gap-1.5">
             <Stat isDark={isDark}><Wind className="h-3 w-3" />{formatWind(hour.wind, windUnit)}</Stat>
-            <Stat isDark={isDark}>Temp {formatTemp(hour.temperature, tempUnit)}</Stat>
-            <Stat isDark={isDark}><Droplets className="h-3 w-3" />Dew pt {formatTemp(hour.dewPoint, tempUnit)}</Stat>
+            <Stat isDark={isDark}>{t('hourDetail.temp', { value: formatTemp(hour.temperature, tempUnit) })}</Stat>
+            <Stat isDark={isDark}><Droplets className="h-3 w-3" />{t('hourDetail.dewPt', { value: formatTemp(hour.dewPoint, tempUnit) })}</Stat>
             {hour.jetStream != null && (
-              <Stat isDark={isDark} title="500hPa jet stream. High speeds cause poor seeing.">
-                Jet {Math.round(hour.jetStream)} km/h
+              <Stat isDark={isDark} title={t('hourDetail.jetStreamTitle')}>
+                {t('hourDetail.jet', { value: formatWind(hour.jetStream, windUnit) })}
               </Stat>
             )}
             {hour.cape != null && hour.cape > 50 && (
-              <Stat isDark={isDark} title="Convective Available Potential Energy. High means an unstable atmosphere.">
-                CAPE {Math.round(hour.cape)} J/kg
+              <Stat isDark={isDark} title={t('hourDetail.capeTitle')}>
+                {t('hourDetail.cape', { value: Math.round(hour.cape) })}
               </Stat>
             )}
             {hour.precipProb > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/12 px-2.5 py-1 text-[11px] tabular-nums text-amber-500 ring-1 ring-inset ring-amber-500/25">
-                <CloudRain className="h-3 w-3" />{hour.precipProb}% precip
+                <CloudRain className="h-3 w-3" />{t('hourDetail.precip', { percent: hour.precipProb })}
               </span>
             )}
           </div>
@@ -128,10 +130,10 @@ export function HourDetail({
       </div>
 
       <div className="relative mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <BreakdownBar isDark={isDark} label="Clouds" value={vis.breakdown.clouds} detail={`${hour.cloudCover}% cover`} />
-        <BreakdownBar isDark={isDark} label="Seeing" value={vis.breakdown.seeing} detail={hour.seeing ? SEEING_NAMES[hour.seeing] : 'No data'} />
-        <BreakdownBar isDark={isDark} label="Moon" value={vis.breakdown.moon} detail={`${moonIllumination}% lit`} />
-        <BreakdownBar isDark={isDark} label="Transparency" value={vis.breakdown.transparency} detail={`${hour.humidity}% humidity`} />
+        <BreakdownBar isDark={isDark} label={t('hourDetail.clouds')} value={vis.breakdown.clouds} detail={t('hourDetail.coverPercent', { percent: hour.cloudCover })} />
+        <BreakdownBar isDark={isDark} label={t('hourDetail.seeing')} value={vis.breakdown.seeing} detail={hour.seeing ? t(`hourDetail.seeingName.${SEEING_KEYS[hour.seeing]}`) : t('hourDetail.noData')} />
+        <BreakdownBar isDark={isDark} label={t('hourDetail.moon')} value={vis.breakdown.moon} detail={t('hourDetail.litPercent', { percent: moonIllumination })} />
+        <BreakdownBar isDark={isDark} label={t('hourDetail.transparency')} value={vis.breakdown.transparency} detail={t('hourDetail.humidityPercent', { percent: hour.humidity })} />
       </div>
 
       {vis.dewWarning && (
@@ -140,7 +142,7 @@ export function HourDetail({
         }`}>
           <Droplets className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Dew risk: temp ({formatTemp(hour.temperature, tempUnit)}) is within 3° of the dew point. Consider dew heaters.
+            {t('hourDetail.dewWarning', { temp: formatTemp(hour.temperature, tempUnit) })}
           </span>
         </div>
       )}

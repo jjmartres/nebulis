@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -9,6 +10,7 @@ interface ObservationMapProps {
 }
 
 export function ObservationMap({ lat, lon, isDark }: ObservationMapProps) {
+  const { t } = useTranslation('observations');
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
@@ -77,7 +79,7 @@ export function ObservationMap({ lat, lon, isDark }: ObservationMapProps) {
       .addTo(map)
       .bindPopup(`
         <div style="font-size: 12px; font-family: system-ui;">
-          <strong>Observation Site</strong><br/>
+          <strong>${t('observationDetail.observationMap.popupTitle')}</strong><br/>
           ${lat.toFixed(2)}°, ${lon.toFixed(2)}°
         </div>
       `);
@@ -92,7 +94,7 @@ export function ObservationMap({ lat, lon, isDark }: ObservationMapProps) {
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, [lat, lon, isDark]);
+  }, [lat, lon, isDark, t]);
 
   return (
     <div className="relative w-full h-full" style={{ isolation: 'isolate', zIndex: 0 }}>

@@ -75,6 +75,27 @@ export const deleteSite = (id: string) =>
     method: 'DELETE',
   });
 
+export interface SiteBortleResult {
+  bortleClass: number;
+  sqm: number;
+  /** 'live' when DarkSkySites answered just now, 'cache' when this server had
+   *  already looked the same coordinates up within the last day. */
+  source: 'live' | 'cache';
+}
+
+/**
+ * Look the site's light pollution class up from satellite data.
+ *
+ * Admin only, and the one call in the app that sends the observer's exact
+ * coordinates to a third party. The server enforces the admin check as well;
+ * the client checks first so a viewer never triggers the request at all. See
+ * the Help page and Settings -> Data Sources.
+ */
+export const lookupSiteBortle = (siteId: string) =>
+  fetchJSON<SiteBortleResult>(`/sites/${encodeURIComponent(siteId)}/bortle-lookup`, {
+    method: 'POST',
+  });
+
 /** Retag an already-imported session to a different observing site.
  *  `siteId: null` clears the tag, so the session goes back to reading its
  *  location out of the capture files (and only then the default site). */

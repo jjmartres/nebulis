@@ -32,6 +32,7 @@
  */
 import carinaLandscape from '../assets/heroes/carina-landscape.webp';
 import cosmicCliffs from '../assets/heroes/cosmic-cliffs.webp';
+import crabNebula from '../assets/heroes/crab-nebula.webp';
 import horsehead from '../assets/heroes/horsehead.webp';
 import mysticMountain from '../assets/heroes/mystic-mountain.webp';
 import pillarsOfCreation from '../assets/heroes/pillars-of-creation.webp';
@@ -56,7 +57,8 @@ export type HeroImageId =
   | 'carina-landscape'
   | 'mystic-mountain'
   | 'southern-ring'
-  | 'horsehead';
+  | 'horsehead'
+  | 'crab-nebula';
 
 export const HERO_IMAGES: Record<HeroImageId, HeroImage> = {
   'pillars-of-creation': {
@@ -108,6 +110,13 @@ export const HERO_IMAGES: Record<HeroImageId, HeroImage> = {
     credit: 'NASA, ESA, STScI',
     nasaId: 'GSFC_20171208_Archive_e001518',
   },
+  'crab-nebula': {
+    id: 'crab-nebula',
+    src: crabNebula,
+    label: 'The Crab Nebula, a supernova remnant',
+    credit: 'NASA, ESA, J. Hester and A. Loll (Arizona State University)',
+    nasaId: 'GSFC_20171208_Archive_e002159',
+  },
 };
 
 /**
@@ -118,7 +127,7 @@ export const HERO_IMAGES: Record<HeroImageId, HeroImage> = {
  * banners that carries one gets its own.
  */
 export const PAGE_HERO: Record<
-  'library' | 'gallery' | 'observations' | 'planner' | 'forecast' | 'backup' | 'settings' | 'help' | 'catalogs',
+  'library' | 'gallery' | 'observations' | 'planner' | 'forecast' | 'backup' | 'settings' | 'help' | 'catalogs' | 'calibrations' | 'wishlist',
   HeroImage
 > = {
   library: HERO_IMAGES['cosmic-cliffs'],
@@ -144,4 +153,15 @@ export const PAGE_HERO: Record<
   // the telescope menu), so the two never sit a click apart. The round
   // planetary nebula also pairs with the progress ring in this banner.
   catalogs: HERO_IMAGES['southern-ring'],
+  // Calibrations gets its own frame rather than a third life for horsehead:
+  // it sits in the top nav like every other primary-picture page, so it earns
+  // real artwork instead of a hand-me-down. The Crab Nebula's teal/orange
+  // filaments read as distinct from every warm amber pillar-of-gas shot
+  // already in rotation.
+  calibrations: HERO_IMAGES['crab-nebula'],
+  // Wishlist is reached from inside Planner (mystic-mountain), so it can't
+  // reuse that without the two reading as a mix-up one click apart. Westerlund
+  // 2's dense star field also fits a page about targets not yet caught better
+  // than the softer pillar-of-gas shots.
+  wishlist: HERO_IMAGES.westerlund,
 };

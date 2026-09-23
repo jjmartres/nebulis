@@ -117,6 +117,86 @@ describe('listCalibrationLibrary', () => {
     expect(bias.fileCount).toBe(1);
   });
 
+  // Real-shape fixture from an actual Dwarf 3 export
+  // (Astronomy/CALI_FRAME/{bias,dark,flat}/cam_{0,1}/...) — a completely
+  // different filename convention from ASIAIR's, parsed by
+  // calibrationFolders.ts's Dwarf-specific pattern.
+  it("parses a Dwarf 3 CALI_FRAME folder's real-shape filenames, keeping cam_0/cam_1 separate", () => {
+    const profile = createProfile({ name: 'Dwarf 3', kind: 'dwarf-3', connectionType: 'local', localPath: '/tmp/dwarf3' });
+    const caliDir = path.join(getArchiveDir(profile.id), 'CALI_FRAME');
+
+    writeFrame(path.join(caliDir, 'dark', 'cam_0'), 'dark_exp_30.000000_gain_60_bin_1_22C_stack_6.fits');
+    writeFrame(path.join(caliDir, 'dark', 'cam_1'), 'dark_exp_30.000000_gain_60_bin_1_22C_stack_4.fits');
+    writeFrame(path.join(caliDir, 'bias', 'cam_0'), 'bias_gain_2_bin_1.fits');
+    writeFrame(path.join(caliDir, 'flat', 'cam_0'), 'flat_gain_2_bin_1_ir_1.fits');
+
+    const groups = listCalibrationLibrary().filter(g => g.scope === profile.id);
+    expect(groups).toHaveLength(1);
+    const mixed = groups[0];
+    expect(mixed.type).toBe('mixed');
+    expect(mixed.folderName).toBe('CALI_FRAME');
+
+    const darkSub = mixed.subfolders.find(s => s.name === 'dark')!;
+    const cam0Dark = darkSub.files.find(f => f.name.includes('cam_0'))!;
+    expect(cam0Dark.info).toMatchObject({ exposureSec: 30, gain: 60, binning: 1, sensorTempC: 22, stackCount: 6, camera: 'cam_0' });
+    const cam1Dark = darkSub.files.find(f => f.name.includes('cam_1'))!;
+    expect(cam1Dark.info).toMatchObject({ exposureSec: 30, gain: 60, binning: 1, sensorTempC: 22, stackCount: 4, camera: 'cam_1' });
+
+    // Same exposure/gain/bin/temp on both cameras — must NOT merge into one
+    // settings bundle, since a wide and a tele Dwarf dark come from
+    // physically different sensors.
+    const darkBundles = mixed.settingsGroups.filter(s => s.exposureSec === 30 && s.gain === 60);
+    expect(darkBundles).toHaveLength(2);
+    expect(darkBundles.map(s => s.camera).sort()).toEqual(['cam_0', 'cam_1']);
+    expect(darkBundles.every(s => s.fileCount === 1)).toBe(true);
+
+    const biasSub = mixed.subfolders.find(s => s.name === 'bias')!;
+    expect(biasSub.files[0].info).toMatchObject({ gain: 2, binning: 1, camera: 'cam_0' });
+    expect(biasSub.files[0].info?.exposureSec).toBeUndefined();
+
+    const flatSub = mixed.subfolders.find(s => s.name === 'flat')!;
+    expect(flatSub.files[0].info).toMatchObject({ gain: 2, binning: 1, filterLabel: 'IR1', camera: 'cam_0' });
+  });
+
+  // Real-shape fixture from an actual Dwarf 3 export that had accumulated
+  // both DWARF_DARK (an older firmware's raw, unstacked sub-frames in
+  // per-session folders) and CALI_FRAME (a newer firmware's pre-stacked
+  // masters) for the SAME telescope — two entirely different calibration
+  // conventions living side by side in one archive scope.
+  it("parses a Dwarf DWARF_DARK folder's real-shape session/file layout, pulling camera and binning from the session folder name", () => {
+    const profile = createProfile({ name: 'Dwarf 3 (raw darks)', kind: 'dwarf-3', connectionType: 'local', localPath: '/tmp/dwarf3-raw' });
+    const darkDir = path.join(getArchiveDir(profile.id), 'DWARF_DARK');
+
+    const teleSession = path.join(darkDir, 'tele_exp_60_gain_60_bin_1_2025-06-19-22-47-27-957');
+    writeFrame(teleSession, 'raw_60s_60_0000_20250619-224827236_34C.fits');
+    writeFrame(teleSession, 'raw_60s_60_0009_20250619-225727031_37C.fits');
+
+    const wideSession = path.join(darkDir, 'wide_exp_30_gain_60_bin_1_2025-07-24-23-43-28-522');
+    writeFrame(wideSession, 'raw_30s_60_0000_20250724-234357539_22C.fits');
+
+    const groups = listCalibrationLibrary().filter(g => g.scope === profile.id);
+    expect(groups).toHaveLength(1);
+    const darks = groups[0];
+    expect(darks.type).toBe('dark');
+    expect(darks.folderName).toBe('DWARF_DARK');
+
+    const teleSub = darks.subfolders.find(s => s.name === 'tele_exp_60_gain_60_bin_1_2025-06-19-22-47-27-957')!;
+    expect(teleSub.files.every(f => f.info?.camera === 'tele' && f.info?.binning === 1)).toBe(true);
+    expect(teleSub.files.find(f => f.name.includes('0009'))!.info).toMatchObject({
+      exposureSec: 60, gain: 60, binning: 1, camera: 'tele', sequence: 9, sensorTempC: 37,
+    });
+
+    const wideSub = darks.subfolders.find(s => s.name === 'wide_exp_30_gain_60_bin_1_2025-07-24-23-43-28-522')!;
+    expect(wideSub.files[0].info).toMatchObject({ exposureSec: 30, gain: 60, binning: 1, camera: 'wide', sensorTempC: 22 });
+
+    // tele and wide must never merge into the same bundle, however close
+    // their other settings — camera is part of the bucket key. (The two
+    // "tele" frames land in separate bundles of their own here since their
+    // temperatures, 34C and 37C, are outside the 1-degree TEC tolerance.)
+    expect(new Set(darks.settingsGroups.map(s => s.camera))).toEqual(new Set(['tele', 'wide']));
+    expect(darks.settingsGroups.every(s => new Set(s.files.map(f => f.info?.camera)).size === 1)).toBe(true);
+  });
+
   it('ignores non-calibration folders that happen to live in the archive root', () => {
     writeFrame(path.join(getArchiveDir(null), 'RESTACKED'), 'stack.fits');
     const groups = listCalibrationLibrary();
@@ -312,6 +392,16 @@ describe('listCalibrationLibrary', () => {
       expect(calibrationBundleName(bias, set)).toBe('Bias_unk_Binunk_unk_unk');
     });
 
+    it("includes the camera token, and the bundle's own resolved frame type rather than the group's generic label", () => {
+      const scope = freshScope('bundle-name-dwarf-camera');
+      writeFrame(path.join(getArchiveDir(scope), 'CALI_FRAME', 'bias', 'cam_0'), 'bias_gain_2_bin_1.fits');
+      const mixed = listCalibrationLibrary().find(g => g.scope === scope && g.folderName === 'CALI_FRAME')!;
+      expect(mixed.typeLabel).toBe('Calibration (mixed)');
+      const set = mixed.settingsGroups[0];
+      expect(set.frameType).toBe('bias');
+      expect(calibrationBundleName(mixed, set)).toBe('Bias_cam0_unk_Bin1_gain2_unk');
+    });
+
     it('finds the exact bundle a (scope, folderName, key) selector points at', () => {
       const scope = freshScope('find-bundle');
       writeFrame(path.join(getArchiveDir(scope), 'Darks'), 'Dark_60.0s_Bin1_Dark_gain100_20260814-191008_2deg_-8.0C_0001.fit');
@@ -412,6 +502,48 @@ describe('listCalibrationLibrary', () => {
         // Restore the default so later tests in this file aren't affected.
         updateSettingsData({ calibrationExpiryDays: 180 });
       }
+    });
+
+    describe('within a mixed (CALI_FRAME) group', () => {
+      it("checks a mixed group's own dark/bias bundles for expiry, resolved from their subfolder, not skipped just because the group is 'mixed'", () => {
+        const scope = freshScope('expiry-mixed-dark');
+        const dir = path.join(getArchiveDir(scope), 'CALI_FRAME', 'dark', 'cam_0');
+        writeFrame(dir, 'dark_exp_30.000000_gain_60_bin_1_22C_stack_6.fits');
+        const oldMtime = daysAgo(240);
+        fs.utimesSync(path.join(dir, 'dark_exp_30.000000_gain_60_bin_1_22C_stack_6.fits'), oldMtime, oldMtime);
+
+        const mixed = listCalibrationLibrary().find(g => g.scope === scope && g.folderName === 'CALI_FRAME')!;
+        const darkSet = mixed.settingsGroups.find(s => s.frameType === 'dark')!;
+        expect(darkSet.isExpired).toBe(true); // Dwarf master filenames carry no timestamp — mtime fallback ages it out
+      });
+
+      it("never flags a mixed group's own flat bundle as expired, same as a standalone Flats group", () => {
+        const scope = freshScope('expiry-mixed-flat');
+        const dir = path.join(getArchiveDir(scope), 'CALI_FRAME', 'flat', 'cam_0');
+        writeFrame(dir, 'flat_gain_2_bin_1_ir_1.fits');
+        const oldMtime = daysAgo(720);
+        fs.utimesSync(path.join(dir, 'flat_gain_2_bin_1_ir_1.fits'), oldMtime, oldMtime);
+
+        const mixed = listCalibrationLibrary().find(g => g.scope === scope && g.folderName === 'CALI_FRAME')!;
+        const flatSet = mixed.settingsGroups.find(s => s.frameType === 'flat')!;
+        expect(flatSet.isExpired).toBe(false);
+      });
+
+      // Real bug this closes: Dwarf's bias_gain_2_bin_1.fits and
+      // flat_gain_2_bin_1.fits (same camera) carry neither an exposure nor a
+      // temperature, so without frameType in the bucket key they parsed to
+      // an identical settings key and silently merged into one bundle.
+      it('does not merge a bias and a flat frame sharing every other setting into one bundle', () => {
+        const scope = freshScope('mixed-bias-flat-no-merge');
+        writeFrame(path.join(getArchiveDir(scope), 'CALI_FRAME', 'bias', 'cam_1'), 'bias_gain_2_bin_1.fits');
+        writeFrame(path.join(getArchiveDir(scope), 'CALI_FRAME', 'flat', 'cam_1'), 'flat_gain_2_bin_1.fits');
+
+        const mixed = listCalibrationLibrary().find(g => g.scope === scope && g.folderName === 'CALI_FRAME')!;
+        const bundles = mixed.settingsGroups.filter(s => s.camera === 'cam_1' && s.gain === 2 && s.binning === 1);
+        expect(bundles).toHaveLength(2);
+        expect(bundles.map(s => s.frameType).sort()).toEqual(['bias', 'flat']);
+        expect(bundles.every(s => s.fileCount === 1)).toBe(true);
+      });
     });
   });
 

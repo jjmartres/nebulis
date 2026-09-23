@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { registerUser } from '../lib/api/auth';
 import { setAuthToken } from '../lib/api/client';
 import { createTelescope, testTelescopeConnection, type ConnectionType } from '../lib/api/telescopes';
@@ -20,6 +21,7 @@ import type { TestStatus } from './onboarding/OnboardingStep2';
 const TRANSITION_MS = 150;
 
 export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
+  const { t } = useTranslation('common');
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
 
@@ -74,7 +76,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
       setUserError('');
       stepDispatch({ type: 'BEGIN_FORWARD' });
     },
-    onError: err => setUserError(err instanceof Error ? err.message : 'Failed to create user'),
+    onError: err => setUserError(err instanceof Error ? err.message : t('onboarding.createUserFailed')),
   });
 
   const finishMutation = useMutation({
@@ -129,11 +131,11 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
     // wins.
     if (createUserMutation.isPending) return;
     setUserError('');
-    if (!username.trim()) return setUserError('Username is required');
-    if (username.trim().length < 3) return setUserError('Username must be at least 3 characters');
-    if (!password) return setUserError('Password is required');
-    if (password.length < 4) return setUserError('Password must be at least 4 characters');
-    if (password !== confirmPassword) return setUserError('Passwords do not match');
+    if (!username.trim()) return setUserError(t('onboarding.usernameRequired'));
+    if (username.trim().length < 3) return setUserError(t('onboarding.usernameTooShort'));
+    if (!password) return setUserError(t('onboarding.passwordRequired'));
+    if (password.length < 4) return setUserError(t('onboarding.passwordTooShort'));
+    if (password !== confirmPassword) return setUserError(t('onboarding.passwordMismatch'));
     createUserMutation.mutate();
   }
 
@@ -151,14 +153,14 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
       });
       if (result.connected) {
         setTestStatus('success');
-        setTestMessage(`Connected! Found ${result.objectCount || 0} observation${(result.objectCount || 0) !== 1 ? 's' : ''} on the device.`);
+        setTestMessage(t('onboarding.connectionTested', { count: result.objectCount || 0 }));
       } else {
         setTestStatus('error');
-        setTestMessage(result.error || 'Connection failed');
+        setTestMessage(result.error || t('onboarding.connectionFailed'));
       }
     } catch (err) {
       setTestStatus('error');
-      setTestMessage(err instanceof Error ? err.message : 'Connection failed');
+      setTestMessage(err instanceof Error ? err.message : t('onboarding.connectionFailed'));
     }
   }
 
@@ -191,7 +193,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
   }
 
   const finishError = finishMutation.isError
-    ? (finishMutation.error instanceof Error ? finishMutation.error : new Error('Failed to save settings'))
+    ? (finishMutation.error instanceof Error ? finishMutation.error : new Error(t('onboarding.saveSettingsFailed')))
     : null;
 
   return (

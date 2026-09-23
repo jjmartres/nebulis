@@ -1,10 +1,12 @@
 import {
   useCallback, useEffect, useReducer, useRef, useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Heart, X, ChevronLeft, ChevronRight, Play, Pause, Maximize, Minimize, Volume2, VolumeX, Sparkles,
 } from 'lucide-react';
 import type { LibraryImage } from '../../lib/api/library';
+import { formatNumber } from '../../lib/formatLocale';
 import { fisherYates, preload, slideImageUrl, TOTAL_MS } from './galleryUtils';
 import { slotReducer, type SlotState } from './galleryReducer';
 import { KenBurnsSlide } from './KenBurnsSlide';
@@ -30,6 +32,7 @@ export function PlanetariumMode({
   onExit,
   onToggleFavorite,
 }: PlanetariumModeProps) {
+  const { t } = useTranslation('library');
   // Snapshot on mount, immune to parent re-renders caused by optimistic updates.
   // We manage isFavorite locally via PATCH_FAV dispatches.
   const [images] = useState(initialImages);
@@ -202,7 +205,7 @@ export function PlanetariumMode({
           )}
           {current.distanceLy != null && (
             <p className="text-white/40 text-xs mt-1">
-              {current.distanceLy.toLocaleString()} ly from Earth
+              {t('planetariumMode.distanceLy', { value: formatNumber(current.distanceLy) })}
             </p>
           )}
         </div>
@@ -227,7 +230,7 @@ export function PlanetariumMode({
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleFavorite(current)}
-              title={current.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              title={current.isFavorite ? t('planetariumMode.removeFromFavorites') : t('planetariumMode.addToFavorites')}
               className={`p-2.5 rounded-full backdrop-blur-md transition-all ${
                 current.isFavorite
                   ? 'bg-rose-500/80 text-white'
@@ -238,14 +241,14 @@ export function PlanetariumMode({
             </button>
             <button
               onClick={toggleFullscreen}
-              title={isFullscreen ? 'Exit fullscreen (F)' : 'Enter fullscreen (F)'}
+              title={isFullscreen ? t('planetariumMode.exitFullscreen') : t('planetariumMode.enterFullscreen')}
               className="p-2.5 rounded-full backdrop-blur-md bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all"
             >
               {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
             </button>
             <button
               onClick={onExit}
-              title="Exit Planetarium Mode"
+              title={t('planetariumMode.exit')}
               className="p-2.5 rounded-full backdrop-blur-md bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all"
             >
               <X className="w-5 h-5" />
@@ -272,7 +275,7 @@ export function PlanetariumMode({
                   !favOnly ? 'bg-white text-slate-900' : 'text-white/60 hover:text-white'
                 }`}
               >
-                All Images
+                {t('planetariumMode.allImages')}
               </button>
               <button
                 onClick={() => setFavOnly(true)}
@@ -281,25 +284,25 @@ export function PlanetariumMode({
                 }`}
               >
                 <Heart className={`w-3.5 h-3.5 ${favOnly ? 'fill-current text-rose-500' : ''}`} />
-                Favorites
+                {t('planetariumMode.favorites')}
               </button>
             </div>
             {/* A separate pill, not a third segment: processed and favorites are
                 independent axes, not one exclusive choice. */}
             <button
               onClick={() => setProcOnly(p => !p)}
-              title={procOnly ? 'Showing processed images only' : 'Show processed images only'}
+              title={procOnly ? t('planetariumMode.showingProcessedOnly') : t('planetariumMode.showProcessedOnly')}
               className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-medium transition-all ${
                 procOnly ? 'bg-white text-slate-900' : 'text-white/60 hover:text-white'
               }`}
               style={{ background: procOnly ? undefined : 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
             >
               <Sparkles className={`w-3.5 h-3.5 ${procOnly ? 'text-accent-500' : ''}`} />
-              Processed
+              {t('planetariumMode.processed')}
             </button>
             <button
               onClick={() => setMusicOn(p => !p)}
-              title={musicOn ? 'Mute music' : 'Unmute music'}
+              title={musicOn ? t('planetariumMode.muteMusic') : t('planetariumMode.unmuteMusic')}
               className="p-2.5 rounded-full transition-all"
               style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
             >
@@ -316,7 +319,7 @@ export function PlanetariumMode({
               onClick={() => advance(-1)}
               className="p-2.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all"
               style={{ backdropFilter: 'blur(8px)' }}
-              title="Previous (←)"
+              title={t('planetariumMode.previous')}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -324,7 +327,7 @@ export function PlanetariumMode({
               onClick={() => setIsPlaying(p => !p)}
               className="p-4 rounded-full bg-white/15 text-white hover:bg-white/25 transition-all"
               style={{ backdropFilter: 'blur(8px)' }}
-              title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+              title={isPlaying ? t('planetariumMode.pause') : t('planetariumMode.play')}
             >
               {isPlaying
                 ? <Pause className="w-6 h-6" />
@@ -335,14 +338,14 @@ export function PlanetariumMode({
               onClick={() => advance(1)}
               className="p-2.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all"
               style={{ backdropFilter: 'blur(8px)' }}
-              title="Next (→)"
+              title={t('planetariumMode.next')}
             >
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
 
           <p className="text-white/25 text-xs tracking-wide select-none">
-            Move mouse to show controls &nbsp;·&nbsp; Space to pause &nbsp;·&nbsp; ← → to navigate &nbsp;·&nbsp; Esc to exit
+            {t('planetariumMode.hint')}
           </p>
         </div>
       </div>

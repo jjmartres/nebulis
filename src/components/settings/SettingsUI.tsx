@@ -1,4 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
@@ -145,22 +146,91 @@ export function Row({
   );
 }
 
+/** Off-screen and invisible until the layout effect below places it for
+ *  real — avoids a one-frame flash at the stale/default position (`{}` would
+ *  render, unpositioned, in normal flow for that frame instead). */
+const OFFSCREEN_TOOLTIP_STYLE: CSSProperties = { position: 'fixed', top: -9999, left: -9999, visibility: 'hidden' };
+
 /** The (i) affordance `Row` uses for its description. Hover previews it;
  *  click pins it open (closes on click-outside or Escape) so it works the
- *  same on touch as it does with a mouse. */
+ *  same on touch as it does with a mouse.
+ *
+ *  Positioned as `fixed` and measured against the actual viewport rather
+ *  than a CSS-only `absolute` under the icon: a Row near the bottom of a
+ *  long settings page (real report: the last row of Settings → Library's
+ *  "Calibration" section, 2026-09-20) opened downward and ran off the
+ *  bottom of the screen with no way to scroll it into view. Mirrors
+ *  ObservationsCalendar.tsx's `ObservationHoverPreview` flip/clamp math,
+ *  adapted for a variable-height box (that one's preview is a fixed size,
+ *  so it can compute position before ever rendering; this one's height
+ *  depends on the description's own length, so it renders once off-screen
+ *  first to measure, then a layout effect repositions it before paint). */
 function InfoTooltip({ text, isDark }: { text: string; isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const [hovering, setHovering] = useState(false);
   const [pinned, setPinned] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<CSSProperties>(OFFSCREEN_TOOLTIP_STYLE);
   useClickOutside(ref, () => setPinned(false), { enabled: pinned, closeOnEscape: true });
 
   const open = hovering || pinned;
 
+  // Recomputed on every open (not just once), since scrolling or resizing
+  // between opens can change what actually fits — and, since a click-pinned
+  // tooltip can stay open while the page scrolls (unlike a hover preview,
+  // which closes the moment the pointer moves away), also re-run on scroll/
+  // resize while open so it tracks its anchor instead of drifting away from
+  // it (a `fixed`-positioned element doesn't move with page content).
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current || !tooltipRef.current) return;
+
+    const reposition = () => {
+      if (!buttonRef.current || !tooltipRef.current) return;
+      const anchor = buttonRef.current.getBoundingClientRect();
+      const tooltip = tooltipRef.current.getBoundingClientRect();
+      const margin = 8;
+      const gap = 6;
+
+      // Below the icon by default; flip above when it doesn't fit below AND
+      // there actually is room above — never flip into an even worse clip.
+      let top = anchor.bottom + gap;
+      if (top + tooltip.height > window.innerHeight - margin) {
+        const above = anchor.top - gap - tooltip.height;
+        top = above >= margin ? above : Math.max(margin, window.innerHeight - tooltip.height - margin);
+      }
+
+      // Left-aligned to the icon by default; slide left just enough to stay
+      // clear of the right edge, then clamp the left edge too.
+      let left = anchor.left;
+      if (left + tooltip.width > window.innerWidth - margin) {
+        left = window.innerWidth - tooltip.width - margin;
+      }
+      left = Math.max(margin, left);
+
+      setStyle({ position: 'fixed', top, left });
+    };
+
+    reposition();
+    // `capture: true` so a scroll inside any inner scrollable ancestor (the
+    // settings page body, a modal) is caught too, not just window-level
+    // scroll — those don't bubble to `window` in the 'scroll' event's
+    // non-capturing phase.
+    window.addEventListener('scroll', reposition, { capture: true, passive: true });
+    window.addEventListener('resize', reposition);
+    return () => {
+      window.removeEventListener('scroll', reposition, { capture: true });
+      window.removeEventListener('resize', reposition);
+    };
+  }, [open]);
+
   return (
     <div ref={ref} className="relative shrink-0">
       <button
+        ref={buttonRef}
         type="button"
-        aria-label={`More info: ${text}`}
+        aria-label={t('settingsUI.moreInfoAriaLabel', { text })}
         aria-expanded={open}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
@@ -175,8 +245,10 @@ function InfoTooltip({ text, isDark }: { text: string; isDark: boolean }) {
       </button>
       {open && (
         <div
+          ref={tooltipRef}
           role="tooltip"
-          className={`absolute left-0 top-full mt-1.5 z-20 w-64 rounded-lg border px-3 py-2 text-[12px] leading-relaxed shadow-lg ${
+          style={style}
+          className={`z-20 w-64 rounded-lg border px-3 py-2 text-[12px] leading-relaxed shadow-lg ${
             isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600'
           }`}
         >

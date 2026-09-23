@@ -37,7 +37,19 @@ function parseSexagesimal(raw: string): { sign: number; a: number; b: number; c:
   return { sign, a, b, c };
 }
 
-export function parseRaToDegs(ra: string): number {
+/**
+ * RA to decimal degrees.
+ *
+ * `opts.decimalIsHours` must be set when the caller knows the value came from a
+ * card whose unit is HOURS by definition — `OBJCTRA`. The bare-decimal case is
+ * the reason: `parseSexagesimal` refuses a plain decimal (so '274.700' cannot
+ * be misread as 274h 07m), which leaves the caller to say what a decimal means.
+ * For `CRVAL1` that is degrees; for `OBJCTRA` it is hours, and reading '18.5'
+ * there as 18.5° instead of 277.5° is the same 259° class of error the
+ * sexagesimal fix above exists to prevent. A value above 24 cannot be hours, so
+ * a writer that put degrees in an hours keyword still reads correctly.
+ */
+export function parseRaToDegs(ra: string, opts?: { decimalIsHours?: boolean }): number {
   const sx = parseSexagesimal(ra);
   if (sx) {
     // RA sexagesimal is always in HOURS, so 15°/hour.
@@ -47,7 +59,9 @@ export function parseRaToDegs(ra: string): number {
     return ((sx.sign * degrees) % 360 + 360) % 360;
   }
   const num = parseFloat(ra);
-  return isNaN(num) ? 0 : num;
+  if (isNaN(num)) return 0;
+  if (opts?.decimalIsHours && num >= 0 && num <= 24) return ((num * 15) % 360 + 360) % 360;
+  return num;
 }
 
 export function parseDecToDegs(dec: string): number {

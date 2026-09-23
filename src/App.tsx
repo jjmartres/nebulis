@@ -1,5 +1,6 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Suspense, useEffect, useState } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { lazyRoute } from './lib/chunkReload';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ThemeProvider } from './hooks/useTheme';
 import { NavVisibilityProvider } from './hooks/useNavVisibility';
@@ -14,24 +15,26 @@ import { WhatsNewGateProvider, useWhatsNewGate } from './contexts/WhatsNewGateCo
 // initial bundle. This keeps the first paint (the Library landing page) from
 // having to download the FITS viewer, image editor, Leaflet map, and dnd-kit
 // planner up front. Named exports are adapted to the default-export shape lazy()
-// expects.
-const Gallery = lazy(() => import('./pages/Gallery').then(m => ({ default: m.Gallery })));
-const ObjectDetail = lazy(() => import('./pages/ObjectDetail').then(m => ({ default: m.ObjectDetail })));
-const SettingsPage = lazy(() => import('./pages/Settings').then(m => ({ default: m.SettingsPage })));
-const StorageDashboard = lazy(() => import('./components/StorageDashboard').then(m => ({ default: m.StorageDashboard })));
-const CompareView = lazy(() => import('./pages/CompareView').then(m => ({ default: m.CompareView })));
-const ForecastPage = lazy(() => import('./pages/ForecastPage').then(m => ({ default: m.ForecastPage })));
-const ObservationsCalendar = lazy(() => import('./pages/ObservationsCalendar').then(m => ({ default: m.ObservationsCalendar })));
-const ObservationDetail = lazy(() => import('./pages/ObservationDetail').then(m => ({ default: m.ObservationDetail })));
-const PlannerPage = lazy(() => import('./pages/PlannerPage').then(m => ({ default: m.PlannerPage })));
-const NewObservationPage = lazy(() => import('./pages/NewObservationPage').then(m => ({ default: m.NewObservationPage })));
-const BackupStatus = lazy(() => import('./pages/BackupStatus').then(m => ({ default: m.BackupStatus })));
-const ImageGalleryPage = lazy(() => import('./pages/ImageGalleryPage').then(m => ({ default: m.ImageGalleryPage })));
-const HelpPage = lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
-const LinkDevicePage = lazy(() => import('./pages/LinkDevicePage'));
-const CatalogsHub = lazy(() => import('./pages/CatalogsHub').then(m => ({ default: m.CatalogsHub })));
-const CatalogBoard = lazy(() => import('./pages/CatalogBoard').then(m => ({ default: m.CatalogBoard })));
-const CalibrationLibrary = lazy(() => import('./pages/CalibrationLibrary').then(m => ({ default: m.CalibrationLibrary })));
+// expects, and lazyRoute() adds the stale-build reload described in
+// lib/chunkReload.ts.
+const Gallery = lazyRoute(() => import('./pages/Gallery').then(m => ({ default: m.Gallery })));
+const ObjectDetail = lazyRoute(() => import('./pages/ObjectDetail').then(m => ({ default: m.ObjectDetail })));
+const SettingsPage = lazyRoute(() => import('./pages/Settings').then(m => ({ default: m.SettingsPage })));
+const StorageDashboard = lazyRoute(() => import('./components/StorageDashboard').then(m => ({ default: m.StorageDashboard })));
+const CompareView = lazyRoute(() => import('./pages/CompareView').then(m => ({ default: m.CompareView })));
+const ForecastPage = lazyRoute(() => import('./pages/ForecastPage').then(m => ({ default: m.ForecastPage })));
+const ObservationsCalendar = lazyRoute(() => import('./pages/ObservationsCalendar').then(m => ({ default: m.ObservationsCalendar })));
+const ObservationDetail = lazyRoute(() => import('./pages/ObservationDetail').then(m => ({ default: m.ObservationDetail })));
+const PlannerPage = lazyRoute(() => import('./pages/PlannerPage').then(m => ({ default: m.PlannerPage })));
+const NewObservationPage = lazyRoute(() => import('./pages/NewObservationPage').then(m => ({ default: m.NewObservationPage })));
+const BackupStatus = lazyRoute(() => import('./pages/BackupStatus').then(m => ({ default: m.BackupStatus })));
+const ImageGalleryPage = lazyRoute(() => import('./pages/ImageGalleryPage').then(m => ({ default: m.ImageGalleryPage })));
+const HelpPage = lazyRoute(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
+const LinkDevicePage = lazyRoute(() => import('./pages/LinkDevicePage'));
+const CatalogsHub = lazyRoute(() => import('./pages/CatalogsHub').then(m => ({ default: m.CatalogsHub })));
+const CatalogBoard = lazyRoute(() => import('./pages/CatalogBoard').then(m => ({ default: m.CatalogBoard })));
+const CalibrationLibrary = lazyRoute(() => import('./pages/CalibrationLibrary').then(m => ({ default: m.CalibrationLibrary })));
+const WishlistPage = lazyRoute(() => import('./pages/WishlistPage').then(m => ({ default: m.WishlistPage })));
 import { LoginModal } from './components/LoginModal';
 import { ConnectionErrorScreen } from './components/ConnectionErrorScreen';
 import { SyncSubframesProvider } from './contexts/SyncSubframesContext';
@@ -149,10 +152,10 @@ function AppShell({ onboardingDismissed }: { onboardingDismissed: boolean }) {
               <Route path="/storage" element={<StorageDashboard />} />
               <Route path="/forecast" element={<ForecastPage />} />
               <Route path="/planner" element={<PlannerPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />
               <Route path="/catalogs" element={<CatalogsHub />} />
               <Route path="/catalogs/:catalog" element={<CatalogBoard />} />
               <Route path="/calibrations" element={<CalibrationLibrary />} />
-              <Route path="/wishlist" element={<Navigate to="/planner?tab=wishlist" replace />} />
               <Route path="/backup" element={<BackupStatus />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/image-gallery" element={<ImageGalleryPage />} />

@@ -4,7 +4,9 @@
  * The terminator geometry lives in lib/moonPhase so its one load-bearing
  * property (lit area == illuminated fraction) can be asserted in a unit test.
  */
+import { useTranslation } from 'react-i18next';
 import { isWaningPhase, moonGeometry } from '../../lib/moonPhase';
+import { translateMoonPhase } from '../../lib/moonPhaseLabel';
 
 interface Props {
   /** 0-100, as the forecast reports it. */
@@ -17,6 +19,7 @@ interface Props {
 }
 
 export function MoonDisk({ illumination, phase, size = 72, className = '' }: Props) {
+  const { t } = useTranslation('common');
   const R = 50;
   const { path: litPath, fraction: f } = moonGeometry(illumination, R);
   const waning = isWaningPhase(phase);
@@ -30,7 +33,7 @@ export function MoonDisk({ illumination, phase, size = 72, className = '' }: Pro
       height={size}
       className={className}
       role="img"
-      aria-label={`${phase}, ${Math.round(illumination)} percent illuminated`}
+      aria-label={t('moonDisk.ariaLabel', { phase: translateMoonPhase(t, phase), percent: Math.round(illumination) })}
     >
       <defs>
         {/* Warm-white surface with a slight limb falloff so the disk reads

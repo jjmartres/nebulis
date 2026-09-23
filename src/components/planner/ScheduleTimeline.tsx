@@ -16,6 +16,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { Moon, Plus } from 'lucide-react';
+import { Trans, useTranslation } from 'react-i18next';
 import { formatObjectName } from '../../lib/utils';
 import { scoreHex, calculateVisibilityScore } from '../../lib/forecastScore';
 import { formatDuration, twilightGradientCss, type Interval, type NightGap, type TwilightMarks } from '../../lib/plannerNight';
@@ -73,6 +74,10 @@ interface ScheduleTimelineProps {
   onResize: (id: number, edge: 'top' | 'bottom', deltaMinutes: number, commit: boolean) => void;
   /** Open the details popup (altitude curve, sky-survey image, blurb) for a block. */
   onShowDetails: (session: PlannedSession) => void;
+  /** Jumps straight to the Framing & Mosaic modal for a block, preloaded with
+   *  its saved mosaic. Passed through to ScheduledImagingBlock, which only
+   *  shows the shortcut icon when a block actually has one saved. */
+  onShowFraming?: (session: PlannedSession) => void;
   /** Reports the runtime pixels-per-minute scale so the page's drag/drop math
    *  (which converts pointer pixels to times) matches what's rendered here. */
   onScaleChange?: (pxPerMinute: number) => void;
@@ -163,11 +168,13 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
     onDelete,
     onResize,
     onShowDetails,
+    onShowFraming,
     onScaleChange,
     observerTimezone,
   },
   ref,
 ) {
+  const { t } = useTranslation('planner');
   const fmtHm = (d: Date) => formatHm(d, observerTimezone);
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: 'schedule' });
 
@@ -223,11 +230,11 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
       .map(h => {
         const from = new Date(h.time).getTime();
         const to = from + 3_600_000;
-        const vis = calculateVisibilityScore(h, moonIllumination, observerTimezone, darkWindow);
+        const vis = calculateVisibilityScore(h, moonIllumination, observerTimezone, darkWindow, t);
         return { from, to, hour: h, vis };
       })
       .filter(b => b.to > startMs && b.from < nightEnd.getTime());
-  }, [forecastHours, moonIllumination, observerTimezone, darkStart, darkEnd, startMs, nightEnd, totalMs]);
+  }, [forecastHours, moonIllumination, observerTimezone, darkStart, darkEnd, startMs, nightEnd, totalMs, t]);
 
   // Detect overlap per session for the warning badge. Uses direct pairwise
   // rangesOverlap (strict <) so sessions sharing an exact endpoint are never
@@ -271,25 +278,28 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
           thing they describe. */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-white/10 bg-slate-950/80 px-4 py-2.5 backdrop-blur">
         <div className="flex items-baseline gap-2.5">
-          <span className="text-sm font-medium text-white">Night schedule</span>
+          <span className="text-sm font-medium text-white">{t('scheduleTimeline.nightSchedule')}</span>
           {darkMinutes > 0 && (
             <span className="text-[11px] text-white/45 tabular-nums">
-              <span className="font-medium text-white/75">{formatDuration(plannedMinutes)}</span>
-              {' of '}
-              {formatDuration(darkMinutes)} planned
-              {targetCount > 0 && ` · ${targetCount} target${targetCount === 1 ? '' : 's'}`}
+              <Trans
+                i18nKey="scheduleTimeline.plannedOfDark"
+                ns="planner"
+                values={{ planned: formatDuration(plannedMinutes), dark: formatDuration(darkMinutes) }}
+                components={{ 1: <span className="font-medium text-white/75" /> }}
+              />
+              {targetCount > 0 && ` · ${t('scheduleTimeline.targetCount', { count: targetCount })}`}
             </span>
           )}
         </div>
         <div className="flex items-center gap-3 text-[11px] text-white/45 tabular-nums">
           {bestWindow && (
             <span className="hidden md:inline">
-              Clearest {fmtHm(bestWindow.start)} to {fmtHm(bestWindow.end)}
+              {t('scheduleTimeline.clearest', { start: fmtHm(bestWindow.start), end: fmtHm(bestWindow.end) })}
             </span>
           )}
           {darkStart && darkEnd && (
             <span>
-              Dark {fmtHm(darkStart)} to {fmtHm(darkEnd)} ({Math.round(darkHours * 10) / 10}h)
+              {t('scheduleTimeline.dark', { start: fmtHm(darkStart), end: fmtHm(darkEnd), hours: Math.round(darkHours * 10) / 10 })}
             </span>
           )}
         </div>
@@ -313,7 +323,7 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
                 type="button"
                 onClick={onSelectWeatherHour ? () => onSelectWeatherHour(b.hour) : undefined}
                 disabled={!onSelectWeatherHour}
-                aria-label={`Forecast for ${fmtHm(new Date(b.from))}`}
+                aria-label={t('scheduleTimeline.forecastFor', { time: fmtHm(new Date(b.from)) })}
                 className="absolute rounded-full transition hover:scale-x-[2.2] disabled:pointer-events-none"
                 style={{
                   top: `${top + 1}px`,
@@ -323,9 +333,13 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
                   background: scoreHex(b.vis.score),
                   opacity: 0.85,
                 }}
-                title={`${fmtHm(new Date(b.from))} · ${b.vis.label} ${b.vis.score} · ${b.hour.cloudCover}% cloud${
-                  onSelectWeatherHour ? '. Click for the full forecast.' : ''
-                }`}
+                title={t('scheduleTimeline.weatherTitle', {
+                  time: fmtHm(new Date(b.from)),
+                  label: b.vis.label,
+                  score: b.vis.score,
+                  cloud: b.hour.cloudCover,
+                  tail: onSelectWeatherHour ? t('scheduleTimeline.clickForForecast') : '',
+                })}
               />
             );
           })}
@@ -345,8 +359,8 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
           })}
           {moonIntervals.flatMap(m => {
             const events: { at: number; label: string }[] = [];
-            if (m.start > startMs + 60_000) events.push({ at: m.start, label: 'Moonrise' });
-            if (m.end < nightEnd.getTime() - 60_000) events.push({ at: m.end, label: 'Moonset' });
+            if (m.start > startMs + 60_000) events.push({ at: m.start, label: t('scheduleTimeline.moonrise') });
+            if (m.end < nightEnd.getTime() - 60_000) events.push({ at: m.end, label: t('scheduleTimeline.moonset') });
             return events.map(e => (
               <div
                 key={`${e.label}-${e.at}`}
@@ -394,12 +408,12 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
                   left: `${TIMELINE_GUTTER_PX + 4}px`,
                   right: '12px',
                 }}
-                title={`Fill ${formatDuration(gap.minutes)} from ${fmtHm(new Date(gap.start))}`}
+                title={t('scheduleTimeline.fillGapTitle', { duration: formatDuration(gap.minutes), time: fmtHm(new Date(gap.start)) })}
               >
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-medium">
                   <Plus className="h-3.5 w-3.5" />
-                  {formatDuration(gap.minutes)} free
-                  <span className="hidden opacity-0 transition group-hover:opacity-100 sm:inline">· fill it</span>
+                  {t('scheduleTimeline.freeDuration', { duration: formatDuration(gap.minutes) })}
+                  <span className="hidden opacity-0 transition group-hover:opacity-100 sm:inline">{t('scheduleTimeline.fillIt')}</span>
                 </span>
               </button>
             );
@@ -436,6 +450,7 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
                 onDelete={onDelete}
                 onResize={onResize}
                 onShowDetails={onShowDetails}
+                onShowFraming={onShowFraming}
                 dragDeltaY={dragDeltaById.get(s.id)}
                 isSaving={s.id < 0}
                 observerTimezone={observerTimezone}
@@ -454,7 +469,7 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
               {/* Dark label rather than text-white: the night theme remaps
                   text-white to red, which would vanish against the rose pill. */}
               <span className="mr-2 rounded-full bg-rose-400 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-950">
-                Now
+                {t('scheduleTimeline.now')}
               </span>
             </div>
           )}

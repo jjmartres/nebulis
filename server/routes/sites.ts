@@ -23,6 +23,7 @@ import {
   type ObservingSite,
 } from '../lib/observingSites.js';
 import { SKY_MAP_CELLS } from '../lib/skyMapConfig.js';
+import { log } from '../lib/logger.js';
 
 const router = Router();
 
@@ -126,6 +127,118 @@ router.delete('/:id', requireAdmin, (req: Request, res: Response) => {
     return;
   }
   res.apiSuccess({ deleted: true, id });
+});
+
+// ── Bortle class lookup via DarkSkySites ────────────────────────────────────
+//
+// Proxies darkskysites.com's site-intelligence endpoint, which turns the monthly
+// VIIRS satellite composite into a Bortle class and an SQM reading for any
+// coordinate. No API key.
+//
+// Proxied rather than called from the browser for three reasons: it avoids
+// CORS, one 24-hour cache absorbs repeat visits (the underlying data is a
+// monthly composite, so it cannot change faster than that), and the upstream
+// error handling stays in one place.
+//
+// This is the only outbound request Nebulis makes carrying the observer's
+// coordinates. The client only fires it for admins, but the route enforces that
+// too rather than trusting the caller, since what leaves the machine is the
+// exact location of someone's telescope. It is disclosed on the Help page and
+// in Settings -> Data Sources.
+
+/** Coordinates are rounded to four decimals before they key the cache: about
+ *  11 m at the equator, far finer than a VIIRS cell, so two sites in the same
+ *  neighbourhood share one lookup instead of each paying for its own. */
+const BORTLE_CACHE_TTL_MS = 24 * 60 * 60 * 1_000;
+/** Bound on distinct coordinates held at once. An install that moves between
+ *  many sites over months would otherwise grow this without limit. */
+const BORTLE_CACHE_LIMIT = 500;
+
+interface BortleCacheEntry { bortleClass: number; sqm: number; fetchedAt: number }
+const bortleCache = new Map<string, BortleCacheEntry>();
+
+function readBortleCache(key: string): BortleCacheEntry | null {
+  const hit = bortleCache.get(key);
+  if (!hit) return null;
+  // Drop the entry on read rather than letting expired rows accumulate.
+  if (Date.now() - hit.fetchedAt >= BORTLE_CACHE_TTL_MS) {
+    bortleCache.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+function writeBortleCache(key: string, entry: BortleCacheEntry): void {
+  if (!bortleCache.has(key) && bortleCache.size >= BORTLE_CACHE_LIMIT) {
+    // Map iterates in insertion order, so this is the oldest.
+    const oldest = bortleCache.keys().next().value;
+    if (oldest !== undefined) bortleCache.delete(oldest);
+  }
+  bortleCache.set(key, entry);
+}
+
+router.post('/:id/bortle-lookup', requireAdmin, async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const site = getSite(id);
+  if (!site) {
+    res.apiError(404, 'NOT_FOUND', 'Observing site not found');
+    return;
+  }
+  if (site.latitude == null || site.longitude == null) {
+    res.apiError(400, 'NO_COORDINATES', 'This site has no coordinates yet. Set a latitude and longitude first.');
+    return;
+  }
+
+  const cacheKey = `${site.latitude.toFixed(4)},${site.longitude.toFixed(4)}`;
+  const cached = readBortleCache(cacheKey);
+  if (cached) {
+    res.apiSuccess({ bortleClass: cached.bortleClass, sqm: cached.sqm, source: 'cache' });
+    return;
+  }
+
+  // Both values are numbers by this point, so nothing user-supplied reaches the
+  // query string unescaped.
+  const url = `https://darkskysites.com/api/site-intelligence`
+    + `?lat=${site.latitude.toFixed(6)}&lng=${site.longitude.toFixed(6)}`;
+
+  try {
+    const upstream = await fetch(url, {
+      headers: { 'User-Agent': 'Nebulis (https://nebulis.app)', Accept: 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!upstream.ok) {
+      log.warn({ siteId: id, status: upstream.status }, '[bortle] upstream returned a non-OK status');
+      res.apiError(502, 'UPSTREAM_ERROR', 'The light pollution service did not answer. Try again later.');
+      return;
+    }
+
+    const body = await upstream.json() as {
+      payload?: { metrics?: { bortleClass?: unknown; sqm?: unknown } };
+    };
+    const metrics = body?.payload?.metrics;
+    const rawClass = metrics?.bortleClass;
+    const sqm = metrics?.sqm;
+    const bortleClass = typeof rawClass === 'number' ? Math.round(rawClass) : NaN;
+
+    // The site schema accepts 1-9 only, and the client writes this result back
+    // through PUT /sites/:id. Rejecting an out-of-range value here keeps a
+    // surprising upstream answer from turning into a 422 on the write-back.
+    if (!Number.isFinite(bortleClass) || bortleClass < 1 || bortleClass > 9 || typeof sqm !== 'number' || !Number.isFinite(sqm)) {
+      log.warn({ siteId: id, bortleClass: rawClass, sqm }, '[bortle] upstream returned an unexpected shape');
+      res.apiError(502, 'UPSTREAM_ERROR', 'The light pollution service returned something unexpected.');
+      return;
+    }
+
+    const entry: BortleCacheEntry = { bortleClass, sqm, fetchedAt: Date.now() };
+    writeBortleCache(cacheKey, entry);
+    res.apiSuccess({ bortleClass, sqm, source: 'live' });
+  } catch (err) {
+    // Logged, never returned: a fetch failure can name an internal host or
+    // path, and the client can do nothing useful with it.
+    log.warn({ siteId: id, err }, '[bortle] lookup failed');
+    res.apiError(502, 'UPSTREAM_ERROR', 'Could not reach the light pollution service. Check that this machine can reach the internet.');
+  }
 });
 
 export { router as sitesRouter };

@@ -6,6 +6,14 @@
  * original page-local version; only its home moved.
  */
 import type { ForecastHour } from './api/planner';
+import { formatTime12 } from './formatLocale';
+
+/** The band label and recommendation sentence both live in common.json (not
+ *  forecast.json/planner.json) since this scoring engine is shared by the
+ *  Forecast page and the Planner's night hero/schedule — see the header
+ *  comment above. Callers already have a `t` from their own useTranslation()
+ *  call; pass it straight through rather than this module owning a hook. */
+export type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 
 export interface VisibilityResult {
   score: number;
@@ -24,6 +32,13 @@ export interface DarkWindow {
   end: number;
 }
 
+/** i18n key per seeing value, resolved against `hourDetail.seeingName.*`.
+ *  Index 0 is unused: the model numbers seeing 1 (excellent) through 5 (bad),
+ *  and `hour.seeing` is null when it has no value for that hour. Shared by the
+ *  hour detail panel and the imaging window table so the two name the same
+ *  seeing number the same way. */
+export const SEEING_KEYS = ['', 'excellent', 'good', 'average', 'poor', 'bad'] as const;
+
 // Smooth cloud cover over a ±1 hour window to reduce NWP model noise.
 // The raw hourly model output can swing ±50% between adjacent hours for
 // partial cloud cover — averaging with neighbors gives a more realistic picture.
@@ -40,13 +55,13 @@ export function smoothHours(hours: ForecastHour[]): ForecastHour[] {
  * text class, the SVG stroke class, and the raw hex, so a band can never
  * disagree with itself across the four call sites that used to hardcode it.
  */
-const SCORE_BANDS: { min: number; label: string; color: string; stroke: string; hex: string }[] = [
-  { min: 85, label: 'Ideal', color: 'text-emerald-400', stroke: 'stroke-emerald-400', hex: '#34d399' },
-  { min: 70, label: 'Great', color: 'text-emerald-500', stroke: 'stroke-emerald-500', hex: '#10b981' },
-  { min: 55, label: 'Good',  color: 'text-blue-400',    stroke: 'stroke-blue-400',    hex: '#60a5fa' },
-  { min: 40, label: 'Fair',  color: 'text-amber-400',   stroke: 'stroke-amber-400',   hex: '#fbbf24' },
-  { min: 25, label: 'Poor',  color: 'text-orange-500',  stroke: 'stroke-orange-500',  hex: '#f97316' },
-  { min: 0,  label: 'Bad',   color: 'text-red-500',     stroke: 'stroke-red-500',     hex: '#ef4444' },
+const SCORE_BANDS: { min: number; labelKey: string; color: string; stroke: string; hex: string }[] = [
+  { min: 85, labelKey: 'scoreBand.ideal', color: 'text-emerald-400', stroke: 'stroke-emerald-400', hex: '#34d399' },
+  { min: 70, labelKey: 'scoreBand.great', color: 'text-emerald-500', stroke: 'stroke-emerald-500', hex: '#10b981' },
+  { min: 55, labelKey: 'scoreBand.good',  color: 'text-blue-400',    stroke: 'stroke-blue-400',    hex: '#60a5fa' },
+  { min: 40, labelKey: 'scoreBand.fair',  color: 'text-amber-400',   stroke: 'stroke-amber-400',   hex: '#fbbf24' },
+  { min: 25, labelKey: 'scoreBand.poor',  color: 'text-orange-500',  stroke: 'stroke-orange-500',  hex: '#f97316' },
+  { min: 0,  labelKey: 'scoreBand.bad',   color: 'text-red-500',     stroke: 'stroke-red-500',     hex: '#ef4444' },
 ];
 
 function bandFor(score: number) {
@@ -61,8 +76,29 @@ export function scoreHex(score: number): string {
   return bandFor(score).hex;
 }
 
-export function scoreLabel(score: number): string {
-  return bandFor(score).label;
+export function scoreLabel(score: number, t: TFunc): string {
+  return t(bandFor(score).labelKey, { ns: 'common' });
+}
+
+/** Translates the coarse night rating from server/lib/forecastCache.ts's
+ *  rateNightConditions (a *different*, deliberately deferred (see the plan's
+ *  chunk 9 item) score-band scheme than SCORE_BANDS above — 80/60/40/20
+ *  thresholds vs this file's 85/70/55/40/25 — so this only translates the
+ *  label text, it does not remap which band a score falls into. Swapping the
+ *  server's own rating for this file's scoreLabel would silently change the
+ *  displayed word for the same score in some ranges, which is a scoring
+ *  decision, not a translation one. */
+const SCORE_RATING_KEYS: Record<string, string> = {
+  Excellent: 'scoreBand.excellent',
+  Good: 'scoreBand.good',
+  Fair: 'scoreBand.fair',
+  Poor: 'scoreBand.poor',
+  Bad: 'scoreBand.bad',
+};
+
+export function translateScoreRating(t: TFunc, rating: string): string {
+  const key = SCORE_RATING_KEYS[rating];
+  return key ? t(key, { ns: 'common' }) : rating;
 }
 
 export function scoreTextColor(score: number): string {
@@ -80,8 +116,9 @@ export function scoreBgColor(score: number, isDark: boolean): string {
 export function calculateVisibilityScore(
   hour: ForecastHour,
   moonIllumination: number,
-  timeZone?: string,
-  darkWindow?: DarkWindow | null,
+  timeZone: string | undefined,
+  darkWindow: DarkWindow | null | undefined,
+  t: TFunc,
 ): VisibilityResult {
   // Cloud Cover (60% weight): 0% = 1.0, 100% = 0.0
   const cloudScore = 1 - hour.cloudCover / 100;
@@ -132,10 +169,10 @@ export function calculateVisibilityScore(
 
   return {
     score,
-    label: band.label,
+    label: t(band.labelKey, { ns: 'common' }),
     color: band.color,
     hex: band.hex,
-    recommendation: getRecommendation(score, hour, moonIllumination),
+    recommendation: getRecommendation(score, hour, moonIllumination, t),
     dewWarning,
     breakdown: {
       clouds: Math.round(cloudScore * 100),
@@ -146,21 +183,24 @@ export function calculateVisibilityScore(
   };
 }
 
-function getRecommendation(score: number, hour: ForecastHour, moonIllumination: number): string {
-  if (score < 25) return 'Stay inside - overcast or very poor conditions.';
-  if (score < 40) return 'Marginal - maybe bright planets through cloud gaps.';
-  if (hour.cloudCover > 50) return 'Partly cloudy - try bright targets like the Moon or planets.';
-  if (moonIllumination > 70 && score >= 55) return 'Bright Moon - great for planets, Moon detail, and star clusters. Avoid faint nebulae.';
-  if (moonIllumination < 20 && score >= 70) return 'Dark skies - ideal for deep sky: galaxies, nebulae, and faint targets.';
-  if (score >= 85) return 'Excellent conditions for any target - deep sky objects, planets, and wide-field.';
-  if (score >= 70) return 'Good for most targets - galaxies and brighter nebulae will show well.';
-  if (score >= 55) return 'Decent conditions - stick to brighter targets like star clusters and planets.';
-  return 'Limited - try bright planets or the Moon.';
+function getRecommendation(score: number, hour: ForecastHour, moonIllumination: number, t: TFunc): string {
+  const key = (name: string) => t(`scoreRecommendation.${name}`, { ns: 'common' });
+  if (score < 25) return key('overcast');
+  if (score < 40) return key('marginal');
+  if (hour.cloudCover > 50) return key('partlyCloudy');
+  if (moonIllumination > 70 && score >= 55) return key('brightMoon');
+  if (moonIllumination < 20 && score >= 70) return key('darkSkies');
+  if (score >= 85) return key('excellent');
+  if (score >= 70) return key('good');
+  if (score >= 55) return key('decent');
+  return key('limited');
 }
 
 export function localHour(date: Date, timeZone?: string): number {
   if (!timeZone) return date.getHours();
   try {
+    // 'en-US' here is locale-invariant PARSING (formatToParts pulls the hour
+    // digit), not display — see formatLocale.ts's header comment.
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone,
       hour: '2-digit',
@@ -175,12 +215,7 @@ export function localHour(date: Date, timeZone?: string): number {
 export function formatTime(iso: string, timeZone?: string): string {
   if (!iso) return '-';
   try {
-    return new Date(iso).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      ...(timeZone ? { timeZone } : {}),
-    });
+    return formatTime12(new Date(iso), timeZone);
   } catch {
     return '-';
   }
@@ -194,4 +229,44 @@ export function formatTemp(celsius: number, unit: 'celsius' | 'fahrenheit'): str
 export function formatWind(kmh: number, unit: 'mph' | 'kmh'): string {
   if (unit === 'mph') return `${Math.round(kmh * 0.621371)} mph`;
   return `${Math.round(kmh)} km/h`;
+}
+
+/**
+ * The intervals inside [t0, t1] during which the Moon is above the horizon.
+ *
+ * A rise later than the set means the Moon was already up when the window
+ * opened and comes back up before it closes, which is why that case yields two
+ * spans rather than none.
+ *
+ * An empty result means the Moon is down for the whole window, or that neither
+ * rise nor set is known. Those two are deliberately indistinguishable here: a
+ * caller that must not claim "down" from missing data checks the inputs itself,
+ * which both the night ribbon and the imaging window table do.
+ */
+export function moonUpSpans(
+  t0: number,
+  t1: number,
+  moonRiseIso: string | null,
+  moonSetIso: string | null,
+): Array<[number, number]> {
+  const rise = moonRiseIso ? new Date(moonRiseIso).getTime() : null;
+  const set = moonSetIso ? new Date(moonSetIso).getTime() : null;
+  if (rise === null && set === null) return [];
+
+  const spans: Array<[number, number]> = [];
+  if (rise !== null && set !== null) {
+    if (rise < set) spans.push([rise, set]);
+    else {
+      spans.push([t0, set]);
+      spans.push([rise, t1]);
+    }
+  } else if (rise !== null) {
+    spans.push([rise, t1]);
+  } else if (set !== null) {
+    spans.push([t0, set]);
+  }
+
+  return spans
+    .map(([a, b]): [number, number] => [Math.max(t0, a), Math.min(t1, b)])
+    .filter(([a, b]) => b > a);
 }

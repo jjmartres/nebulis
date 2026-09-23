@@ -28,7 +28,7 @@ import { z } from 'zod';
 import { resolveSite, getActiveSite } from '../lib/observingSites.js';
 import { getAll as getWishlistAll } from '../lib/wishlist.js';
 import { getLocalObjects } from '../lib/localLibrary.js';
-import { getCatalog, search as searchDso, filterCatalog, getById } from '../lib/dsoCatalog.js';
+import { getCatalog, searchFiltered as searchDso, filterCatalog, getById, type DsoSort } from '../lib/dsoCatalog.js';
 import { altAz, getNightWindow, visibilityWindow, altitudeCurve, moonPhaseName } from '../lib/astroCalc.js';
 import { addDaysToDateKey, localDateKey, localParts, zonedDateTimeToUtc } from '../lib/timezone.js';
 import { observerTimezoneForCoordinates } from '../lib/observerTimezone.js';
@@ -71,6 +71,15 @@ const DsoBrowseQuerySchema = z.object({
   constellation: z.string().optional(),
   maxMag: z.coerce.number().optional(),
   minSize: z.coerce.number().optional(),
+  /** Explicit override for both browse and search mode. Omitted: browse mode
+   *  keeps catalog order, search mode keeps relevance order. */
+  sort: z.enum(['name', 'magnitude']).optional(),
+  /** Paired: observer latitude + a minimum-altitude threshold, to drop
+   *  objects that can never clear that altitude from this location (e.g.
+   *  deep-southern-declination targets for a northern site). `lat` alone
+   *  with no `minAlt` defaults the threshold to 0° (ever rises at all). */
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  minAlt: z.coerce.number().optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
@@ -551,12 +560,19 @@ router.get('/', (req: Request, res: Response) => {
     res.apiError(422, 'VALIDATION_ERROR', queryParsed.error.issues[0]?.message ?? 'Invalid query parameters');
     return;
   }
-  const { q, type, constellation, maxMag, minSize, limit, offset } = queryParsed.data;
+  const { q, type, constellation, maxMag, minSize, sort, lat, minAlt, limit, offset } = queryParsed.data;
+  const sortOpt: DsoSort | undefined = sort;
 
   if (q) {
-    const effectiveLimit = Math.min(limit ?? 30, 100);
-    const results = searchDso(q, effectiveLimit);
-    res.apiSuccess({ results, total: results.length });
+    const { entries, total } = searchDso(q, {
+      type,
+      lat,
+      minAlt,
+      sort: sortOpt,
+      limit: Math.min(limit ?? 30, 500),
+      offset: offset ?? 0,
+    });
+    res.apiSuccess({ results: entries, total });
     return;
   }
 
@@ -565,6 +581,9 @@ router.get('/', (req: Request, res: Response) => {
     constellation,
     maxMag,
     minSize,
+    lat,
+    minAlt,
+    sort: sortOpt,
     limit: Math.min(limit ?? 100, 500),
     offset: offset ?? 0,
   });

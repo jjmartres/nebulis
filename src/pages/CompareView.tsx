@@ -1,13 +1,16 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Columns, Layers, Calendar, GripVertical, ImageOff } from 'lucide-react';
 import { getLibrarySessions } from '../lib/api/library';
 import { useTheme } from '../hooks/useTheme';
+import { formatDate } from '../lib/formatLocale';
 
 export function CompareView() {
   const { objectId } = useParams<{ objectId: string }>();
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
 
   const { data: sessions } = useQuery({
     queryKey: ['library-sessions', objectId],
@@ -27,7 +30,7 @@ export function CompareView() {
   const sessionOptions = sessions?.map(s => ({
     value: s.thumbnailUrl,
     label: s.date !== 'unknown'
-      ? new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      ? formatDate(new Date(s.date + 'T12:00:00'), { month: 'short', day: 'numeric', year: 'numeric' })
       : s.id,
     date: s.date,
     fileCount: s.fileCount,
@@ -47,13 +50,13 @@ export function CompareView() {
         }`}
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to {objectId}
+        {t('compareView.backTo', { name: objectId })}
       </Link>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className={`font-display text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
           <Columns className="w-6 h-6 inline mr-2 text-accent-500" />
-          Compare Sessions
+          {t('compareView.title')}
         </h1>
 
         <div className={`flex rounded-xl overflow-hidden border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
@@ -65,7 +68,7 @@ export function CompareView() {
                 : isDark ? 'bg-slate-900 text-slate-400' : 'bg-white text-slate-500'
             }`}
           >
-            <Columns className="w-3.5 h-3.5 inline mr-1.5" />Side by Side
+            <Columns className="w-3.5 h-3.5 inline mr-1.5" />{t('compareView.sideBySide')}
           </button>
           <button
             onClick={() => setMode('slider')}
@@ -75,7 +78,7 @@ export function CompareView() {
                 : isDark ? 'bg-slate-900 text-slate-400' : 'bg-white text-slate-500'
             }`}
           >
-            <GripVertical className="w-3.5 h-3.5 inline mr-1.5" />Slider
+            <GripVertical className="w-3.5 h-3.5 inline mr-1.5" />{t('compareView.slider')}
           </button>
         </div>
       </div>
@@ -84,26 +87,26 @@ export function CompareView() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            <Calendar className="w-3 h-3 inline mr-1" /> Left Image
+            <Calendar className="w-3 h-3 inline mr-1" /> {t('compareView.leftImage')}
           </label>
           <select value={effectiveLeft} onChange={e => setLeftSession(e.target.value)} className={`w-full ${selectClass}`}>
-            <option value="">Select session...</option>
+            <option value="">{t('compareView.selectSession')}</option>
             {sessionOptions.map(s => (
               <option key={`l-${s.value}`} value={s.value}>
-                {s.label} ({s.stackedCount} stacked, {s.fileCount} files)
+                {t('compareView.sessionOption', { label: s.label, stacked: s.stackedCount, files: s.fileCount })}
               </option>
             ))}
           </select>
         </div>
         <div>
           <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            <Calendar className="w-3 h-3 inline mr-1" /> Right Image
+            <Calendar className="w-3 h-3 inline mr-1" /> {t('compareView.rightImage')}
           </label>
           <select value={effectiveRight} onChange={e => setRightSession(e.target.value)} className={`w-full ${selectClass}`}>
-            <option value="">Select session...</option>
+            <option value="">{t('compareView.selectSession')}</option>
             {sessionOptions.map(s => (
               <option key={`r-${s.value}`} value={s.value}>
-                {s.label} ({s.stackedCount} stacked, {s.fileCount} files)
+                {t('compareView.sessionOption', { label: s.label, stacked: s.stackedCount, files: s.fileCount })}
               </option>
             ))}
           </select>
@@ -114,19 +117,19 @@ export function CompareView() {
       {effectiveLeft && effectiveRight ? (
         mode === 'side-by-side' ? (
           <div className="grid grid-cols-2 gap-4">
-            <CompareImage src={effectiveLeft} alt="Left" isDark={isDark} />
-            <CompareImage src={effectiveRight} alt="Right" isDark={isDark} />
+            <CompareImage src={effectiveLeft} alt={t('compareView.left')} isDark={isDark} />
+            <CompareImage src={effectiveRight} alt={t('compareView.right')} isDark={isDark} />
           </div>
         ) : (
           <div className={`relative rounded-xl overflow-hidden border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-            <img src={effectiveRight} alt="Right" className="w-full h-auto" />
+            <img src={effectiveRight} alt={t('compareView.right')} className="w-full h-auto" />
             <div
               className="absolute top-0 left-0 h-full overflow-hidden"
               style={{ width: `${sliderPos}%` }}
             >
               <img
                 src={effectiveLeft}
-                alt="Left"
+                alt={t('compareView.left')}
                 className="h-full object-cover"
                 style={{ width: `${10000 / sliderPos}%`, maxWidth: 'none' }}
               />
@@ -156,7 +159,7 @@ export function CompareView() {
           isDark ? 'bg-slate-900 border-slate-700 text-slate-500' : 'bg-white border-slate-200 text-slate-400'
         }`}>
           <Layers className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <p>Select two sessions above to compare</p>
+          <p>{t('compareView.empty')}</p>
         </div>
       )}
     </div>
@@ -164,14 +167,15 @@ export function CompareView() {
 }
 
 function CompareImage({ src, alt, isDark }: { src: string; alt: string; isDark: boolean }) {
+  const { t } = useTranslation('library');
   const [error, setError] = useState(false);
   return (
     <div className={`rounded-xl overflow-hidden border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
       {error ? (
         <div className={`flex flex-col items-center justify-center py-20 ${isDark ? 'bg-slate-900 text-slate-600' : 'bg-slate-50 text-slate-400'}`}>
           <ImageOff className="w-8 h-8 mb-2" />
-          <span className="text-sm">Failed to load image</span>
-          <span className="text-xs opacity-60 mt-1">The file may be unavailable.</span>
+          <span className="text-sm">{t('compareView.loadFailed')}</span>
+          <span className="text-xs opacity-60 mt-1">{t('compareView.loadFailedHint')}</span>
         </div>
       ) : (
         <img src={src} alt={alt} className="w-full h-auto" onError={() => setError(true)} />

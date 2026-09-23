@@ -36,6 +36,11 @@ interface ModalProps {
    *  the picture it is showing, which is a computed width Tailwind cannot
    *  generate a class for. */
   style?: React.CSSProperties;
+  /** Drops the outer viewport padding, so the dialog panel touches every edge
+   *  of the screen instead of floating centered with a margin. Used by the
+   *  lightbox's fullscreen mode, where the picture itself should be the only
+   *  thing on screen. */
+  edgeToEdge?: boolean;
 }
 
 /**
@@ -57,6 +62,7 @@ export function Modal({
   backdropClassName,
   style,
   focusOnOpen = 'first',
+  edgeToEdge = false,
 }: ModalProps) {
   const labelId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -147,7 +153,7 @@ export function Modal({
   // screen. Rendering at <body> sidesteps any such ancestor entirely.
   return createPortal(
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+      className={`fixed inset-0 z-[90] flex items-center justify-center ${edgeToEdge ? '' : 'p-4'}`}
       onKeyDown={handleKeyDown}
     >
       <div

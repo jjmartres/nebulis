@@ -6,6 +6,7 @@
  * to work for a 400-object board as well as a 110-object one.
  */
 import { Search, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { SORT_KEYS, STATUS_FILTERS, isSortKey } from '../../lib/catalogSort';
 import type { SortKey, StatusFilter } from '../../lib/catalogSort';
 
@@ -24,18 +25,18 @@ interface Props {
   isDark: boolean;
 }
 
-const FILTER_LABELS: Record<StatusFilter, string> = {
-  all: 'All',
-  imaged: 'Imaged',
-  remaining: 'Remaining',
+const FILTER_LABEL_KEYS: Record<StatusFilter, string> = {
+  all: 'catalogToolbar.filterAll',
+  imaged: 'catalogToolbar.filterImaged',
+  remaining: 'catalogToolbar.filterRemaining',
 };
 
-const SORT_LABELS: Record<SortKey, string> = {
-  catalog: 'Catalog order',
-  name: 'Name',
-  magnitude: 'Brightest first',
-  constellation: 'Constellation',
-  frameFit: 'Best frame fit',
+const SORT_LABEL_KEYS: Record<SortKey, string> = {
+  catalog: 'catalogToolbar.sortCatalogOrder',
+  name: 'catalogToolbar.sortName',
+  magnitude: 'catalogToolbar.sortBrightestFirst',
+  constellation: 'catalogToolbar.sortConstellation',
+  frameFit: 'catalogToolbar.sortFrameFit',
 };
 
 export function CatalogToolbar({
@@ -44,6 +45,7 @@ export function CatalogToolbar({
   sort, onSortChange,
   shownCount, isDark,
 }: Props) {
+  const { t } = useTranslation('catalogs');
   const controlBase = isDark
     ? 'bg-slate-900/70 ring-slate-700/60 text-slate-200 placeholder:text-slate-500'
     : 'bg-white ring-slate-200 text-slate-800 placeholder:text-slate-400';
@@ -59,7 +61,7 @@ export function CatalogToolbar({
         {/* Status segments */}
         <div
           role="group"
-          aria-label="Filter by imaging status"
+          aria-label={t('catalogToolbar.filterByStatus')}
           className={`inline-flex items-center gap-0.5 rounded-full p-0.5 ring-1 ring-inset ${
             isDark ? 'bg-slate-900/70 ring-slate-700/60' : 'bg-white ring-slate-200'
           }`}
@@ -82,7 +84,7 @@ export function CatalogToolbar({
                       : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                   }`}
               >
-                {FILTER_LABELS[f]}
+                {t(FILTER_LABEL_KEYS[f])}
                 <span className={`tabular-nums opacity-60 ${active ? '' : isDark ? 'text-slate-600' : 'text-slate-400'}`}>
                   {counts[f]}
                 </span>
@@ -95,7 +97,9 @@ export function CatalogToolbar({
 
         {/* Result count, shown only once a filter is actually narrowing things */}
         <span className={`text-xs tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {shownCount === counts.all ? `${shownCount} objects` : `${shownCount} of ${counts.all} shown`}
+          {shownCount === counts.all
+            ? t('catalogToolbar.objectsCount', { count: shownCount })
+            : t('catalogToolbar.shownOfTotal', { shown: shownCount, total: counts.all })}
         </span>
 
         {/* Search */}
@@ -105,8 +109,8 @@ export function CatalogToolbar({
             type="search"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search name, id, constellation"
-            aria-label="Search this catalog"
+            placeholder={t('catalogToolbar.searchPlaceholder')}
+            aria-label={t('catalogToolbar.searchAriaLabel')}
             className={`w-48 sm:w-64 rounded-full py-1.5 pl-8 pr-8 text-xs ring-1 ring-inset transition
               focus:outline-none focus:ring-2 focus:ring-accent-500/40
               [&::-webkit-search-cancel-button]:appearance-none ${controlBase}`}
@@ -114,7 +118,7 @@ export function CatalogToolbar({
           {search && (
             <button
               onClick={() => onSearchChange('')}
-              aria-label="Clear search"
+              aria-label={t('catalogToolbar.clearSearch')}
               className={`absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 transition-colors ${
                 isDark ? 'text-slate-500 hover:text-slate-200' : 'text-slate-400 hover:text-slate-700'
               }`}
@@ -128,12 +132,12 @@ export function CatalogToolbar({
         <select
           value={sort}
           onChange={(e) => { if (isSortKey(e.target.value)) onSortChange(e.target.value); }}
-          aria-label="Sort objects"
+          aria-label={t('catalogToolbar.sortObjects')}
           className={`rounded-full py-1.5 pl-3 pr-7 text-xs ring-1 ring-inset transition cursor-pointer
             focus:outline-none focus:ring-2 focus:ring-accent-500/40 ${controlBase}`}
         >
           {SORT_KEYS.map((key) => (
-            <option key={key} value={key}>{SORT_LABELS[key]}</option>
+            <option key={key} value={key}>{t(SORT_LABEL_KEYS[key])}</option>
           ))}
         </select>
       </div>

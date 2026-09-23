@@ -1,34 +1,40 @@
 /**
  * Tonight's imaging window.
  *
- * Shows the window start and end (astronomical twilight, falling back to
- * nautical), then a compact hour-by-hour table of the conditions during that
- * window so the photographer can see at a glance whether to bother setting up
- * and when the worst of the cloud cover or dew risk arrives.
+ * The dark window (astronomical twilight, falling back to nautical) with every
+ * hour inside it tabulated, so you can tell whether the night is worth setting
+ * up for and when the cloud, the dew or the Moon arrives.
  *
- * The scoring and formatting reuse the same helpers the hero panel and the
- * hour detail use, so every number on the page is consistent.
+ * Every number comes from the same helpers the rest of the page uses:
+ * `calculateVisibilityScore` and `scoreLabel` from forecastScore, and the
+ * window bounds and the Moon's up-spans from forecastNights/forecastScore. The
+ * table therefore cannot disagree with the ribbon or the hour detail about the
+ * night it is describing.
  */
 import { Camera, CloudSun, Droplets, Eye, Moon, Wind } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ForecastHour } from '../../lib/api/planner';
 import {
   calculateVisibilityScore,
   formatTemp,
   formatTime,
   formatWind,
+  moonUpSpans,
   scoreHex,
   scoreLabel,
+  SEEING_KEYS,
   type DarkWindow,
 } from '../../lib/forecastScore';
+import {
+  hoursInWindow,
+  resolveImagingWindow,
+  type TwilightTimes,
+} from '../../lib/forecastNights';
 
-interface TonightInfo {
+interface TonightInfo extends TwilightTimes {
   moonIllumination: number;
-  astronomicalTwilightEnd: string;
-  astronomicalTwilightStart: string;
-  nauticalTwilightEnd: string;
-  nauticalTwilightStart: string;
-  sunset: string;
-  sunrise: string;
+  moonRise: string | null;
+  moonSet: string | null;
 }
 
 interface Props {
@@ -41,8 +47,6 @@ interface Props {
   isDark: boolean;
 }
 
-const SEEING_NAMES: Record<number, string> = { 1: 'Excellent', 2: 'Good', 3: 'Average', 4: 'Poor', 5: 'Bad' };
-
 /** One cell in the header label row. */
 function ColLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -52,8 +56,8 @@ function ColLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Score chip — matches the style of the ribbon's scrub tooltip. */
-function ScoreChip({ score }: { score: number }) {
+/** Score chip, matching the style of the ribbon's scrub tooltip. */
+function ScoreChip({ score, label }: { score: number; label: string }) {
   const hex = scoreHex(score);
   return (
     <span
@@ -61,7 +65,7 @@ function ScoreChip({ score }: { score: number }) {
       style={{ color: hex, backgroundColor: `${hex}18`, borderColor: `${hex}45` }}
     >
       {score}
-      <span className="font-semibold uppercase tracking-[0.10em] text-[9.5px]">{scoreLabel(score)}</span>
+      <span className="font-semibold uppercase tracking-[0.10em] text-[9.5px]">{label}</span>
     </span>
   );
 }
@@ -82,52 +86,48 @@ function CloudBar({ pct, isDark }: { pct: number; isDark: boolean }) {
 export function ImagingWindow({
   hours, tonight, timeZone, darkWindow, tempUnit, windUnit, isDark,
 }: Props) {
-  // Prefer astronomical twilight, fall back to nautical for the window bounds.
-  const windowStartIso = tonight.astronomicalTwilightEnd || tonight.nauticalTwilightEnd;
-  const windowEndIso = tonight.astronomicalTwilightStart || tonight.nauticalTwilightStart;
+  const { t } = useTranslation('forecast');
 
-  // If neither twilight boundary is available, nothing meaningful to show.
-  if (!windowStartIso || !windowEndIso) return null;
+  const win = resolveImagingWindow(tonight);
+  if (!win) return null;
 
-  const windowStart = new Date(windowStartIso).getTime();
-  const windowEnd = new Date(windowEndIso).getTime();
-
-  // Guard against an inverted window (can happen when the server sends the
-  // next night's dawn before tonight's dusk at high latitudes in summer).
-  if (windowEnd <= windowStart) return null;
-
-  // Filter hourly data to inside the imaging window (inclusive).
-  const windowHours = hours.filter(h => {
-    const t = new Date(h.time).getTime();
-    return t >= windowStart && t <= windowEnd;
-  });
-
-  // With fewer than two hours there is nothing useful to tabulate.
+  const windowHours = hoursInWindow(hours, win);
+  // With fewer than two hours there is nothing to tabulate: a single row is not
+  // a window, and it is what a night with no real darkness collapses to.
   if (windowHours.length < 2) return null;
 
-  const isDarkWindow = darkWindow != null;
-  const windowLabel = isDarkWindow
-    ? (tonight.astronomicalTwilightEnd ? 'Astronomical dark' : 'Nautical dark')
-    : 'Dark window';
+  // The Moon is only claimed to be up where a rise or set time says so. With
+  // neither, the illumination is still shown but no span is asserted, because
+  // an empty span list cannot distinguish "down all night" from "unknown".
+  const moonKnown = tonight.moonRise != null || tonight.moonSet != null;
+  const moonSpans = moonUpSpans(win.startMs, win.endMs, tonight.moonRise, tonight.moonSet);
+  // Closed at both ends: a span clipped to the window's own bounds would
+  // otherwise mark the first and last rows as moonless, including the last row
+  // of a night the Moon is up for in its entirety.
+  const moonUpAt = (ms: number) => moonSpans.some(([a, b]) => ms >= a && ms <= b);
+  const moonUpSomeTime = moonSpans.length > 0;
+  const moonIsBright = tonight.moonIllumination > 70;
+  // A single run reads as one range; the two-run case (up at dusk, sets, rises
+  // again before dawn) must not be flattened into "up from X to Y", which is
+  // the same over-claim in the summary that the column had per row.
+  const moonSingleSpan = moonSpans.length === 1 ? moonSpans[0] : null;
+  const moonSplit = moonSpans.length > 1
+    ? { until: moonSpans[0][1], from: moonSpans[moonSpans.length - 1][0] }
+    : null;
 
-  const fmt = (iso: string | null) => (iso ? formatTime(iso, timeZone) : '–');
-
-  // Row background alternation helpers.
-  const rowBase = isDark
-    ? 'border-slate-800/60'
-    : 'border-slate-100';
-  const rowAlt = isDark
-    ? 'bg-slate-800/30'
-    : 'bg-slate-50/70';
+  const fmtMs = (ms: number) => formatTime(new Date(ms).toISOString(), timeZone);
+  const rowBase = isDark ? 'border-slate-800/60' : 'border-slate-100';
+  const rowAlt = isDark ? 'bg-slate-800/30' : 'bg-slate-50/70';
+  const cellText = isDark ? 'text-slate-300' : 'text-slate-600';
+  const mutedText = isDark ? 'text-slate-600' : 'text-slate-400';
 
   return (
     <section
-      aria-label="Tonight's imaging window"
+      aria-label={t('imagingWindow.ariaLabel')}
       className={`rounded-2xl border overflow-hidden ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
       }`}
     >
-      {/* Header */}
       <div className={`px-5 py-4 border-b flex flex-wrap items-center justify-between gap-3 ${
         isDark ? 'border-slate-800' : 'border-slate-100'
       }`}>
@@ -135,140 +135,120 @@ export function ImagingWindow({
           <Camera className={`h-4 w-4 shrink-0 ${isDark ? 'text-violet-400' : 'text-violet-500'}`} />
           <div>
             <h2 className={`font-display font-semibold leading-tight ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-              Tonight's Imaging Window
+              {t('imagingWindow.title')}
             </h2>
             <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              {windowLabel}
+              {win.astronomical ? t('imagingWindow.astronomicalDark') : t('imagingWindow.nauticalDark')}
             </p>
           </div>
         </div>
 
-        {/* Window start → end badge */}
+        {/* Window start to end, with how many hours it covers. */}
         <div className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium tabular-nums ${
           isDark
             ? 'bg-violet-500/10 text-violet-300 ring-1 ring-inset ring-violet-500/20'
             : 'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-200'
         }`}>
-          <span>{fmt(windowStartIso)}</span>
+          <span>{formatTime(win.startIso, timeZone)}</span>
           <span className="opacity-50">→</span>
-          <span>{fmt(windowEndIso)}</span>
+          <span>{formatTime(win.endIso, timeZone)}</span>
           <span className={`ml-1 text-[11px] font-normal ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>
-            ({windowHours.length - 1}h)
+            {t('imagingWindow.durationHours', { hours: windowHours.length - 1 })}
           </span>
         </div>
       </div>
 
-      {/* Hour-by-hour table */}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[620px] border-collapse text-xs">
           <thead>
             <tr className={isDark ? 'text-slate-500 border-b border-slate-800' : 'text-slate-400 border-b border-slate-100'}>
-              <ColLabel>Time</ColLabel>
-              <ColLabel>Score</ColLabel>
+              <ColLabel>{t('imagingWindow.colTime')}</ColLabel>
+              <ColLabel>{t('imagingWindow.colScore')}</ColLabel>
               <ColLabel>
-                <span className="flex items-center gap-1"><CloudSun className="h-3 w-3" />Clouds</span>
+                <span className="flex items-center gap-1"><CloudSun className="h-3 w-3" />{t('imagingWindow.colClouds')}</span>
               </ColLabel>
               <ColLabel>
-                <span className="flex items-center gap-1"><Eye className="h-3 w-3" />Seeing</span>
+                <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{t('imagingWindow.colSeeing')}</span>
               </ColLabel>
               <ColLabel>
-                <span className="flex items-center gap-1"><Moon className="h-3 w-3" />Moon</span>
+                <span className="flex items-center gap-1"><Moon className="h-3 w-3" />{t('imagingWindow.colMoon')}</span>
               </ColLabel>
               <ColLabel>
-                <span className="flex items-center gap-1"><Droplets className="h-3 w-3" />Humidity</span>
+                <span className="flex items-center gap-1"><Droplets className="h-3 w-3" />{t('imagingWindow.colHumidity')}</span>
               </ColLabel>
               <ColLabel>
-                <span className="flex items-center gap-1"><Wind className="h-3 w-3" />Wind</span>
+                <span className="flex items-center gap-1"><Wind className="h-3 w-3" />{t('imagingWindow.colWind')}</span>
               </ColLabel>
-              <ColLabel>Temp</ColLabel>
-              <ColLabel>Dew</ColLabel>
+              <ColLabel>{t('imagingWindow.colTemp')}</ColLabel>
+              <ColLabel>{t('imagingWindow.colDew')}</ColLabel>
             </tr>
           </thead>
           <tbody>
             {windowHours.map((hour, idx) => {
-              const vis = calculateVisibilityScore(
-                hour,
-                tonight.moonIllumination,
-                timeZone,
-                darkWindow,
-              );
-              const isEvenRow = idx % 2 === 0;
+              const vis = calculateVisibilityScore(hour, tonight.moonIllumination, timeZone, darkWindow, t);
+              const hourMs = new Date(hour.time).getTime();
+              const moonUp = moonKnown && moonUpAt(hourMs);
+              // Below the horizon is stated plainly; an amber illumination
+              // figure only ever appears while the Moon is actually up.
+              const moonCell = !moonKnown || moonUp
+                ? (moonUp && moonIsBright ? 'text-amber-500' : cellText)
+                : mutedText;
 
               return (
                 <tr
                   key={hour.time}
-                  className={`border-b last:border-b-0 transition-colors ${rowBase} ${
-                    isEvenRow ? '' : rowAlt
-                  } hover:${isDark ? 'bg-slate-800/50' : 'bg-slate-50'}`}
+                  className={`border-b last:border-b-0 transition-colors ${rowBase} ${idx % 2 === 0 ? '' : rowAlt} ${
+                    isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'
+                  }`}
                 >
-                  {/* Time */}
-                  <td className={`px-3 py-2.5 font-medium tabular-nums whitespace-nowrap ${
-                    isDark ? 'text-slate-200' : 'text-slate-700'
-                  }`}>
+                  <td className={`px-3 py-2.5 font-medium tabular-nums whitespace-nowrap ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
                     {formatTime(hour.time, timeZone)}
                   </td>
 
-                  {/* Score chip */}
                   <td className="px-3 py-2.5">
-                    <ScoreChip score={vis.score} />
+                    <ScoreChip score={vis.score} label={scoreLabel(vis.score, t)} />
                   </td>
 
-                  {/* Cloud cover */}
-                  <td className={`px-3 py-2.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  <td className={`px-3 py-2.5 ${cellText}`}>
                     <CloudBar pct={hour.cloudCover} isDark={isDark} />
                   </td>
 
-                  {/* Seeing */}
-                  <td className={`px-3 py-2.5 whitespace-nowrap ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  <td className={`px-3 py-2.5 whitespace-nowrap ${cellText}`}>
                     {hour.seeing != null
-                      ? SEEING_NAMES[hour.seeing] ?? `${hour.seeing}`
-                      : <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>–</span>
-                    }
+                      ? t(`hourDetail.seeingName.${SEEING_KEYS[hour.seeing] ?? 'average'}`)
+                      : <span className={mutedText}>–</span>}
                   </td>
 
-                  {/* Moon penalty */}
-                  <td className={`px-3 py-2.5 tabular-nums whitespace-nowrap ${
-                    tonight.moonIllumination > 70
-                      ? 'text-amber-500'
-                      : isDark ? 'text-slate-300' : 'text-slate-600'
-                  }`}>
-                    {Math.round(tonight.moonIllumination)}%
+                  <td className={`px-3 py-2.5 tabular-nums whitespace-nowrap ${moonCell}`}>
+                    {moonKnown && !moonUp
+                      ? t('imagingWindow.moonDown')
+                      : `${Math.round(tonight.moonIllumination)}%`}
                   </td>
 
-                  {/* Humidity */}
-                  <td className={`px-3 py-2.5 tabular-nums ${
-                    hour.humidity > 85
-                      ? 'text-amber-500'
-                      : isDark ? 'text-slate-300' : 'text-slate-600'
-                  }`}>
+                  <td className={`px-3 py-2.5 tabular-nums ${hour.humidity > 85 ? 'text-amber-500' : cellText}`}>
                     {hour.humidity}%
                   </td>
 
-                  {/* Wind */}
-                  <td className={`px-3 py-2.5 tabular-nums whitespace-nowrap ${
-                    isDark ? 'text-slate-300' : 'text-slate-600'
-                  }`}>
+                  <td className={`px-3 py-2.5 tabular-nums whitespace-nowrap ${cellText}`}>
                     {formatWind(hour.wind, windUnit)}
                   </td>
 
-                  {/* Temperature */}
-                  <td className={`px-3 py-2.5 tabular-nums whitespace-nowrap ${
-                    isDark ? 'text-slate-300' : 'text-slate-600'
-                  }`}>
+                  <td className={`px-3 py-2.5 tabular-nums whitespace-nowrap ${cellText}`}>
                     {formatTemp(hour.temperature, tempUnit)}
                   </td>
 
-                  {/* Dew warning */}
                   <td className="px-3 py-2.5 tabular-nums whitespace-nowrap">
                     {vis.dewWarning ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/12 px-2 py-0.5 text-[11px] text-amber-500 ring-1 ring-inset ring-amber-500/25">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ring-1 ring-inset ${
+                        isDark
+                          ? 'bg-amber-500/10 text-amber-400 ring-amber-500/20'
+                          : 'bg-amber-50 text-amber-700 ring-amber-200'
+                      }`}>
                         <Droplets className="h-2.5 w-2.5" />
-                        Risk
+                        {t('imagingWindow.dewRisk')}
                       </span>
                     ) : (
-                      <span className={`tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        {formatTemp(hour.dewPoint, tempUnit)}
-                      </span>
+                      <span className={cellText}>{formatTemp(hour.dewPoint, tempUnit)}</span>
                     )}
                   </td>
                 </tr>
@@ -278,15 +258,26 @@ export function ImagingWindow({
         </table>
       </div>
 
-      {/* Footer note */}
-      <div className={`px-5 py-3 text-[11px] border-t ${
-        isDark
-          ? 'border-slate-800 text-slate-600'
-          : 'border-slate-100 text-slate-400'
-      }`}>
-        Moon at {Math.round(tonight.moonIllumination)}% illumination throughout the window.
-        {tonight.moonIllumination > 70 && (
-          <span className="ml-1 text-amber-500">Bright Moon — favour planets and star clusters.</span>
+      {/* What the Moon is actually doing, rather than a claim that it is up all
+          night: a 90% Moon that set at 22:00 must not be flagged at 03:00. */}
+      <div className={`px-5 py-3 text-[11px] border-t ${isDark ? 'border-slate-800 text-slate-600' : 'border-slate-100 text-slate-400'}`}>
+        {t('imagingWindow.moonSummary', { percent: Math.round(tonight.moonIllumination) })}
+        {moonSingleSpan && (
+          <> {t('imagingWindow.moonUpDuring', {
+            from: fmtMs(moonSingleSpan[0]),
+            to: fmtMs(moonSingleSpan[1]),
+          })}</>
+        )}
+        {moonSplit && (
+          <> {t('imagingWindow.moonUpSplit', {
+            until: fmtMs(moonSplit.until),
+            from: fmtMs(moonSplit.from),
+          })}</>
+        )}
+        {moonKnown && !moonUpSomeTime && <> {t('imagingWindow.moonDownAllWindow')}</>}
+        {!moonKnown && <> {t('imagingWindow.moonTimesUnknown')}</>}
+        {moonIsBright && moonUpSomeTime && (
+          <span className="ml-1 text-amber-500">{t('imagingWindow.brightMoon')}</span>
         )}
       </div>
     </section>

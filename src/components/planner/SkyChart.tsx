@@ -12,6 +12,7 @@
  */
 import { useEffect, useMemo, useRef } from 'react';
 import SunCalc from 'suncalc';
+import { useTranslation } from 'react-i18next';
 import { altAz } from '../../lib/altaz';
 import { moonThresholdForIllumination } from '../../lib/moonProximity';
 import {
@@ -37,10 +38,10 @@ const HFOV = 95;
 /** Fraction of the canvas height where the horizon sits (rest below is ground). */
 const HORIZON_FRAC = 0.82;
 
-const CARDINALS: { az: number; label: string }[] = [
-  { az: 0, label: 'N' }, { az: 45, label: 'NE' }, { az: 90, label: 'E' },
-  { az: 135, label: 'SE' }, { az: 180, label: 'S' }, { az: 225, label: 'SW' },
-  { az: 270, label: 'W' }, { az: 315, label: 'NW' },
+const CARDINALS: { az: number; key: string }[] = [
+  { az: 0, key: 'n' }, { az: 45, key: 'ne' }, { az: 90, key: 'e' },
+  { az: 135, key: 'se' }, { az: 180, key: 's' }, { az: 225, key: 'sw' },
+  { az: 270, key: 'w' }, { az: 315, key: 'nw' },
 ];
 
 /** Shortest signed angular difference a-b in degrees, range (-180, 180]. */
@@ -50,9 +51,13 @@ function angleDiff(a: number, b: number): number {
   return d;
 }
 
-function azToCompass(az: number): string {
-  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  return dirs[Math.round((az % 360) / 45) % 8];
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+const COMPASS_KEYS = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+
+function azToCompass(az: number, t: TFunc): string {
+  const key = COMPASS_KEYS[Math.round((az % 360) / 45) % 8];
+  return t(`compass8.${key}`, { ns: 'common' });
 }
 
 /** Angular separation (degrees) between two alt/az points. */
@@ -123,6 +128,7 @@ function drawMoonGlyph(
 }
 
 export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyChartProps) {
+  const { t } = useTranslation('planner');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -272,7 +278,7 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
           ctx.fillStyle = isDark ? 'rgba(226,232,240,0.85)' : 'rgba(241,245,249,0.95)';
           ctx.font = '10px system-ui, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('Moon', mx, my + 24);
+          ctx.fillText(t('skyChart.moon'), mx, my + 24);
           ctx.textAlign = 'left';
         }
       }
@@ -297,33 +303,34 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
         ctx.moveTo(x, horizonY);
         ctx.lineTo(x, horizonY + 7);
         ctx.stroke();
-        const major = card.label.length === 1;
+        const cardLabel = t(`compass8.${card.key}`, { ns: 'common' });
+        const major = cardLabel.length === 1;
         ctx.fillStyle = isDark ? (major ? '#86efac' : 'rgba(134,239,172,0.7)') : '#16a34a';
         ctx.font = `${major ? 'bold ' : ''}${major ? 12 : 10}px system-ui, sans-serif`;
-        ctx.fillText(card.label, x, horizonY + 20);
+        ctx.fillText(cardLabel, x, horizonY + 20);
       }
 
       // ── Target reticle ──
-      const t = project(target.alt, target.az);
+      const reticle = project(target.alt, target.az);
       const aboveHorizon = target.alt > 0;
       ctx.strokeStyle = aboveHorizon ? '#34d399' : 'rgba(251,191,36,0.9)';
       ctx.lineWidth = 1.6;
       ctx.beginPath();
-      ctx.arc(t.x, t.y, 10, 0, Math.PI * 2);
+      ctx.arc(reticle.x, reticle.y, 10, 0, Math.PI * 2);
       ctx.stroke();
       // crosshair ticks
       ctx.beginPath();
-      ctx.moveTo(t.x, t.y - 16); ctx.lineTo(t.x, t.y - 13);
-      ctx.moveTo(t.x, t.y + 13); ctx.lineTo(t.x, t.y + 16);
-      ctx.moveTo(t.x - 16, t.y); ctx.lineTo(t.x - 13, t.y);
-      ctx.moveTo(t.x + 13, t.y); ctx.lineTo(t.x + 16, t.y);
+      ctx.moveTo(reticle.x, reticle.y - 16); ctx.lineTo(reticle.x, reticle.y - 13);
+      ctx.moveTo(reticle.x, reticle.y + 13); ctx.lineTo(reticle.x, reticle.y + 16);
+      ctx.moveTo(reticle.x - 16, reticle.y); ctx.lineTo(reticle.x - 13, reticle.y);
+      ctx.moveTo(reticle.x + 13, reticle.y); ctx.lineTo(reticle.x + 16, reticle.y);
       ctx.stroke();
       // label
       ctx.fillStyle = aboveHorizon ? '#6ee7b7' : '#fbbf24';
       ctx.font = 'bold 11px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      const labelY = t.y < 28 ? t.y + 26 : t.y - 16;
-      ctx.fillText(objectName, t.x, labelY);
+      const labelY = reticle.y < 28 ? reticle.y + 26 : reticle.y - 16;
+      ctx.fillText(objectName, reticle.x, labelY);
       ctx.textAlign = 'left';
     };
 
@@ -331,9 +338,9 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
     const ro = new ResizeObserver(draw);
     ro.observe(wrap);
     return () => ro.disconnect();
-  }, [target, moon, ra, dec, lat, lon, time, isDark, objectName]);
+  }, [target, moon, ra, dec, lat, lon, time, isDark, objectName, t]);
 
-  const dirText = `${azToCompass(target.az)} · ${Math.round(target.az)}° · alt ${Math.round(target.alt)}°`;
+  const dirText = t('skyChart.dirText', { compass: azToCompass(target.az, t), az: Math.round(target.az), alt: Math.round(target.alt) });
 
   // Moon readout: only meaningful while it's up. Color tracks the same
   // proximity verdict the planner uses — amber within 15° of the threshold,
@@ -347,9 +354,9 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
         ? 'text-amber-500'
         : 'text-rose-500';
   const moonText = moonUp
-    ? `Moon ${Math.round(moon.fraction * 100)}% lit · ${Math.round(moonSeparation)}° away`
-      + (moonSeparation < moonThreshold ? ' · too close' : '')
-    : 'Moon below the horizon';
+    ? t('skyChart.moonLitAway', { percent: Math.round(moon.fraction * 100), deg: Math.round(moonSeparation) })
+      + (moonSeparation < moonThreshold ? t('skyChart.tooClose') : '')
+    : t('skyChart.moonBelowHorizon');
 
   return (
     <div className="space-y-2">
@@ -362,8 +369,8 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
         <canvas ref={canvasRef} className="block h-full w-full" />
       </div>
       <p className={`text-[11px] text-center ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-        Looking {dirText}
-        {target.alt <= 0 ? ' · below the horizon now' : ''}
+        {t('skyChart.looking', { dir: dirText })}
+        {target.alt <= 0 ? t('skyChart.belowHorizonNow') : ''}
       </p>
       <p className={`text-[11px] text-center ${moonTone}`}>{moonText}</p>
     </div>

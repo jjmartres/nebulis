@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ChevronLeft, ChevronRight, Maximize2, RotateCw, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useSwipeDownToClose } from '../../hooks/useSwipeDownToClose';
 import { LightboxThumbStrip, type ThumbEntry } from './LightboxThumbStrip';
@@ -27,6 +28,25 @@ interface Props {
   extraControls?: ReactNode;
   /** Share / download / edit / delete buttons. */
   actions?: ReactNode;
+
+  /**
+   * View-only rotate-90°-clockwise, never touches the file. Omitting
+   * `onRotate` hides the control (the FITS canvas viewer has no rotate of
+   * its own yet). Available in both windowed and fullscreen chrome.
+   */
+  onRotate?: () => void;
+
+  /**
+   * Fullscreen (AstroBin-style) mode: strips the header, zoom toolbar, and
+   * thumbnail strip down to just the picture, edge-to-edge, with a floating
+   * exit button. Both `immersive` and `onToggleImmersive` are controlled by
+   * the caller so its own zoom/pan state (`children`) carries over unchanged
+   * across the transition. Omitting `onToggleImmersive` hides the expand
+   * button entirely (used for content with no zoom engine to hand off to,
+   * e.g. the FITS viewer).
+   */
+  immersive?: boolean;
+  onToggleImmersive?: () => void;
 
   thumbs?: ThumbEntry[];
   /** Disables swipe-to-close, e.g. while the image is zoomed and pannable. */
@@ -91,10 +111,17 @@ export function LightboxFrame({
   isOpen, onClose, dialogTitle,
   titleIcon, title, subtitle,
   index, count, onPrev, onNext, onSelectIndex,
-  zoom, extraControls, actions,
+  zoom, extraControls, actions, onRotate,
+  immersive, onToggleImmersive,
   thumbs, swipeDisabled, status, ambientSrc, contentAspect, children,
 }: Props) {
-  const { handlers: swipe, dy, dragging } = useSwipeDownToClose(onClose, { disabled: swipeDisabled });
+  const { t } = useTranslation('library');
+  // Escape and a backdrop click both route through Modal's own `onClose`.
+  // While immersive, that should back out to the windowed view rather than
+  // tear down the whole viewer — the same one-level-at-a-time behavior the
+  // delete confirmation already gets by suspending the outer key handler.
+  const effectiveOnClose = immersive ? (onToggleImmersive ?? onClose) : onClose;
+  const { handlers: swipe, dy, dragging } = useSwipeDownToClose(onClose, { disabled: swipeDisabled || immersive });
 
   // The keyboard hint used to be permanent, hardcoded white, and positioned
   // over the thumbnail strip. It is a first-run nudge, so it now says its piece
@@ -103,8 +130,8 @@ export function LightboxFrame({
   const [hintDismissed, setHintDismissed] = useState(false);
   useEffect(() => {
     if (!isOpen || count <= 1) return;
-    const t = setTimeout(() => setHintDismissed(true), 4000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setHintDismissed(true), 4000);
+    return () => clearTimeout(timer);
   }, [isOpen, count]);
 
   const [seenIndex, setSeenIndex] = useState(index);
@@ -131,15 +158,18 @@ export function LightboxFrame({
   return (
     <Modal
       isOpen
-      onClose={onClose}
+      onClose={effectiveOnClose}
       title={dialogTitle}
       focusOnOpen="dialog"
-      backdropStyle={{ backgroundColor: `rgba(0,0,0,${0.92 * Math.max(0, 1 - dy / 400)})` }}
-      backdropClassName=" "
-      className="w-full max-w-[88rem] h-[95dvh] max-h-full flex flex-col rounded-3xl bg-slate-950
-        hero-panel overflow-hidden touch-pan-y overscroll-contain
-        transition-[max-width] duration-300 ease-out"
-      style={{ maxWidth: panelMaxWidth(stickyAspect) }}
+      backdropStyle={immersive ? undefined : { backgroundColor: `rgba(0,0,0,${0.92 * Math.max(0, 1 - dy / 400)})` }}
+      backdropClassName={immersive ? 'bg-black' : ' '}
+      edgeToEdge={immersive}
+      className={immersive
+        ? 'flex h-full w-full max-w-none flex-col overflow-hidden bg-black'
+        : `w-full max-w-[88rem] h-[95dvh] max-h-full flex flex-col rounded-3xl bg-slate-950
+          hero-panel overflow-hidden touch-pan-y overscroll-contain
+          transition-[max-width] duration-300 ease-out`}
+      style={immersive ? undefined : { maxWidth: panelMaxWidth(stickyAspect) }}
     >
       <div
         {...swipe}
@@ -163,17 +193,22 @@ export function LightboxFrame({
               blur-[80px] saturate-150 opacity-40 transition-opacity duration-500"
           />
         )}
-        <div className="pointer-events-none absolute inset-0 bg-slate-950/70" />
-        <div
-          className="pointer-events-none absolute inset-0 rounded-3xl"
-          style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }}
-        />
+        {!immersive && <div className="pointer-events-none absolute inset-0 bg-slate-950/70" />}
+        {!immersive && (
+          <div
+            className="pointer-events-none absolute inset-0 rounded-3xl"
+            style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }}
+          />
+        )}
 
         {/* Header. Stacks on narrow screens: the toolbar carries up to a dozen
             controls and cannot share a single row with the title on a phone.
             No rule underneath it, unlike the old card: the scrim behind the
             text is what separates it from the picture, so the panel reads as
-            one dark surface rather than three boxes stacked up. */}
+            one dark surface rather than three boxes stacked up. Swapped out
+            entirely for a single floating exit button in immersive mode —
+            see below. */}
+        {!immersive && (
         <div className="relative z-10 flex flex-shrink-0 flex-col gap-2.5 bg-gradient-to-b from-black/50 to-transparent
           px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -224,19 +259,19 @@ export function LightboxFrame({
             {zoom && (
               <div className={LB_GROUP}>
                 <button type="button" onClick={zoom.zoomOut} disabled={!zoom.canZoomOut}
-                  title="Zoom out (−)" aria-label="Zoom out" className={LB_ICON_BTN}>
+                  title={t('lightboxFrame.zoomOutTitle')} aria-label={t('lightboxFrame.zoomOutAria')} className={LB_ICON_BTN}>
                   <ZoomOut className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
                   onClick={zoom.setFit}
-                  title="Fit to window (F)"
+                  title={t('lightboxFrame.fitTitle')}
                   className={`${LB_TEXT_BTN} min-w-[3.25rem] tabular-nums ${zoom.isFit ? LB_ACTIVE : ''}`}
                 >
-                  {zoom.isFit ? 'Fit' : `${zoom.zoomPercent}%`}
+                  {zoom.isFit ? t('lightboxFrame.fitLabel') : `${zoom.zoomPercent}%`}
                 </button>
                 <button type="button" onClick={zoom.zoomIn} disabled={!zoom.canZoomIn}
-                  title="Zoom in (+)" aria-label="Zoom in" className={LB_ICON_BTN}>
+                  title={t('lightboxFrame.zoomInTitle')} aria-label={t('lightboxFrame.zoomInAria')} className={LB_ICON_BTN}>
                   <ZoomIn className="h-4 w-4" />
                 </button>
                 {/* True 1:1. The single most useful zoom for judging star shape
@@ -244,11 +279,25 @@ export function LightboxFrame({
                 <button
                   type="button"
                   onClick={zoom.setActualSize}
-                  title="Actual size, 1 image pixel per screen pixel (1)"
-                  aria-label="Actual size"
+                  title={t('lightboxFrame.actualSizeTitle')}
+                  aria-label={t('lightboxFrame.actualSizeAria')}
                   className={`${LB_TEXT_BTN} ${!zoom.isFit && zoom.zoomPercent === 100 ? LB_ACTIVE : ''}`}
                 >
                   1:1
+                </button>
+              </div>
+            )}
+
+            {onRotate && (
+              <div className={LB_GROUP}>
+                <button
+                  type="button"
+                  onClick={onRotate}
+                  title={t('lightboxFrame.rotateTitle')}
+                  aria-label={t('lightboxFrame.rotateAria')}
+                  className={LB_ICON_BTN}
+                >
+                  <RotateCw className="h-4 w-4" />
                 </button>
               </div>
             )}
@@ -257,11 +306,48 @@ export function LightboxFrame({
             {actions && <div className={LB_GROUP}>{actions}</div>}
           </div>
 
-          <button type="button" onClick={onClose} aria-label="Close viewer" className={LB_CLOSE_BTN}>
+          {onToggleImmersive && (
+            <button
+              type="button"
+              onClick={onToggleImmersive}
+              title={t('lightboxFrame.fullscreenTitle')}
+              aria-label={t('lightboxFrame.fullscreenAria')}
+              className={LB_CLOSE_BTN}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          )}
+
+          <button type="button" onClick={onClose} aria-label={t('lightboxFrame.closeAria')} className={LB_CLOSE_BTN}>
             <X className="h-4.5 w-4.5" />
           </button>
           </div>
         </div>
+        )}
+
+        {immersive && (
+          <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-4 sm:top-4">
+            {onRotate && (
+              <button
+                type="button"
+                onClick={onRotate}
+                title={t('lightboxFrame.rotateTitle')}
+                aria-label={t('lightboxFrame.rotateAria')}
+                className={LB_CLOSE_BTN}
+              >
+                <RotateCw className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onToggleImmersive}
+              aria-label={t('lightboxFrame.exitFullscreenAria')}
+              className={LB_CLOSE_BTN}
+            >
+              <X className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        )}
 
         {/* Content pane. The inner element is the one measured by the zoom
             engine, so its box is exactly the visible area with no padding to
@@ -292,17 +378,17 @@ export function LightboxFrame({
             <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 hidden -translate-x-1/2 sm:block">
               <span className="flex items-center gap-2 whitespace-nowrap rounded-full bg-black/55 px-3 py-1.5 text-[11px]
                 text-white/70 ring-1 ring-inset ring-white/10 backdrop-blur-md">
-                <Key>←</Key><Key>→</Key> to browse
+                <Key>←</Key><Key>→</Key> {t('lightboxFrame.browseHint')}
                 <span className="text-white/20">·</span>
-                <Key>F</Key> fit
+                <Key>F</Key> {t('lightboxFrame.fitHint')}
                 <span className="text-white/20">·</span>
-                <Key>1</Key> actual size
+                <Key>1</Key> {t('lightboxFrame.actualSizeHint')}
               </span>
             </div>
           )}
         </div>
 
-        {thumbs && (
+        {thumbs && !immersive && (
           <LightboxThumbStrip
             entries={thumbs}
             index={index}
@@ -337,13 +423,14 @@ function EdgeNav({ side, onClick, disabled }: {
   onClick: () => void;
   disabled: boolean;
 }) {
+  const { t } = useTranslation('library');
   const Icon = side === 'left' ? ChevronLeft : ChevronRight;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={side === 'left' ? 'Previous image' : 'Next image'}
+      aria-label={side === 'left' ? t('lightboxFrame.previousImageAria') : t('lightboxFrame.nextImageAria')}
       className={`absolute top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full
         bg-black/40 text-white/70 opacity-70 ring-1 ring-inset ring-white/15 backdrop-blur-md outline-none
         transition hover:bg-black/70 hover:text-white hover:opacity-100 focus-visible:opacity-100
@@ -357,13 +444,17 @@ function EdgeNav({ side, onClick, disabled }: {
 
 /** Pane wrapper that the zoom engine measures. Use inside `LightboxFrame`. */
 export function LightboxPane({
-  zpRef, isPanning, canPan, handlers, children,
+  zpRef, isPanning, canPan, handlers, flush, children,
 }: {
   /** Callback ref from `useZoomPan`, so the pane is measured whenever it mounts. */
   zpRef: (el: HTMLDivElement | null) => void;
   isPanning: boolean;
   canPan: boolean;
   handlers: Record<string, unknown>;
+  /** No inset — the picture should be the only thing on screen. Used by the
+   *  fullscreen mode; the windowed view keeps a small margin so the picture
+   *  doesn't touch the panel's own rounded corners. */
+  flush?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -371,7 +462,9 @@ export function LightboxPane({
       ref={zpRef}
       {...handlers}
       data-lightbox-pane=""
-      className="absolute inset-2 flex touch-none items-center justify-center overflow-hidden sm:inset-4"
+      className={`absolute flex touch-none items-center justify-center overflow-hidden ${
+        flush ? 'inset-0' : 'inset-2 sm:inset-4'
+      }`}
       style={{ cursor: canPan ? (isPanning ? 'grabbing' : 'grab') : undefined }}
     >
       {children}

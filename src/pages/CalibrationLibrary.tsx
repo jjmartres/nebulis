@@ -18,8 +18,10 @@
  * Route: /calibrations
  */
 import { Fragment, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, AlertTriangle, Aperture, Check, ChevronRight, Download, File, Link2, Loader2, Trash2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { AlertCircle, AlertTriangle, Aperture, Check, ChevronDown, ChevronRight, Download, File, Link2, Loader2, Telescope, Trash2, X } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import {
   getCalibrationLibrary,
@@ -31,8 +33,18 @@ import {
   type CalibrationGroup,
   type CalibrationSettingsGroup,
 } from '../lib/api/library';
+import { listTelescopes } from '../lib/api/telescopes';
+import {
+  ALL_SCOPES,
+  buildScopeOptions,
+  filterByScope,
+  resolveScope,
+  scopeValueOf,
+} from '../lib/calibrationScope';
 import { formatBytes } from '../lib/utils';
+import { formatDate } from '../lib/formatLocale';
 import { Sec } from '../components/settings/SettingsUI';
+import { CalibrationHero } from '../components/library/CalibrationHero';
 import { AttachCalibrationModal } from '../components/AttachCalibrationModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
@@ -52,23 +64,26 @@ function isDeletableType(type: CalibrationFrameType): boolean {
   return type === 'bias' || type === 'dark';
 }
 
+/** A bundle's real type for attach/delete purposes — its own resolved
+ *  `frameType` (only ever set within a `mixed` CALI_FRAME group, one of its
+ *  bias/dark/flat subfolders) falling back to the group's own type
+ *  everywhere else. Mirrors server/lib/library/calibrationScan.ts's
+ *  `resolveFrameType` exactly — a `mixed` group's own bundles can each be a
+ *  different real type, so attach/delete eligibility (and the Status column)
+ *  must be checked per row, not once for the whole group. */
+function resolveRowType(group: CalibrationGroup, set: CalibrationSettingsGroup): CalibrationFrameType {
+  return group.type === 'mixed' ? (set.frameType ?? 'mixed') : group.type;
+}
+
 /** Rendered top-to-bottom, mirroring a real calibration workflow: bias first
  *  (used to derive the others' noise floor), then darks, then flats and their
  *  matching flat-darks, with Dwarf's blended folder last since it isn't one
  *  type. */
 const TYPE_ORDER: CalibrationFrameType[] = ['bias', 'dark', 'flat', 'flatDark', 'mixed'];
 
-const TYPE_DESCRIPTION: Record<CalibrationFrameType, string> = {
-  bias: 'Zero-length exposures that capture the sensor\'s fixed read noise, used to remove it from every other calibration frame.',
-  dark: 'Exposures taken with the sensor covered, matched to a light frame\'s exposure/gain/temperature, used to subtract thermal noise.',
-  flat: 'Evenly-illuminated exposures used to correct vignetting and dust motes across the frame.',
-  flatDark: 'Dark frames matched to a flat\'s (usually much shorter) exposure, used when flats aren\'t bias-corrected instead.',
-  mixed: 'Calibration frames archived as your Dwarf telescope wrote them — a blend of frame types the device does not separate.',
-};
-
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString(undefined, {
+  return formatDate(new Date(iso), {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
@@ -95,12 +110,22 @@ function formatTemp(v: number | null): string {
   return v === null ? '—' : `${Math.round(v)}°C`;
 }
 
+/** `cam_0` -> `Cam 0` — Dwarf 3 only, see CalibrationSettingsGroup.camera. */
+function formatCamera(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const m = /^cam_(\d+)$/i.exec(v);
+  return m ? `Cam ${m[1]}` : v;
+}
+
 /** A short "5.0s · Bin1 · gain100 · -8.0°C" line from parsed filename
  *  metadata, omitting whichever fields weren't recognized rather than
- *  showing a placeholder for each. */
+ *  showing a placeholder for each. These are camera-setting tokens, not
+ *  prose, so they are not run through t() — "Bin1"/"gain100" read the same
+ *  in every language. */
 function frameInfoSummary(info: CalibrationFrameInfo | null): string | null {
   if (!info) return null;
   const parts: string[] = [];
+  if (info.camera) parts.push(formatCamera(info.camera)!);
   if (info.exposureSec !== undefined) parts.push(formatExposure(info.exposureSec));
   if (info.binning !== undefined) parts.push(`Bin${info.binning}`);
   if (info.gain !== undefined) parts.push(`gain${info.gain}`);
@@ -137,26 +162,32 @@ function SettingsGroupTable({
   onDeleteRequest: (group: CalibrationGroup, set: CalibrationSettingsGroup) => void;
   deletingKey: string | null;
 }) {
+  const { t } = useTranslation('library');
   const borderClass = isDark ? 'border-slate-800' : 'border-slate-100';
   const headClass = `text-left font-medium px-4 py-2.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`;
-  const attachable = isAttachableType(group.type);
-  const deletable = isDeletableType(group.type);
+  // A non-mixed group is uniformly one type, so every row agrees — but a
+  // Dwarf `mixed` (CALI_FRAME) group blends bias/dark/flat rows together, so
+  // whether to show these columns AT ALL depends on whether ANY row in the
+  // group qualifies; which row actually gets content in them is decided
+  // per-row below via resolveRowType.
+  const showAttachedToColumn = group.settingsGroups.some(set => isAttachableType(resolveRowType(group, set)));
+  const showStatusColumn = group.settingsGroups.some(set => isDeletableType(resolveRowType(group, set)));
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className={isDark ? 'bg-slate-800/60' : 'bg-slate-50'}>
-            <th className={headClass}>Exposure</th>
-            <th className={headClass}>Bin</th>
-            <th className={headClass}>Gain</th>
-            <th className={headClass}>TEC</th>
-            <th className={headClass}>Frames</th>
-            <th className={headClass}>Size</th>
-            <th className={headClass}>Modified</th>
-            {attachable && <th className={headClass}>Attached to</th>}
-            {deletable && <th className={headClass}>Status</th>}
-            <th className={headClass} aria-label="Actions" />
+            <th className={headClass}>{t('calibrations.table.exposure')}</th>
+            <th className={headClass}>{t('calibrations.table.bin')}</th>
+            <th className={headClass}>{t('calibrations.table.gain')}</th>
+            <th className={headClass}>{t('calibrations.table.tec')}</th>
+            <th className={headClass}>{t('calibrations.table.frames')}</th>
+            <th className={headClass}>{t('calibrations.table.size')}</th>
+            <th className={headClass}>{t('calibrations.table.modified')}</th>
+            {showAttachedToColumn && <th className={headClass}>{t('calibrations.table.attachedTo')}</th>}
+            {showStatusColumn && <th className={headClass}>{t('calibrations.table.status')}</th>}
+            <th className={headClass} aria-label={t('calibrations.table.actionsLabel')} />
           </tr>
         </thead>
         <tbody>
@@ -165,6 +196,9 @@ function SettingsGroupTable({
             const isOpen = expanded.has(key);
             const isDownloading = downloadingKey === key;
             const isDeleting = deletingKey === key;
+            const rowType = resolveRowType(group, set);
+            const rowAttachable = isAttachableType(rowType);
+            const rowDeletable = isDeletableType(rowType);
             return (
               <Fragment key={key}>
                 <tr
@@ -177,6 +211,26 @@ function SettingsGroupTable({
                     <div className="flex items-center gap-2">
                       <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''} ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                       {formatExposure(set.exposureSec)}
+                      {set.frameType !== null && (
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${
+                            isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {t(`calibrations.frameType.${set.frameType}`)}
+                        </span>
+                      )}
+                      {set.camera !== null && (
+                        <span
+                          title={t('calibrations.table.cameraTitle')}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${
+                            isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          <Aperture className="w-2.5 h-2.5" />
+                          {formatCamera(set.camera)}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className={`px-4 py-3 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{formatBinning(set.binning)}</td>
@@ -185,73 +239,75 @@ function SettingsGroupTable({
                   <td className={`px-4 py-3 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{set.fileCount}</td>
                   <td className={`px-4 py-3 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{formatBytes(set.bytes)}</td>
                   <td className={`px-4 py-3 whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{formatDateTime(set.modifiedAt)}</td>
-                  {attachable && (
+                  {showAttachedToColumn && (
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {(set.attachments ?? []).map(a => (
-                          <span
-                            key={a.id}
-                            title={a.date ? `Session: ${a.date}` : 'Every session of this object'}
-                            className={`inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-full text-xs font-medium ${
-                              isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
+                      {rowAttachable ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {(set.attachments ?? []).map(a => (
+                            <span
+                              key={a.id}
+                              title={a.date ? t('calibrations.attachment.sessionTitle', { date: a.date }) : t('calibrations.attachment.everySessionTitle')}
+                              className={`inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-full text-xs font-medium ${
+                                isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
+                              }`}
+                            >
+                              <span className="truncate max-w-[9rem]">{a.objectName}{a.date ? ` · ${a.date}` : ''}</span>
+                              <button
+                                type="button"
+                                onClick={() => onDetach(a.id)}
+                                disabled={detachingId === a.id}
+                                title={t('calibrations.attachment.detach')}
+                                className={`p-0.5 rounded-full transition disabled:opacity-40 ${isDark ? 'hover:bg-emerald-500/20' : 'hover:bg-emerald-100'}`}
+                              >
+                                {detachingId === a.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                              </button>
+                            </span>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => onAttach(group, set)}
+                            title={t('calibrations.attachment.attachToObject')}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition ${
+                              isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'
                             }`}
                           >
-                            <span className="truncate max-w-[9rem]">{a.objectName}{a.date ? ` · ${a.date}` : ''}</span>
-                            <button
-                              type="button"
-                              onClick={() => onDetach(a.id)}
-                              disabled={detachingId === a.id}
-                              title="Detach"
-                              className={`p-0.5 rounded-full transition disabled:opacity-40 ${isDark ? 'hover:bg-emerald-500/20' : 'hover:bg-emerald-100'}`}
-                            >
-                              {detachingId === a.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                            </button>
-                          </span>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => onAttach(group, set)}
-                          title="Attach to an object"
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition ${
-                            isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'
-                          }`}
-                        >
-                          <Link2 className="w-3 h-3" />
-                          {(set.attachments ?? []).length === 0 ? 'Attach' : ''}
-                        </button>
-                      </div>
+                            <Link2 className="w-3 h-3" />
+                            {(set.attachments ?? []).length === 0 ? t('calibrations.attachment.attach') : ''}
+                          </button>
+                        </div>
+                      ) : null}
                     </td>
                   )}
-                  {deletable && (
+                  {showStatusColumn && (
                     <td className="px-4 py-3">
-                      {set.isExpired ? (
+                      {!rowDeletable ? null : set.isExpired ? (
                         <span
-                          title="Older than the configured validity window (Settings → Library → Dark/bias validity) — consider re-shooting and deleting this set."
+                          title={t('calibrations.status.expiredTitle')}
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                             isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-700'
                           }`}
                         >
                           <AlertTriangle className="w-3 h-3" />
-                          Expired
+                          {t('calibrations.status.expired')}
                         </span>
                       ) : set.capturedAt ? (
                         <span
-                          title="Within the configured validity window (Settings → Library → Dark/bias validity)."
+                          title={t('calibrations.status.validTitle')}
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                             isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
                           }`}
                         >
                           <Check className="w-3 h-3" />
-                          Valid
+                          {t('calibrations.status.valid')}
                         </span>
                       ) : (
                         <span
-                          title="No capture date could be read from these filenames, so validity can't be checked."
+                          title={t('calibrations.status.unknownTitle')}
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                             isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'
                           }`}
                         >
-                          Unknown
+                          {t('calibrations.status.unknown')}
                         </span>
                       )}
                     </td>
@@ -262,20 +318,20 @@ function SettingsGroupTable({
                         type="button"
                         onClick={e => { e.stopPropagation(); onDownload(group, set); }}
                         disabled={isDownloading}
-                        title="Download this bundle as a ZIP"
+                        title={t('calibrations.actions.downloadZip')}
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
                           isDark ? 'bg-accent-500/10 text-accent-400 hover:bg-accent-500/20' : 'bg-accent-50 text-accent-700 hover:bg-accent-100'
                         }`}
                       >
                         {isDownloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        <span className="hidden sm:inline">ZIP</span>
+                        <span className="hidden sm:inline">{t('calibrations.actions.zip')}</span>
                       </button>
-                      {deletable && (
+                      {rowDeletable && (
                         <button
                           type="button"
                           onClick={e => { e.stopPropagation(); onDeleteRequest(group, set); }}
                           disabled={isDeleting}
-                          title="Permanently delete this bundle from the archive"
+                          title={t('calibrations.actions.delete')}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
                             isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20' : 'bg-red-50 text-red-700 hover:bg-red-100'
                           }`}
@@ -299,8 +355,8 @@ function SettingsGroupTable({
                     </td>
                     <td className={`px-4 py-2 text-xs tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{formatBytes(file.size)}</td>
                     <td className={`px-4 py-2 text-xs whitespace-nowrap ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{formatDateTime(file.modifiedAt)}</td>
-                    {attachable && <td />}
-                    {deletable && <td />}
+                    {showAttachedToColumn && <td />}
+                    {showStatusColumn && <td />}
                     <td />
                   </tr>
                 ))}
@@ -314,7 +370,12 @@ function SettingsGroupTable({
 }
 
 export function CalibrationLibrary() {
-  const { isDark } = useTheme();
+  const { t } = useTranslation('library');
+  const { isDark, isNight, isSpace } = useTheme();
+  // The hero sits on dark sky imagery in every theme, so it takes the bright
+  // accent hex directly rather than the light-mode-darkened token, matching
+  // the Library, Backup and Catalogs banners.
+  const accent = isNight ? '#f87171' : isSpace ? '#a78bfa' : '#fbbf24';
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ['calibration-library'],
@@ -331,6 +392,38 @@ export function CalibrationLibrary() {
   const [deleteTarget, setDeleteTarget] = useState<{ group: CalibrationGroup; set: CalibrationSettingsGroup } | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Frames are stored per telescope, so the page offers a scope filter once
+  // there is more than one scope to choose from. The selection lives in
+  // `?scope=` so Settings → Telescopes can link straight at one telescope's
+  // frames, and an unknown id (deleted telescope, hand-edited URL) falls back to
+  // every scope rather than an empty page. The profiles are fetched rather than
+  // taken from the API's own `scopeLabel`, which is English-only.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { data: telescopes = [] } = useQuery({
+    queryKey: ['telescopes'],
+    queryFn: listTelescopes,
+    staleTime: 60_000,
+  });
+  const telescopeNames = useMemo(
+    () => new Map(telescopes.map(profile => [profile.id, profile.name])),
+    [telescopes],
+  );
+  const activeScope = resolveScope(searchParams.get('scope'), groups);
+
+  function selectScope(value: string) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value === ALL_SCOPES) next.delete('scope');
+      else next.set('scope', value);
+      return next;
+    }, { replace: true });
+  }
+
+  function scopeName(scope: string | null): string {
+    if (scope === null) return t('calibrations.scope.unassigned');
+    return telescopeNames.get(scope) ?? t('calibrations.scope.deleted');
+  }
 
   function toggle(key: string) {
     setExpanded(prev => {
@@ -358,7 +451,7 @@ export function CalibrationLibrary() {
       a.click();
       a.remove();
     } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Could not start the download. Try again.');
+      setDownloadError(err instanceof Error ? err.message : t('calibrations.errors.download'));
     } finally {
       setDownloadingKey(null);
     }
@@ -375,7 +468,7 @@ export function CalibrationLibrary() {
       await detachCalibrationBundle(attachmentId);
       queryClient.invalidateQueries({ queryKey: ['calibration-library'] });
     } catch (err) {
-      setAttachError(err instanceof Error ? err.message : 'Could not detach this bundle. Try again.');
+      setAttachError(err instanceof Error ? err.message : t('calibrations.errors.detach'));
     } finally {
       setDetachingId(null);
     }
@@ -392,45 +485,74 @@ export function CalibrationLibrary() {
       queryClient.invalidateQueries({ queryKey: ['calibration-library'] });
       setDeleteTarget(null);
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Could not delete this bundle. Try again.');
+      setDeleteError(err instanceof Error ? err.message : t('calibrations.errors.delete'));
     } finally {
       setDeletingKey(null);
     }
   }
 
+  const visibleGroups = useMemo(() => filterByScope(groups, activeScope), [groups, activeScope]);
+
   const groupsByType = useMemo(() => {
     const map = new Map<CalibrationFrameType, CalibrationGroup[]>();
-    for (const g of groups) {
+    for (const g of visibleGroups) {
       const list = map.get(g.type) ?? [];
       list.push(g);
       map.set(g.type, list);
     }
     return map;
-  }, [groups]);
+  }, [visibleGroups]);
 
-  // Folder-per-scope badges are only useful once more than one scope is
-  // actually present — a single-telescope household (the common case) would
-  // otherwise see a redundant "Unassigned"/telescope-name tag on every row.
-  const multiScope = useMemo(() => new Set(groups.map(g => g.scope)).size > 1, [groups]);
+  // Folder-per-scope badges and the filter row are only useful once more than
+  // one scope is actually present — a single-telescope household (the common
+  // case) would otherwise see a redundant "Unassigned"/telescope-name tag on
+  // every row. Built from every group, not the filtered set, so the filter row
+  // does not disappear once a scope is selected.
+  const multiScope = useMemo(
+    () => new Set(groups.map(g => scopeValueOf(g.scope))).size > 1,
+    [groups],
+  );
+  const scopeOptions = useMemo(
+    () => buildScopeOptions(groups, telescopeNames, t),
+    [groups, telescopeNames, t],
+  );
 
-  const totalFiles = groups.reduce((sum, g) => sum + g.fileCount, 0);
-  const totalBytes = groups.reduce((sum, g) => sum + g.bytes, 0);
+  const totalFiles = visibleGroups.reduce((sum, g) => sum + g.fileCount, 0);
+  const totalBytes = visibleGroups.reduce((sum, g) => sum + g.bytes, 0);
 
-  const tileClass = `p-4 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`;
-  const tileLabel = `text-xs font-medium uppercase tracking-wider mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`;
-  const tileValue = `text-xl font-bold font-display ${isDark ? 'text-white' : 'text-slate-900'}`;
+  // The scope picker rides in the hero banner. A native select rather than a row
+  // of pills, so a household with several telescopes stays one control wide; the
+  // markup mirrors the Observations toolbar's telescope filter. Hidden entirely
+  // when there is only one scope, where it could not change anything.
+  const scopeFilter = multiScope ? (
+    <div className="relative inline-flex items-center">
+      <Telescope className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-white/50" />
+      <select
+        value={activeScope}
+        onChange={e => selectScope(e.target.value)}
+        aria-label={t('calibrations.scope.filterLabel')}
+        className="cursor-pointer appearance-none rounded-full bg-white/10 py-2 pl-9 pr-8 text-xs text-white ring-1 ring-inset ring-white/15 transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40 [&>option]:bg-slate-900 [&>option]:text-white"
+      >
+        {scopeOptions.map(option => (
+          <option key={option.value} value={option.value}>
+            {option.label} ({option.fileCount})
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-white/50" />
+    </div>
+  ) : undefined;
 
   return (
     <div className="space-y-8">
-      <div className="text-center space-y-3">
-        <h1 className={`font-display text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-          Calibrations
-        </h1>
-        <p className={`text-lg max-w-2xl mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Bias, dark, flat and flat-dark frames archived from your telescopes, organized by exposure,
-          binning, gain and TEC temperature — download any bundle as a ZIP for post-processing.
-        </p>
-      </div>
+      <CalibrationHero
+        accent={accent}
+        empty={!isLoading && !error && groups.length === 0}
+        totalFiles={totalFiles}
+        totalBytes={totalBytes}
+        frameTypeCount={groupsByType.size}
+        filter={scopeFilter}
+      />
 
       {(downloadError || attachError || deleteError) && (
         <div className={`max-w-2xl mx-auto flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm ${
@@ -444,48 +566,30 @@ export function CalibrationLibrary() {
       {isLoading && (
         <div className="flex items-center gap-2 py-16 justify-center">
           <Loader2 className={`w-5 h-5 animate-spin ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
-          <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>Loading…</span>
+          <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>{t('calibrations.loading')}</span>
         </div>
       )}
 
       {!isLoading && error && (
         <div className={`flex flex-col items-center gap-2 py-16 text-center ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
           <AlertCircle className="w-6 h-6 text-red-500" />
-          <p>Couldn't load the calibration library.</p>
+          <p>{t('calibrations.loadError')}</p>
         </div>
       )}
 
       {!isLoading && !error && groups.length === 0 && (
         <div className={`flex flex-col items-center gap-3 py-16 text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
           <Aperture className="w-10 h-10 opacity-30" />
-          <p className="max-w-sm">
-            Nothing archived yet. Bias, dark, flat and flat-dark folders are picked up automatically
-            the next time a telescope syncs or a folder import runs.
-          </p>
+          <p className="max-w-sm">{t('calibrations.empty')}</p>
         </div>
       )}
 
       {!isLoading && !error && groups.length > 0 && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
-            <div className={tileClass}>
-              <p className={tileLabel}>Frames</p>
-              <p className={tileValue}>{totalFiles.toLocaleString()}</p>
-            </div>
-            <div className={tileClass}>
-              <p className={tileLabel}>Total size</p>
-              <p className={tileValue}>{formatBytes(totalBytes)}</p>
-            </div>
-            <div className={tileClass}>
-              <p className={tileLabel}>Frame types</p>
-              <p className={tileValue}>{groupsByType.size}</p>
-            </div>
-          </div>
-
           {TYPE_ORDER.filter(type => groupsByType.has(type)).map(type => {
             const typeGroups = groupsByType.get(type)!;
             return (
-              <Sec key={type} title={typeGroups[0].typeLabel} description={TYPE_DESCRIPTION[type]} isDark={isDark}>
+              <Sec key={type} title={typeGroups[0].typeLabel} description={t(`calibrations.typeDescription.${type}`)} isDark={isDark}>
                 <div className="divide-y divide-slate-800/50">
                   {typeGroups.map(group => (
                     <div key={`${group.scope ?? 'unscoped'}:${group.folderName}`}>
@@ -493,7 +597,22 @@ export function CalibrationLibrary() {
                         <div className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider ${
                           isDark ? 'text-slate-500 bg-slate-800/30' : 'text-slate-400 bg-slate-50'
                         }`}>
-                          {group.folderName}{multiScope ? ` · ${group.scopeLabel}` : ''}
+                          {group.folderName}
+                          {multiScope && (
+                            <>
+                              <span aria-hidden="true">{' · '}</span>
+                              {/* The scope in the row header doubles as a
+                                  shortcut to that telescope's frames. */}
+                              <button
+                                type="button"
+                                onClick={() => selectScope(scopeValueOf(group.scope))}
+                                title={t('calibrations.scope.filterBy', { name: scopeName(group.scope) })}
+                                className="hover:underline focus-visible:underline"
+                              >
+                                {scopeName(group.scope)}
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                       <SettingsGroupTable
@@ -532,9 +651,13 @@ export function CalibrationLibrary() {
 
       {deleteTarget && (
         <ConfirmModal
-          title="Delete this calibration bundle?"
-          message={`This permanently removes ${deleteTarget.set.fileCount} file${deleteTarget.set.fileCount === 1 ? '' : 's'} (${formatBytes(deleteTarget.set.bytes)}) from the archive — ${deleteTarget.group.typeLabel} · ${formatExposure(deleteTarget.set.exposureSec)} · ${formatBinning(deleteTarget.set.binning)} · gain ${formatGain(deleteTarget.set.gain)} · ${formatTemp(deleteTarget.set.sensorTempC)}.\n\nThis cannot be undone.`}
-          confirmLabel="Delete"
+          title={t('calibrations.delete.confirmTitle')}
+          message={t('calibrations.delete.confirmMessage', {
+            count: deleteTarget.set.fileCount,
+            size: formatBytes(deleteTarget.set.bytes),
+            bundle: `${deleteTarget.group.typeLabel} · ${formatExposure(deleteTarget.set.exposureSec)} · ${formatBinning(deleteTarget.set.binning)} · gain ${formatGain(deleteTarget.set.gain)} · ${formatTemp(deleteTarget.set.sensorTempC)}`,
+          })}
+          confirmLabel={t('calibrations.delete.confirmButton')}
           pending={deletingKey === rowKeyFor(deleteTarget.group, deleteTarget.set)}
           onConfirm={handleConfirmDelete}
           onCancel={() => setDeleteTarget(null)}

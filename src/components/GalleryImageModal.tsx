@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { X, Image, Check, RotateCw, ImagePlus, RefreshCw } from 'lucide-react';
 import {
   getStackedImages,
@@ -11,6 +12,7 @@ import {
 } from '../lib/api/library';
 import { getCatalogSources, prefetchCatalogObject, type CatalogSource } from '../lib/api/catalog';
 import { isRenderableProcessed, canPreviewLocally } from '../lib/processedFormats';
+import { formatDate } from '../lib/formatLocale';
 import {
   getCatalogThumbnailUrl,
   getCatalogSourceThumbnailUrl,
@@ -34,6 +36,7 @@ export function GalleryImageModal({
   onClose,
   isDark,
 }: GalleryImageModalProps) {
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -116,7 +119,7 @@ export function GalleryImageModal({
       queryClient.invalidateQueries({ queryKey: ['stacked-images', objectId] });
       onClose();
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed. Check the file and try again.');
+      setUploadError(err instanceof Error ? err.message : t('galleryImageModal.uploadFailedGeneric'));
     } finally {
       setUploading(false);
     }
@@ -168,7 +171,7 @@ export function GalleryImageModal({
     <Modal
       isOpen
       onClose={onClose}
-      title="Choose Gallery Image"
+      title={t('galleryImageModal.title')}
       className={`w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white shadow-xl'
       }`}
@@ -178,7 +181,7 @@ export function GalleryImageModal({
           isDark ? 'border-slate-800' : 'border-slate-200'
         }`}>
           <h3 className={`font-display font-semibold text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Choose Gallery Image
+            {t('galleryImageModal.title')}
           </h3>
           <button
             onClick={onClose}
@@ -196,18 +199,18 @@ export function GalleryImageModal({
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h4 className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                Reference Image
+                {t('galleryImageModal.referenceImage')}
               </h4>
               <div className="flex items-center gap-2.5">
                 {cachedSources.length > 0 && (
                   <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                    {cachedSources.length} cached
+                    {t('galleryImageModal.cachedCount', { count: cachedSources.length })}
                   </span>
                 )}
                 <button
                   onClick={() => refetchMutation.mutate()}
                   disabled={refetchMutation.isPending}
-                  title="Re-fetch sky survey image from CDS DSS2 (recovers from a missed prefetch)"
+                  title={t('galleryImageModal.refetchTitle')}
                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition disabled:opacity-50 ${
                     isDark
                       ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -215,7 +218,7 @@ export function GalleryImageModal({
                   }`}
                 >
                   <RefreshCw className={`w-3 h-3 ${refetchMutation.isPending ? 'animate-spin' : ''}`} />
-                  {refetchMutation.isPending ? 'Fetching…' : 'Re-fetch'}
+                  {refetchMutation.isPending ? t('galleryImageModal.fetching') : t('galleryImageModal.refetch')}
                 </button>
               </div>
             </div>
@@ -223,8 +226,8 @@ export function GalleryImageModal({
               {/* Auto — server picks best by priority (Hubble → Wikipedia → DSS2) */}
               <SkySourceTile
                 src={skyImageUrl}
-                label="Auto"
-                sublabel="Best available"
+                label={t('galleryImageModal.autoLabel')}
+                sublabel={t('galleryImageModal.autoSublabel')}
                 isSelected={isSkyAutoSelected}
                 isDark={isDark}
                 disabled={selectMutation.isPending}
@@ -251,7 +254,7 @@ export function GalleryImageModal({
           {/* Upload option */}
           <div className="space-y-3">
             <h4 className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              Upload Custom Image
+              {t('galleryImageModal.uploadHeading')}
             </h4>
             <div className="flex items-start gap-3 flex-wrap">
               {/* Show the active or saved upload as a selectable tile so the
@@ -260,8 +263,8 @@ export function GalleryImageModal({
               {customUploadPath && (
                 <SkySourceTile
                   src={getLibraryFileUrl(customUploadPath)}
-                  label="Custom Upload"
-                  sublabel="Your image"
+                  label={t('galleryImageModal.customUploadLabel')}
+                  sublabel={t('galleryImageModal.customUploadSublabel')}
                   isSelected={effectiveSelection === customUploadPath}
                   isDark={isDark}
                   disabled={selectMutation.isPending || uploading}
@@ -280,18 +283,18 @@ export function GalleryImageModal({
                 {uploading ? (
                   <>
                     <RotateCw className="w-5 h-5 animate-spin text-accent-500" />
-                    <span className="text-sm">Uploading...</span>
+                    <span className="text-sm">{t('objectDetail.processedUploader.uploading')}</span>
                   </>
                 ) : uploadPreview ? (
                   <>
-                    <img src={uploadPreview} alt="Preview" className="w-10 h-10 rounded-lg object-cover" />
-                    <span className="text-sm">Processing...</span>
+                    <img src={uploadPreview} alt={t('galleryImageModal.previewAlt')} className="w-10 h-10 rounded-lg object-cover" />
+                    <span className="text-sm">{t('galleryImageModal.processingUpload')}</span>
                   </>
                 ) : (
                   <>
                     <ImagePlus className="w-5 h-5" />
                     <span className="text-sm">
-                      {customUploadPath ? 'Replace with another file' : 'Choose a file from your computer'}
+                      {customUploadPath ? t('galleryImageModal.replaceFile') : t('galleryImageModal.chooseFile')}
                     </span>
                   </>
                 )}
@@ -314,13 +317,13 @@ export function GalleryImageModal({
             <div className="flex items-center gap-2 py-4">
               <RotateCw className="w-4 h-4 animate-spin text-accent-500/40" />
               <span className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                Loading images...
+                {t('galleryImageModal.loadingImages')}
               </span>
             </div>
           ) : (stackedImages && stackedImages.length > 0) || processedImages.length > 0 ? (
             <div className="space-y-3">
               <h4 className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                Choose from Your Observations
+                {t('galleryImageModal.chooseFromObservations')}
               </h4>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {stackedImages?.map(img => (
@@ -328,7 +331,7 @@ export function GalleryImageModal({
                     key={img.path}
                     src={getLibraryFileThumbnailUrl(img.path)}
                     label={img.date !== 'unknown'
-                      ? new Date(img.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+                      ? formatDate(new Date(img.date + 'T12:00:00'), { month: 'short', day: 'numeric', year: '2-digit' })
                       : img.name
                     }
                     isSelected={effectiveSelection === img.path}
@@ -353,7 +356,7 @@ export function GalleryImageModal({
           ) : (
             <div className={`text-center py-6 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
               <Image className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">No observation images available yet</p>
+              <p className="text-sm">{t('galleryImageModal.noObservationImages')}</p>
             </div>
           )}
         </div>
@@ -369,7 +372,7 @@ export function GalleryImageModal({
               isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
             }`}
           >
-            Cancel
+            {t('galleryImageModal.cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -377,7 +380,7 @@ export function GalleryImageModal({
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {selectMutation.isPending && <RotateCw className="w-4 h-4 animate-spin" />}
-            Save
+            {t('galleryImageModal.save')}
           </button>
         </div>
     </Modal>
@@ -492,6 +495,7 @@ function SkySourceTile({
   onLoadError?: () => void;
   showFailedFallback?: boolean;
 }) {
+  const { t } = useTranslation('library');
   return (
     <button
       onClick={onClick}
@@ -508,7 +512,7 @@ function SkySourceTile({
     >
       {showFailedFallback ? (
         <div className={`w-full h-full flex items-center justify-center text-[10px] text-center px-2 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-          Not cached -<br />run catalog download
+          {t('galleryImageModal.notCachedLine1')}<br />{t('galleryImageModal.notCachedLine2')}
         </div>
       ) : (
         <img

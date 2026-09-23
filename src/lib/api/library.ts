@@ -1,5 +1,5 @@
-import type { AstroObject, Session, ProcessedImage, ProjectArchive, SessionCaptureSummary } from '../../types';
-export type { ProcessedImage, ProjectArchive };
+import type { AstroObject, Session, ProcessedImage, ProjectArchive, SessionCaptureSummary, ProcessingStatus } from '../../types';
+export type { ProcessedImage, ProjectArchive, ProcessingStatus };
 import { fetchJSON, authHeaders, BASE } from './client';
 import type { ConnectionType as TransportKind } from './telescopes';
 
@@ -143,7 +143,8 @@ export const getArchiveScopes = () =>
 export type CalibrationFrameType = 'bias' | 'dark' | 'flat' | 'flatDark' | 'mixed';
 
 /** Metadata parsed from a calibration frame's own filename, when it matched
- *  the recognized ASIAIR/NINA-style pattern — see calibrationFolders.ts. */
+ *  the recognized ASIAIR/NINA-style or Dwarf-style pattern — see
+ *  calibrationFolders.ts. */
 export interface CalibrationFrameInfo {
   exposureSec?: number;
   binning?: number;
@@ -154,7 +155,12 @@ export interface CalibrationFrameInfo {
    *  temperature — see server/lib/library/calibrationFolders.ts. */
   cameraAngleDeg?: number;
   capturedAt?: string;
+  /** ASIAIR-only frame sequence number. */
   sequence?: number;
+  /** Dwarf 3 only: which optical path (`cam_0`/`cam_1`) this master came from. */
+  camera?: string;
+  /** Dwarf-only: how many raw frames its firmware combined into this master. */
+  stackCount?: number;
 }
 
 export interface CalibrationFile {
@@ -183,6 +189,14 @@ export interface CalibrationSettingsGroup {
   exposureSec: number | null;
   binning: number | null;
   gain: number | null;
+  /** Dwarf 3 only: `cam_0`/`cam_1`. `null` for every non-Dwarf bundle. */
+  camera: string | null;
+  /** This bundle's real bias/dark/flat/flat-dark type — only ever set within
+   *  a `mixed` (Dwarf CALI_FRAME) group, where it disambiguates a group whose
+   *  own `type` is the generic `'mixed'`. `null` when the group isn't
+   *  `mixed` (use the group's own `type` instead) or a `mixed` group's files
+   *  didn't parse cleanly enough to resolve one. */
+  frameType: CalibrationFrameType | null;
   sensorTempC: number | null;
   fileCount: number;
   bytes: number;
@@ -191,7 +205,8 @@ export interface CalibrationSettingsGroup {
   /** Latest capture timestamp among this bundle's files. */
   capturedAt: string | null;
   /** True once older than Settings → Library → "Dark/bias validity" — bias/
-   *  dark bundles only, always false for flat/flat-dark/mixed. */
+   *  dark bundles only (resolved per-bundle for a `mixed` group), always
+   *  false for flat/flat-dark. */
   isExpired: boolean;
   /** Where this bundle is attached — flat/flat-dark bundles only. Absent
    *  (not just empty) for bias/dark/mixed groups, which can't be attached at
@@ -510,6 +525,14 @@ export const syncObjectSubFrames = (objectId: string) =>
   fetchJSON<{ started: boolean; objectId: string }>(
     `/library/objects/${encodeURIComponent(objectId)}/sync-subframes`,
     { method: 'POST' }
+  );
+
+/** Reclassify an object to a different catalog identity. Renames it if the
+ *  target has no library object yet, or merges into it if one already does. */
+export const reclassifyObject = (objectId: string, targetCatalogId: string, remember: boolean) =>
+  fetchJSON<{ mode: 'rename' | 'merge'; objectId: string }>(
+    `/library/objects/${encodeURIComponent(objectId)}/reclassify`,
+    { method: 'POST', body: JSON.stringify({ targetCatalogId, remember }) }
   );
 
 // ─── Folder-import wizard (scan → review → commit) ───────────────────────────
@@ -1091,7 +1114,7 @@ export const getProjectArchives = (objectId: string) =>
  * a plain `await fetch(...)` with no feedback and no way to stop mid-flight
  * is not good enough here (mirrors uploadFolderTemp's XHR-based approach,
  * simplified to a single request instead of that function's multi-batch
- * loop — there's exactly one file, so there is nothing to batch).
+ * loop, since there's exactly one file to send).
  */
 export function uploadProjectArchive(
   objectId: string,
@@ -1217,6 +1240,23 @@ export const requestObjectDownloadUrl = (
       }),
     },
   );
+
+/** File count + total size for the same file set `requestObjectDownloadUrl`
+ *  would zip, so a confirmation prompt can show what "Download all" actually
+ *  means before the user commits to it. */
+export const getObjectDownloadSummary = (
+  objectId: string,
+  opts?: { fileType?: string; date?: string; includeVariants?: boolean },
+) => {
+  const params = new URLSearchParams();
+  if (opts?.fileType) params.set('fileType', opts.fileType);
+  if (opts?.date) params.set('date', opts.date);
+  if (opts?.includeVariants) params.set('includeVariants', 'true');
+  const qs = params.toString();
+  return fetchJSON<{ fileCount: number; totalBytes: number }>(
+    `/library/download/objects/${encodeURIComponent(objectId)}/summary${qs ? `?${qs}` : ''}`,
+  );
+};
 
 // ── Async subframe ZIP (3-phase: start → poll → fetch tmp) ──
 export const getSubframeFilters = (objectId: string, dates: string[], includeVariants?: boolean) =>

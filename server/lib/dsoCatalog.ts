@@ -13,7 +13,7 @@ import openNgcJson from '../data/openngc.json';
 import { expandSearchAliases, resolveCanonicalId, normalizeDesignation } from './catalogAliases.js';
 import { getAllCuratedRecords } from './catalogStore.js';
 import { isRecord } from './typeGuards.js';
-import { raToHours, decToDegs } from './astroCalc.js';
+import { raToHours, decToDegs, maxPossibleAltitude } from './astroCalc.js';
 
 export interface DsoEntry {
   id: string;           // e.g. "M31", "NGC7000", "IC434"
@@ -225,9 +225,32 @@ export function getByName(name: string): DsoEntry | undefined {
   );
 }
 
-export function search(query: string, limit = 30): DsoEntry[] {
-  if (!query.trim()) return [];
+function typeMatches(entry: DsoEntry, type: string): boolean {
+  return entry.type.toLowerCase().includes(type.toLowerCase()) || entry.typeCode === type;
+}
+
+/**
+ * Whether `entry` can ever clear `minAlt` degrees of altitude for an
+ * observer at `lat` — a pure geometry check (see `maxPossibleAltitude`), not
+ * a "is it up right now" one. An object below this bar never rises high
+ * enough at this latitude on ANY night of the year, e.g. a deep-southern-
+ * declination target for a mid-northern site. `lat == null` means no
+ * location is known, in which case nothing is excluded (the caller can't
+ * ask "visible from where" with no "where").
+ */
+function everVisibleFrom(entry: DsoEntry, lat?: number, minAlt?: number): boolean {
+  if (lat == null) return true;
+  return maxPossibleAltitude(lat, entry.dec) >= (minAlt ?? 0);
+}
+
+/** Shared relevance scoring, factored out of `search()` so `searchFiltered`
+ *  (which also needs type filtering, a location filter, a stable sort
+ *  override, and offset pagination over the matched set) doesn't duplicate
+ *  the scoring rules. Pure and side-effect free: callers decide how to
+ *  slice/order the result. */
+function scoreMatches(query: string, type?: string, lat?: number, minAlt?: number): Array<{ entry: DsoEntry; score: number }> {
   const q = query.toLowerCase().trim();
+  if (!q) return [];
   const catalog = loadSearchable();
 
   // Expand the query to include the canonical ID and all aliases so e.g. "C30"
@@ -237,6 +260,9 @@ export function search(query: string, limit = 30): DsoEntry[] {
   const results: Array<{ entry: DsoEntry; score: number }> = [];
 
   for (const entry of catalog) {
+    if (type && !typeMatches(entry, type)) continue;
+    if (!everVisibleFrom(entry, lat, minAlt)) continue;
+
     let score = 0;
     const idLower = entry.id.toLowerCase();
     const nameLower = entry.name.toLowerCase();
@@ -264,10 +290,54 @@ export function search(query: string, limit = 30): DsoEntry[] {
     if (score > 0) results.push({ entry, score });
   }
 
-  return results
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map(r => r.entry);
+  return results.sort((a, b) => b.score - a.score);
+}
+
+export function search(query: string, limit = 30): DsoEntry[] {
+  return scoreMatches(query).slice(0, limit).map(r => r.entry);
+}
+
+export type DsoSort = 'name' | 'magnitude';
+
+/** Sorts in place by the given key; `undefined` leaves the array's existing
+ *  order untouched (catalog order for `filterCatalog`, relevance order for
+ *  `searchFiltered`) rather than forcing every caller to pick a tiebreaker. */
+function sortEntries(entries: DsoEntry[], sort?: DsoSort): DsoEntry[] {
+  if (sort === 'name') {
+    return [...entries].sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+  }
+  if (sort === 'magnitude') {
+    // Fainter/unknown magnitude sorts last: null read as +Infinity so a
+    // missing measurement never outranks a real (bright, low-number) one.
+    return [...entries].sort((a, b) => (a.magnitude ?? Infinity) - (b.magnitude ?? Infinity));
+  }
+  return entries;
+}
+
+/**
+ * Like `search`, but supports the same `type` filter, `sort` override, and
+ * real offset/limit pagination `filterCatalog` (browse mode) has — added so
+ * the `/dso` route can serve a free-text query alongside those without a
+ * second, disconnected code path. `search()` above is left untouched (exact
+ * same signature/behavior) since it has its own direct callers/tests that
+ * expect a plain `DsoEntry[]`.
+ */
+export function searchFiltered(query: string, opts: {
+  type?: string;
+  /** Observer latitude in decimal degrees, paired with `minAlt` to drop
+   *  objects that can never clear that altitude from this location — see
+   *  `everVisibleFrom`. */
+  lat?: number;
+  minAlt?: number;
+  sort?: DsoSort;
+  limit?: number;
+  offset?: number;
+} = {}): { entries: DsoEntry[]; total: number } {
+  const matched = sortEntries(scoreMatches(query, opts.type, opts.lat, opts.minAlt).map(r => r.entry), opts.sort);
+  const total = matched.length;
+  const offset = opts.offset ?? 0;
+  const limit = opts.limit ?? 30;
+  return { entries: matched.slice(offset, offset + limit), total };
 }
 
 export function filterCatalog(opts: {
@@ -275,17 +345,22 @@ export function filterCatalog(opts: {
   constellation?: string;
   maxMag?: number;
   minSize?: number;
+  /** See `searchFiltered`'s identical option. */
+  lat?: number;
+  minAlt?: number;
+  sort?: DsoSort;
   limit?: number;
   offset?: number;
 }): { entries: DsoEntry[]; total: number } {
   const catalog = loadCatalog();
-  const filtered = catalog.filter(e => {
-    if (opts.type && !e.type.toLowerCase().includes(opts.type.toLowerCase()) && e.typeCode !== opts.type) return false;
+  const filtered = sortEntries(catalog.filter(e => {
+    if (opts.type && !typeMatches(e, opts.type)) return false;
     if (opts.constellation && (e.constellation ?? '').toLowerCase() !== opts.constellation.toLowerCase()) return false;
     if (opts.maxMag != null && e.magnitude != null && e.magnitude > opts.maxMag) return false;
     if (opts.minSize != null && e.majorAxisArcmin != null && e.majorAxisArcmin < opts.minSize) return false;
+    if (!everVisibleFrom(e, opts.lat, opts.minAlt)) return false;
     return true;
-  });
+  }), opts.sort);
 
   const total = filtered.length;
   const offset = opts.offset ?? 0;

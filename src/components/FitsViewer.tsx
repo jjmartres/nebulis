@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { ZoomIn, ZoomOut, RotateCw, Contrast, Satellite, Loader2, Clock, Zap, AlertCircle, X, Info, MapPin } from 'lucide-react';
 import { identifySatellites, type SatelliteTrailResult } from '../lib/api/observations';
 import { fetchBinary } from '../lib/api/client';
@@ -39,6 +40,7 @@ export function FitsViewer({
   onNaturalSize,
   initialZoom,
 }: FitsViewerProps) {
+  const { t } = useTranslation('library');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -55,13 +57,26 @@ export function FitsViewer({
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationGeoError, setLocationGeoError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!satModalOpen && !satHelpOpen && !showLocationPrompt) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      if (satModalOpen) setSatModalOpen(false);
+      else if (satHelpOpen) setSatHelpOpen(false);
+      else if (showLocationPrompt) { setShowLocationPrompt(false); setLocationGeoError(null); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [satModalOpen, satHelpOpen, showLocationPrompt]);
+
   // Cached by url (same key namespace as FitsThumbnail/FitsPreview) so
   // navigating away and back to this file — or reopening it in the lightbox
   // after already having viewed it in the grid — doesn't re-download it.
   // staleTime: Infinity because the bytes at a given library URL never change.
   const fitsQuery = useQuery({
     queryKey: ['fits-binary', url],
-    queryFn: async ({ signal }) => parseFits(await fetchBinary(url, signal)),
+    queryFn: async ({ signal }) => parseFits(await fetchBinary(url, signal, t), t),
     staleTime: Infinity,
     retry: false,
   });
@@ -96,11 +111,11 @@ export function FitsViewer({
         setSatModalOpen(true);
       }
     } catch (err) {
-      setSatError(err instanceof Error ? err.message : 'Detection failed');
+      setSatError(err instanceof Error ? err.message : t('fitsViewer.detectionFailed'));
     } finally {
       setSatDetecting(false);
     }
-  }, [satResult, satIdentifyDone, filePath]);
+  }, [satResult, satIdentifyDone, filePath, t]);
 
   const handleShareLocation = useCallback(async () => {
     setLocationGeoError(null);
@@ -118,13 +133,13 @@ export function FitsViewer({
     } catch (err) {
       setLocationGeoError(
         err instanceof GeolocationPositionError
-          ? 'Location access was denied. Set your location in Settings instead.'
-          : 'Could not get your location. Set it in Settings instead.'
+          ? t('fitsViewer.locationAccessDenied')
+          : t('fitsViewer.locationUnavailable')
       );
     } finally {
       setSatDetecting(false);
     }
-  }, [filePath]);
+  }, [filePath, t]);
 
   useEffect(() => {
     if (fitsData) onNaturalSize?.(fitsData.width, fitsData.height);
@@ -180,7 +195,7 @@ export function FitsViewer({
           {error ? error : (
             <div className="flex items-center gap-3">
               <RotateCw className="w-5 h-5 animate-spin text-accent-500" />
-              <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Loading FITS data...</span>
+              <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{t('fitsViewer.loadingFitsData')}</span>
             </div>
           )}
         </div>
@@ -209,7 +224,7 @@ export function FitsViewer({
               onClick={() => setUserZoom(null)}
               className={`px-2 py-1 rounded-lg text-xs font-medium transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
             >
-              Fit
+              {t('fitsViewer.fit')}
             </button>
             <button
               onClick={() => setUserZoom(1)}
@@ -226,11 +241,11 @@ export function FitsViewer({
               onChange={e => setInternalStretch(parseFloat(e.target.value))}
               className="w-32 accent-accent-500"
             />
-            <span className="text-xs text-slate-500 w-10">Stretch</span>
+            <span className="text-xs text-slate-500 w-10">{t('fitsViewer.stretch')}</span>
           </div>
 
           <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {fitsData.width} × {fitsData.height} px
+            {t('fitsViewer.dimensions', { width: fitsData.width, height: fitsData.height })}
           </span>
 
           {fitsData?.header?.['DATE-OBS'] && (() => {
@@ -258,18 +273,18 @@ export function FitsViewer({
               }`}
             >
               {satDetecting ? (
-                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Identifying...</>
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('fitsViewer.identifying')}</>
               ) : satResult ? (
-                <><Satellite className="w-3.5 h-3.5" /> View Results</>
+                <><Satellite className="w-3.5 h-3.5" /> {t('fitsViewer.viewResults')}</>
               ) : (
-                <><Satellite className="w-3.5 h-3.5" /> Identify Satellite</>
+                <><Satellite className="w-3.5 h-3.5" /> {t('fitsViewer.identifySatellite')}</>
               )}
             </button>
           )}
 
           <button
             onClick={() => setSatHelpOpen(true)}
-            title="How does this work?"
+            title={t('fitsViewer.howDoesThisWork')}
             className={`p-1.5 rounded-lg transition ${isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
           >
             <Info className="w-3.5 h-3.5" />
@@ -326,11 +341,11 @@ export function FitsViewer({
               }`}
             >
               {satDetecting ? (
-                <><Loader2 className="w-3 h-3 animate-spin" /> Scanning...</>
+                <><Loader2 className="w-3 h-3 animate-spin" /> {t('fitsViewer.scanning')}</>
               ) : satResult ? (
-                <><Satellite className="w-3 h-3" /> {satResult.trailDetected ? (satIdentifyDone ? 'View Results' : 'Identify Satellite') : 'No trail'}</>
+                <><Satellite className="w-3 h-3" /> {satResult.trailDetected ? (satIdentifyDone ? t('fitsViewer.viewResults') : t('fitsViewer.identifySatellite')) : t('fitsViewer.noTrail')}</>
               ) : (
-                <><Satellite className="w-3 h-3" /> Identify Satellite</>
+                <><Satellite className="w-3 h-3" /> {t('fitsViewer.identifySatellite')}</>
               )}
             </button>
             {satError && (
@@ -352,7 +367,7 @@ export function FitsViewer({
               <div className="flex items-center gap-2">
                 <Satellite className="w-5 h-5 text-amber-500" />
                 <h3 className={`font-semibold text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  {satResult.nearMissFallback ? 'Potential Candidates' : 'Satellites Crossing This FOV'}
+                  {satResult.nearMissFallback ? t('fitsViewer.potentialCandidates') : t('fitsViewer.satellitesCrossingFov')}
                 </h3>
               </div>
               <button
@@ -368,7 +383,7 @@ export function FitsViewer({
                 <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   <Clock className="w-4 h-4 flex-shrink-0" />
                   <span>
-                    Exposure window:{' '}
+                    {t('fitsViewer.exposureWindowLabel')}{' '}
                     <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>
                       {new Date(satResult.exposureStart).toLocaleTimeString()}
                     </strong>
@@ -376,14 +391,14 @@ export function FitsViewer({
                     <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>
                       {new Date(new Date(satResult.exposureStart).getTime() + satResult.exposureSeconds * 1000).toLocaleTimeString()}
                     </strong>
-                    {' '}({satResult.exposureSeconds}s)
+                    {' '}{t('fitsViewer.exposureSecondsSuffix', { seconds: satResult.exposureSeconds })}
                   </span>
                 </div>
               )}
 
               {satResult.nearMissFallback && (
                 <p className={`text-sm rounded-lg px-3 py-2 ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-700'}`}>
-                  No cataloged satellite was confirmed inside the FOV during this exposure. These satellites passed nearby and may be the source - TLE accuracy degrades over time, so a close pass could still be a match. The trail may also be classified debris or an uncataloged object.
+                  {t('fitsViewer.nearMissExplanation')}
                 </p>
               )}
 
@@ -415,12 +430,12 @@ export function FitsViewer({
                               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                                 isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'
                               }`}>
-                                during exposure
+                                {t('fitsViewer.duringExposure')}
                               </span>
                             )}
                           </div>
                           <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                            NORAD {sat.noradId}
+                            {t('fitsViewer.noradId', { id: sat.noradId })}
                           </span>
                         </div>
                       </div>
@@ -431,11 +446,11 @@ export function FitsViewer({
                         </span>
                         <span className="flex items-center gap-1">
                           <Zap className="w-3 h-3" />
-                          {sat.velocityDegPerSec.toFixed(2)}°/s
+                          {t('fitsViewer.velocityDegPerSec', { value: sat.velocityDegPerSec.toFixed(2) })}
                         </span>
                         {satResult.nearMissFallback && sat.angularDistanceFromCenter != null && (
                           <span className={`flex items-center gap-1 ${isDark ? 'text-amber-400/70' : 'text-amber-600'}`}>
-                            {sat.angularDistanceFromCenter.toFixed(1)}° from FOV
+                            {t('fitsViewer.awayFromFov', { deg: sat.angularDistanceFromCenter.toFixed(1) })}
                           </span>
                         )}
                       </div>
@@ -445,8 +460,8 @@ export function FitsViewer({
               ) : (
                 <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   {satResult.missingHeaders && satResult.missingHeaders.length > 0
-                    ? `Cannot identify - missing FITS headers: ${satResult.missingHeaders.join(', ')}`
-                    : 'No cataloged satellites found passing this FOV during the exposure.'}
+                    ? t('fitsViewer.missingHeaders', { headers: satResult.missingHeaders.join(', ') })
+                    : t('fitsViewer.noCatalogedSatellites')}
                 </p>
               )}
             </div>
@@ -456,7 +471,7 @@ export function FitsViewer({
                 onClick={() => setSatModalOpen(false)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition ${isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
               >
-                Close
+                {t('fitsViewer.close')}
               </button>
             </div>
           </div>
@@ -473,11 +488,10 @@ export function FitsViewer({
               </div>
               <div className="text-center space-y-1.5">
                 <h3 className={`text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                  Location needed to identify satellites
+                  {t('fitsViewer.locationNeededTitle')}
                 </h3>
                 <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  This frame doesn't include observer coordinates, and no location is saved in Settings.
-                  Share your location to identify which satellite made this trail.
+                  {t('fitsViewer.locationNeededBody')}
                 </p>
                 {locationGeoError && (
                   <p className="text-xs text-red-500">{locationGeoError}</p>
@@ -489,14 +503,14 @@ export function FitsViewer({
                   disabled={satDetecting}
                   className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition"
                 >
-                  {satDetecting ? <><Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1.5" />Getting location...</> : 'Share location'}
+                  {satDetecting ? <><Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1.5" />{t('fitsViewer.gettingLocation')}</> : t('fitsViewer.shareLocation')}
                 </button>
                 <button
                   onClick={() => { setShowLocationPrompt(false); setLocationGeoError(null); }}
                   disabled={satDetecting}
                   className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50 ${isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
-                  Cancel
+                  {t('fitsViewer.cancel')}
                 </button>
               </div>
             </div>
@@ -512,7 +526,7 @@ export function FitsViewer({
               <div className="flex items-center gap-2">
                 <Info className="w-4 h-4 text-accent-400" />
                 <h3 className={`font-semibold text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  How satellite detection works
+                  {t('fitsViewer.howDetectionWorksTitle')}
                 </h3>
               </div>
               <button
@@ -525,16 +539,16 @@ export function FitsViewer({
 
             <div className={`p-5 space-y-4 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
               <div className="space-y-1.5">
-                <p className={`font-semibold text-xs uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Step 1: Trail detection</p>
-                <p>The FITS image is scanned for straight bright streaks using projection analysis across 180 angles. Background gradients and nebulosity are subtracted first, and stars are masked so only linear features remain as candidates.</p>
+                <p className={`font-semibold text-xs uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('fitsViewer.step1Title')}</p>
+                <p>{t('fitsViewer.step1Body')}</p>
               </div>
               <div className="space-y-1.5">
-                <p className={`font-semibold text-xs uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Step 2: Satellite identification</p>
-                <p>If a trail is found, the FITS header is read for the exposure start time and sky coordinates (RA/Dec). Those are used to query an orbital catalog (TLE data) and compute which satellites were crossing that patch of sky during the exposure window.</p>
+                <p className={`font-semibold text-xs uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('fitsViewer.step2Title')}</p>
+                <p>{t('fitsViewer.step2Body')}</p>
               </div>
               <div className="space-y-1.5">
-                <p className={`font-semibold text-xs uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>About the results</p>
-                <p>Satellites confirmed inside the field of view during the exposure are listed first. When no exact match is found, nearby candidates are shown — TLE orbital data degrades over time, so a satellite that passed close to the edge may still be the source. The trail could also be uncataloged debris.</p>
+                <p className={`font-semibold text-xs uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('fitsViewer.aboutResultsTitle')}</p>
+                <p>{t('fitsViewer.aboutResultsBody')}</p>
               </div>
             </div>
 
@@ -543,7 +557,7 @@ export function FitsViewer({
                 onClick={() => setSatHelpOpen(false)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition ${isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
               >
-                Got it
+                {t('fitsViewer.gotIt')}
               </button>
             </div>
           </div>
