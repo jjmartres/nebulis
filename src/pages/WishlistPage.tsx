@@ -2,9 +2,8 @@
  * The wishlist as a full page — the "expand" destination from the Planner's
  * popup, and a landing zone in its own right for finding new things to
  * image (search-to-add) alongside managing what's already on the list.
- * Route: /wishlist. Also reachable directly from the top nav when the user
- * has turned "Wishlist" on in Settings -> General -> Navigation bar (it's
- * hidden by default there, same as Forecast).
+ * Route: /wishlist. Also reachable directly from the top nav, where it is on
+ * by default (turn it off in Settings -> General -> Navigation bar).
  *
  * The "Back to Planner" / "Minimize" row only makes sense when there's an
  * actual Planner popup underneath to return to, so it's gated on a

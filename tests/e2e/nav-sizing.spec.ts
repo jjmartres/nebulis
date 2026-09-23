@@ -20,13 +20,18 @@ const ALL_NAV_IDS = [
   'wishlist', 'catalogs', 'calibrations', 'settings', 'help',
 ];
 
-/** Every item except Calibrations: the default set most users see, and what
- *  the "full size in the gap" case below is measured against. */
+/** Nine items, every one except Calibrations. This is not the shipped default
+ *  set (Forecast is off by default too); it is the width the "full size in the
+ *  gap" case below was measured and tuned against, so it is pinned here on
+ *  purpose. Changing which nine ids these are means re-checking that test's
+ *  1470px expectations. */
 const DEFAULT_NAV_IDS = ALL_NAV_IDS.filter(id => id !== 'calibrations');
 
 /** Turn every nav item in `ids` on. `settings` is always visible regardless;
- *  the two seeded keys stop the hidden-by-default items (Forecast, Wishlist)
- *  from being forced off when there is no stored visibility list yet. Items
+ *  the seeded keys mark each hidden-by-default item's one-time default as
+ *  already applied (and Wishlist's flipped default as already seen), so the
+ *  explicit `nebulis-nav-hidden` list below is what decides. Without them
+ *  `applyDefaultSeeds` would force its own defaults over this list. Items
  *  missing from `nebulis-nav-order` are appended by useNavVisibility, so the
  *  hidden list is what actually removes one. */
 async function seedNavItems(page: Page, ids: string[] = ALL_NAV_IDS) {
@@ -34,7 +39,8 @@ async function seedNavItems(page: Page, ids: string[] = ALL_NAV_IDS) {
     localStorage.setItem('nebulis-nav-order', JSON.stringify(ids));
     localStorage.setItem('nebulis-nav-hidden', JSON.stringify(allIds.filter(id => !ids.includes(id))));
     localStorage.setItem('nebulis-nav-forecast-default-seeded-v1', '1');
-    localStorage.setItem('nebulis-nav-wishlist-default-seeded-v1', '1');
+    localStorage.setItem('nebulis-nav-calibrations-default-seeded-v1', '1');
+    localStorage.setItem('nebulis-nav-wishlist-default-visible-v1', '1');
     localStorage.setItem('nebulis-tour-seen-v1', '1');
   }, { ids, allIds: ALL_NAV_IDS });
 }

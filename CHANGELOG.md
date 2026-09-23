@@ -1,5 +1,5 @@
 # Changelog
-## 2.1.0 (272) - September 20th, 2026
+## 2.1.0 (273) - September 20th, 2026
 ### New
 - Localization: the web app is now available in German, French, and Spanish (Settings -> General -> Language), AI-translated and not yet checked by a native speaker. If you spot a wrong or awkward phrase, or want to contribute a language that isn't listed, open a pull request against the public GitHub repo (nebulis-app/nebulis) - src/locales/CONTRIBUTING-TRANSLATIONS.md walks through exactly what to change and how. You can also send translation feedback to support@nebulis.app.
 - Wishlist: starring an object now builds a real wishlist, reachable from a new top-nav section or the Planner toolbar, with search, priority, notes, scheduling, and JSON export/import. Targets not up tonight show a 12-month altitude chart of their best months instead.
@@ -16,6 +16,7 @@
 ### Updated
 - Planner: the target list and details dialog are less cluttered, with peak altitude shown as a short "88° · 04:50" and the details dialog leading with Add to Tonight.
 - Navigation bar: the top nav now sizes itself to the room it actually has instead of shrinking labels past eight items, and a newly turned-on item lands next to where it belongs instead of always at the end.
+- Nvavigation bar: you can now hide/show ANY item on the top menu bar, and re-arrange them (Settings -> General -> Navigation Bar)
 - Observations: the List view now pages through your observations instead of loading them all at once.
 - Planner: quick-adding a target with the "+" button now avoids the Moon the same way "Plan My Night" already does.
 

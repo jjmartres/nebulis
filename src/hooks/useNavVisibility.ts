@@ -53,33 +53,72 @@ const ORDER_STORAGE_KEY = 'nebulis-nav-order';
  *  hidden-by-default item later doesn't need its own version bump and
  *  doesn't re-seed an item a user already re-enabled. */
 const DEFAULT_HIDDEN_SEEDS: { id: NavItemId; seededKey: string }[] = [
-  { id: 'forecast', seededKey: 'nebulis-nav-forecast-default-seeded-v1' },
-  { id: 'wishlist', seededKey: 'nebulis-nav-wishlist-default-seeded-v1' },
+  { id: 'forecast',     seededKey: 'nebulis-nav-forecast-default-seeded-v1' },
+  { id: 'calibrations', seededKey: 'nebulis-nav-calibrations-default-seeded-v1' },
 ];
 
+/** The mirror case: an item whose default flipped the other way, from hidden
+ *  to shown. A browser seeded by the old default still carries the id in
+ *  `nebulis-nav-hidden` (and `DEFAULT_HIDDEN_SEEDS` above deliberately never
+ *  revisits a flag it has already set), so without this the item would stay
+ *  hidden forever and the new default would reach brand-new browsers only.
+ *  Applied once per browser, keyed per item like the hidden seeds. A user who
+ *  re-enabled the item by hand has it absent from the stored list already, so
+ *  this is a no-op for them; a user who hid it by hand *after* the old seed
+ *  sees it come back once, which is the same one-time trade the original
+ *  seeding already made. */
+const DEFAULT_VISIBLE_SEEDS: { id: NavItemId; seededKey: string }[] = [
+  { id: 'wishlist', seededKey: 'nebulis-nav-wishlist-default-visible-v1' },
+];
+
+/** Applies both seed lists to a stored hidden set: each flag is read, acted on
+ *  and written back exactly once per browser. `store` is `localStorage` in the
+ *  browser; tests pass an in-memory stand-in, which is why this is split out
+ *  of `getInitialHidden` rather than reading storage directly. */
+export function applyDefaultSeeds(
+  hidden: Set<NavItemId>,
+  store: Pick<Storage, 'getItem' | 'setItem'>,
+): { hidden: Set<NavItemId>; changed: boolean } {
+  const next = new Set(hidden);
+  let changed = false;
+  for (const seed of DEFAULT_HIDDEN_SEEDS) {
+    if (store.getItem(seed.seededKey) !== '1') {
+      next.add(seed.id);
+      store.setItem(seed.seededKey, '1');
+      changed = true;
+    }
+  }
+  for (const seed of DEFAULT_VISIBLE_SEEDS) {
+    if (store.getItem(seed.seededKey) !== '1') {
+      next.delete(seed.id);
+      store.setItem(seed.seededKey, '1');
+      changed = true;
+    }
+  }
+  return { hidden: next, changed };
+}
+
+/** Every item hidden by default, for a browser with no storage at all (SSR, or
+ *  a storage read that threw). Mirrors what `applyDefaultSeeds` does to an
+ *  empty set, minus the seeding flags. */
+function defaultHidden(): Set<NavItemId> {
+  return new Set(DEFAULT_HIDDEN_SEEDS.map(s => s.id));
+}
+
 function getInitialHidden(): Set<NavItemId> {
-  if (typeof window === 'undefined') return new Set(DEFAULT_HIDDEN_SEEDS.map(s => s.id));
+  if (typeof window === 'undefined') return defaultHidden();
   try {
     const raw = localStorage.getItem(VISIBILITY_STORAGE_KEY);
     const parsed = raw ? (JSON.parse(raw) as string[]) : [];
     const valid = parsed.filter((id): id is NavItemId =>
       NAV_ITEM_IDS.includes(id as NavItemId) && id !== LOCKED_VISIBLE_ID
     );
-    const hidden = new Set(valid);
-
-    let seededAny = false;
-    for (const seed of DEFAULT_HIDDEN_SEEDS) {
-      if (localStorage.getItem(seed.seededKey) !== '1') {
-        hidden.add(seed.id);
-        localStorage.setItem(seed.seededKey, '1');
-        seededAny = true;
-      }
-    }
-    if (seededAny) localStorage.setItem(VISIBILITY_STORAGE_KEY, JSON.stringify([...hidden]));
+    const { hidden, changed } = applyDefaultSeeds(new Set(valid), localStorage);
+    if (changed) localStorage.setItem(VISIBILITY_STORAGE_KEY, JSON.stringify([...hidden]));
 
     return hidden;
   } catch {
-    return new Set(DEFAULT_HIDDEN_SEEDS.map(s => s.id));
+    return defaultHidden();
   }
 }
 

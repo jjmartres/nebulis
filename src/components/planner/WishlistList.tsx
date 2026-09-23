@@ -2,8 +2,8 @@
  * The wishlist's toolbar (search/sort/bulk actions) and row list. Shared by
  * `WishlistModal` (a small popup opened from the Planner) and the full
  * `/wishlist` page (reached via the modal's expand button, or directly from
- * the top nav when the user has turned it on in Settings) — the list itself
- * doesn't care which chrome it's sitting in.
+ * the top nav, where it is on by default) — the list itself doesn't care which
+ * chrome it's sitting in.
  *
  * Clicking a row opens `WishlistObjectModal` with the same full-detail view
  * regardless of which chrome hosts this list, with prev/next over the
