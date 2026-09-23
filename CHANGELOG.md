@@ -1,5 +1,5 @@
 # Changelog
-## 2.1.0 (273) - September 20th, 2026
+## 2.1.0 (274) - September 20th, 2026
 ### New
 - Localization: the web app is now available in German, French, and Spanish (Settings -> General -> Language), AI-translated and not yet checked by a native speaker. If you spot a wrong or awkward phrase, or want to contribute a language that isn't listed, open a pull request against the public GitHub repo (nebulis-app/nebulis) - src/locales/CONTRIBUTING-TRANSLATIONS.md walks through exactly what to change and how. You can also send translation feedback to support@nebulis.app.
 - Wishlist: starring an object now builds a real wishlist, reachable from a new top-nav section or the Planner toolbar, with search, priority, notes, scheduling, and JSON export/import. Targets not up tonight show a 12-month altitude chart of their best months instead.
@@ -21,6 +21,7 @@
 - Planner: quick-adding a target with the "+" button now avoids the Moon the same way "Plan My Night" already does.
 
 ### Fixes
+- ZWO ASIAIR: flat-dark frames (Autorun/FlatDark, Plan/FlatDark) were never fetched during a live sync, so they never reached the Calibrations library. They are archived now. (@jjmartres)
 - Catalog filters: supernova remnants now show up consistently as nebulae across the Planner, Catalogs board, and library breakdown.
 - Wishlist: objects missing magnitude, size, or constellation data now star correctly instead of silently failing to add.
 - Settings: the Data Sources note now says what's actually sent (site coordinates for weather and light pollution, object names for catalog lookups).
