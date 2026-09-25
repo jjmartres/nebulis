@@ -12,6 +12,7 @@
  * number on the page is consistent.
  */
 import { Camera, CloudSun, Droplets, Eye, Moon, Wind } from 'lucide-react';
+import i18n from '../../i18n';
 import type { ForecastHour } from '../../lib/api/planner';
 import {
   calculateVisibilityScore,
@@ -64,7 +65,7 @@ function ColLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ScoreChip({ score }: { score: number }) {
+function ScoreChip({ score, label }: { score: number; label: string }) {
   const hex = scoreHex(score);
   return (
     <span
@@ -73,7 +74,7 @@ function ScoreChip({ score }: { score: number }) {
     >
       {score}
       <span className="font-semibold uppercase tracking-[0.10em] text-[9.5px]">
-        {scoreLabel(score)}
+        {label}
       </span>
     </span>
   );
@@ -90,6 +91,8 @@ function CloudBar({ pct, isDark }: { pct: number; isDark: boolean }) {
     </div>
   );
 }
+
+const t = (k: string, opts?: Record<string, unknown>) => i18n.t(k, { ns: 'forecast', ...opts });
 
 // ─── Main component ────────────────────────────────────────────────────────
 
@@ -197,7 +200,7 @@ export function WeatherNight({
           </thead>
           <tbody>
             {windowHours.map((hour, idx) => {
-              const vis        = calculateVisibilityScore(hour, tonight.moonIllumination, timeZone, darkWindow);
+              const vis        = calculateVisibilityScore(hour, tonight.moonIllumination, timeZone, darkWindow, t);
               const isEvenRow  = idx % 2 === 0;
 
               return (
@@ -212,7 +215,7 @@ export function WeatherNight({
 
                   {/* Score */}
                   <td className="px-3 py-2.5">
-                    <ScoreChip score={vis.score} />
+                    <ScoreChip score={vis.score} label={scoreLabel(vis.score, t)} />
                   </td>
 
                   {/* Cloud cover */}

@@ -15,6 +15,10 @@ export interface PlannedSession {
   startTime: string; // ISO 8601 UTC
   endTime: string;   // ISO 8601 UTC
   notes: string;
+  /** JSON-serialized mosaic framing (cols/rows/overlap/rotation) built for
+   *  this scheduled block in the Framing & Mosaic planner, or null if the
+   *  user never saved one. Opaque to this module; see FramingModal.tsx. */
+  framingSetup: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,10 +47,11 @@ const stmts = {
   ),
   update: db.prepare(
     `UPDATE plannedSessions
-       SET startTime = COALESCE(?, startTime),
-           endTime   = COALESCE(?, endTime),
-           notes     = COALESCE(?, notes),
-           updatedAt = datetime('now')
+       SET startTime    = COALESCE(?, startTime),
+           endTime      = COALESCE(?, endTime),
+           notes        = COALESCE(?, notes),
+           framingSetup = COALESCE(?, framingSetup),
+           updatedAt    = datetime('now')
      WHERE id = ?`,
   ),
   delete: db.prepare('DELETE FROM plannedSessions WHERE id = ?'),
@@ -97,7 +102,7 @@ export function create(input: PlannedSessionInput): PlannedSession {
 
 export function update(
   id: number,
-  patch: Partial<Pick<PlannedSession, 'startTime' | 'endTime' | 'notes'>>,
+  patch: Partial<Pick<PlannedSession, 'startTime' | 'endTime' | 'notes' | 'framingSetup'>>,
 ): PlannedSession | null {
   const existing = stmts.getById.get(id);
   if (!existing) return null;
@@ -105,6 +110,7 @@ export function update(
     patch.startTime != null ? canonicalizeIso(patch.startTime) : null,
     patch.endTime != null ? canonicalizeIso(patch.endTime) : null,
     patch.notes ?? null,
+    patch.framingSetup ?? null,
     id,
   );
   return stmts.getById.get(id) ?? null;

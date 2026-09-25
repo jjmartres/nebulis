@@ -1,22 +1,28 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { X, ExternalLink, Telescope, CalendarDays, MapPin, ChevronLeft, ChevronRight, ZoomIn, EyeOff, Frame } from 'lucide-react';
+import { X, ExternalLink, Telescope, CalendarDays, MapPin, ChevronLeft, ChevronRight, ZoomIn, EyeOff, Frame, Star } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { CatalogProgressObject } from '../../lib/api/catalogs';
 import { getCatalogObjectInfo } from '../../lib/api/catalog';
 import { getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import { computeBestImagingWindow, isUpTonight } from '../../lib/bestImagingWindow';
+import { filterRecommendations } from '../../lib/filterRecommendations';
 import type { FitAssessment } from '../../lib/telescopeFov';
+import { fitDisplayStrings } from '../../lib/telescopeFov';
 import { FitBadge } from '../FitBadge';
-import { FilterRecommendationPanel } from '../FilterRecommendationPanel';
 import { FramingModal, FRAMING_MOSAIC_ENABLED } from './FramingModal';
+import { FilterRecommendationPanel } from './FilterRecommendationPanel';
+import { BestImagingChart } from './BestImagingChart';
 
 interface Props {
   object: CatalogProgressObject;
-  /** How this object sits in the current telescope's frame — precomputed by
+  /** How this object sits in the current telescope's frame, precomputed by
    *  `CatalogBoard` (the same map that drives its tiles' badges and the
-   *  "Best frame fit" sort), `null` when the angular size isn't known. */
+   *  "Best frame fit" sort). `null` when the angular size isn't known. */
   fit: FitAssessment | null;
+  inWishlist: boolean;
+  onToggleWishlist: () => void;
   hasPrev: boolean;
   hasNext: boolean;
   onPrev: () => void;
@@ -31,138 +37,11 @@ interface Props {
 }
 
 
-function BestImagingChart({
-  months,
-  windowStart,
-  windowEnd,
-  minAlt,
-  isDark,
-  isNight,
-  isSpace,
-}: {
-  months: ReturnType<typeof computeBestImagingWindow>['months'];
-  windowStart: string | null;
-  windowEnd: string | null;
-  minAlt: number;
-  isDark: boolean;
-  isNight: boolean;
-  isSpace: boolean;
-}) {
-  const [hovered, setHovered] = useState<number | null>(null);
-  const accentColor = isNight ? '#f87171' : isSpace ? '#a78bfa' : '#fbbf24';
-
-  const maxAlt = Math.max(...months.map(m => m.maxAlt), minAlt + 10, 30);
-  const W = 420;
-  const H = 100;
-  const PAD = { top: 10, bottom: 20, left: 28, right: 8 };
-  const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
-  const barW = Math.floor(chartW / months.length) - 2;
-
-  function yFor(alt: number) {
-    return PAD.top + chartH - (Math.max(0, alt) / maxAlt) * chartH;
-  }
-
-  const minAltY = yFor(minAlt);
-
-  return (
-    <div>
-      <div className={`text-xs font-medium mb-2 flex items-center gap-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        <CalendarDays className="w-3.5 h-3.5" />
-        Max altitude during darkness — next 12 months
-        {windowStart && windowEnd && (
-          <span className="ml-auto font-semibold" style={{ color: accentColor }}>
-            Best: {windowStart === windowEnd ? windowStart : `${windowStart} – ${windowEnd}`}
-          </span>
-        )}
-      </div>
-      <div className="relative">
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          className="w-full"
-          style={{ maxHeight: 100 }}
-          onMouseLeave={() => setHovered(null)}
-        >
-          {/* Altitude gridlines */}
-          {[0, 30, 60, 90].map(alt => {
-            if (alt > maxAlt + 5) return null;
-            const y = yFor(alt);
-            return (
-              <g key={alt}>
-                <line
-                  x1={PAD.left} y1={y} x2={W - PAD.right} y2={y}
-                  stroke={isDark ? '#334155' : '#e2e8f0'}
-                  strokeWidth="0.5"
-                  strokeDasharray="3,3"
-                />
-                <text x={PAD.left - 4} y={y + 3.5} textAnchor="end" fontSize="7" fill={isDark ? '#64748b' : '#94a3b8'}>
-                  {alt}°
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Min-alt threshold line */}
-          <line
-            x1={PAD.left} y1={minAltY} x2={W - PAD.right} y2={minAltY}
-            stroke={isDark ? '#ef4444' : '#f87171'}
-            strokeWidth="1"
-            strokeDasharray="4,2"
-            opacity="0.6"
-          />
-
-          {/* Bars */}
-          {months.map((m, i) => {
-            const x = PAD.left + i * (chartW / months.length) + 1;
-            const barH = Math.max(0, (Math.max(0, m.maxAlt) / maxAlt) * chartH);
-            const barY = PAD.top + chartH - barH;
-            const isHovered = hovered === i;
-            const fillColor = m.aboveMinAlt ? accentColor : isDark ? '#334155' : '#cbd5e1';
-            const opacity = m.aboveMinAlt ? (isHovered ? 1 : 0.8) : (isHovered ? 0.5 : 0.3);
-
-            return (
-              <g key={i} onMouseEnter={() => setHovered(i)}>
-                <rect
-                  x={x}
-                  y={barY}
-                  width={barW}
-                  height={barH}
-                  rx="1"
-                  fill={fillColor}
-                  opacity={opacity}
-                  style={{ transition: 'opacity 0.1s' }}
-                />
-                {/* Month label */}
-                <text
-                  x={x + barW / 2}
-                  y={H - 5}
-                  textAnchor="middle"
-                  fontSize="7"
-                  fill={isDark ? '#64748b' : '#94a3b8'}
-                >
-                  {m.label}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-
-        {/* Tooltip */}
-        {hovered !== null && (
-          <div className={`absolute -top-8 pointer-events-none text-[11px] px-2 py-0.5 rounded shadow-lg ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-900 border border-slate-200'}`}
-            style={{ left: `${(hovered / months.length) * 100}%`, transform: 'translateX(-40%)' }}
-          >
-            {months[hovered].label}: {months[hovered].maxAlt > 0 ? `${months[hovered].maxAlt}°` : 'below horizon'}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function CatalogObjectModal({
   object,
   fit,
+  inWishlist,
+  onToggleWishlist,
   hasPrev,
   hasNext,
   onPrev,
@@ -175,11 +54,13 @@ export function CatalogObjectModal({
   isSpace,
   onClose,
 }: Props) {
+  const { t } = useTranslation('catalogs');
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasLocation = observerLat != null && observerLon != null;
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [framingOpen, setFramingOpen] = useState(false);
+  const fitStrings = fit ? fitDisplayStrings(fit, t) : null;
 
   // Close the lightbox when switching to a different catalog object.
   // Render-phase reset; the scroll-to-top is a real DOM effect, kept separate.
@@ -197,18 +78,25 @@ export function CatalogObjectModal({
       if (e.key === 'ArrowLeft') { e.preventDefault(); if (hasPrev) onPrev(); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); if (hasNext) onNext(); }
       else if (e.key === 'Escape') {
+        // FramingModal is a nested overlay with its own window-level Escape
+        // handler; both listeners see the same keydown, so without this guard
+        // one Escape press would close Framing & Mosaic AND this modal at once.
         if (lightboxOpen) setLightboxOpen(false);
-        else onClose();
+        else if (!framingOpen) onClose();
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [hasPrev, hasNext, onPrev, onNext, onClose, lightboxOpen]);
+  }, [hasPrev, hasNext, onPrev, onNext, onClose, lightboxOpen, framingOpen]);
 
+  // Not Infinity — see the matching comment in WishlistObjectModal, which
+  // shares this same query key: a freshly-imported object's description
+  // can still be mid-enrichment when this first loads, and an infinite
+  // staleTime would pin the empty result for the rest of the tab's life.
   const { data: info } = useQuery({
     queryKey: ['catalog-info', object.id],
     queryFn: () => getCatalogObjectInfo(object.id),
-    staleTime: Infinity,
+    staleTime: 5 * 60_000,
   });
 
   const imgUrl = getCatalogThumbnailUrl(object.id, object.majorAxisArcmin);
@@ -236,6 +124,11 @@ export function CatalogObjectModal({
 
   const description = info?.description?.trim() || '';
   const wikiUrl = info?.wikiUrl || null;
+
+  // Filter guidance follows from the object's type, which the catalog info
+  // response already carries, so this costs no extra request. An object with
+  // no type at all gets no panel rather than a generic one.
+  const filterRec = info?.type?.trim() ? filterRecommendations(info.type) : null;
 
   const accentBg = isNight ? 'bg-red-500' : isSpace ? 'bg-violet-500' : 'bg-amber-500';
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-amber-400';
@@ -271,19 +164,19 @@ export function CatalogObjectModal({
           className={`shrink-0 p-2.5 rounded-full text-white border border-white/20 transition-all ${
             hasPrev ? 'bg-black/50 hover:bg-black/70' : 'invisible pointer-events-none'
           }`}
-          aria-label="Previous object"
+          aria-label={t('catalogObjectModal.previousObject')}
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
 
       <div
-        ref={scrollRef}
-        className={`flex-1 min-w-0 rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto ${
+        className={`flex flex-1 min-w-0 flex-col rounded-2xl shadow-2xl max-h-[92vh] ${
           isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'
         }`}
       >
-        {/* Header */}
-        <div className={`flex items-start justify-between p-5 border-b ${borderColor} gap-4`}>
+        {/* Header — stays pinned so the object identity and close button
+            are always visible, even when the body below scrolls. */}
+        <div className={`shrink-0 flex items-start justify-between p-5 border-b ${borderColor} gap-4`}>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-display font-bold tracking-tight">
@@ -296,18 +189,35 @@ export function CatalogObjectModal({
               )}
               {object.isImaged && (
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-white ${accentBg}`}>
-                  Imaged ({object.sessionCount} session{object.sessionCount !== 1 ? 's' : ''})
+                  {t('catalogObjectModal.imagedSessions', { count: object.sessionCount })}
                 </span>
               )}
-              {fit && <FitBadge tag={fit.tag} label={fit.short} title={fit.label} isDark={isDark} />}
+              {fit && fitStrings && (
+                <FitBadge tag={fit.tag} label={fitStrings.short} title={fitStrings.label} isDark={isDark} />
+              )}
+              <button
+                onClick={onToggleWishlist}
+                aria-pressed={inWishlist}
+                title={inWishlist ? t('catalogObjectModal.removeFromWishlist') : t('catalogObjectModal.addToWishlist')}
+                className={`rounded-full p-1 transition ${
+                  inWishlist
+                    ? 'text-amber-400'
+                    : isDark ? 'text-slate-500 hover:text-amber-300' : 'text-slate-400 hover:text-amber-500'
+                }`}
+              >
+                <Star className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
+                <span className="sr-only">
+                  {inWishlist ? t('catalogObjectModal.removeFromWishlist') : t('catalogObjectModal.addToWishlist')}
+                </span>
+              </button>
             </div>
             <div className={`flex items-center flex-wrap gap-3 mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               <span>{object.type}</span>
               {object.constellation && <span>· {object.constellation}</span>}
-              {object.magnitude != null && <span>· Mag {object.magnitude.toFixed(1)}</span>}
+              {object.magnitude != null && <span>· {t('catalogObjectModal.mag', { value: object.magnitude.toFixed(1) })}</span>}
               {object.ra != null && object.dec != null && (
                 <span className="flex items-center gap-1">
-                  · RA {object.ra.toFixed(2)}h · Dec {object.dec.toFixed(2)}°
+                  · {t('catalogObjectModal.raDec', { ra: object.ra.toFixed(2), dec: object.dec.toFixed(2) })}
                 </span>
               )}
             </div>
@@ -315,14 +225,17 @@ export function CatalogObjectModal({
           <button
             onClick={onClose}
             className={`shrink-0 p-2 rounded-lg transition ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
-            aria-label="Close"
+            aria-label={t('catalogObjectModal.close')}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-5 space-y-5">
+        {/* Body — the part that scrolls when everything doesn't fit the
+            viewport. Actions stay out of this div, pinned below instead, so
+            they're always reachable without hunting for a scrollbar (macOS
+            hides them by default). */}
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
           {/* Image + description row */}
           <div className="flex gap-4 items-start">
             <button
@@ -330,11 +243,11 @@ export function CatalogObjectModal({
               className={`w-36 h-36 shrink-0 rounded-xl overflow-hidden border group relative cursor-pointer ${
                 isDark ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-slate-100'
               }`}
-              aria-label="View larger image"
+              aria-label={t('catalogObjectModal.viewLargerImage')}
             >
               <img
                 src={imgUrl}
-                alt={`Reference image of ${object.id}`}
+                alt={t('catalogObjectModal.referenceImageAlt', { id: object.id })}
                 loading="lazy"
                 className="w-full h-full object-cover transition-opacity group-hover:opacity-75"
               />
@@ -351,7 +264,7 @@ export function CatalogObjectModal({
                 </p>
               ) : (
                 <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  No description available.
+                  {t('catalogObjectModal.noDescription')}
                 </p>
               )}
               {wikiUrl && (
@@ -362,18 +275,15 @@ export function CatalogObjectModal({
                   className={`inline-flex items-center gap-1 text-xs mt-2 ${accentText} hover:opacity-80`}
                 >
                   <ExternalLink className="w-3 h-3" />
-                  Wikipedia
+                  {t('catalogObjectModal.wikipedia')}
                 </a>
               )}
             </div>
           </div>
 
-          {/* Filter recommendations */}
-          {info?.filterRecommendations && (
-            <FilterRecommendationPanel
-              recommendations={info.filterRecommendations}
-              isDark={isDark}
-            />
+          {/* Filter recommendations for this object's type */}
+          {filterRec && (
+            <FilterRecommendationPanel recommendations={filterRec} isDark={isDark} />
           )}
 
           {/* Best imaging window chart */}
@@ -390,14 +300,14 @@ export function CatalogObjectModal({
               />
               {!bestWindow.everVisible && (
                 <p className={`text-xs mt-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  This object stays below your minimum altitude ({minAlt}°) during darkness year-round from your location.
+                  {t('catalogObjectModal.belowMinimumAltitude', { deg: minAlt })}
                 </p>
               )}
             </div>
           ) : !hasLocation ? (
             <div className={`rounded-xl p-4 flex items-center gap-2 text-sm ${isDark ? 'bg-slate-800/60 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
               <MapPin className="w-4 h-4 shrink-0" />
-              Set your location in Settings to see the best imaging window for your sky.
+              {t('catalogObjectModal.setLocationForWindow')}
             </div>
           ) : null}
 
@@ -405,12 +315,13 @@ export function CatalogObjectModal({
           {notVisibleTonight && (
             <div className="rounded-xl p-3 flex items-start gap-2 text-sm bg-red-500/10 text-red-400 border border-red-500/30">
               <EyeOff className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>This object stays below the horizon all night from your location, so you can't see it tonight.</span>
+              <span>{t('catalogObjectModal.notVisibleTonight')}</span>
             </div>
           )}
+        </div>
 
-          {/* Actions */}
-          <div className={`flex flex-wrap gap-2 pt-1 border-t ${borderColor}`}>
+        {/* Actions — pinned footer, never part of the scrolling body. */}
+        <div className={`shrink-0 flex flex-wrap gap-2 p-5 pt-3 border-t ${borderColor}`}>
             {object.isImaged ? (
               <button
                 onClick={handleGoToObservations}
@@ -419,13 +330,13 @@ export function CatalogObjectModal({
                 }`}
               >
                 <Telescope className="w-4 h-4" />
-                View observations
+                {t('catalogObjectModal.viewObservations')}
               </button>
             ) : null}
             <button
               onClick={handlePlannerClick}
               disabled={notVisibleTonight}
-              title={notVisibleTonight ? "This object isn't visible from your location tonight." : undefined}
+              title={notVisibleTonight ? t('catalogObjectModal.notVisibleTitle') : undefined}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition border ${
                 notVisibleTonight
                   ? isDark
@@ -441,7 +352,7 @@ export function CatalogObjectModal({
               }`}
             >
               <CalendarDays className="w-4 h-4" />
-              Open in Planner
+              {t('catalogObjectModal.openInPlanner')}
             </button>
             {FRAMING_MOSAIC_ENABLED && (
               <button
@@ -449,13 +360,12 @@ export function CatalogObjectModal({
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition border ${
                   isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
-                title="Preview how this object frames in your telescope, and plan a mosaic"
+                title={t('catalogObjectModal.framingButtonTitle')}
               >
                 <Frame className="w-4 h-4 text-sky-500" />
-                Framing &amp; Mosaic
+                {t('catalogObjectModal.framingButton')}
               </button>
             )}
-          </div>
         </div>
       </div>
 
@@ -465,7 +375,7 @@ export function CatalogObjectModal({
           className={`shrink-0 p-2.5 rounded-full text-white border border-white/20 transition-all ${
             hasNext ? 'bg-black/50 hover:bg-black/70' : 'invisible pointer-events-none'
           }`}
-          aria-label="Next object"
+          aria-label={t('catalogObjectModal.nextObject')}
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -483,13 +393,13 @@ export function CatalogObjectModal({
           >
             <img
               src={lightboxImgUrl}
-              alt={`Reference image of ${object.id}`}
+              alt={t('catalogObjectModal.referenceImageAlt', { id: object.id })}
               className="max-w-[85vw] max-h-[85vh] rounded-2xl object-contain shadow-2xl"
             />
             <button
               onClick={() => setLightboxOpen(false)}
               className="absolute -top-3 -right-3 p-1.5 bg-black/80 hover:bg-black rounded-full text-white transition"
-              aria-label="Close"
+              aria-label={t('catalogObjectModal.close')}
             >
               <X className="w-4 h-4" />
             </button>

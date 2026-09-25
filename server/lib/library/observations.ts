@@ -21,11 +21,13 @@ import {
 } from '../telescopeFiles.js';
 import { getNote } from '../notes.js';
 import { openMeteoHourly } from '../openMeteo.js';
+import { addDaysToDateKey } from '../timezone.js';
 import { FITS_THUMBNAIL_PIPELINE_VERSION } from '../fitsThumbnail.js';
 import {
   stmts,
   getFolderName,
   resolveCatalogMeta,
+  resolveContainedObjectDir,
   LIBRARY_API_BASE,
 } from './objects.js';
 import {
@@ -83,16 +85,30 @@ export type { SessionWeather };
  * that naive value in the server's timezone, so a server in UTC scoring a
  * session in America/Denver would average the wrong 8 hours.
  *
+ * Pass `nightDate` (the session's observing-night key, YYYY-MM-DD) whenever the
+ * response can span more than one calendar day, which is the normal case: the
+ * window is the two days the night actually spans, so 20:00-23:59 of
+ * `nightDate` plus 00:00-03:59 of `nightDate + 1`. Without the date check, a
+ * two-day response selects BOTH days' small hours and BOTH days' evenings, and
+ * a single-day response silently substitutes the PREVIOUS night's 00:00-03:59
+ * (the session's own post-midnight half was never fetched at all).
+ *
  * Falls back to every hour when nothing lands in the window (e.g. a polar
  * day where the API returned an unexpected slice).
  */
-export function nightHourIndices(times: string[]): number[] {
+export function nightHourIndices(times: string[], nightDate?: string): number[] {
+  const endDate = nightDate ? addDaysToDateKey(nightDate, 1) : null;
   const inWindow = times
     .map((t, i) => {
       const hh = Number(t.split('T')[1]?.slice(0, 2));
-      return { hour: Number.isFinite(hh) ? hh : -1, i };
+      return { date: t.slice(0, 10), hour: Number.isFinite(hh) ? hh : -1, i };
     })
-    .filter(({ hour }) => hour >= 20 || (hour >= 0 && hour <= 3))
+    .filter(({ date, hour }) => {
+      if (endDate) {
+        return (date === nightDate && hour >= 20) || (date === endDate && hour >= 0 && hour <= 3);
+      }
+      return hour >= 20 || (hour >= 0 && hour <= 3);
+    })
     .map(({ i }) => i);
   return inWindow.length > 0 ? inWindow : times.map((_, i) => i);
 }
@@ -122,15 +138,20 @@ async function fetchSessionWeather(date: string, site: ObservingSite): Promise<S
   const daysDiff = (Date.now() - new Date(date + 'T12:00:00Z').getTime()) / 86_400_000;
 
   try {
+    // `date` is the observing night, so the darkness it describes runs past
+    // local midnight into the NEXT calendar day. Request both days: fetching
+    // only `date` meant the 00:00-03:59 half of "the night" was actually the
+    // previous night's morning, 24 hours off.
+    const nextDate = addDaysToDateKey(date, 1);
     const data = await openMeteoHourly(lat, lon, {
       vars: [...WEATHER_VARS],
       startDate: date,
-      endDate: date,
+      endDate: nextDate,
       archive: daysDiff > 5,
     });
     if (!data || data.time.length === 0) return null;
 
-    const night = nightHourIndices(data.time);
+    const night = nightHourIndices(data.time, date);
     const avg = (v: (typeof WEATHER_VARS)[number]) => avgOverNight(data.series[v], night);
 
     return {
@@ -468,14 +489,12 @@ function reconcileSessionTelescopesFromFiles(objectId: string): void {
 
 export function getLocalSessions(objectId: string) {
   const LIBRARY_DIR = getLibraryDir();
-  // getFolderName falls back to the raw objectId on a DB miss, so a crafted
-  // objectId with traversal tokens must not reach existsSync/readdirSync
-  // below — that would be a filesystem enumeration oracle outside the
-  // library. Treated the same as "object dir doesn't exist" further down.
-  const objDirCandidate = path.resolve(LIBRARY_DIR, getFolderName(objectId));
-  const objDir = objDirCandidate === LIBRARY_DIR || objDirCandidate.startsWith(LIBRARY_DIR + path.sep)
-    ? objDirCandidate
-    : null;
+  // Contained resolution rather than a hand-rolled prefix test: the local copy
+  // still let the library ROOT through (objectId '.') and so enumerated it.
+  // A crafted objectId must not reach existsSync/readdirSync below — that would
+  // be a filesystem enumeration oracle outside the library. Treated the same as
+  // "object dir doesn't exist" further down.
+  const objDir = resolveContainedObjectDir(objectId);
 
   if (objDir && fs.existsSync(objDir)) {
     const filesForReconcile = fs.readdirSync(objDir).filter(f => isRealFile(f) && !f.startsWith('sky_') && !f.startsWith('gallery_'));
@@ -1307,8 +1326,11 @@ export function getLocalObservationDetail(objectId: string, date: string) {
  * so it is never re-imported from the telescope.
  */
 export function deleteLocalSession(objectId: string, date: string): void {
-  const LIBRARY_DIR = getLibraryDir();
-  const objDir = path.join(LIBRARY_DIR, getFolderName(objectId));
+  // Resolve (and contain) the object directory BEFORE touching the DB: the
+  // folder name falls back to the raw id on a DB miss, so an uncontained join
+  // let a traversal id unlink files anywhere the server can write.
+  const objDir = resolveContainedObjectDir(objectId);
+  if (!objDir) return;
 
   // Update DB FIRST
   const existing = stmts.getObject.get(objectId);
@@ -1412,8 +1434,9 @@ export function listDeletedSessions(): DeletedSessionSummary[] {
  * Leaves stacked images, thumbnails, and other files for that session intact.
  */
 export function deleteSessionSubFrames(objectId: string, date: string): { deleted: number } {
-  const LIBRARY_DIR = getLibraryDir();
-  const objDir = path.join(LIBRARY_DIR, getFolderName(objectId));
+  // Contained resolution before any unlink — see deleteLocalSession above.
+  const objDir = resolveContainedObjectDir(objectId);
+  if (!objDir) return { deleted: 0 };
   let deleted = 0;
   const folderName = getFolderName(objectId);
   const layout = getObjectLayout(objectId);
@@ -1442,14 +1465,17 @@ export function deleteSessionSubFrames(objectId: string, date: string): { delete
  * Moves all files for that date on disk and updates all DB records.
  */
 export function moveObservation(fromObjectId: string, date: string, toObjectId: string): { moved: number } {
-  const LIBRARY_DIR = getLibraryDir();
-  const fromDir = path.join(LIBRARY_DIR, getFolderName(fromObjectId));
-  const toFolderName = getFolderName(toObjectId);
-  const toDir = path.join(LIBRARY_DIR, toFolderName);
-
   if (fromObjectId === toObjectId) {
     throw new Error('Source and target objects are the same');
   }
+
+  // Both ends contained. The target matters as much as the source here: an
+  // uncontained `path.join(root, getFolderName(toObjectId))` let an admin (or a
+  // leaked admin token) mkdir+rename a session into any directory on the host.
+  const fromDir = resolveContainedObjectDir(fromObjectId);
+  const toDir = resolveContainedObjectDir(toObjectId);
+  if (!fromDir || !toDir) return { moved: 0 };
+  const toFolderName = getFolderName(toObjectId);
 
   // Find files to move. Object-relative paths, so a nested source keeps its
   // session directory and lands under the same directory in the target.

@@ -11,6 +11,7 @@ import {
   observingNightDate,
   sessionNightFor,
   clampToNightSafeTime,
+  isPlausibleCalendarDate,
 } from '../../server/lib/telescopeFiles';
 import { updateSettingsData } from '../../server/lib/telescopes';
 
@@ -652,5 +653,54 @@ describe('ReDoS resistance', () => {
 
   it('normalizeCatalogId resolves quickly on an adversarial panel-suffix name', () => {
     withinMs(() => normalizeCatalogId(`M31_panel${'9'.repeat(60)}x`), 200);
+  });
+});
+
+describe('isPlausibleCalendarDate', () => {
+  it('accepts real dates including leap days', () => {
+    expect(isPlausibleCalendarDate('2024-02-29')).toBe(true);
+    expect(isPlausibleCalendarDate('2026-01-15')).toBe(true);
+    expect(isPlausibleCalendarDate('2026-12-31')).toBe(true);
+  });
+
+  it('rejects days that do not exist in the month', () => {
+    expect(isPlausibleCalendarDate('2024-02-30')).toBe(false);
+    expect(isPlausibleCalendarDate('2023-02-29')).toBe(false); // not a leap year
+    expect(isPlausibleCalendarDate('2024-04-31')).toBe(false);
+    expect(isPlausibleCalendarDate('2024-11-31')).toBe(false);
+  });
+
+  it('rejects out-of-range months and malformed input', () => {
+    expect(isPlausibleCalendarDate('2024-13-01')).toBe(false);
+    expect(isPlausibleCalendarDate('2024-00-10')).toBe(false);
+    expect(isPlausibleCalendarDate('2024-01-00')).toBe(false);
+    expect(isPlausibleCalendarDate('2024-1-5')).toBe(false);
+    expect(isPlausibleCalendarDate('')).toBe(false);
+  });
+});
+
+describe('parseFilename date validity', () => {
+  // Every pattern builds `date` by slicing digits out of the name, so a
+  // hand-named file or a firmware typo could otherwise become a live session
+  // key and be stamped onto the on-disk name by importNaming.ts.
+  it('drops an impossible date and its timestamp instead of using them', () => {
+    for (const name of [
+      'Stacked_150_M42_10.0s_IRCUT_20240230-210530A.jpg',
+      'sub_00001_M42_10.0s_IRCUT_20241345-205200.fit',
+      'IC 1396_60s60_Duo-Band_20230229-235645742_34C.fits',
+    ]) {
+      const parsed = parseFilename(name);
+      expect(parsed.date).toBeUndefined();
+      expect(parsed.timestamp).toBeUndefined();
+      expect(getSessionKey(parsed)).toBe('unknown');
+      expect(sessionNightFor(parsed)).toBeNull();
+    }
+  });
+
+  it('keeps a real leap-day date', () => {
+    const parsed = parseFilename('Stacked_150_M42_10.0s_IRCUT_20240229-210530A.jpg');
+    expect(parsed.date).toBe('2024-02-29');
+    expect(parsed.timestamp).toBe('20240229-210530');
+    expect(sessionNightFor(parsed)).toBe('2024-02-29');
   });
 });

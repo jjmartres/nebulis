@@ -65,4 +65,18 @@ describe('plannedSessions', () => {
     const row = create(sample);
     expect(getById(row.id)?.objectId).toBe('M42');
   });
+
+  it('a new session has no framingSetup until one is saved', () => {
+    const row = create(sample);
+    expect(row.framingSetup).toBeNull();
+  });
+
+  it('update stores framingSetup and leaves it untouched when absent from a later patch', () => {
+    const row = create(sample);
+    const withFraming = update(row.id, { framingSetup: '{"cols":2,"rows":2,"overlap":0.1,"rotationDeg":15}' });
+    expect(withFraming?.framingSetup).toBe('{"cols":2,"rows":2,"overlap":0.1,"rotationDeg":15}');
+
+    const afterUnrelatedPatch = update(row.id, { notes: 'clear skies' });
+    expect(afterUnrelatedPatch?.framingSetup).toBe('{"cols":2,"rows":2,"overlap":0.1,"rotationDeg":15}');
+  });
 });

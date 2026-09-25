@@ -23,8 +23,11 @@
  * the observer is checking.
  */
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import {
+  ArrowRightLeft,
   Calendar,
   Clock,
   Crown,
@@ -33,12 +36,14 @@ import {
   FolderOpen,
   Layers,
   Loader2,
-  Merge,
+  MoreHorizontal,
   NotebookPen,
   Pencil,
   Sparkles,
   Trash2,
 } from 'lucide-react';
+import { useClickOutside } from '../../hooks/useClickOutside';
+import { useImageFocalPoint } from '../../hooks/useImageFocalPoint';
 import { FitsPreview } from '../FitsPreview';
 import { FileLocationModal } from '../library/FileLocationModal';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
@@ -101,7 +106,9 @@ interface Props {
 
   onOpenNotes: (() => void) | null;
   hasNote: boolean;
-  onCombine: (() => void) | null;
+  /** Moves this observation's files to a different catalog object. Null for a
+   *  viewer who may not run it. */
+  onMove: (() => void) | null;
   onDelete: (() => void) | null;
 }
 
@@ -138,8 +145,9 @@ export function SessionHero({
   media, badge, onOpenMedia, onResetCrown, emptyReason,
   telescope, telescopes, isAdmin,
   captureMetrics, accent,
-  onOpenNotes, hasNote, onCombine, onDelete,
+  onOpenNotes, hasNote, onMove, onDelete,
 }: Props) {
+  const { t } = useTranslation('observations');
   const [showLocation, setShowLocation] = useState(false);
   /** A plain `<img>` reserves no space until it loads, so without a
    *  fixed-size placeholder the hero collapses to nothing and then jumps to
@@ -147,6 +155,7 @@ export function SessionHero({
    *  someone is mid-scroll is what reads as the page jittering. */
   const [imgLoaded, setImgLoaded] = useState(false);
   const ambientSrc = media?.kind === 'image' ? media.src : null;
+  const focalPoint = useImageFocalPoint(ambientSrc);
   // Crowning a different file swaps the src on the same element, which starts a
   // fresh load while `imgLoaded` still says the previous one finished. Keyed on
   // the src so the placeholder comes back for the new picture. State reset
@@ -190,9 +199,19 @@ export function SessionHero({
           scrims over the top of the ones the backdrop already carries. */}
       {(!media || media.kind === 'video') && <HeroBackdrop image={HERO_IMAGES['southern-ring']} intensity={0.72} />}
 
-      {/* Ambient: the frame itself, thrown far out of focus. Every observation
+      {/* Ambient: the frame itself, thrown out of focus. Every observation
           brings its own colour to the panel this way, and a narrow frame no
-          longer leaves a dead slab of background beside it. */}
+          longer leaves a dead slab of background beside it. Cropped to the
+          frame's own brightest region (useImageFocalPoint), matching
+          ObjectHero: a center crop on a subject sitting in a mostly-black
+          frame often lands on empty sky. Blur is deliberately lighter than a
+          first pass at this used (64px), also matching ObjectHero: at that
+          radius a starfield's own stars, which is most of what a raw/
+          unprocessed frame actually is, get smeared into one flat grey wash.
+          28px keeps individual stars as soft points and real structure as a
+          gradient, so the panel reads as "a photo" rather than a tinted
+          rectangle; saturate/contrast/brightness lift that dimmer, more
+          detailed result back up against the panel's own dark scrims. */}
       {ambientSrc && (
         <img
           src={ambientSrc}
@@ -201,8 +220,10 @@ export function SessionHero({
           // Scaled well past the panel so the blur's own soft edge is cropped
           // away; left at 100% it feathers to transparent inside the panel and
           // the ambient reads as a rectangle floating on the background.
-          className={`absolute inset-0 h-full w-full scale-[1.6] object-cover blur-[64px] saturate-150
+          className={`absolute inset-0 h-full w-full scale-[2] object-cover blur-[28px]
+            saturate-[180%] contrast-[120%] brightness-[130%]
             transition-opacity duration-700 ${imgLoaded ? 'opacity-55' : 'opacity-0'}`}
+          style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
         />
       )}
       <div className="pointer-events-none absolute inset-0 bg-slate-950/60" />
@@ -226,33 +247,24 @@ export function SessionHero({
         {/* Full-width row above the picture and text columns, so it sits at
             the true upper-left of the panel rather than starting wherever
             the text column happens to start. Matches ObjectHero's identical
-            fix. */}
-        <div className="flex items-start justify-between gap-3">
-          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
-            <Link to="/observations" className="text-white/45 transition hover:text-white">
-              Observations
-            </Link>
-            <span className="text-white/20">/</span>
-            <Link
-              to={`/object/${encodeURIComponent(objectId)}`}
-              className="truncate text-white/45 transition hover:text-white"
-            >
-              {displayName}
-            </Link>
-            <span className="text-white/20">/</span>
-            <span className="text-white/70">{shortDate}</span>
-          </nav>
-
-          <button
-            onClick={() => setShowLocation(true)}
-            title="Show where this session's files live on disk"
-            className="-m-1 shrink-0 rounded-lg p-1 text-white/40 transition hover:bg-white/10 hover:text-white
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            fix. No longer carries its own file-location icon: that action now
+            lives in the overflow menu below, the same place ObjectHero keeps
+            it, instead of an unlabeled corner button nothing else on the page
+            used that pattern for. */}
+        <nav aria-label={t('observationDetail.hero.breadcrumb')} className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+          <Link to="/observations" className="text-white/45 transition hover:text-white">
+            {t('observationDetail.hero.observations')}
+          </Link>
+          <span className="text-white/20">/</span>
+          <Link
+            to={`/object/${encodeURIComponent(objectId)}`}
+            className="truncate text-white/45 transition hover:text-white"
           >
-            <FolderOpen className="h-4 w-4" />
-            <span className="sr-only">File location</span>
-          </button>
-        </div>
+            {displayName}
+          </Link>
+          <span className="text-white/20">/</span>
+          <span className="text-white/70">{shortDate}</span>
+        </nav>
 
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-9">
         {/* The frame. Matches ObjectHero's picture deliberately, down to the
@@ -287,7 +299,7 @@ export function SessionHero({
                       transition hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   >
                     <Film className="h-8 w-8" />
-                    <span className="text-xs font-medium">Video capture. Open the Videos tab to play or download.</span>
+                    <span className="text-xs font-medium">{t('observationDetail.hero.videoCaptureHint')}</span>
                   </button>
                 )}
                 {badge && <Badge badge={badge} />}
@@ -306,7 +318,7 @@ export function SessionHero({
                   onKeyDown={e => {
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenMedia(); }
                   }}
-                  aria-label={`Open ${displayName} full screen`}
+                  aria-label={t('observationDetail.hero.openFullScreen', { name: displayName })}
                   // The old ring + dark mat behind the picture was the other
                   // half of the "frame inside a frame" look: it drew a second,
                   // larger rectangle around the picture's own edge. Removed for
@@ -364,7 +376,7 @@ export function SessionHero({
                       className="absolute right-2.5 top-2.5 rounded-lg bg-black/45 p-1.5 text-white opacity-0
                         backdrop-blur-md transition hover:bg-black/70 group-hover:opacity-100
                         focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                      title="Edit image"
+                      title={t('observationDetail.hero.editImage')}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -377,9 +389,9 @@ export function SessionHero({
                         font-medium text-white/70 opacity-0 backdrop-blur-md transition hover:text-white
                         group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none
                         focus-visible:ring-2 focus-visible:ring-white/70"
-                      title="Clear the session image and go back to the stacked frame"
+                      title={t('observationDetail.hero.resetCrownTitle')}
                     >
-                      Reset
+                      {t('observationDetail.hero.reset')}
                     </button>
                   )}
                 </div>
@@ -389,7 +401,7 @@ export function SessionHero({
                 rounded-2xl bg-white/[0.03] ring-1 ring-inset ring-white/10`}>
                 <FileImage className="h-8 w-8 text-white/20" />
                 <div className="space-y-1 text-center">
-                  <p className="text-sm font-medium text-white/50">No stacked image</p>
+                  <p className="text-sm font-medium text-white/50">{t('observationDetail.hero.noStackedImage')}</p>
                   <p className="text-xs text-white/30">{emptyReason}</p>
                 </div>
               </div>
@@ -447,41 +459,36 @@ export function SessionHero({
             </div>
           </div>
 
-          {(onOpenNotes || onCombine || onDelete) && (
-            <div className="flex flex-wrap items-center gap-2">
-              {onOpenNotes && (
-                <HeroAction
-                  onClick={onOpenNotes}
-                  icon={NotebookPen}
-                  label={hasNote ? 'Session notes' : 'Add notes'}
-                  title={isAdmin ? (hasNote ? 'Edit session notes' : 'Add session notes') : 'View session notes'}
-                  dotColor={hasNote ? accent : undefined}
-                />
-              )}
-              {onCombine && (
-                <HeroAction
-                  onClick={onCombine}
-                  icon={Merge}
-                  label="Combine"
-                  title="Combine this session with another object's observation"
-                />
-              )}
-              {onDelete && (
-                <HeroAction
-                  onClick={onDelete}
-                  icon={Trash2}
-                  label="Delete"
-                  title="Delete observation"
-                  danger
-                />
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {onOpenNotes && (
+              <HeroAction
+                onClick={onOpenNotes}
+                icon={NotebookPen}
+                label={hasNote ? t('observationDetail.hero.sessionNotes') : t('observationDetail.hero.addNotes')}
+                title={isAdmin ? (hasNote ? t('observationDetail.hero.editSessionNotesTitle') : t('observationDetail.hero.addSessionNotesTitle')) : t('observationDetail.hero.viewSessionNotesTitle')}
+                dotColor={hasNote ? accent : undefined}
+              />
+            )}
+
+            {/* Everything else here is either occasional (move) or neither
+                frequent nor reversible (delete) — none of it earns a
+                permanent slot next to Notes, so it lives behind one button.
+                Matches ObjectHero's OverflowMenu deliberately. */}
+            <OverflowMenu
+              onShowLocation={() => setShowLocation(true)}
+              onMove={onMove}
+              onDelete={onDelete}
+            />
+          </div>
         </div>
         </div>
       </div>
 
-      <CaptureRail metrics={captureMetrics} accent={accent} />
+      <CaptureRail
+        metrics={captureMetrics}
+        accent={accent}
+        barAriaLabel={percent => t('observationDetail.captureMetrics.barAriaLabel', { percent })}
+      />
 
       {showLocation && (
         <FileLocationModal
@@ -504,6 +511,104 @@ function Badge({ badge }: { badge: NonNullable<HeroBadge> }) {
     >
       <Icon className="h-3 w-3" />
       {badge.text}
+    </div>
+  );
+}
+
+/** Every action that isn't Notes: Framing & Mosaic and Show file location
+ *  grouped above a divider from the rare, hard-to-undo ones (move, delete).
+ *  Drops back onto a solid surface once open, same as ObjectHero's menu:
+ *  a translucent menu over a photograph is unreadable. */
+function OverflowMenu({
+  onShowLocation, onMove, onDelete,
+}: {
+  onShowLocation: () => void;
+  onMove: (() => void) | null;
+  onDelete: (() => void) | null;
+}) {
+  const { t } = useTranslation('observations');
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useClickOutside([wrapRef, menuRef], () => setOpen(false), { enabled: open, closeOnEscape: true });
+
+  // Portaled to <body> for the same reason as ObjectHero's menu: the hero
+  // panel clips its own overflow (for the blurred backdrop), which would cut
+  // a menu taller than the room left below the trigger.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={t('observationDetail.hero.moreActions')}
+        className="inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-3 py-2 text-[13px] font-medium
+          text-white/85 ring-1 ring-inset ring-white/15 backdrop-blur-md transition-colors hover:bg-white/15
+          hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+        <span className="sr-only">{t('observationDetail.hero.moreActions')}</span>
+      </button>
+
+      {open && menuPos && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{ position: 'fixed', top: menuPos.top, right: menuPos.right }}
+          className="z-20 w-56 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-2xl"
+        >
+          <button
+            role="menuitem"
+            onClick={() => { setOpen(false); onShowLocation(); }}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
+          >
+            <FolderOpen className="h-3.5 w-3.5 text-slate-400" />
+            {t('observationDetail.hero.showFileLocation')}
+          </button>
+          {onMove && (
+            <button
+              role="menuitem"
+              onClick={() => { setOpen(false); onMove(); }}
+              title={t('observationDetail.hero.moveTitle')}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5 text-slate-400" />
+              {t('observationDetail.hero.move')}
+            </button>
+          )}
+          {onDelete && (
+            <>
+              <div role="separator" className="my-1 border-t border-slate-800" />
+              <button
+                role="menuitem"
+                onClick={() => { setOpen(false); onDelete(); }}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-red-300 transition hover:bg-red-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {t('observationDetail.hero.delete')}
+              </button>
+            </>
+          )}
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

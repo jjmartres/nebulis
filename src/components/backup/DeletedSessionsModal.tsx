@@ -10,16 +10,18 @@
  * imported in the first place.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, RotateCw, Trash2, X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { getDeletedSessions, restoreLibrarySession, type DeletedSession } from '../../lib/api/library';
 import { formatRelativeTime } from '../../lib/timeFormat';
+import { formatDate } from '../../lib/formatLocale';
 
 function formatSessionDate(date: string): string {
   const ms = Date.parse(`${date}T12:00:00`);
   if (Number.isNaN(ms)) return date;
-  return new Date(ms).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return formatDate(new Date(ms), { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 export function DeletedSessionsModal({
@@ -29,6 +31,7 @@ export function DeletedSessionsModal({
   isDark: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
@@ -42,7 +45,7 @@ export function DeletedSessionsModal({
   const restore = useMutation({
     mutationFn: ({ objectId, date }: { objectId: string; date: string }) => restoreLibrarySession(objectId, date),
     onMutate: ({ objectId, date }) => { setPendingKey(`${objectId}:${date}`); setError(null); },
-    onError: (err) => setError(err instanceof Error ? err.message : 'Restore failed'),
+    onError: (err) => setError(err instanceof Error ? err.message : t('deletedSessionsModal.restoreFailed')),
     onSettled: () => {
       setPendingKey(null);
       queryClient.invalidateQueries({ queryKey: ['deleted-sessions'] });
@@ -70,7 +73,7 @@ export function DeletedSessionsModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Deleted sessions"
+      title={t('deletedSessionsModal.title')}
       className={`flex max-h-[75vh] w-full max-w-md flex-col overflow-hidden rounded-2xl ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white shadow-xl'
       }`}
@@ -78,11 +81,11 @@ export function DeletedSessionsModal({
       <div className={`flex items-center justify-between border-b px-5 py-4 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
         <h2 className={`font-display flex items-center gap-2 font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
           <Trash2 className="h-4 w-4 text-accent-500" />
-          Deleted sessions
+          {t('deletedSessionsModal.title')}
         </h2>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('deletedSessionsModal.close')}
           className={`rounded-lg p-1.5 transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
         >
           <X className="h-5 w-5" />
@@ -91,12 +94,12 @@ export function DeletedSessionsModal({
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          These dates are blocked from syncing. Restore one and the next sync brings its files across.
+          {t('deletedSessionsModal.hint')}
         </p>
 
         {rows.length === 0 ? (
           <p className={`mt-6 text-center text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            No deleted sessions. Sessions you delete show up here so you can bring them back.
+            {t('deletedSessionsModal.empty')}
           </p>
         ) : (
           <ul className={`mt-3 divide-y ${isDark ? 'divide-slate-800' : 'divide-slate-100'}`}>
@@ -114,7 +117,7 @@ export function DeletedSessionsModal({
                     </p>
                     {session.deletedAt && (
                       <p className={`text-[12px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                        Deleted {formatRelativeTime(session.deletedAt)}
+                        {t('deletedSessionsModal.deletedAt', { time: formatRelativeTime(session.deletedAt) })}
                       </p>
                     )}
                   </div>
@@ -125,7 +128,7 @@ export function DeletedSessionsModal({
                     onClick={() => restore.mutate({ objectId: session.objectId, date: session.date })}
                   >
                     {pending ? <RotateCw className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-                    Restore
+                    {t('deletedSessionsModal.restore')}
                   </button>
                 </li>
               );
@@ -150,7 +153,7 @@ export function DeletedSessionsModal({
               isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
             }`}
           >
-            Restore all {rows.length}
+            {t('deletedSessionsModal.restoreAll', { count: rows.length })}
           </button>
         </div>
       )}

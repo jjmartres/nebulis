@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   X, Minus, Download, CheckCircle, AlertCircle, Layers,
   WifiOff, RotateCw,
@@ -21,6 +22,7 @@ type Phase = 'starting' | 'waiting' | 'syncing' | 'done' | 'upToDate' | 'empty' 
 
 export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }: SyncSubframesModalProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('common');
   const [phase, setPhase] = useState<Phase>('starting');
   const [status, setStatus] = useState<ImportStatus | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -49,6 +51,12 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
   const sessionIdRef = useRef(sessionId);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  // Same reasoning as onCompleteRef: the mount-only effect below reads this
+  // via the ref rather than depending on `t` directly, so a language switch
+  // mid-sync doesn't re-run the effect's cleanup and cancel the in-flight
+  // transfer.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   function stopPolling() {
     if (pollRef.current) {
@@ -98,13 +106,13 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
             if (cancelledRef.current) return;
             if (!finished) {
               setPhase('error');
-              setErrorMsg('Lost connection while waiting for the running sync to finish.');
+              setErrorMsg(tRef.current('syncSubframesModal.lostConnectionWaiting'));
               return;
             }
             continue;
           }
           setPhase('error');
-          setErrorMsg(msg || 'Failed to start sync');
+          setErrorMsg(msg || tRef.current('syncSubframesModal.startFailed'));
           return;
         }
       }
@@ -145,7 +153,7 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
           if (!cancelledRef.current && consecutiveErrors >= 3) {
             stopPolling();
             setPhase('error');
-            setErrorMsg('Lost connection while checking sync status.');
+            setErrorMsg(tRef.current('syncSubframesModal.lostConnectionStatus'));
           }
         }
       }, 1500);
@@ -218,17 +226,19 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
           <RotateCw className="w-4 h-4 flex-shrink-0 animate-spin" />
         )}
         <span className="text-sm font-medium">
-          {phase === 'starting' && 'Connecting…'}
-          {phase === 'waiting' && 'Waiting for sync…'}
+          {phase === 'starting' && t('syncSubframesModal.connectingShort')}
+          {phase === 'waiting' && t('syncSubframesModal.waitingShort')}
           {phase === 'syncing' && (
-            progressPct !== null ? `Syncing ${progressPct}%` : 'Syncing sub-frames…'
+            progressPct !== null
+              ? t('syncSubframesModal.syncingPercent', { percent: progressPct })
+              : t('syncSubframesModal.syncingShort')
           )}
-          {phase === 'done' && `${status?.filesDone ?? ''} files synced`}
-          {phase === 'upToDate' && 'Already up to date'}
-          {phase === 'empty' && 'No new sub-frames'}
-          {phase === 'error' && 'Sync error'}
+          {phase === 'done' && t('syncSubframesModal.filesSyncedShort', { count: status?.filesDone ?? 0 })}
+          {phase === 'upToDate' && t('syncSubframesModal.upToDateShort')}
+          {phase === 'empty' && t('syncSubframesModal.emptyShort')}
+          {phase === 'error' && t('syncSubframesModal.errorShort')}
         </span>
-        <span className={`text-xs opacity-60`}>tap to expand</span>
+        <span className={`text-xs opacity-60`}>{t('syncSubframesModal.tapToExpand')}</span>
       </button>
     );
   }
@@ -247,7 +257,7 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
     <Modal
       isOpen
       onClose={requestClose}
-      title="Sync Sub-Frames"
+      title={t('syncSubframesModal.title')}
       className={`relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'
       }`}
@@ -259,7 +269,7 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
           <div className="flex items-center gap-2.5">
             <Download className={`w-4 h-4 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
             <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Sync Sub-Frames
+              {t('syncSubframesModal.title')}
             </h3>
           </div>
           <div className="flex items-center gap-1">
@@ -267,7 +277,7 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
               <button
                 onClick={() => setMinimized(true)}
                 className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
-                title="Minimize"
+                title={t('syncSubframesModal.minimize')}
               >
                 <Minus className="w-4 h-4" />
               </button>
@@ -275,7 +285,7 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
             <button
               onClick={requestClose}
               className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
-              title={isFinished ? 'Close' : 'Cancel'}
+              title={isFinished ? t('syncSubframesModal.close') : t('syncSubframesModal.cancel')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -291,10 +301,12 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
               <RotateCw className="w-5 h-5 animate-spin text-accent-500 flex-shrink-0" />
               <div>
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Connecting to telescope…
+                  {t('syncSubframesModal.connectingToTelescope')}
                 </p>
                 <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {sessionId ? `Requesting sub-frames for ${sessionId}` : 'Requesting sub-frames for every night'}
+                  {sessionId
+                    ? t('syncSubframesModal.requestingSession', { sessionId })
+                    : t('syncSubframesModal.requestingAllNights')}
                 </p>
               </div>
             </div>
@@ -306,10 +318,10 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
               <RotateCw className={`w-5 h-5 animate-spin flex-shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
               <div>
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Waiting for current sync to finish…
+                  {t('syncSubframesModal.waitingTitle')}
                 </p>
                 <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  A backup sync is running. Sub-frame sync will start automatically when it finishes.
+                  {t('syncSubframesModal.waitingHint')}
                 </p>
               </div>
             </div>
@@ -322,7 +334,7 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
                 <RotateCw className="w-5 h-5 animate-spin text-accent-500 flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    Downloading sub-frames…
+                    {t('syncSubframesModal.downloading')}
                   </p>
                   {status?.currentObject && (
                     <p className={`text-xs mt-0.5 truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -349,7 +361,7 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
 
               {status && status.filesTotal > 0 && (
                 <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {progressPct}% complete
+                  {t('syncSubframesModal.percentComplete', { percent: progressPct })}
                 </p>
               )}
             </div>
@@ -361,10 +373,10 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
               <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Sync complete
+                  {t('syncSubframesModal.syncComplete')}
                 </p>
                 <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {status?.filesDone ?? 0} sub-frame{(status?.filesDone ?? 0) !== 1 ? 's' : ''} downloaded successfully.
+                  {t('syncSubframesModal.filesSynced', { count: status?.filesDone ?? 0 })}
                 </p>
               </div>
             </div>
@@ -376,10 +388,12 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
               <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Already up to date
+                  {t('syncSubframesModal.upToDateTitle')}
                 </p>
                 <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {status?.skippedFiles ?? 0} sub-frame{(status?.skippedFiles ?? 0) !== 1 ? 's' : ''} for {sessionId ? 'this session' : 'this object'} {(status?.skippedFiles ?? 0) !== 1 ? 'were' : 'was'} already downloaded. Nothing new to sync.
+                  {sessionId
+                    ? t('syncSubframesModal.upToDateSession', { count: status?.skippedFiles ?? 0 })
+                    : t('syncSubframesModal.upToDateObject', { count: status?.skippedFiles ?? 0 })}
                 </p>
               </div>
             </div>
@@ -392,21 +406,27 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
                 <Layers className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                 <div>
                   <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    No sub-frames found
+                    {t('syncSubframesModal.emptyTitle')}
                   </p>
                   <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     {sessionId
-                      ? 'The telescope has no raw sub-frame files for this session date.'
-                      : 'The telescope has no raw sub-frame files for any night of this object.'}
+                      ? t('syncSubframesModal.emptySession')
+                      : t('syncSubframesModal.emptyObject')}
                   </p>
                 </div>
               </div>
               <div className={`rounded-xl p-3 text-xs space-y-1 ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
-                <p>Possible reasons:</p>
+                <p>{t('syncSubframesModal.possibleReasons')}</p>
                 <ul className="list-disc list-inside space-y-0.5 ml-1">
-                  <li>Sub-frame saving wasn't enabled on the telescope for {sessionId ? 'this session' : 'these sessions'}</li>
-                  <li>The telescope's SMB share is not reachable</li>
-                  <li>The {sessionId ? 'session' : 'capture'} folder does not have a <code>_sub</code> directory</li>
+                  <li>{sessionId ? t('syncSubframesModal.reasonNotEnabledSession') : t('syncSubframesModal.reasonNotEnabledObject')}</li>
+                  <li>{t('syncSubframesModal.reasonShareUnreachable')}</li>
+                  <li>
+                    {sessionId ? (
+                      <Trans i18nKey="syncSubframesModal.reasonNoSubFolderSession" ns="common" components={{ 1: <code /> }} />
+                    ) : (
+                      <Trans i18nKey="syncSubframesModal.reasonNoSubFolderObject" ns="common" components={{ 1: <code /> }} />
+                    )}
+                  </li>
                 </ul>
               </div>
             </div>
@@ -418,7 +438,7 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className={`text-sm font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>
-                  Sync failed
+                  {t('syncSubframesModal.errorTitle')}
                 </p>
                 {errorMsg && (
                   <p className={`text-xs mt-0.5 font-mono break-all ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -449,13 +469,13 @@ export function SyncSubframesModal({ objectId, sessionId, onComplete, onClose }:
                 : isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            {isFinished ? 'Close' : 'Cancel'}
+            {isFinished ? t('syncSubframesModal.close') : t('syncSubframesModal.cancel')}
           </button>
         </div>
         {confirmingClose && (
           <CloseConfirm
-            message="Stop the sub-frame sync and close?"
-            cancelLabel="Keep syncing"
+            message={t('syncSubframesModal.closeConfirmMessage')}
+            cancelLabel={t('syncSubframesModal.keepSyncing')}
             onCancel={() => setConfirmingClose(false)}
             onDiscard={() => { setConfirmingClose(false); handleClose(); }}
             isDark={isDark}

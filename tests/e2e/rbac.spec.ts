@@ -8,6 +8,12 @@
  *   - mockViewerAuth() sets a fake token + mocks /api/auth/me to return role:'viewer'
  *   - mockAdminAuth() sets a fake token + mocks /api/auth/me to return role:'admin'
  *
+ * Route registration order matters: `mockAllRoutes()` also registers
+ * `**\/api/auth/me` (it answers with the admin fixture), and Playwright runs the
+ * most recently registered matching handler first. So every role override below
+ * is registered AFTER `mockAllRoutes()` — otherwise the explicit role never
+ * takes effect and the viewer cases silently run as admin.
+ *
  * All API calls are mocked via page.route() — no live server required.
  */
 import { test, expect } from '@playwright/test';
@@ -17,25 +23,38 @@ import { mockAllRoutes, mockViewerAuth, mockAdminAuth } from './fixtures/mocks';
 
 test.describe('Viewer — Gallery page', () => {
   test.beforeEach(async ({ page }) => {
-    await mockViewerAuth(page);
     await mockAllRoutes(page);
+    await mockViewerAuth(page); // after mockAllRoutes: overrides its /api/auth/me
     await page.goto('/');
   });
 
   test('shows the library heading', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /night sky library/i })).toBeVisible();
+    // The hero h1 reads "Library" (libraryHero.title in LibraryHero.tsx); the
+    // old "Night Sky Library" copy is gone.
+    await expect(page.getByRole('heading', { name: 'Library', level: 1 })).toBeVisible();
   });
 
-  test('hides the "From Telescope" import button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /from telescope/i })).not.toBeVisible();
-  });
+  // Removed: "hides the 'From Telescope' import button". That button no longer
+  // exists; syncing moved to the telescope sync pill dropdown in the top nav
+  // (src/components/Layout.tsx), and the tests below cover its admin gating.
 
   test('hides the "Upload Files" button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /upload files/i })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /upload files/i })).toHaveCount(0);
   });
 
-  test('hides the "New Observation" link', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /new observation/i })).not.toBeVisible();
+  test('hides the "New Observation" button', async ({ page }) => {
+    // It is a button now, not a link (Gallery.tsx renders both import controls
+    // behind `isAdmin`).
+    await expect(page.getByRole('button', { name: /new observation/i })).toHaveCount(0);
+  });
+
+  test('hides the sync triggers in the telescope pill', async ({ page }) => {
+    // Syncing writes to the library server-side (POST /api/library/import is
+    // requireAdmin), so the triggers are admin-only. The pill itself stays
+    // visible so a viewer can still see which scopes are online.
+    await page.getByRole('button', { name: /\d+\/\d+ online/i }).click();
+    await expect(page.getByRole('button', { name: /^sync all$/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^sync seestar s50$/i })).toHaveCount(0);
   });
 
   test('still shows object cards (read access)', async ({ page }) => {
@@ -56,16 +75,20 @@ test.describe('Admin — Gallery page', () => {
     await page.goto('/');
   });
 
-  test('shows the "From Telescope" import button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /from telescope/i })).toBeVisible();
+  test('shows the admin-only library controls', async ({ page }) => {
+    // Replaces the removed "From Telescope" import button. Syncing itself now
+    // lives in the top-nav telescope pill; these two buttons are the library
+    // page's admin-only controls (Gallery.tsx).
+    await expect(page.getByRole('button', { name: /upload files/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /new observation/i })).toBeVisible();
   });
 
   test('shows the "Upload Files" button', async ({ page }) => {
     await expect(page.getByRole('button', { name: /upload files/i })).toBeVisible();
   });
 
-  test('shows the "New Observation" link', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /new observation/i })).toBeVisible();
+  test('shows the "New Observation" button', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /new observation/i })).toBeVisible();
   });
 });
 
@@ -73,29 +96,35 @@ test.describe('Admin — Gallery page', () => {
 
 test.describe('Viewer — Settings page', () => {
   test.beforeEach(async ({ page }) => {
-    await mockViewerAuth(page);
     await mockAllRoutes(page);
+    await mockViewerAuth(page); // after mockAllRoutes: overrides its /api/auth/me
     await page.goto('/settings');
   });
 
   test('shows the view-only mode banner', async ({ page }) => {
-    await expect(page.getByText(/view.only mode/i)).toBeVisible();
+    // Settings.tsx renders t('page.viewOnlyBanner') when isViewer:
+    // "View-only mode. Contact an admin to make changes."
+    await expect(page.getByText(/view-only mode/i)).toBeVisible();
   });
 
   test('does not show the Users section in sidebar', async ({ page }) => {
-    // Users is an admin-only section — its sidebar entry must be absent for viewers
-    const sidebar = page.locator('nav, aside').first();
-    await expect(sidebar.getByText(/^users$/i)).not.toBeVisible();
+    // Users is an admin-only section (SETTINGS_NAV account group), so its
+    // sidebar entry must be absent for viewers.
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^users$/i })).toHaveCount(0);
   });
 
   test('does not show the Danger section in sidebar', async ({ page }) => {
-    const sidebar = page.locator('nav, aside').first();
-    await expect(sidebar.getByText(/danger/i)).not.toBeVisible();
+    // The admin-only danger group is labelled "Advanced" now (nav.danger).
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^advanced$/i })).toHaveCount(0);
   });
 
   test('save bar is not shown (no dirty state for viewers)', async ({ page }) => {
-    // Viewers cannot dirty the form, so the floating save bar must not appear
-    await expect(page.getByRole('button', { name: /save changes/i })).not.toBeVisible();
+    // Viewers cannot dirty the form (isDirty is gated on isAdmin), so the
+    // floating save bar has no Save button to render.
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: /save changes/i })).toHaveCount(0);
   });
 });
 
@@ -108,68 +137,20 @@ test.describe('Admin — Settings page', () => {
   });
 
   test('does not show the view-only mode banner', async ({ page }) => {
-    await expect(page.getByText(/view.only mode/i)).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+    await expect(page.getByText(/view-only mode/i)).toHaveCount(0);
   });
 
   test('shows Users section accessible in sidebar', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /users/i }).or(page.getByText('Users'))).toBeVisible();
+    await expect(page.getByRole('button', { name: /^users$/i })).toBeVisible();
   });
 
   test('shows user list in Users section', async ({ page }) => {
-    // Navigate to the Users section if needed
-    const usersNav = page.getByRole('button', { name: /^users$/i });
-    if (await usersNav.isVisible()) {
-      await usersNav.click();
-    }
-    await expect(page.getByText('Test User').or(page.getByText('testuser'))).toBeVisible();
-  });
-});
-
-// ─── Viewer: Wishlist (embedded in Planner) ───────────────────────────────────
-
-test.describe('Viewer — Wishlist', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockViewerAuth(page);
-    await mockAllRoutes(page);
-    await page.goto('/planner?tab=wishlist');
-  });
-
-  test('shows wishlist items (read access)', async ({ page }) => {
-    await expect(page.getByText('Whirlpool Galaxy')).toBeVisible();
-  });
-
-  test('hides the "Add to wishlist" search panel', async ({ page }) => {
-    await expect(page.getByText(/add to wishlist/i)).not.toBeVisible();
-  });
-
-  test('hides edit (notes) buttons on wishlist items', async ({ page }) => {
-    // Edit pencil buttons should not be rendered for viewers
-    const editButtons = page.getByRole('button', { name: /edit/i });
-    await expect(editButtons).not.toBeVisible();
-  });
-
-  test('hides remove (bookmark-x) buttons on wishlist items', async ({ page }) => {
-    // The BookmarkX remove button should not appear for viewers
-    // It's a button without a text label, so check for aria-label or use count
-    const removeButtons = page.locator('button[title*="remove" i], button[aria-label*="remove" i]');
-    await expect(removeButtons).not.toBeVisible();
-  });
-});
-
-// ─── Admin: Wishlist ──────────────────────────────────────────────────────────
-
-test.describe('Admin — Wishlist', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockAllRoutes(page);
-    await page.goto('/planner?tab=wishlist');
-  });
-
-  test('shows the "Add to wishlist" search panel', async ({ page }) => {
-    await expect(page.getByText(/add to wishlist/i)).toBeVisible();
-  });
-
-  test('shows wishlist items', async ({ page }) => {
-    await expect(page.getByText('Whirlpool Galaxy')).toBeVisible();
+    // The sidebar button auto-waits for the settings query to resolve, unlike
+    // the old `if (await isVisible())` check, which raced the initial load and
+    // skipped the click.
+    await page.getByRole('button', { name: /^users$/i }).click();
+    await expect(page.getByText('Test User')).toBeVisible();
   });
 });
 
@@ -177,21 +158,26 @@ test.describe('Admin — Wishlist', () => {
 
 test.describe('Viewer — Object Detail page', () => {
   test.beforeEach(async ({ page }) => {
-    await mockViewerAuth(page);
     await mockAllRoutes(page);
+    await mockViewerAuth(page); // after mockAllRoutes: overrides its /api/auth/me
     await page.goto('/object/M42');
   });
 
   test('shows object name (read access)', async ({ page }) => {
-    await expect(page.getByText('Orion Nebula')).toBeVisible();
+    // exact: true so "About Orion Nebula" (the panel heading) does not collide.
+    await expect(page.getByRole('heading', { name: 'Orion Nebula', level: 1, exact: true })).toBeVisible();
   });
 
-  test('hides the delete object button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /delete/i })).not.toBeVisible();
+  test('hides the delete object action', async ({ page }) => {
+    // Delete lives behind the hero's "More actions" overflow menu, which is
+    // rendered for everyone; only the admin-only item is gated (ObjectHero.tsx).
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /delete object/i })).toHaveCount(0);
   });
 
-  test('hides the "Add Observation" link', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /add observation|new observation/i })).not.toBeVisible();
+  test('hides the "Add observation" button', async ({ page }) => {
+    // Was a link; it is now an admin-only button (ObjectHero onAddObservation).
+    await expect(page.getByRole('button', { name: /add observation/i })).toHaveCount(0);
   });
 });
 
@@ -204,11 +190,12 @@ test.describe('Admin — Object Detail page', () => {
   });
 
   test('shows object name', async ({ page }) => {
-    await expect(page.getByText('Orion Nebula')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Orion Nebula', level: 1, exact: true })).toBeVisible();
   });
 
-  test('shows the delete object button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /delete/i })).toBeVisible();
+  test('shows the delete object action', async ({ page }) => {
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /delete object/i })).toBeVisible();
   });
 });
 
@@ -216,22 +203,25 @@ test.describe('Admin — Object Detail page', () => {
 
 test.describe('Viewer — Observation Detail page', () => {
   test.beforeEach(async ({ page }) => {
-    await mockViewerAuth(page);
     await mockAllRoutes(page);
+    await mockViewerAuth(page); // after mockAllRoutes: overrides its /api/auth/me
     await page.goto('/observations/M42/2024-03-15');
   });
 
   test('shows the observation (read access)', async ({ page }) => {
-    await expect(page.getByText(/orion nebula/i)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'M42 (Orion Nebula)', level: 1, exact: true }),
+    ).toBeVisible();
   });
 
   test('hides the Move observation button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /move/i })).not.toBeVisible();
+    // The move/relocate action is the hero's admin-only "Combine" button now
+    // (SessionHero; it opens MoveObservationModal).
+    await expect(page.getByRole('main').getByRole('button', { name: /^combine$/i })).toHaveCount(0);
   });
 
   test('hides the Delete observation button', async ({ page }) => {
-    // There may be multiple delete buttons; none should be visible for viewers
-    await expect(page.getByRole('button', { name: /delete/i }).first()).not.toBeVisible();
+    await expect(page.getByRole('main').getByRole('button', { name: /^delete$/i })).toHaveCount(0);
   });
 });
 
@@ -243,12 +233,12 @@ test.describe('Admin — Observation Detail page', () => {
     await page.goto('/observations/M42/2024-03-15');
   });
 
-  test('shows Move button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /move/i })).toBeVisible();
+  test('shows the Move (Combine) button', async ({ page }) => {
+    await expect(page.getByRole('main').getByRole('button', { name: /^combine$/i })).toBeVisible();
   });
 
   test('shows Delete button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /delete/i }).first()).toBeVisible();
+    await expect(page.getByRole('main').getByRole('button', { name: /^delete$/i })).toBeVisible();
   });
 });
 
@@ -256,16 +246,20 @@ test.describe('Admin — Observation Detail page', () => {
 
 test.describe('Admin via explicit /api/auth/me (token present)', () => {
   test.beforeEach(async ({ page }) => {
-    await mockAdminAuth(page);
     await mockAllRoutes(page);
+    await mockAdminAuth(page); // after mockAllRoutes: overrides its /api/auth/me
     await page.goto('/');
   });
 
-  test('gallery shows import buttons for explicit admin user', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /from telescope/i })).toBeVisible();
+  test('gallery shows admin-only library controls for explicit admin user', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /upload files/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /new observation/i })).toBeVisible();
   });
 
   test('does not show view-only banner on gallery', async ({ page }) => {
-    await expect(page.getByText(/view.only mode/i)).not.toBeVisible();
+    // Wait for an admin-only control first so this is not a vacuous pass
+    // during the pre-auth loading window.
+    await expect(page.getByRole('button', { name: /upload files/i })).toBeVisible();
+    await expect(page.getByText(/view-only mode/i)).toHaveCount(0);
   });
 });

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Plus, ShieldCheck, Eye, EyeOff, Pencil } from 'lucide-react';
 import { getUsers, createUser, deleteAppUser, toUserRole, type UserRole } from '../../lib/api/auth';
 import { getInputClass, getLabelClass, Sec } from './SettingsUI';
 import { ConfirmModal } from '../ConfirmModal';
 import { EditUserModal } from './EditUserModal';
+import { formatDate } from '../../lib/formatLocale';
 
 interface NewUserDraft {
   username: string;
@@ -17,6 +19,7 @@ interface NewUserDraft {
 const EMPTY_NEW_USER: NewUserDraft = { username: '', email: '', password: '', displayName: '', role: 'viewer' };
 
 export function UsersSection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const inputClass = getInputClass(isDark);
   const labelClass = getLabelClass(isDark);
@@ -45,7 +48,7 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
       setUserError('');
     },
     onError: (err) => {
-      setUserError(err instanceof Error ? err.message : 'Could not create that user. Check the username is not already taken, then try again.');
+      setUserError(err instanceof Error ? err.message : t('usersSection.createUserFailed'));
     },
   });
 
@@ -59,7 +62,7 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
     onError: (err) => {
       // Without this a failed delete (e.g. a duplicate request 404) was
       // swallowed entirely and the modal just sat there.
-      setDeleteUserError(err instanceof Error ? err.message : 'Could not delete that user. Try again.');
+      setDeleteUserError(err instanceof Error ? err.message : t('usersSection.deleteUserFailed'));
     },
   });
 
@@ -68,8 +71,8 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
   return (
     <>
     <Sec
-      title="Users"
-      description="Same credentials work for the web app and iOS app."
+      title={t('usersSection.title')}
+      description={t('usersSection.description')}
       isDark={isDark}
       actions={
         <button
@@ -86,7 +89,7 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
           }`}
         >
           <Plus className="w-3.5 h-3.5" />
-          Add user
+          {t('usersSection.addUser')}
         </button>
       }
     >
@@ -96,20 +99,20 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
           <div className={`p-5 rounded-xl border space-y-3 ${isDark ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'}`}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>Display Name</label>
+                <label className={labelClass}>{t('usersSection.displayName')}</label>
                 <input
                   type="text"
-                  placeholder="Jane Doe"
+                  placeholder={t('usersSection.displayNamePlaceholder')}
                   value={newUser.displayName}
                   onChange={e => setNewUser(u => ({ ...u, displayName: e.target.value }))}
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className={labelClass}>Username</label>
+                <label className={labelClass}>{t('usersSection.username')}</label>
                 <input
                   type="text"
-                  placeholder="jane"
+                  placeholder={t('usersSection.usernamePlaceholder')}
                   value={newUser.username}
                   onChange={e => setNewUser(u => ({ ...u, username: e.target.value }))}
                   className={inputClass}
@@ -118,17 +121,17 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>Email</label>
+                <label className={labelClass}>{t('usersSection.email')}</label>
                 <input
                   type="email"
-                  placeholder="jane@example.com"
+                  placeholder={t('usersSection.emailPlaceholder')}
                   value={newUser.email}
                   onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))}
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className={labelClass}>Password</label>
+                <label className={labelClass}>{t('usersSection.password')}</label>
                 <div className="relative">
                   <input
                     type={showNewUserPassword ? 'text' : 'password'}
@@ -145,18 +148,18 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
                     {showNewUserPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Minimum 6 characters.</p>
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>{t('usersSection.minPasswordLength')}</p>
               </div>
             </div>
             <div>
-              <label className={labelClass}>Role</label>
+              <label className={labelClass}>{t('usersSection.role')}</label>
               <select
                 value={newUser.role}
                 onChange={e => setNewUser(u => ({ ...u, role: toUserRole(e.target.value) }))}
                 className={selectClass}
               >
-                <option value="viewer">Viewer: read-only access</option>
-                <option value="admin">Admin: full access</option>
+                <option value="viewer">{t('usersSection.roleViewer')}</option>
+                <option value="admin">{t('usersSection.roleAdmin')}</option>
               </select>
             </div>
             {userError && (
@@ -171,13 +174,13 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
                 disabled={!newUser.username || !newUser.password || createUserMutation.isPending}
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition-all duration-150 disabled:opacity-50"
               >
-                {createUserMutation.isPending ? 'Creating…' : 'Create user'}
+                {createUserMutation.isPending ? t('usersSection.creating') : t('usersSection.createUser')}
               </button>
               <button
                 onClick={() => { setShowCreateUser(false); setShowNewUserPassword(false); }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
               >
-                Cancel
+                {t('usersSection.cancel')}
               </button>
             </div>
           </div>
@@ -186,7 +189,7 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
         {/* User list */}
         {users.length === 0 ? (
           <p className={`text-sm text-center py-8 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            No users yet. The app is in open access mode.
+            {t('usersSection.noUsers')}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -213,22 +216,22 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
                           isDark ? 'bg-accent-500/15 text-accent-400' : 'bg-accent-50 text-accent-700'
                         }`}>
                           <ShieldCheck className="w-2.5 h-2.5" />
-                          Admin
+                          {t('usersSection.admin')}
                         </span>
                       ) : (
                         <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                           isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'
                         }`}>
                           <Eye className="w-2.5 h-2.5" />
-                          Viewer
+                          {t('usersSection.viewer')}
                         </span>
                       )}
                     </div>
                     <div className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                       {user.username}
                       {user.email ? ` · ${user.email}` : ''}
-                      {' · joined '}
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {' · '}
+                      {t('usersSection.joined', { date: formatDate(new Date(user.createdAt)) })}
                     </div>
                   </div>
 
@@ -238,18 +241,18 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
                       className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all duration-150 ${
                         isDark ? 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100'
                       }`}
-                      title="Edit name, email, role, or password"
+                      title={t('usersSection.editTitle')}
                     >
                       <Pencil className="w-3.5 h-3.5" />
-                      Edit
+                      {t('usersSection.edit')}
                     </button>
                     <button
                       onClick={() => setDeletingUser({ id: user.id, label: user.displayName || user.username })}
                       disabled={deleteUserMutation.isPending || (user.role === 'admin' && adminCount <= 1)}
-                      title={user.role === 'admin' && adminCount <= 1 ? 'Cannot delete the last admin' : undefined}
+                      title={user.role === 'admin' && adminCount <= 1 ? t('usersSection.cannotDeleteLastAdmin') : undefined}
                       className="text-xs px-3 py-1.5 rounded-lg text-danger-500 hover:bg-danger-500/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Delete
+                      {t('usersSection.delete')}
                     </button>
                   </div>
                 </div>
@@ -272,11 +275,11 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
     })()}
     {deletingUser && (
       <ConfirmModal
-        title="Delete user"
+        title={t('usersSection.deleteUserTitle')}
         message={deleteUserError
-          ? `Delete user "${deletingUser.label}"?\n\n${deleteUserError}`
-          : `Delete user "${deletingUser.label}"?`}
-        confirmLabel="Delete"
+          ? t('usersSection.deleteUserConfirmWithError', { name: deletingUser.label, error: deleteUserError })
+          : t('usersSection.deleteUserConfirm', { name: deletingUser.label })}
+        confirmLabel={t('usersSection.delete')}
         pending={deleteUserMutation.isPending}
         onConfirm={() => { setDeleteUserError(''); deleteUserMutation.mutate(deletingUser.id); }}
         onCancel={() => { setDeleteUserError(''); setDeletingUser(null); }}

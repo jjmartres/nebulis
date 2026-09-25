@@ -1,7 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation, useMutationState } from '@tanstack/react-query';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { ArrowLeft, X, Loader2, Columns, Frame } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ArrowLeft, X, Loader2, Columns } from 'lucide-react';
 import { getObservationDetail, getObjectInfo } from '../lib/api/observations';
 import {
   deleteSessionSubFrames,
@@ -22,6 +23,7 @@ import { fetchLocationName } from '../lib/api/catalog';
 import { getNote } from '../lib/api/notes';
 import { formatObjectTitle } from '../lib/dsoSearch';
 import { formatObservationDate } from '../lib/observationDisplay';
+import { formatDate, formatTime24 } from '../lib/formatLocale';
 import { previewSrcFor, thumbSrcFor, isPoorHeroCandidate } from '../lib/sessionImageSrc';
 import { isRenderableProcessed } from '../lib/processedFormats';
 import { MoveObservationModal } from '../components/MoveObservationModal';
@@ -35,7 +37,6 @@ import { ImageCompareModal, type CompareFile } from '../components/ImageCompareM
 import { ConfirmModal } from '../components/ConfirmModal';
 import { useSyncSubframes } from '../contexts/SyncSubframesContext';
 import { SatelliteTrailScanModal } from '../components/SatelliteTrailScanModal';
-import { FramingModal, FRAMING_MOSAIC_ENABLED } from '../components/catalogs/FramingModal';
 import { SessionHero, type HeroBadge, type HeroMedia } from '../components/observationDetail/SessionHero';
 import { buildCaptureMetrics } from '../lib/captureMetrics';
 import { ObjectPanel } from '../components/observationDetail/ObjectPanel';
@@ -57,9 +58,7 @@ function formatClock(timestamp: string): string {
   try {
     const m = timestamp.match(/^\d{8}-(\d{2})(\d{2})/);
     if (m) return `${m[1]}:${m[2]}`;
-    return new Date(timestamp).toLocaleTimeString('en-GB', {
-      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-    });
+    return formatTime24(new Date(timestamp));
   } catch {
     return timestamp;
   }
@@ -82,6 +81,7 @@ const EMPTY_FILES: SessionFile[] = [];
 
 export function ObservationDetail() {
   const { objectId = '', date = '' } = useParams<{ objectId: string; date: string }>();
+  const { t } = useTranslation('observations');
   const { isDark, isNight, isSpace } = useTheme();
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -142,7 +142,6 @@ export function ObservationDetail() {
   // just the client poll.
   const archiveJobIdRef = useRef<string | null>(null);
   const [notesModalOpen, setNotesModalOpen] = useState(false);
-  const [framingOpen, setFramingOpen] = useState(false);
   const [locationName, setLocationName] = useState<string | null>(null);
   // `null` until the user picks a tab; the shown tab is then derived (see
   // `activeTab` below, after the file tallies it depends on).
@@ -200,7 +199,7 @@ export function ObservationDetail() {
   });
   const showTelescopeUI = telescopes.length >= 2;
   const telescopeForObs = observation?.telescopeId
-    ? telescopes.find(t => t.id === observation.telescopeId) ?? null
+    ? telescopes.find(scope => scope.id === observation.telescopeId) ?? null
     : null;
 
   useEffect(() => {
@@ -371,9 +370,9 @@ export function ObservationDetail() {
   const heroIsFits = heroFile?.type === 'fits';
 
   const formattedDate = date && date !== 'unknown'
-    ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-    : 'Unknown date';
-  const shortDate = date && date !== 'unknown' ? formatObservationDate(date) : 'Unknown date';
+    ? formatDate(new Date(date + 'T12:00:00'), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    : t('observationDetail.page.unknownDate');
+  const shortDate = date && date !== 'unknown' ? formatObservationDate(date) : t('observationDetail.page.unknownDate');
 
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-accent-500';
   // The hero sits on dark imagery in every theme, and only a fixed set of
@@ -440,8 +439,8 @@ export function ObservationDetail() {
       onEdit: () => openImageEditor(img.url, img.title || img.originalName, 'processed', { kind: 'processed', id: img.id }),
     };
     heroBadge = designatedProcessedImage
-      ? { tone: 'crown', text: 'Session image' }
-      : { tone: 'processed', text: 'Processed' };
+      ? { tone: 'crown', text: t('observationDetail.page.sessionImageBadge') }
+      : { tone: 'processed', text: t('observationDetail.page.processedBadge') };
     openHeroMedia = () => {
       const idx = processedImages.findIndex(p => p.id === img.id);
       if (idx >= 0) openProcessedGallery(idx);
@@ -462,12 +461,12 @@ export function ObservationDetail() {
         ),
       };
     heroBadge = heroIsUserDesignated
-      ? { tone: 'crown', text: 'Session image' }
+      ? { tone: 'crown', text: t('observationDetail.page.sessionImageBadge') }
       : {
         tone: 'stacked',
         text: [
-          `Stacked${heroIsFits ? ' FITS' : ''}`,
-          file.frameCount ? `${file.frameCount} frames` : null,
+          heroIsFits ? t('observationDetail.page.stackedFits') : t('observationDetail.page.stacked'),
+          file.frameCount ? t('observationDetail.page.framesCount', { count: file.frameCount }) : null,
           file.exposure,
         ].filter(Boolean).join(' · '),
       };
@@ -500,7 +499,7 @@ export function ObservationDetail() {
       playable: isPlayable(pick.name),
       onOpen: goToVideos,
     };
-    heroBadge = { tone: 'video', text: videoFiles.length > 1 ? `${videoFiles.length} videos` : 'Video' };
+    heroBadge = { tone: 'video', text: t('observationDetail.page.videoBadge', { count: videoFiles.length }) };
     openHeroMedia = goToVideos;
   }
 
@@ -510,6 +509,7 @@ export function ObservationDetail() {
     capture: observation?.capture,
     files,
     tempUnit,
+    t,
   });
 
   // The catalog id is only worth its own slot when the title does not already
@@ -638,14 +638,14 @@ if (isLoading) {
     return (
       <div className="max-w-lg mx-auto pt-20 text-center">
         <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Failed to load observation details. The observation may have been deleted.
+          {t('observationDetail.page.loadFailed')}
         </p>
         <Link
           to="/observations"
           className={`mt-6 inline-flex items-center gap-2 text-sm font-medium transition ${isDark ? 'text-accent-400 hover:text-accent-300' : 'text-accent-600 hover:text-accent-700'}`}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to observations
+          {t('observationDetail.page.backToObservations')}
         </Link>
       </div>
     );
@@ -665,7 +665,7 @@ if (isLoading) {
         badge={heroBadge}
         onOpenMedia={openHeroMedia}
         onResetCrown={canResetCrown && !settingSessionImage ? () => handleSetSessionImage(null) : null}
-        emptyReason={files.some(f => f.type === 'fits') ? 'Raw FITS frames only' : 'No images captured'}
+        emptyReason={files.some(f => f.type === 'fits') ? t('observationDetail.page.rawFitsOnly') : t('observationDetail.page.noImagesCaptured')}
         telescope={showTelescopeUI ? telescopeForObs : null}
         telescopes={telescopes}
         isAdmin={isAdmin}
@@ -673,33 +673,9 @@ if (isLoading) {
         accent={accent}
         onOpenNotes={observation && (isAdmin || !!existingNote) ? () => setNotesModalOpen(true) : null}
         hasNote={!!existingNote}
-        onCombine={observation && isAdmin ? () => setShowMoveModal(true) : null}
+        onMove={observation && isAdmin ? () => setShowMoveModal(true) : null}
         onDelete={observation && isAdmin ? () => setShowDeleteModal(true) : null}
       />
-
-      {FRAMING_MOSAIC_ENABLED && (
-      <div className="flex flex-wrap gap-3">
-        <button
-          onClick={() => setFramingOpen(true)}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition ${
-            isDark ? 'border-slate-800 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-          }`}
-          title="Preview how this object frames in your telescope, and plan a mosaic"
-        >
-          <Frame className="w-4 h-4 text-sky-500" />
-          Framing &amp; Mosaic
-        </button>
-      </div>
-      )}
-
-      {framingOpen && (
-        <FramingModal
-          catalogId={observation?.catalogId || objectId}
-          objectName={displayName}
-          isDark={isDark}
-          onClose={() => setFramingOpen(false)}
-        />
-      )}
 
       {/* Compare mode page-level banner */}
       {compareMode && (
@@ -708,9 +684,9 @@ if (isLoading) {
         }`}>
           <span>
             <Columns className="w-4 h-4 inline mr-1.5" />
-            {!compareItems[0] && !compareItems[1] && 'Select two images to compare - from either Telescope Images or Processed Images'}
-            {compareItems[0] && !compareItems[1] && `"${compareItems[0].file.name}" selected - pick a second image`}
-            {compareItems[0] && compareItems[1] && 'Ready - tap Compare Images below'}
+            {!compareItems[0] && !compareItems[1] && t('observationDetail.page.compareSelectTwo')}
+            {compareItems[0] && !compareItems[1] && t('observationDetail.page.compareOneSelected', { name: compareItems[0].file.name })}
+            {compareItems[0] && compareItems[1] && t('observationDetail.page.compareReady')}
           </span>
           <button onClick={exitCompareMode} className="p-1 rounded-lg hover:opacity-70 transition">
             <X className="w-4 h-4" />
@@ -915,9 +891,9 @@ if (isLoading) {
       {/* Confirm delete subframes */}
       {confirmDeleteProcessedId && (
         <ConfirmModal
-          title="Delete image?"
-          message="This will permanently delete the processed image. This cannot be undone."
-          confirmLabel="Delete"
+          title={t('observationDetail.page.deleteImageTitle')}
+          message={t('observationDetail.page.deleteImageMessage')}
+          confirmLabel={t('observationDetail.page.delete')}
           onCancel={() => setConfirmDeleteProcessedId(null)}
           onConfirm={() => {
             handleDeleteProcessed(confirmDeleteProcessedId);
@@ -928,9 +904,9 @@ if (isLoading) {
 
       {confirmDeleteSubframes && objectId && date && (
         <ConfirmModal
-          title="Delete all subframes?"
-          message={`This will permanently delete all ${subFrames.length} raw sub-frame file${subFrames.length !== 1 ? 's' : ''} for this session. Your stacked images and processed files will not be affected. This cannot be undone.`}
-          confirmLabel="Delete Subframes"
+          title={t('observationDetail.page.deleteAllSubframesTitle')}
+          message={t('observationDetail.page.deleteAllSubframesMessage', { count: subFrames.length })}
+          confirmLabel={t('observationDetail.page.deleteSubframes')}
           onCancel={() => setConfirmDeleteSubframes(false)}
           onConfirm={async () => {
             setConfirmDeleteSubframes(false);
@@ -948,21 +924,21 @@ if (isLoading) {
           isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
         }`}>
           <div className="flex items-center gap-2">
-            <img src={thumbSrcFor(compareItems[0].file)} alt="Image 1" className="w-12 h-12 rounded-lg object-cover border-2 border-accent-500" />
-            <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>vs</span>
-            <img src={thumbSrcFor(compareItems[1].file)} alt="Image 2" className="w-12 h-12 rounded-lg object-cover border-2 border-violet-500" />
+            <img src={thumbSrcFor(compareItems[0].file)} alt={t('observationDetail.page.compareImage1Alt')} className="w-12 h-12 rounded-lg object-cover border-2 border-accent-500" />
+            <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('observationDetail.page.vs')}</span>
+            <img src={thumbSrcFor(compareItems[1].file)} alt={t('observationDetail.page.compareImage2Alt')} className="w-12 h-12 rounded-lg object-cover border-2 border-violet-500" />
           </div>
           <button
             onClick={() => setCompareModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent-500 text-white text-sm font-semibold hover:bg-accent-600 transition"
           >
             <Columns className="w-4 h-4" />
-            Compare Images
+            {t('observationDetail.page.compareImages')}
           </button>
           <button
             onClick={exitCompareMode}
             className={`p-2 rounded-xl transition ${isDark ? 'hover:bg-slate-800 text-slate-500' : 'hover:bg-slate-100 text-slate-400'}`}
-            title="Cancel"
+            title={t('observationDetail.page.cancel')}
           >
             <X className="w-4 h-4" />
           </button>

@@ -17,8 +17,9 @@ test.describe('Storage Dashboard', () => {
   });
 
   test('shows total file sizes', async ({ page }) => {
-    // M42: 524288000 bytes ≈ 500 MB
-    await expect(page.getByText(/500 mb|500mb|524/i)).toBeVisible();
+    // M42: 524288000 bytes formats via formatBytes() as "524.3 MB" (decimal
+    // SI units, matching Finder/Disk Utility), not "500.0 MB" (binary).
+    await expect(page.getByText('524.3 MB', { exact: true })).toBeVisible();
   });
 
   test('shows file counts', async ({ page }) => {
@@ -33,16 +34,24 @@ test.describe('Storage Dashboard', () => {
   });
 
   test('shows disk usage information', async ({ page }) => {
-    // System storage: 50% used, 500 GB total
-    await expect(page.getByText(/500 gb|50%|disk/i)).toBeVisible();
+    // System storage: 50% used, 500 GB total. Scope each figure to its own tile:
+    // "500 GB", "250 GB" and "free" all repeat elsewhere on the page, so an
+    // unscoped text match is a strict-mode violation.
+    await expect(page.getByText('Disk Total', { exact: true }).locator('..')).toContainText('500 GB');
+    await expect(page.getByText('50%', { exact: true })).toBeVisible();
   });
 
   test('shows free disk space', async ({ page }) => {
-    await expect(page.getByText(/250 gb|free/i)).toBeVisible();
+    await expect(page.getByText('Disk Free', { exact: true }).locator('..')).toContainText('250 GB');
   });
 
   test('telescope online status is shown', async ({ page }) => {
-    await expect(page.getByText(/telescope|offline|online/i)).toBeVisible();
+    // The status badge lives in the SeeStar section, so scope to that section
+    // rather than matching /online/i across the nav, Local Server badge, etc.
+    const seestar = page.locator('section').filter({
+      has: page.getByRole('heading', { name: 'SeeStar Telescope' }),
+    });
+    await expect(seestar.getByText('Online', { exact: true })).toBeVisible();
   });
 
   test('shows oldest and newest file dates', async ({ page }) => {
@@ -77,7 +86,9 @@ test.describe('Storage Dashboard', () => {
   });
 
   test('shows data directory path', async ({ page }) => {
-    await expect(page.getByText('/data').or(page.getByText(/data dir/i))).toBeVisible();
+    // Exact match selects the path paragraph only; the original `.or(/data dir/i)`
+    // also matched the "Data directory" label, resolving the locator to 2 elements.
+    await expect(page.getByText('/data', { exact: true })).toBeVisible();
   });
 
   test('shows total library size', async ({ page }) => {
@@ -86,7 +97,9 @@ test.describe('Storage Dashboard', () => {
   });
 
   test('object rows link to object detail', async ({ page }) => {
-    await page.getByText('Orion Nebula').click();
+    // Both storage tables link an object name to its detail page; the
+    // library-storage mock is empty, so only the telescope table row matches.
+    await page.getByRole('link', { name: 'Orion Nebula' }).click();
     await expect(page).toHaveURL(/\/object\/M42/);
   });
 });

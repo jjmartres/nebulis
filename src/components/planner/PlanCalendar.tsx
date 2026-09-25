@@ -5,12 +5,14 @@
  * sessions get a small dot indicator. "Today" is highlighted with a ring,
  * the currently-selected day with a solid fill.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { listPlannedSessions } from '../../lib/api/plannedSessions';
 import { localDateKey, plannerDateKeyForInstant, plannerToday, sameLocalDay } from '../../lib/nightWindow';
 import { useTheme } from '../../hooks/useTheme';
+import { formatDate, weekdayLabels, weekStartsOn } from '../../lib/formatLocale';
 
 interface PlanCalendarProps {
   selectedDate: Date;
@@ -19,10 +21,18 @@ interface PlanCalendarProps {
   onClose: () => void;
 }
 
-const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+/** Sunday-first weekday initials rotated to the active locale's first day of
+ *  the week, matching the pattern in calendar/MonthGrid.tsx. */
+function localeWeekdayHeaders(): string[] {
+  const labels = weekdayLabels('narrow');
+  const start = weekStartsOn();
+  return [...labels.slice(start), ...labels.slice(0, start)];
+}
 
 export function PlanCalendar({ selectedDate, observerTimezone, onSelect, onClose }: PlanCalendarProps) {
+  const { t } = useTranslation('planner');
   const { isDark } = useTheme();
+  const dayLabels = useMemo(() => localeWeekdayHeaders(), []);
   const today = useMemo(() => plannerToday(new Date(), observerTimezone), [observerTimezone]);
   // Month being viewed in the popover — separate from the selected date so
   // the user can flip through months without losing their pick.
@@ -50,8 +60,12 @@ export function PlanCalendar({ selectedDate, observerTimezone, onSelect, onClose
   // Build the 6×7 grid of cells starting at the Sunday on or before the 1st.
   const cells = useMemo(() => {
     const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+    // Back up to the active locale's first day of the week (matches the
+    // rebasing in ObservationsCalendar.tsx, so both grids always agree on
+    // which column a date lands in).
+    const offset = (first.getDay() - weekStartsOn() + 7) % 7;
     const start = new Date(first);
-    start.setDate(start.getDate() - start.getDay()); // back up to Sunday
+    start.setDate(start.getDate() - offset);
     return Array.from({ length: 42 }, (_, i) => {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
@@ -59,7 +73,13 @@ export function PlanCalendar({ selectedDate, observerTimezone, onSelect, onClose
     });
   }, [viewMonth]);
 
-  const monthLabel = viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const monthLabel = formatDate(viewMonth, { month: 'long', year: 'numeric' });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   return (
     <div
@@ -74,7 +94,7 @@ export function PlanCalendar({ selectedDate, observerTimezone, onSelect, onClose
           <button
             onClick={() => setViewMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
             className={`p-1 rounded ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
-            aria-label="Previous month"
+            aria-label={t('planCalendar.previousMonth')}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -82,14 +102,14 @@ export function PlanCalendar({ selectedDate, observerTimezone, onSelect, onClose
           <button
             onClick={() => setViewMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
             className={`p-1 rounded ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
-            aria-label="Next month"
+            aria-label={t('planCalendar.nextMonth')}
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 
         <div className="grid grid-cols-7 gap-0.5 mb-1">
-          {DAY_LABELS.map((d, i) => (
+          {dayLabels.map((d, i) => (
             <div key={i} className={`text-[10px] text-center py-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
               {d}
             </div>
@@ -117,7 +137,7 @@ export function PlanCalendar({ selectedDate, observerTimezone, onSelect, onClose
                         ? 'hover:bg-slate-800 text-slate-200'
                         : 'hover:bg-slate-100 text-slate-700',
                 ].join(' ')}
-                title={d.toLocaleDateString()}
+                title={formatDate(d)}
               >
                 {d.getDate()}
                 {hasSessions && (
@@ -136,9 +156,9 @@ export function PlanCalendar({ selectedDate, observerTimezone, onSelect, onClose
             onClick={() => { onSelect(today); onClose(); }}
             className="text-xs px-2 py-1 rounded bg-accent-500 hover:bg-accent-400 text-white"
           >
-            Tonight
+            {t('planCalendar.tonight')}
           </button>
-          <div className="text-[10px] opacity-60">Dot = planned sessions</div>
+          <div className="text-[10px] opacity-60">{t('planCalendar.dotHint')}</div>
         </div>
       </div>
     </div>

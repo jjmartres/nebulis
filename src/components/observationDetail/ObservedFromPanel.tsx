@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
@@ -39,6 +40,7 @@ export function ObservedFromControl({
   isAdmin: boolean;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
@@ -65,7 +67,7 @@ export function ObservedFromControl({
     ...(hasFileLocation
       ? [{
         value: FILE_OPTION,
-        label: 'From image data',
+        label: t('observationDetail.observedFromPanel.fromImageData'),
         hint: `${fileCoordinates.lat.toFixed(2)}°, ${fileCoordinates.lon.toFixed(2)}°`,
         fromFile: true,
       }]
@@ -73,7 +75,7 @@ export function ObservedFromControl({
     ...sites.map(s => ({
       value: s.id,
       label: s.name,
-      hint: s.isDefault ? 'Default' : undefined,
+      hint: s.isDefault ? t('observationDetail.observedFromPanel.default') : undefined,
     })),
   ];
 
@@ -95,7 +97,7 @@ export function ObservedFromControl({
       />
       {mutation.isError && (
         <p className="mt-2 text-xs text-red-400">
-          {mutation.error instanceof Error ? mutation.error.message : 'Failed to update location.'}
+          {mutation.error instanceof Error ? mutation.error.message : t('observationDetail.observedFromPanel.updateFailed')}
         </p>
       )}
     </div>
@@ -128,11 +130,12 @@ function ObservedFromDropdown({
   isPending: boolean;
   onSelect: (value: string) => void;
 }) {
+  const { t } = useTranslation('observations');
   const wrapRef = useRef<HTMLDivElement | null>(null);
   useClickOutside(wrapRef, () => setOpen(false), { closeOnEscape: true });
 
   const current = options.find(o => o.value === selected);
-  const label = current?.label ?? 'Default site';
+  const label = current?.label ?? t('observationDetail.observedFromPanel.defaultSite');
 
   if (!isAdmin) {
     return (

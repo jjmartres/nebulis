@@ -56,6 +56,7 @@ function logSyncHistoryEvent(source: ImportHistorySource, status: ImportStatus, 
     level,
     message,
     metadata: {
+      source,
       telescopeId: status.telescopeId,
       telescopeName: status.telescopeName,
       transportKind: status.transportKind,

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Copy, HardDrive, Loader2, Network, X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
@@ -17,6 +18,7 @@ function PathRow({
   missing?: boolean;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -36,7 +38,7 @@ function PathRow({
           {label}
           {missing && (
             <span className={`ml-2 normal-case tracking-normal ${isDark ? 'text-amber-400/80' : 'text-amber-600'}`}>
-              not found on disk
+              {t('fileLocationModal.notFoundOnDisk')}
             </span>
           )}
         </div>
@@ -51,7 +53,7 @@ function PathRow({
       </div>
       <button
         onClick={copy}
-        title="Copy path"
+        title={t('fileLocationModal.copyPath')}
         className={`shrink-0 rounded-lg p-2 transition ${
           copied
             ? 'text-emerald-500'
@@ -61,7 +63,7 @@ function PathRow({
         }`}
       >
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-        <span className="sr-only">Copy path</span>
+        <span className="sr-only">{t('fileLocationModal.copyPath')}</span>
       </button>
     </div>
   );
@@ -101,6 +103,7 @@ export function FileLocationModal({
   onClose: () => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const { data, isLoading, isError } = useQuery({
     queryKey: ['object-location', objectId, date ?? null],
     queryFn: () => getObjectLocation(objectId, date),
@@ -108,27 +111,27 @@ export function FileLocationModal({
   });
 
   const primary: DiskLocation | null = data ? (date ? data.session : data.object) : null;
-  const primaryLabel = date ? 'Session folder' : 'Object folder';
+  const primaryLabel = date ? t('fileLocationModal.sessionFolder') : t('fileLocationModal.objectFolder');
 
   return (
     <Modal
       isOpen
       onClose={onClose}
-      title={`File location for ${displayName}`}
+      title={t('fileLocationModal.titleFor', { name: displayName })}
       className={`mx-4 w-full max-w-lg rounded-2xl border shadow-2xl ${
         isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white'
       }`}
     >
       <div className={`flex items-center justify-between border-b px-5 py-3.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
         <h3 className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-          {date ? 'Session file location' : 'File location'}
+          {date ? t('fileLocationModal.sessionFileLocation') : t('fileLocationModal.fileLocation')}
         </h3>
         <button
           onClick={onClose}
           className={`rounded-lg p-1.5 transition ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-100'}`}
         >
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t('fileLocationModal.close')}</span>
         </button>
       </div>
 
@@ -136,35 +139,35 @@ export function FileLocationModal({
         {isLoading && (
           <div className={`flex items-center gap-2 py-6 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Resolving location…
+            {t('fileLocationModal.resolvingLocation')}
           </div>
         )}
 
         {isError && (
           <p className={`py-6 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Could not resolve the file location.
+            {t('fileLocationModal.resolveFailed')}
           </p>
         )}
 
         {data && (
-          <Section icon={data.storage === 'network' ? Network : HardDrive} title="On disk">
+          <Section icon={data.storage === 'network' ? Network : HardDrive} title={t('fileLocationModal.onDisk')}>
             {primary ? (
               <PathRow label={primaryLabel} value={primary.path} missing={!primary.exists} />
             ) : (
               <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                No folder recorded for this session.
+                {t('fileLocationModal.noFolderRecorded')}
               </p>
             )}
 
             {!date &&
               data.variants.map(v => (
-                <PathRow key={v.objectId} label={`${v.label} folder`} value={v.path} missing={!v.exists} />
+                <PathRow key={v.objectId} label={t('fileLocationModal.variantFolder', { label: v.label })} value={v.path} missing={!v.exists} />
               ))}
 
             <p className={`pt-1 text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
               {data.storage === 'network'
-                ? 'The library is on a network share. This path is as the server sees it; on your own machine the share may be mapped to a different drive letter or mount point.'
-                : 'This is the path on the machine running Nebulis.'}
+                ? t('fileLocationModal.networkNote')
+                : t('fileLocationModal.localNote')}
             </p>
           </Section>
         )}
@@ -177,7 +180,7 @@ export function FileLocationModal({
             isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          Done
+          {t('fileLocationModal.done')}
         </button>
       </div>
     </Modal>

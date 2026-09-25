@@ -54,12 +54,21 @@ export async function shareImage(
   }
 }
 
+/** The three outcomes that need a toast, pre-translated by the caller (this
+ *  module stays free of an i18next dependency, same reasoning as
+ *  `ListShareStrings` in `listShare.ts`). */
+export interface ShareOutcomeStrings {
+  copiedImage: string;
+  copiedLink: string;
+  failed: string;
+}
+
 /** Toast text for an outcome, or null when nothing needs saying. */
-export function shareOutcomeMessage(outcome: ShareOutcome): string | null {
+export function shareOutcomeMessage(outcome: ShareOutcome, strings: ShareOutcomeStrings): string | null {
   switch (outcome) {
-    case 'copied-image': return 'Image copied to clipboard';
-    case 'copied-link': return 'Link copied. It only works on this network.';
-    case 'failed': return 'Could not share this image';
+    case 'copied-image': return strings.copiedImage;
+    case 'copied-link': return strings.copiedLink;
+    case 'failed': return strings.failed;
     // The OS share sheet already gave its own feedback, and a cancel needs no
     // comment. Listed rather than left to the default so a new outcome has to
     // decide for itself whether it says anything.

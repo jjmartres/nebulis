@@ -31,6 +31,10 @@ import {
   discoverDwarfObjects,
   listDwarfObjectFiles,
   buildDwarfFilePath,
+  listDwarfVideoFiles,
+  buildDwarfVideoFilePath,
+  VIDEOS_FOLDER,
+  VIDEOS_TARGET_NAME,
   extractDateFromSessionFolder,
   extractTargetFromSessionFolder,
   extractTimestampFromSessionFolder,
@@ -61,7 +65,9 @@ import {
   clampToNightSafeTime,
 } from '../telescopeFiles.js';
 import { resolveCanonicalId, applyCatalogPreference } from '../catalogAliases.js';
+import { getDesignationRedirect } from './designationRedirects.js';
 import { getByName as getCatalogEntryByName } from '../dsoCatalog.js';
+import { findCatalogEntryByExactName } from '../../data/catalog.js';
 import { exifDateFromFile } from '../exifDate.js';
 import {
   stmts,
@@ -78,6 +84,7 @@ import { writeFileIntoLibrary, copyTransportFile } from './importWrite.js';
 import { recordLibraryFiles, roleForFile, resolverFor, writeObjectManifest, type RecordFileInput } from './libraryFiles.js';
 import { isCaptureInfoSidecar, ingestCaptureInfoFile } from './captureInfo.js';
 import { getStartrailsObjectId, patchStartrailsObjectMeta } from './dwarfStartrails.js';
+import { getVideosObjectId, patchVideosObjectMeta } from './dwarfVideos.js';
 import { collectRemoteArchiveCandidates, downloadToArchive } from './remoteArchive.js';
 import { RESTACKED_FOLDER, isRestackedFolder, resolveRestackTargetId, mimeTypeForExtension, SHOTS_INFO_FILENAME, targetFromShotsInfo, isDwarfThumbnailPreviewName } from './dwarfRestack.js';
 import { addProcessedImage, hasRestackedImage, isRenderableProcessedName, isStoredOnlyProcessedName } from './processed.js';
@@ -103,7 +110,7 @@ import {
 } from './importFilter.js';
 import { isRecord } from '../typeGuards.js';
 import { isContainerFolder, groupByTarget, stripCaptureModeSuffix } from './objectDiscovery.js';
-import { CALIBRATION_FOLDER_NAMES } from './calibrationFolders.js';
+import { isCalibrationFolderName } from './calibrationFolders.js';
 import {
   collectObjectSources,
   walkObjectFiles,
@@ -116,6 +123,7 @@ import {
 import {
   IMPORT_TMP_BASE,
   isStagedPath,
+  isImportStagingBase,
   checkFreeSpace,
   onSameVolume,
 } from './importStaging.js';
@@ -464,11 +472,15 @@ export function friendlyImportError(err: unknown, profile: TelescopeProfile | nu
  *  would let a malicious path escape LIBRARY_DIR. Returns null when the result
  *  is empty or escapes the root — callers should skip that object. */
 function safeObjectDir(objectName: string): string | null {
-  const LIBRARY_DIR = getLibraryDir();
+  // Normalized root, and the root itself is refused: comparing against a
+  // configured path that ends in a separator ('/mnt/lib/') used to build the
+  // boundary '...//', which never matches, so this returned null for EVERY
+  // object and a trailing-separator library path silently imported nothing.
+  const root = path.resolve(getLibraryDir());
   const safe = objectName.replace(/[\/\\<>:"|?*\x00-\x1f]/g, '_').trim();
-  if (!safe) return null;
-  const resolved = path.resolve(LIBRARY_DIR, safe);
-  if (resolved !== LIBRARY_DIR && !resolved.startsWith(LIBRARY_DIR + path.sep)) return null;
+  if (!safe || safe === '.' || safe === '..') return null;
+  const resolved = path.resolve(root, safe);
+  if (resolved === root || !resolved.startsWith(root + path.sep)) return null;
   return resolved;
 }
 
@@ -688,6 +700,13 @@ export async function runImport(
   // is idempotent, so this is a pure safety net over the existing release
   // paths below, not a replacement for them.
   try {
+  // Capture the id of the lock we were handed BEFORE anything can throw.
+  // claimImportLock() mints it, so this is always the current owner's id; if a
+  // throw below skipped the status reset further down, `finally` would
+  // otherwise call releaseImportLock(null), which is a *conditional* release
+  // and therefore a no-op against the stale non-null id still on importStatus,
+  // wedging every later import on 409 until the watchdog fired.
+  myRunId = importStatus.runId;
   // Resolve aliases so "C30" and "NGC7331" always land on the same objectId.
   if (targetObjectId) targetObjectId = resolveCanonicalId(targetObjectId);
   const baseProfile = options?.telescopeId ? getProfileById(options.telescopeId) : null;
@@ -1059,6 +1078,10 @@ export async function runImport(
 
       // Vendor-specific file enumeration → unified ImportFile[].
       let allFiles: ImportFile[] = [];
+      // The synthetic Videos object has no real session folders to list (see
+      // listDwarfVideoFiles) — checked once here rather than inside every
+      // downstream branch that would otherwise need to re-derive it.
+      const isDwarfVideosObject = isDwarf && objectName === VIDEOS_TARGET_NAME;
       if (isDwarf) {
         // One unreadable Dwarf session folder (corrupt directory entry, a
         // transient USB read error) must not abort every remaining object —
@@ -1067,18 +1090,20 @@ export async function runImport(
         let files: Array<{ name: string; size?: number; mtime?: string }>;
         let subFiles: Array<{ name: string; size?: number; mtime?: string }>;
         try {
-          ({ files, subFiles } = await listDwarfObjectFiles(
-            profile,
-            {
-              folderName: objectName,
-              subFolderName: null,
-              _dwarfSessionFolders: obj.dwarfSessionFolders,
-              _dwarfSessionBase: obj.dwarfSessionBase,
-            },
-            // Archive mode means everything, including the per-frame previews
-            // the device keeps in a session sub-directory.
-            { includeSubDirs: settings.archiveAllFiles === true },
-          ));
+          ({ files, subFiles } = isDwarfVideosObject
+            ? await listDwarfVideoFiles(profile, { includeThumbnails: settings.importVideos === true })
+            : await listDwarfObjectFiles(
+                profile,
+                {
+                  folderName: objectName,
+                  subFolderName: null,
+                  _dwarfSessionFolders: obj.dwarfSessionFolders,
+                  _dwarfSessionBase: obj.dwarfSessionBase,
+                },
+                // Archive mode means everything, including the per-frame previews
+                // the device keeps in a session sub-directory.
+                { includeSubDirs: settings.archiveAllFiles === true },
+              ));
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err);
           debugLog('import:error', `Failed to list Dwarf session files for "${objectName}" — ${reason}`);
@@ -1132,7 +1157,7 @@ export async function runImport(
               localName: basename,
               sessionFolder: dir,
               originalName: basename,
-              remotePath: buildDwarfFilePath(e.name, obj.dwarfSessionBase),
+              remotePath: isDwarfVideosObject ? buildDwarfVideoFilePath(e.name) : buildDwarfFilePath(e.name, obj.dwarfSessionBase),
               size: e.size,
               fromSub,
               date: night,
@@ -1149,7 +1174,7 @@ export async function runImport(
             localName: named.name,
             sessionFolder: null,
             originalName: basename,
-            remotePath: buildDwarfFilePath(e.name, obj.dwarfSessionBase),
+            remotePath: isDwarfVideosObject ? buildDwarfVideoFilePath(e.name) : buildDwarfFilePath(e.name, obj.dwarfSessionBase),
             size: e.size,
             fromSub,
             date: night,
@@ -1675,15 +1700,17 @@ export async function runImport(
             cat.catalogId, cat.objectName, cat.objectType, cat.constellation,
             cat.description, cat.magnitude, cat.ra, cat.dec, cat.distanceLy
           );
-          // The synthetic Star Trails object has no catalog entry, so
-          // resolveCatalogMeta above just wrote generic placeholders
-          // ('Unknown' type, empty description) that upsertObject's own
-          // COALESCE would never revisit on a later re-import. Patch it on
-          // every import instead — it writes the same fixed constants each
-          // time, so this also self-heals any row created before this patch
-          // existed.
+          // The synthetic Star Trails and Videos objects have no catalog
+          // entry, so resolveCatalogMeta above just wrote generic
+          // placeholders ('Unknown' type, empty description) that
+          // upsertObject's own COALESCE would never revisit on a later
+          // re-import. Patch on every import instead — it writes the same
+          // fixed constants each time, so this also self-heals any row
+          // created before this patch existed.
           if (objId === getStartrailsObjectId()) {
             patchStartrailsObjectMeta(objId);
+          } else if (objId === getVideosObjectId()) {
+            patchVideosObjectMeta(objId);
           }
           // First-to-import-wins on the per-object color/attribution. A later
           // import from a different profile won't overwrite this — the user
@@ -1888,6 +1915,60 @@ export async function runImport(
       }
     }
 
+    // Everything else a Dwarf keeps at its true storage root: object import
+    // above only ever walks inside walkerBase ('Astronomy'), so a sibling
+    // folder the device writes for its own purposes (e.g. Burst/,
+    // Normal_Photos/, Panoramas/) is never read by anything and a user has no
+    // way to get a copy of it off the device otherwise. Same
+    // unconditional-archive philosophy as calibration frames above, just
+    // aimed at the root instead of a fixed folder name so it keeps working if
+    // a firmware update adds or renames one of these. 'Astronomy', the
+    // calibration folder names, and VIDEOS_FOLDER are excluded so this pass
+    // never re-archives what another pass already claims (whether or not a
+    // given device actually nests those under Astronomy or exposes them at
+    // the root too) — Videos/ specifically is claimed by the object-import
+    // pass above (listDwarfVideoFiles), which keeps every clip and its
+    // matched preview as real session files; archiving it here too would
+    // silently double its storage for no benefit.
+    if (isDwarf && !importCancelRequested) {
+      importStatus.currentObject = 'Other device folders';
+      try {
+        const rootEntries = await smbListDir('', profile);
+        const claimed = new Set([walkerBase, 'CALI_FRAME', 'DWARF_DARK', VIDEOS_FOLDER]);
+        // A 'local' transport's root IS profile.localPath (see smb.local.ts,
+        // e.g. a Dwarf exposing USB storage at /Volumes/DWARF_3) — an
+        // ordinary directory on the host, not the device. If the Nebulis
+        // library itself was relocated onto that same volume, its folder
+        // sits right there as an unclaimed "device" folder and this pass
+        // would archive it into its own _archive dir, which then gets
+        // rediscovered and re-archived on every subsequent sync: an
+        // exponentially self-nesting copy that fills the disk. Exclude any
+        // top-level entry that is, or contains, the resolved library dir.
+        const libraryDir = profile.connectionType === 'local' && profile.localPath
+          ? path.resolve(getLibraryDir())
+          : null;
+        const otherFolders = rootEntries
+          .filter(e => e.type === 'dir' && !claimed.has(e.name))
+          .filter((e) => {
+            if (!libraryDir) return true;
+            const candidate = path.resolve(profile.localPath, e.name);
+            return candidate !== libraryDir && !libraryDir.startsWith(candidate + path.sep);
+          })
+          .map(e => e.name);
+        if (otherFolders.length > 0) {
+          const candidates = await collectRemoteArchiveCandidates(profile, '', otherFolders);
+          if (candidates.length > 0) {
+            const archived = await downloadToArchive(profile, candidates, getArchiveDir(profile.id), {
+              shouldCancel: () => importCancelRequested,
+            });
+            debugLog('import:dwarf', `Other device folders archive: ${archived.copied} new, ${archived.alreadyPresent} already archived, ${archived.failed} failed`);
+          }
+        }
+      } catch (err) {
+        log.warn({ err: err instanceof Error ? err.message : String(err) }, '[import] other-device-folders archive pass failed; continuing');
+      }
+    }
+
     // Each object was already saved to DB inside the per-object transaction
     // above. Only the meta timestamp remains. Calling saveIndex(index, ...) here
     // would re-assert the snapshot loaded at import start for every library
@@ -2008,6 +2089,8 @@ export async function syncSessionSubFrames(
   // releaseImportLock() is idempotent, so this layers over the existing
   // release paths below rather than replacing them.
   try {
+  // See runImport's matching capture.
+  myRunId = importStatus.runId;
   // Resolve aliases so "C63" and "NGC7293" always land on the same objectId,
   // matching runImport (import.ts:421). Also strip spaces so the id matches
   // the DB primary key convention (normalizeObjectId) before any lookup below.
@@ -2342,9 +2425,14 @@ export async function syncSessionSubFrames(
       // canonical id this sync was asked for (e.g. "NGC7331") once catalog
       // aliasing is applied. Without resolveCanonicalId here, sub-frame sync
       // for any alias-folded object silently found no match and synced nothing.
-      const subFolder = subFolders.find(
-        s => resolveCanonicalId(normalizeObjectId(getObjectFromSubFolder(s.name))) === targetObjectId,
-      );
+      // A reclassify redirect (see designationRedirects.ts) applies too: the
+      // device's folder still carries the old, wrong designation, so a plain
+      // resolveCanonicalId would never match the object it was reclassified
+      // into.
+      const subFolder = subFolders.find(s => {
+        const raw = normalizeObjectId(getObjectFromSubFolder(s.name));
+        return (getDesignationRedirect(raw) ?? resolveCanonicalId(raw)) === targetObjectId;
+      });
       if (!subFolder) {
         debugLog('subframe-sync:discover', `SeeStar: no sub-frame folder for "${targetObjectId}"`);
         importStatus.error = `${profile.name} has no sub-frame folder for "${targetObjectId}". The telescope only keeps sub-frames for sessions where you enabled that option.`;
@@ -2935,6 +3023,13 @@ export function getImportHistory(limit = 10, offset = 0): { entries: ImportHisto
 export function claimImportLock(): boolean {
   if (importStatus.running) return false;
   importStatus.running = true;
+  // Mint the owning run's id HERE, not later when a run function replaces
+  // importStatus. `releaseImportLock(runId)` is a conditional release, so the
+  // owner id has to exist from the moment the lock is held: otherwise a run
+  // that threw before its own status reset released with `null`, mismatched the
+  // previous run's id still sitting on importStatus, and the lock stayed held
+  // (every later import 409s) until the stale-lock watchdog fired.
+  importStatus.runId = randomUUID();
   try { stmts.setImportRunning.run(1, new Date().toISOString()); } catch { /* best-effort */ }
   return true;
 }
@@ -3058,11 +3153,21 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
   // releaseImportLock() is idempotent, so this layers over (and fixes) the
   // existing release paths rather than conflicting with them.
   try {
+  // See runImport's matching capture.
+  myRunId = importStatus.runId;
   const rootPath = plan.rootPath;
   if (!fs.existsSync(rootPath) || !fs.statSync(rootPath).isDirectory()) {
     importStatus.running = false;
     try { stmts.setImportRunning.run(0, null); } catch { /* best-effort */ }
     throw new Error(`The path "${rootPath}" is not a folder the server can read.`);
+  }
+  // Never treat the upload staging area itself as an import source. It is our
+  // scratch space, and `stagedSource` below would delete it on completion,
+  // taking every other in-flight upload session with it.
+  if (isImportStagingBase(rootPath)) {
+    importStatus.running = false;
+    try { stmts.setImportRunning.run(0, null); } catch { /* best-effort */ }
+    throw new Error('That folder is Nebulis\'s own upload staging area. Choose the folder that holds your images.');
   }
 
   // Whether this import reads from the wizard's upload staging area rather
@@ -3160,10 +3265,16 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
     // (matched subfolders become processed images instead of archived bytes);
     // `restackedFolderName` is carved out here so it isn't double-archived by
     // the "everything else" pass.
-    const calibrationFolderNames = excludedFolders.filter(f => CALIBRATION_FOLDER_NAMES.includes(f.toLowerCase()));
+    // A calibration folder can be nested under an ASIAIR capture mode
+    // ("Autorun/Dark", "Plan/Flat"), so classify by the last path segment.
+    // Comparing the whole relative name against the bare folder names dropped
+    // every ASIAIR calibration frame instead of always-archiving it.
+    const isCalibrationFolderEntry = (rel: string): boolean =>
+      isCalibrationFolderName(rel.split('/').pop() ?? rel);
+    const calibrationFolderNames = excludedFolders.filter(isCalibrationFolderEntry);
     const restackedFolderName = excludedFolders.find(f => isRestackedFolder(f)) ?? null;
     const otherExcludedFolders = excludedFolders.filter(
-      f => !CALIBRATION_FOLDER_NAMES.includes(f.toLowerCase()) && f !== restackedFolderName,
+      f => !isCalibrationFolderEntry(f) && f !== restackedFolderName,
     );
     const archiveCandidates = [
       ...collectArchiveCandidates(resolvedRoot, calibrationFolderNames),
@@ -3291,10 +3402,19 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
       let targetObjectId = resolveCanonicalId(normalizedTarget);
       // When the ID didn't resolve via alias, also try a catalog name lookup so
       // free-text like "California Nebula" or "CALIFORNIA NEBULA" → "NGC1499".
+      // The exact-name fallback is punctuation-insensitive, so a user folder
+      // named "Bodes Galaxy" still resolves to "Bode's Galaxy".
       if (targetObjectId === normalizedTarget) {
-        const byName = getCatalogEntryByName(rawTargetInput);
+        const byName = getCatalogEntryByName(rawTargetInput) ?? findCatalogEntryByExactName(rawTargetInput);
         if (byName) targetObjectId = resolveCanonicalId(byName.id);
       }
+      // A user-created reclassify redirect (Object Detail → "..." → Reclassify)
+      // wins over the catalog's own resolution: it exists specifically because
+      // the catalog/alias answer for this designation was wrong for this
+      // library. Checked both pre- and post-alias so a redirect set from an
+      // already-alias-folded object still applies.
+      targetObjectId =
+        getDesignationRedirect(normalizedTarget) ?? getDesignationRedirect(targetObjectId) ?? targetObjectId;
       if (!targetObjectId) {
         console.warn(`[folder-import] Skipping "${source.folderName}": empty target id`);
         importStatus.objectsDone++;
@@ -3448,6 +3568,13 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
             continue;
           }
           log.warn({ file: naturalName, objectId: targetObjectId }, '[folder-import] re-copying partial file from a prior interrupted run');
+          // The partial file occupies its own natural name, so leaving it in
+          // `used` made the naming below treat that name as taken and dedup to
+          // a second, differently named copy — the heal never happened and an
+          // interrupted import left both a corrupt file and a duplicate. Drop
+          // the name so the retry reuses it; writeFileIntoLibrary's size check
+          // overwrites the partial in place.
+          used.delete(naturalName);
         }
 
         // Nested: keep the source name. It only falls back to the canonical
@@ -3736,6 +3863,8 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
           // reserved id, safe to re-apply on every import.
           if (objectId === getStartrailsObjectId()) {
             patchStartrailsObjectMeta(objectId);
+          } else if (objectId === getVideosObjectId()) {
+            patchVideosObjectMeta(objectId);
           }
           if (commitProfile) stmts.setObjectPrimaryTelescopeIfNull.run(commitProfile.id, objectId);
           const chosenLayout = layoutByObjectId.get(objectId);
@@ -3892,7 +4021,7 @@ export function createManualObservation(
 
   // Resolve to canonical catalog ID when the user typed a common name instead
   // of selecting from the dropdown (e.g. "CALIFORNIA NEBULA" → "NGC1499").
-  const byName = getCatalogEntryByName(trimmedName);
+  const byName = getCatalogEntryByName(trimmedName) ?? findCatalogEntryByExactName(trimmedName);
   const objectId = byName
     ? resolveCanonicalId(byName.id)
     : resolveCanonicalId(safeName);

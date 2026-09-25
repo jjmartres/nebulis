@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { X, FolderOpen, RotateCw, CheckCircle2, Upload, HardDrive } from 'lucide-react';
 import {
   uploadFolderTemp,
@@ -97,6 +98,7 @@ export function ImportModal({ onClose, onReview }: {
   onReview: (folderPath: string, includeSubframes: boolean, includeFits: boolean, telescopeId: string | null, archiveAll: boolean, tmpId: string | null) => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [source, setSource] = useState<Source>('upload');
@@ -141,12 +143,12 @@ export function ImportModal({ onClose, onReview }: {
     queryFn: listTelescopes,
     staleTime: 30_000,
   });
-  const activeTelescopes = (telescopes ?? []).filter(t => !t.archivedAt);
+  const activeTelescopes = (telescopes ?? []).filter(scope => !scope.archivedAt);
   // The selected telescope's local-mirror transport path, if it has one —
   // offered as a one-click starting point in the folder browser so the user
   // doesn't have to hunt for a folder Nebulis already knows about.
   const suggestedFolderPath = activeTelescopes
-    .find(t => t.id === telescopeId)
+    .find(scope => scope.id === telescopeId)
     ?.transports?.find(tr => tr.kind === 'local' && tr.localPath)?.localPath ?? null;
 
   const isDirty = phase === 'staging' || phase === 'uploading';
@@ -261,7 +263,7 @@ export function ImportModal({ onClose, onReview }: {
     try {
       const check = await preflightImportSpace(picked.reduce((sum, p) => sum + p.file.size, 0));
       if (!check.ok) {
-        setError(check.message ?? 'There is not enough free space on the server to stage this upload.');
+        setError(check.message ?? t('importModal.notEnoughSpace'));
         return;
       }
     } catch { /* preflight unavailable; the server-side batch guard still applies */ }
@@ -313,7 +315,7 @@ export function ImportModal({ onClose, onReview }: {
         discardImportTempSession(tmpIdRef.current);
         tmpIdRef.current = null;
       }
-      const message = err instanceof Error ? err.message : 'Upload failed';
+      const message = err instanceof Error ? err.message : t('importModal.uploadFailed');
       if (debug) reportImportDebug(`[browser] import dialog: upload aborted with error: ${message}`);
       setError(message);
       setPhase('staging');
@@ -346,13 +348,13 @@ export function ImportModal({ onClose, onReview }: {
     <Modal
       isOpen
       onClose={requestClose}
-      title="Import to Library"
+      title={t('importModal.title')}
       className={`relative w-full ${modalWidth} max-h-[88vh] flex flex-col rounded-2xl border shadow-2xl ${card}`}
     >
       {/* Header */}
       <div className={`shrink-0 flex items-center justify-between px-6 py-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
         <h2 className={`font-display font-semibold text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>
-          Import to Library
+          {t('importModal.title')}
         </h2>
         <button onClick={requestClose} className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
           <X className="w-4 h-4" />
@@ -365,7 +367,7 @@ export function ImportModal({ onClose, onReview }: {
           <>
             <ServerFolderPicker isDark={isDark} onChange={setServerPath} suggestedPath={suggestedFolderPath} />
             <p className={`text-xs ${mutedText}`}>
-              Nothing is uploaded: the server reads the folder in place, so large libraries import in seconds.
+              {t('importModal.noUploadNote')}
             </p>
             <button
               type="button"
@@ -375,7 +377,7 @@ export function ImportModal({ onClose, onReview }: {
               }`}
             >
               <Upload className="w-3.5 h-3.5" />
-              Back to file upload
+              {t('importModal.backToFileUpload')}
             </button>
           </>
         )}
@@ -400,7 +402,7 @@ export function ImportModal({ onClose, onReview }: {
               <RotateCw className="w-10 h-10 text-accent-500 animate-spin" />
               <div className="text-center space-y-2 w-48">
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Uploading... {uploadProgress}%
+                  {t('importModal.uploadingPercent', { percent: uploadProgress })}
                 </p>
                 <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
                   <div
@@ -414,7 +416,7 @@ export function ImportModal({ onClose, onReview }: {
             <>
               <CheckCircle2 className="w-10 h-10 text-emerald-500" />
               <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                Upload complete
+                {t('importModal.uploadComplete')}
               </p>
             </>
           ) : (
@@ -422,10 +424,10 @@ export function ImportModal({ onClose, onReview }: {
               <FolderOpen className={`w-10 h-10 ${dragging ? 'text-accent-500' : mutedText}`} />
               <div className="text-center">
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                  {picked.length > 0 ? 'Drop a different folder, or click to pick one' : 'Drop a folder here, or click to choose one'}
+                  {picked.length > 0 ? t('importModal.dropDifferentFolder') : t('importModal.dropFolderHere')}
                 </p>
                 <p className={`text-xs mt-1 ${mutedText}`}>
-                  FITS, JPG, PNG, TIFF accepted
+                  {t('importModal.acceptedFormatsHint')}
                 </p>
               </div>
             </>
@@ -455,7 +457,7 @@ export function ImportModal({ onClose, onReview }: {
             }`}
           >
             <HardDrive className="w-3.5 h-3.5" />
-            Files already on the computer running Nebulis? Import in place, no upload.
+            {t('importModal.importInPlacePrompt')}
           </button>
         )}
 
@@ -469,8 +471,8 @@ export function ImportModal({ onClose, onReview }: {
                 onChange={e => setIncludeSubframes(e.target.checked)}
                 className="w-4 h-4 rounded accent-accent-500"
               />
-              Include subframes
-              <span className={`text-xs ${mutedText}`}>(individual raw exposures)</span>
+              {t('importModal.includeSubframes')}
+              <span className={`text-xs ${mutedText}`}>{t('importModal.includeSubframesHint')}</span>
             </label>
 
             <label className={`flex items-start gap-2.5 cursor-pointer select-none text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -481,19 +483,16 @@ export function ImportModal({ onClose, onReview }: {
                 className="w-4 h-4 mt-0.5 rounded accent-accent-500"
               />
               <span>
-                Archive everything
+                {t('importModal.archiveEverything')}
                 <span className={`block text-xs mt-0.5 ${mutedText}`}>
-                  Copy every file in the folder, overriding the choice above. Includes
-                  sub-frames, per-frame thumbnails, working and calibration images, rejected
-                  frames, logs, and unrecognized types, keeping the original folder structure.
-                  This can be very large.
+                  {t('importModal.archiveEverythingHint')}
                 </span>
               </span>
             </label>
 
             <div className="space-y-1.5">
               <label className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                Captured with
+                {t('importModal.capturedWith')}
               </label>
               <select
                 value={telescopeId}
@@ -502,13 +501,13 @@ export function ImportModal({ onClose, onReview }: {
                   isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
                 }`}
               >
-                <option value="">Not sure / mixed sources</option>
-                {activeTelescopes.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                <option value="">{t('importModal.notSureMixedSources')}</option>
+                {activeTelescopes.map(scope => (
+                  <option key={scope.id} value={scope.id}>{scope.name}</option>
                 ))}
               </select>
               <p className={`text-xs ${mutedText}`}>
-                Tags every session from this import with the telescope so it shows up correctly in the calendar.
+                {t('importModal.capturedWithHint')}
               </p>
             </div>
           </div>
@@ -519,8 +518,8 @@ export function ImportModal({ onClose, onReview }: {
           <div className={`rounded-xl border p-4 ${isDark ? 'border-slate-800 bg-slate-800/40' : 'border-slate-200 bg-slate-50'}`}>
             <div className="flex items-center justify-between">
               <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                {picked.length} file{picked.length !== 1 ? 's' : ''} ready
-                {folderCount > 0 && ` across ${folderCount} folder${folderCount !== 1 ? 's' : ''}`}
+                {t('importModal.filesReady', { count: picked.length })}
+                {folderCount > 0 && ` ${t('importModal.acrossFolders', { count: folderCount })}`}
               </p>
               <button
                 onClick={() => {
@@ -531,7 +530,7 @@ export function ImportModal({ onClose, onReview }: {
                 }}
                 className={`text-xs ${mutedText} hover:text-red-500 transition`}
               >
-                Clear
+                {t('importModal.clear')}
               </button>
             </div>
           </div>
@@ -553,17 +552,17 @@ export function ImportModal({ onClose, onReview }: {
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition"
             >
               <HardDrive className="w-4 h-4" />
-              Review &amp; import in place (no upload)
+              {t('importModal.reviewImportInPlace')}
             </button>
             <p className={`text-xs ${mutedText}`}>
-              This folder is already on the computer running Nebulis at {locatedPath}, so the server can read it directly.
+              {t('importModal.alreadyOnServerNote', { path: locatedPath })}
             </p>
             <button
               type="button"
               onClick={handleUpload}
               className={`text-xs transition ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              Upload the {picked.length} file{picked.length !== 1 ? 's' : ''} instead
+              {t('importModal.uploadInsteadOf', { count: picked.length })}
             </button>
           </div>
         )}
@@ -574,7 +573,7 @@ export function ImportModal({ onClose, onReview }: {
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-50"
           >
             <FolderOpen className="w-4 h-4" />
-            Review &amp; import {picked.length} file{picked.length !== 1 ? 's' : ''}
+            {t('importModal.reviewImportFiles', { count: picked.length })}
           </button>
         )}
 
@@ -587,20 +586,20 @@ export function ImportModal({ onClose, onReview }: {
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-50"
           >
             <FolderOpen className="w-4 h-4" />
-            Review &amp; import this folder
+            {t('importModal.reviewImportThisFolder')}
           </button>
         )}
 
         {phase === 'idle' && source === 'upload' && (
           <p className={`text-xs text-center ${mutedText}`}>
-            Nebulis will detect objects, session dates, and catalog matches before importing anything.
+            {t('importModal.detectionNote')}
           </p>
         )}
       </div>
 
       {confirmingClose && (
         <CloseConfirm
-          message="Discard selected files?"
+          message={t('importModal.discardSelectedFiles')}
           onCancel={() => setConfirmingClose(false)}
           onDiscard={() => {
             setConfirmingClose(false);

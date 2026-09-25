@@ -485,6 +485,20 @@ db.exec(`
     updatedBy     TEXT
   );
 
+  -- ─── Reclassify redirects ─────────────────────────────────────
+  -- When a user reclassifies an object (Object Detail → "..." → Reclassify),
+  -- this records that a parsed designation should route to a different
+  -- objectId than resolveCanonicalId's own catalog/alias logic would produce,
+  -- so a future import or sub-frame sync of the same wrong designation lands
+  -- on the corrected object instead of recreating the original mistake.
+  -- designation is normalizeDesignation()'s form (see catalogAliases.ts).
+  CREATE TABLE IF NOT EXISTS objectDesignationRedirects (
+    designation    TEXT PRIMARY KEY,
+    targetObjectId TEXT NOT NULL,
+    createdAt      TEXT NOT NULL,
+    createdBy      TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS userPreferences (
     userId             TEXT PRIMARY KEY,
     watermarkPresets   TEXT NOT NULL DEFAULT '[]',
@@ -496,16 +510,17 @@ db.exec(`
   -- denormalized so a catalog rename does not orphan a plan. start_time
   -- and end_time are ISO 8601 UTC.
   CREATE TABLE IF NOT EXISTS plannedSessions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    objectId    TEXT NOT NULL,
-    objectName  TEXT NOT NULL,
-    ra          REAL NOT NULL,
-    dec         REAL NOT NULL,
-    startTime   TEXT NOT NULL,
-    endTime     TEXT NOT NULL,
-    notes       TEXT NOT NULL DEFAULT '',
-    createdAt   TEXT NOT NULL DEFAULT (datetime('now')),
-    updatedAt   TEXT NOT NULL DEFAULT (datetime('now'))
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    objectId      TEXT NOT NULL,
+    objectName    TEXT NOT NULL,
+    ra            REAL NOT NULL,
+    dec           REAL NOT NULL,
+    startTime     TEXT NOT NULL,
+    endTime       TEXT NOT NULL,
+    notes         TEXT NOT NULL DEFAULT '',
+    framingSetup  TEXT,
+    createdAt     TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt     TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_plannedSessions_start ON plannedSessions(startTime);
 
@@ -1483,6 +1498,14 @@ db.exec(`
   const cols = db.prepare<[], { name: string }>('PRAGMA table_info(catalogCache)').all();
   if (!cols.some(c => c.name === 'distanceLy')) {
     db.prepare('ALTER TABLE catalogCache ADD COLUMN distanceLy REAL').run();
+  }
+}
+
+// ─── plannedSessions: add framingSetup for a per-session saved mosaic ───────
+{
+  const cols = db.prepare<[], { name: string }>('PRAGMA table_info(plannedSessions)').all();
+  if (!cols.some(c => c.name === 'framingSetup')) {
+    db.prepare('ALTER TABLE plannedSessions ADD COLUMN framingSetup TEXT').run();
   }
 }
 

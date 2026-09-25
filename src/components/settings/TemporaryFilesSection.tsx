@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { getImportTempUsage, cleanupImportTemp } from '../../lib/api/library';
 import { formatBytes } from '../../lib/utils';
 import { Sec } from './SettingsUI';
@@ -15,6 +16,7 @@ import { Sec } from './SettingsUI';
  * button for getting that space back now.
  */
 export function TemporaryFilesSection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ deleted: number; bytes: number; skippedActive: number } | null>(null);
@@ -37,7 +39,7 @@ export function TemporaryFilesSection({ isDark }: { isDark: boolean }) {
       setResult(res);
       await refetch();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Cleanup failed');
+      setError(err instanceof Error ? err.message : t('temporaryFiles.cleanupFailed'));
     } finally {
       setBusy(false);
     }
@@ -47,25 +49,22 @@ export function TemporaryFilesSection({ isDark }: { isDark: boolean }) {
 
   return (
     <Sec
-      title="Temporary import files"
-      description="Working space used while uploading a folder to import."
+      title={t('temporaryFiles.title')}
+      description={t('temporaryFiles.description')}
       isDark={isDark}
     >
       <div className="px-5 py-5 space-y-4">
         {sessions === 0 ? (
           <p className={`text-[13px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-            Nothing is staged. Temporary import files are removed as each import runs.
+            {t('temporaryFiles.nothingStaged')}
           </p>
         ) : (
           <>
             <p className={`text-[13px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              {formatBytes(bytes)} in {sessions === 1 ? '1 upload' : `${sessions} uploads`} that were
-              never imported, usually from a cancelled or failed folder upload. Cleaning up frees the
-              space. Nothing already in your library is touched.
+              {t('temporaryFiles.usageInfo', { size: formatBytes(bytes), count: sessions })}
             </p>
             <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              If you have an import open on the review step somewhere else, clean up afterwards:
-              its files are held here until you confirm the import.
+              {t('temporaryFiles.reviewNote')}
             </p>
             <p className={`text-[12px] font-mono break-all ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
               {data?.path}
@@ -80,9 +79,9 @@ export function TemporaryFilesSection({ isDark }: { isDark: boolean }) {
             }`}
           >
             {result.deleted === 0
-              ? 'Nothing to clean up.'
-              : `Freed ${formatBytes(result.bytes)} from ${result.deleted} ${result.deleted === 1 ? 'upload' : 'uploads'}.`}
-            {result.skippedActive > 0 && ' An upload still in progress was left alone.'}
+              ? t('temporaryFiles.nothingToCleanUp')
+              : t('temporaryFiles.freed', { size: formatBytes(result.bytes), count: result.deleted })}
+            {result.skippedActive > 0 && ` ${t('temporaryFiles.skippedActive')}`}
           </div>
         )}
 
@@ -105,7 +104,7 @@ export function TemporaryFilesSection({ isDark }: { isDark: boolean }) {
               : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
           }`}
         >
-          {busy ? 'Cleaning up...' : 'Clean up now'}
+          {busy ? t('temporaryFiles.cleaningUp') : t('temporaryFiles.cleanUpNow')}
         </button>
       </div>
     </Sec>

@@ -9,6 +9,7 @@
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle, Ban, CalendarDays, ChevronDown, CheckCircle2, ChevronLeft, ChevronRight, ChevronRight as Chevron,
   FileStack, FileX, HardDrive, History, Network, Telescope, Usb, X,
@@ -24,10 +25,12 @@ import { DeletedSessionsModal } from './DeletedSessionsModal';
 import { Modal } from '../ui/Modal';
 import { formatBytes } from '../../lib/utils';
 import { formatRelativeTime } from '../../lib/timeFormat';
+import { formatDate, formatTimeAuto, formatNumber } from '../../lib/formatLocale';
 
 const PAGE_SIZE = 8;
 
 export function SyncHistoryPanel({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('library');
   const [page, setPage] = useState(0);
   const [detail, setDetail] = useState<ImportHistoryEntry | null>(null);
 
@@ -51,10 +54,10 @@ export function SyncHistoryPanel({ isDark }: { isDark: boolean }) {
             isDark ? 'text-white' : 'text-slate-900'
           }`}>
             <History className="h-4 w-4 text-accent-500" />
-            Sync History
+            {t('syncHistoryPanel.title')}
             {data && data.total > 0 && (
               <span className={`text-xs font-normal tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                {data.total.toLocaleString()}
+                {formatNumber(data.total)}
               </span>
             )}
           </h2>
@@ -64,7 +67,7 @@ export function SyncHistoryPanel({ isDark }: { isDark: boolean }) {
               <button
                 onClick={() => setPage(p => Math.max(0, p - 1))}
                 disabled={page === 0}
-                aria-label="Previous page"
+                aria-label={t('syncHistoryPanel.previousPage')}
                 className={`rounded-lg p-1.5 transition disabled:opacity-30 ${
                   isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                 }`}
@@ -72,12 +75,12 @@ export function SyncHistoryPanel({ isDark }: { isDark: boolean }) {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span className={`text-xs tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                {page + 1} / {totalPages}
+                {t('syncHistoryPanel.pageOfTotal', { page: page + 1, totalPages })}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                 disabled={page >= totalPages - 1}
-                aria-label="Next page"
+                aria-label={t('syncHistoryPanel.nextPage')}
                 className={`rounded-lg p-1.5 transition disabled:opacity-30 ${
                   isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                 }`}
@@ -90,7 +93,7 @@ export function SyncHistoryPanel({ isDark }: { isDark: boolean }) {
 
         {!data || data.total === 0 ? (
           <p className={`px-5 py-6 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            No syncs recorded yet. Every run shows up here with what it brought in.
+            {t('syncHistoryPanel.empty')}
           </p>
         ) : (
           <ul className={`divide-y ${isDark ? 'divide-slate-800/70' : 'divide-slate-100'}`}>
@@ -113,6 +116,7 @@ function HistoryRow({
   isDark: boolean;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation('library');
   // A failed run carries no files and nothing skipped, so gating on content
   // alone used to hide details from exactly the rows worth inspecting.
   const hasDetail = !!entry.error
@@ -142,9 +146,9 @@ function HistoryRow({
         }`}>
           {formatRelativeTime(entry.finishedAt)}
           <span className={`text-xs font-normal ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {finished.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {formatDate(finished, { month: 'short', day: 'numeric' })}
             {' · '}
-            {finished.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            {formatTimeAuto(finished, { hour: 'numeric', minute: '2-digit' })}
           </span>
         </span>
 
@@ -172,7 +176,7 @@ function HistoryRow({
           )}
           <span className="inline-flex items-center gap-1">
             <FileStack className="h-3 w-3" />
-            {entry.newFiles} new file{entry.newFiles !== 1 ? 's' : ''}
+            {t('syncHistoryPanel.newFiles', { count: entry.newFiles })}
           </span>
           {entry.bytesNew > 0 && (
             <span className="inline-flex items-center gap-1">
@@ -183,7 +187,7 @@ function HistoryRow({
           {skippedTotal > 0 && (
             <span className="inline-flex items-center gap-1">
               <FileX className="h-3 w-3" />
-              {skippedTotal.toLocaleString()} left out
+              {t('syncHistoryPanel.leftOut', { count: skippedTotal })}
             </span>
           )}
           {entry.error && (
@@ -208,7 +212,7 @@ function HistoryRow({
     <li>
       <button
         onClick={onOpen}
-        title={entry.cancelled ? 'View cancellation details' : entry.error ? 'View error details' : 'View sync details'}
+        title={entry.cancelled ? t('syncHistoryPanel.viewCancellationDetails') : entry.error ? t('syncHistoryPanel.viewErrorDetails') : t('syncHistoryPanel.viewSyncDetails')}
         className={`flex w-full items-start gap-3 px-5 py-3 text-left transition-colors ${
           isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'
         }`}
@@ -226,11 +230,12 @@ function SyncDetailModal({
   isDark: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('library');
   return (
     <Modal
       isOpen={!!entry}
       onClose={onClose}
-      title="Sync Details"
+      title={t('syncHistoryPanel.detailsTitle')}
       className={`flex max-h-[70vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white shadow-xl'
       }`}
@@ -242,19 +247,19 @@ function SyncDetailModal({
           }`}>
             <div>
               <h3 className={`font-display font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Sync Details
+                {t('syncHistoryPanel.detailsTitle')}
               </h3>
               <p className={`mt-0.5 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                {new Date(entry.finishedAt).toLocaleDateString('en-US', {
+                {formatDate(new Date(entry.finishedAt), {
                   weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
                 })}
-                {' · '}{entry.newFiles} file{entry.newFiles !== 1 ? 's' : ''}
+                {' · '}{t('syncHistoryPanel.detailsFiles', { count: entry.newFiles })}
                 {entry.bytesNew > 0 && ` · ${formatBytes(entry.bytesNew)}`}
               </p>
             </div>
             <button
               onClick={onClose}
-              aria-label="Close"
+              aria-label={t('syncHistoryPanel.close')}
               className={`rounded-lg p-1.5 transition ${
                 isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
               }`}
@@ -280,6 +285,7 @@ function SyncDetailBody({
   isDark: boolean;
   onNavigate: () => void;
 }) {
+  const { t } = useTranslation('library');
   const navigate = useNavigate();
   const [filesExpanded, setFilesExpanded] = useState(false);
   const [inspectSkip, setInspectSkip] = useState<ImportSkip | null>(null);
@@ -312,7 +318,7 @@ function SyncDetailBody({
                   ? (isDark ? 'text-amber-300' : 'text-amber-700')
                   : (isDark ? 'text-red-300' : 'text-red-700')
               }`}>
-                {entry.cancelled ? 'This sync was cancelled' : 'This sync failed'}
+                {entry.cancelled ? t('syncHistoryPanel.wasCancelled') : t('syncHistoryPanel.wasFailed')}
               </p>
               <p className={`select-text break-words text-xs leading-relaxed ${
                 entry.cancelled
@@ -341,7 +347,7 @@ function SyncDetailBody({
       <SkippedNotice
         skipped={entry.skipped}
         isDark={isDark}
-        heading={total => `${total.toLocaleString()} file${total !== 1 ? 's' : ''} were left on the telescope:`}
+        heading={total => t('syncHistoryPanel.leftOnTelescope', { count: total })}
         onInspect={setInspectSkip}
         onReviewDeletedSessions={() => setShowDeletedSessions(true)}
       />
@@ -355,7 +361,7 @@ function SyncDetailBody({
 
       {entry.sessionsTouched && entry.sessionsTouched.length > 0 && (
         <TouchedSection
-          label="Observations"
+          label={t('syncHistoryPanel.observations')}
           icon={<CalendarDays className="h-3.5 w-3.5" />}
           isDark={isDark}
         >
@@ -375,7 +381,7 @@ function SyncDetailBody({
             aria-expanded={filesExpanded}
           >
             <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${filesExpanded ? 'rotate-0' : '-rotate-90'}`} />
-            All {files.length.toLocaleString()} file{files.length !== 1 ? 's' : ''}
+            {t('syncHistoryPanel.allFiles', { count: files.length })}
           </button>
 
           {filesExpanded && (
@@ -420,13 +426,14 @@ function TouchedSection({
 }
 
 function NewBadge({ isNew, isDark }: { isNew: boolean; isDark: boolean }) {
+  const { t } = useTranslation('library');
   return (
     <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
       isNew
         ? (isDark ? 'bg-accent-500/15 text-accent-300 border-accent-500/30' : 'bg-accent-50 text-accent-700 border-accent-200')
         : (isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-500 border-slate-200')
     }`}>
-      {isNew ? 'New' : 'Updated'}
+      {isNew ? t('syncHistoryPanel.new') : t('syncHistoryPanel.updated')}
     </span>
   );
 }
@@ -438,7 +445,7 @@ function TouchedSessionRow({
   isDark: boolean;
   onOpen: (path: string) => void;
 }) {
-  const dateLabel = new Date(`${session.date}T00:00:00`).toLocaleDateString('en-US', {
+  const dateLabel = formatDate(new Date(`${session.date}T00:00:00`), {
     month: 'short', day: 'numeric', year: 'numeric',
   });
   return (

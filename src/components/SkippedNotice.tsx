@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { AlertCircle, Info, RotateCcw } from 'lucide-react';
 import type { ImportSkip, ImportSkipReason } from '../lib/api/library';
 
@@ -83,6 +84,7 @@ export function SkippedNotice({
    *  is nothing to restore against. */
   onReviewDeletedSessions?: () => void;
 }) {
+  const { t } = useTranslation('library');
   if (!skipped || skipped.length === 0) return null;
   const total = skipped.reduce((n, s) => n + s.count, 0);
   const rescuable = skipped.filter(s => ARCHIVE_RESCUABLE[s.reason]);
@@ -90,7 +92,7 @@ export function SkippedNotice({
   const rescuableCount = rescuable.reduce((n, s) => n + s.count, 0);
   const lead = heading
     ? heading(total)
-    : `${total.toLocaleString()} file${total !== 1 ? 's' : ''} will not be imported:`;
+    : t('skippedNotice.defaultLead', { count: total });
 
   return (
     <div className={`p-3 rounded-xl text-sm text-left ${isDark ? 'bg-slate-800/60 text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
@@ -121,15 +123,15 @@ export function SkippedNotice({
                       }`}
                     >
                       <RotateCcw className="h-3 w-3" />
-                      Review
+                      {t('skippedNotice.review')}
                     </button>
                   )}
                   {canInspect && (
                     <button
                       type="button"
                       onClick={() => onInspect(s)}
-                      aria-label={`Show the ${s.label}`}
-                      title="Show file names"
+                      aria-label={t('skippedNotice.showLabel', { label: s.label })}
+                      title={t('skippedNotice.showFileNames')}
                       className={`ml-1 inline-flex translate-y-[1px] items-center transition-colors ${
                         isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'
                       }`}
@@ -143,9 +145,21 @@ export function SkippedNotice({
           </ul>
           {rescuableBytes > 0 && (
             <p className={`pt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Turning on <span className="font-medium">Archive everything</span> would
-              bring {rescuableCount === total ? 'these' : `${rescuableCount.toLocaleString()} of them`}
-              {' '}across, adding about {formatBytes(rescuableBytes)}.
+              {rescuableCount === total ? (
+                <Trans
+                  i18nKey="skippedNotice.archiveHintAll"
+                  ns="library"
+                  values={{ size: formatBytes(rescuableBytes) }}
+                  components={{ 1: <span className="font-medium" /> }}
+                />
+              ) : (
+                <Trans
+                  i18nKey="skippedNotice.archiveHintSome"
+                  ns="library"
+                  values={{ count: rescuableCount, size: formatBytes(rescuableBytes) }}
+                  components={{ 1: <span className="font-medium" /> }}
+                />
+              )}
             </p>
           )}
         </div>

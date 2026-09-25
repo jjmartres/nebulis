@@ -38,4 +38,43 @@ describe('nightHourIndices', () => {
     const times = ['garbage', '2026-01-15T21:00'];
     expect(nightHourIndices(times)).toEqual([1]);
   });
+
+  // ─── date-aware selection ────────────────────────────────────────────────
+  // A session is keyed by its observing night, so the darkness it describes
+  // runs into the NEXT calendar day. Open-Meteo is asked for both days; the
+  // window must be 20:00-23:59 of the night date plus 00:00-03:59 of the day
+  // after, and never the night date's own small hours (which are the previous
+  // night) nor the following day's evening.
+
+  describe('with the observing-night date', () => {
+    const times = [...localDay('2026-01-15'), ...localDay('2026-01-16')];
+
+    it('selects only the two days the night actually spans', () => {
+      const selected = nightHourIndices(times, '2026-01-15').map(i => times[i]);
+      expect(selected).toEqual([
+        '2026-01-15T20:00', '2026-01-15T21:00', '2026-01-15T22:00', '2026-01-15T23:00',
+        '2026-01-16T00:00', '2026-01-16T01:00', '2026-01-16T02:00', '2026-01-16T03:00',
+      ]);
+    });
+
+    it('never reaches back into the previous night or forward into the next evening', () => {
+      const selected = nightHourIndices(times, '2026-01-15').map(i => times[i]!);
+      expect(selected).not.toContain('2026-01-15T00:00'); // previous night's morning
+      expect(selected).not.toContain('2026-01-15T03:00');
+      expect(selected).not.toContain('2026-01-16T20:00'); // tomorrow night's evening
+      expect(selected).not.toContain('2026-01-16T23:00');
+    });
+
+    it('rolls the second day across a month and a year boundary', () => {
+      const monthEnd = [...localDay('2026-01-31'), ...localDay('2026-02-01')];
+      expect(nightHourIndices(monthEnd, '2026-01-31').map(i => monthEnd[i]))
+        .toEqual([
+          '2026-01-31T20:00', '2026-01-31T21:00', '2026-01-31T22:00', '2026-01-31T23:00',
+          '2026-02-01T00:00', '2026-02-01T01:00', '2026-02-01T02:00', '2026-02-01T03:00',
+        ]);
+      const yearEnd = [...localDay('2026-12-31'), ...localDay('2027-01-01')];
+      expect(nightHourIndices(yearEnd, '2026-12-31')).toHaveLength(8);
+      expect(yearEnd[nightHourIndices(yearEnd, '2026-12-31')[4]!]).toBe('2027-01-01T00:00');
+    });
+  });
 });

@@ -13,6 +13,7 @@
  * has no text form.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, Download, Loader2, Printer, RotateCw, Share2 } from 'lucide-react';
 
 interface MapShareModalProps {
@@ -29,6 +30,7 @@ function canShareFiles(files: File[]): boolean {
 type Status = 'capturing' | 'ready' | 'error';
 
 export function MapShareModal({ onCapture, onClose }: MapShareModalProps) {
+  const { t } = useTranslation('observations');
   const [status, setStatus] = useState<Status>('capturing');
   const [attempt, setAttempt] = useState(0);
   const canvasHolderRef = useRef<HTMLDivElement | null>(null);
@@ -47,7 +49,7 @@ export function MapShareModal({ onCapture, onClose }: MapShareModalProps) {
         if (cancelled) return;
         capturedCanvasRef.current = canvas;
         canvas.className = 'rounded-xl shadow-2xl max-w-full h-auto block';
-        canvas.setAttribute('aria-label', 'Observation map preview');
+        canvas.setAttribute('aria-label', t('mapShareModal.canvasAriaLabel'));
         const holder = canvasHolderRef.current;
         if (holder) {
           holder.replaceChildren(canvas);
@@ -88,12 +90,12 @@ export function MapShareModal({ onCapture, onClose }: MapShareModalProps) {
     }
     const win = window.open('', '_blank');
     if (!win) { void handleShareImage(); return; }
-    win.document.title = 'Observation map';
+    win.document.title = t('mapShareModal.docTitle');
     const style = win.document.createElement('style');
     style.textContent = '@page{margin:12mm}html,body{margin:0;background:#0F1426}img{display:block;width:100%;height:auto}';
     win.document.head.appendChild(style);
     const img = win.document.createElement('img');
-    img.alt = 'Observation map';
+    img.alt = t('mapShareModal.docTitle');
     img.onload = () => { win.focus(); win.print(); };
     img.src = dataUrl;
     win.document.body.appendChild(img);
@@ -109,7 +111,7 @@ export function MapShareModal({ onCapture, onClose }: MapShareModalProps) {
       const file = new File([blob], 'observation-map.png', { type: 'image/png' });
       if (canShareFiles([file])) {
         try {
-          await navigator.share({ files: [file], title: 'Observation map' });
+          await navigator.share({ files: [file], title: t('mapShareModal.docTitle') });
           return;
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -138,9 +140,9 @@ export function MapShareModal({ onCapture, onClose }: MapShareModalProps) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-5 border-b border-slate-700/40">
-          <h2 className="text-lg font-semibold">Share Map</h2>
+          <h2 className="text-lg font-semibold">{t('mapShareModal.title')}</h2>
           <button onClick={onClose} className="text-sm px-3 py-1.5 rounded-lg hover:bg-white/10 transition">
-            Done
+            {t('mapShareModal.done')}
           </button>
         </div>
 
@@ -148,23 +150,22 @@ export function MapShareModal({ onCapture, onClose }: MapShareModalProps) {
           {status === 'capturing' && (
             <div className="flex flex-col items-center gap-3 text-slate-400 py-10">
               <Loader2 className="w-6 h-6 animate-spin text-accent-500" />
-              <span className="text-sm">Capturing the map…</span>
+              <span className="text-sm">{t('mapShareModal.capturing')}</span>
             </div>
           )}
           {status === 'error' && (
             <div className="flex flex-col items-center gap-3 text-center py-10 px-4">
               <AlertCircle className="w-8 h-8 text-red-400" />
-              <p className="text-sm text-slate-300">Couldn't capture the map.</p>
+              <p className="text-sm text-slate-300">{t('mapShareModal.captureFailed')}</p>
               <p className="text-xs text-slate-500 max-w-xs">
-                This can happen if the map tiles haven't finished loading. Try again, or use your device's
-                own screenshot tool instead.
+                {t('mapShareModal.captureFailedHint')}
               </p>
               <button
                 onClick={() => { setStatus('capturing'); setAttempt(a => a + 1); }}
                 className="inline-flex items-center gap-2 mt-1 px-3.5 py-1.5 rounded-lg text-xs font-medium border border-slate-600 hover:bg-white/10 transition"
               >
                 <RotateCw className="w-3.5 h-3.5" />
-                Try again
+                {t('mapShareModal.tryAgain')}
               </button>
             </div>
           )}
@@ -181,7 +182,7 @@ export function MapShareModal({ onCapture, onClose }: MapShareModalProps) {
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-slate-600 text-slate-100 hover:bg-white/10 transition"
           >
             <Printer className="w-4 h-4" />
-            Print
+            {t('mapShareModal.print')}
           </button>
           <button
             onClick={handleShareImage}
@@ -189,7 +190,7 @@ export function MapShareModal({ onCapture, onClose }: MapShareModalProps) {
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-accent-500 hover:bg-accent-600 transition disabled:opacity-60"
           >
             {shareSupported ? <Share2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
-            {busy ? 'Preparing…' : shareSupported ? 'Share image' : 'Save image'}
+            {busy ? t('mapShareModal.preparing') : shareSupported ? t('mapShareModal.shareImage') : t('mapShareModal.saveImage')}
           </button>
         </div>
       </div>

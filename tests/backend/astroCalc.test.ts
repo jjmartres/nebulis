@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { altAz, getNightWindow, altitudeCurve, visibilityWindow } from '../../server/lib/astroCalc';
+import { altAz, getNightWindow, altitudeCurve, visibilityWindow, maxPossibleAltitude } from '../../server/lib/astroCalc';
 
 // Test location: New York City
 const LAT = 40.7128;
@@ -235,5 +235,26 @@ describe('visibilityWindow', () => {
     expect(result.maxAlt).toBeLessThan(60);            // but never clears the 60° wall
     expect(result.rises).toBeNull();
     expect(result.sets).toBeNull();
+  });
+});
+
+describe('maxPossibleAltitude', () => {
+  it('matches altAz\'s Polaris result at upper culmination for a mid-northern site', () => {
+    // Cross-check against the general altAz implementation rather than just
+    // the formula itself, so a regression in either one is caught.
+    expect(maxPossibleAltitude(LAT, 89.26)).toBeCloseTo(LAT + (90 - 89.26), 1);
+  });
+
+  it('is 90° at the zenith (lat === dec)', () => {
+    expect(maxPossibleAltitude(40, 40)).toBe(90);
+  });
+
+  it('is negative for a deep-southern object from a mid-northern site (never rises)', () => {
+    // e.g. the LMC at dec ~-69° never clears the horizon from New York.
+    expect(maxPossibleAltitude(LAT, -69)).toBeLessThan(0);
+  });
+
+  it('is symmetric under negating both lat and dec (southern-hemisphere mirror)', () => {
+    expect(maxPossibleAltitude(-LAT, -89.26)).toBeCloseTo(maxPossibleAltitude(LAT, 89.26), 10);
   });
 });

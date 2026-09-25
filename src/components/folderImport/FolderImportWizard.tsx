@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   X, RotateCw, AlertCircle, CheckCircle2, FolderSearch, ArrowRight, FolderInput, Archive,
 } from 'lucide-react';
@@ -14,6 +15,7 @@ import {
   type ImportCommitPlan,
 } from '../../lib/api/library';
 import { useTheme } from '../../hooks/useTheme';
+import { formatBytes } from '../../lib/utils';
 import { Modal } from '../ui/Modal';
 import { SkippedNotice } from '../SkippedNotice';
 import { ObjectReviewCard, type ObjectEdit } from './ObjectReviewCard';
@@ -98,6 +100,7 @@ export function FolderImportWizard({
   onDone: () => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>('scanning');
   const [edits, setEdits] = useState<ObjectEdit[]>([]);
@@ -149,7 +152,7 @@ export function FolderImportWizard({
     mutationFn: async (plan: ImportCommitPlan) => {
       let attempt = 0;
       while (true) {
-        if (cancelledRef.current) throw new Error('Import cancelled');
+        if (cancelledRef.current) throw new Error(t('folderImportWizard.importCancelledError'));
         try {
           return await commitFolderImport(plan);
         } catch (err) {
@@ -176,8 +179,8 @@ export function FolderImportWizard({
             };
             setTimeout(tick, 2000);
           });
-          if (cancelledRef.current) throw new Error('Import cancelled');
-          if (!finished) throw new Error('Lost connection while waiting for the running import to finish.');
+          if (cancelledRef.current) throw new Error(t('folderImportWizard.importCancelledError'));
+          if (!finished) throw new Error(t('folderImportWizard.lostConnectionWaiting'));
         }
       }
     },
@@ -230,7 +233,11 @@ export function FolderImportWizard({
   const totals = useMemo(() => {
     let files = 0;
     let sessions = 0;
+    // The object's full size, so this is an upper bound when the user drops a
+    // session. Better to overstate the copy than to understate it.
+    let bytes = 0;
     for (const e of selected) {
+      bytes += e.bytes;
       const finalDates = new Set<string>();
       for (const s of e.sessions) {
         if (s.drop) continue;
@@ -243,7 +250,7 @@ export function FolderImportWizard({
       }
       sessions += finalDates.size;
     }
-    return { objects: selected.length, files, sessions };
+    return { objects: selected.length, files, sessions, bytes };
   }, [selected]);
 
   const updateEdit = (i: number, next: ObjectEdit) =>
@@ -263,14 +270,14 @@ export function FolderImportWizard({
     <Modal
       isOpen
       onClose={handleClose}
-      title="Import library from a folder"
+      title={t('folderImportWizard.modalTitle')}
       className={`relative w-full max-w-3xl max-h-[88vh] flex flex-col rounded-2xl border shadow-2xl ${card}`}
     >
       {/* Header */}
       <div className={`flex items-center justify-between px-6 py-4 border-b ${border}`}>
         <div className="min-w-0">
           <h2 className={`font-display font-semibold text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Import library
+            {t('folderImportWizard.heading')}
           </h2>
           <p className={`text-xs mt-0.5 font-mono truncate ${mutedText}`}>{rootPath}</p>
         </div>
@@ -288,19 +295,19 @@ export function FolderImportWizard({
               <>
                 <AlertCircle className="w-8 h-8 text-red-500" />
                 <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                  {scanMutation.error instanceof Error ? scanMutation.error.message : 'Scan failed'}
+                  {scanMutation.error instanceof Error ? scanMutation.error.message : t('folderImportWizard.scanFailed')}
                 </p>
                 <div className="flex gap-2 mt-1">
                   <button onClick={() => scanMutation.mutate()} className={`px-3 py-1.5 rounded-lg text-sm border ${border} ${subText}`}>
-                    Try again
+                    {t('folderImportWizard.tryAgain')}
                   </button>
-                  <button onClick={handleClose} className="px-3 py-1.5 rounded-lg text-sm bg-accent-500 text-white">Close</button>
+                  <button onClick={handleClose} className="px-3 py-1.5 rounded-lg text-sm bg-accent-500 text-white">{t('folderImportWizard.close')}</button>
                 </div>
               </>
             ) : (
               <>
                 <FolderSearch className={`w-8 h-8 ${isDark ? 'text-accent-400' : 'text-accent-500'} animate-pulse`} />
-                <p className={`text-sm ${subText}`}>Scanning the folder and reading file dates...</p>
+                <p className={`text-sm ${subText}`}>{t('folderImportWizard.scanning')}</p>
               </>
             )}
           </div>
@@ -314,27 +321,32 @@ export function FolderImportWizard({
                 <FolderInput className={`w-8 h-8 ${mutedText}`} />
                 <p className={`text-sm ${subText}`}>
                   {skippedTotal > 0
-                    ? `Nothing here can be imported with your current settings. All ${skippedTotal.toLocaleString()} file${skippedTotal !== 1 ? 's' : ''} were skipped.`
-                    : 'No importable files were found in this folder. Check that it contains image or FITS files.'}
+                    ? t('folderImportWizard.nothingImportable', { count: skippedTotal })
+                    : t('folderImportWizard.noImportableFiles')}
                 </p>
                 <SkippedNotice skipped={skipped} isDark={isDark} excludedFolders={excludedFolders} />
               </div>
             ) : (
               <>
                 <div className={`flex items-center gap-2 text-sm ${subText}`}>
-                  <span>{edits.length} object{edits.length !== 1 ? 's' : ''} found.</span>
-                  <span className={mutedText}>Confirm the catalog match and session dates, then import.</span>
+                  <span>{t('folderImportWizard.objectsFound', { count: edits.length })}</span>
+                  <span className={mutedText}>{t('folderImportWizard.confirmHint')}</span>
                 </div>
                 {basePathDetected && (
                   <div className={`flex items-start gap-2 p-3 rounded-xl text-sm ${isDark ? 'bg-sky-500/10 text-sky-300' : 'bg-sky-50 text-sky-700'}`}>
                     <FolderSearch className="w-4 h-4 shrink-0 mt-0.5" />
-                    Detected a device root and scanned inside its <span className="font-mono">{basePathDetected}</span> folder.
+                    <Trans
+                      i18nKey="folderImportWizard.detectedDeviceRoot"
+                      ns="library"
+                      values={{ path: basePathDetected }}
+                      components={{ 1: <span className="font-mono" /> }}
+                    />
                   </div>
                 )}
                 {truncated && (
                   <div className={`flex items-start gap-2 p-3 rounded-xl text-sm ${isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    This folder has a very large number of files, so the scan stopped early. Import what's shown, then scan again to pick up the rest.
+                    {t('folderImportWizard.truncatedWarning')}
                   </div>
                 )}
                 <SkippedNotice skipped={skipped} isDark={isDark} excludedFolders={excludedFolders} />
@@ -345,9 +357,13 @@ export function FolderImportWizard({
                   <div className={`flex items-start gap-2 p-3 rounded-xl text-sm ${isDark ? 'bg-slate-800/60 text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
                     <Archive className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
-                      {excludedFolders.length} folder{excludedFolders.length !== 1 ? 's' : ''} that
-                      hold no observations will be copied to your library's archive rather than
-                      imported as objects: <span className="font-mono">{excludedFolders.join(', ')}</span>
+                      <Trans
+                        i18nKey="folderImportWizard.archivedFolders"
+                        ns="library"
+                        count={excludedFolders.length}
+                        values={{ names: excludedFolders.join(', ') }}
+                        components={{ 1: <span className="font-mono" /> }}
+                      />
                     </span>
                   </div>
                 )}
@@ -364,10 +380,10 @@ export function FolderImportWizard({
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <RotateCw className={`w-8 h-8 ${isDark ? 'text-slate-500' : 'text-slate-400'} animate-spin`} />
             <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-              Waiting for the current import to finish…
+              {t('folderImportWizard.waitingTitle')}
             </p>
             <p className={`text-xs max-w-xs ${mutedText}`}>
-              Another import is running right now. This import will start automatically once it's done.
+              {t('folderImportWizard.waitingHint')}
             </p>
           </div>
         )}
@@ -393,19 +409,36 @@ export function FolderImportWizard({
       {/* Footer */}
       {phase === 'review' && edits.length > 0 && (
         <div className={`flex items-center justify-between gap-3 px-6 py-4 border-t ${border}`}>
-          <p className={`text-sm ${subText}`}>
-            Importing <span className={isDark ? 'text-slate-200' : 'text-slate-800'}>{totals.files}</span> file{totals.files !== 1 ? 's' : ''} into{' '}
-            <span className={isDark ? 'text-slate-200' : 'text-slate-800'}>{totals.sessions}</span> session{totals.sessions !== 1 ? 's' : ''} across{' '}
-            {totals.objects} object{totals.objects !== 1 ? 's' : ''}.
-          </p>
+          <div className="min-w-0">
+            <p className={`text-sm ${subText}`}>
+              <Trans
+                i18nKey="folderImportWizard.importSummary"
+                ns="library"
+                values={{
+                  files: t('folderImportWizard.filesCount', { count: totals.files }),
+                  sessions: t('folderImportWizard.sessionsCount', { count: totals.sessions }),
+                  objects: t('folderImportWizard.objectsCount', { count: totals.objects }),
+                }}
+                components={{
+                  1: <span className={isDark ? 'text-slate-200' : 'text-slate-800'} />,
+                  3: <span className={isDark ? 'text-slate-200' : 'text-slate-800'} />,
+                }}
+              />
+            </p>
+            {totals.bytes > 0 && (
+              <p className={`text-xs mt-0.5 ${mutedText}`}>
+                {t('folderImportWizard.copyNotice', { size: formatBytes(totals.bytes) })}
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {commitMutation.isError && (
               <span className="text-xs text-red-500">
-                {commitMutation.error instanceof Error ? commitMutation.error.message : 'Failed to start'}
+                {commitMutation.error instanceof Error ? commitMutation.error.message : t('folderImportWizard.startFailed')}
               </span>
             )}
             <button onClick={handleClose} className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${border} ${subText} ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}>
-              Cancel
+              {t('folderImportWizard.cancel')}
             </button>
             <button
               onClick={handleCommit}
@@ -413,8 +446,8 @@ export function FolderImportWizard({
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-50"
             >
               {commitMutation.isPending
-                ? <><RotateCw className="w-4 h-4 animate-spin" /> Starting...</>
-                : <>Import <ArrowRight className="w-4 h-4" /></>}
+                ? <><RotateCw className="w-4 h-4 animate-spin" /> {t('folderImportWizard.starting')}</>
+                : <>{t('folderImportWizard.import')} <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
         </div>
@@ -427,7 +460,7 @@ export function FolderImportWizard({
             disabled={cancelRequested}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition disabled:opacity-50 ${border} ${subText} ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}
           >
-            {cancelRequested ? 'Cancelling…' : 'Cancel import'}
+            {cancelRequested ? t('folderImportWizard.cancelling') : t('folderImportWizard.cancelImport')}
           </button>
         </div>
       )}
@@ -435,7 +468,7 @@ export function FolderImportWizard({
       {phase === 'done' && (
         <div className={`flex items-center justify-end px-6 py-4 border-t ${border}`}>
           <button onClick={handleClose} className="px-5 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition">
-            Done
+            {t('folderImportWizard.done')}
           </button>
         </div>
       )}
@@ -466,6 +499,7 @@ function CommitProgress({
   restackArchivePath: string | null;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const subText = isDark ? 'text-slate-400' : 'text-slate-500';
   const pct = filesTotal > 0 ? Math.min(100, Math.round((filesDone / filesTotal) * 100)) : 0;
 
@@ -482,22 +516,22 @@ function CommitProgress({
     return (
       <div className="flex flex-col items-center gap-3 py-14 text-center">
         <CheckCircle2 className="w-10 h-10 text-emerald-500" />
-        <p className={`font-medium ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>Import complete</p>
+        <p className={`font-medium ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{t('folderImportWizard.importComplete')}</p>
         <p className={`text-sm ${subText}`}>
-          {filesDone} file{filesDone !== 1 ? 's' : ''} imported into your library across {objectsTotal} object{objectsTotal !== 1 ? 's' : ''}.
+          {t('folderImportWizard.filesImported', {
+            files: t('folderImportWizard.filesCount', { count: filesDone }),
+            objects: t('folderImportWizard.objectsCount', { count: objectsTotal }),
+          })}
         </p>
         {archivedFiles > 0 && (
           <p className={`text-sm max-w-md ${subText}`}>
-            {archivedFiles} file{archivedFiles !== 1 ? 's' : ''} from the calibration and daytime
-            folders were kept as files rather than observations{archivePath ? ', on disk at' : '.'}
+            {t('folderImportWizard.keptAsFiles', { count: archivedFiles, tail: archivePath ? t('folderImportWizard.onDiskAt') : t('folderImportWizard.periodEnd') })}
             {archivePath && <span className="font-mono break-all"> {archivePath}</span>}
           </p>
         )}
         {restackArchivedFiles > 0 && (
           <p className={`text-sm max-w-md ${subText}`}>
-            {restackArchivedFiles} restacked file{restackArchivedFiles !== 1 ? 's' : ''} had no
-            matching object and {restackArchivedFiles !== 1 ? 'were kept as files' : 'was kept as a file'}
-            {restackArchivePath ? ', on disk at' : '.'}
+            {t('folderImportWizard.restackKept', { count: restackArchivedFiles, tail: restackArchivePath ? t('folderImportWizard.onDiskAt') : t('folderImportWizard.periodEnd') })}
             {restackArchivePath && <span className="font-mono break-all"> {restackArchivePath}</span>}
           </p>
         )}
@@ -513,8 +547,9 @@ function CommitProgress({
           <div className="h-full bg-accent-500 transition-all" style={{ width: `${pct}%` }} />
         </div>
         <p className={`text-sm mt-3 ${subText}`}>
-          {cancelling ? 'Cancelling…' : 'Importing...'} {filesDone} of {filesTotal} file{filesTotal !== 1 ? 's' : ''}
-          {objectsTotal > 0 ? ` · object ${Math.min(objectsDone + 1, objectsTotal)} of ${objectsTotal}` : ''}
+          {cancelling ? t('folderImportWizard.cancellingProgress') : t('folderImportWizard.importingProgress')}{' '}
+          {t('folderImportWizard.progressOf', { done: filesDone, total: t('folderImportWizard.filesCount', { count: filesTotal }) })}
+          {objectsTotal > 0 ? t('folderImportWizard.progressObject', { current: Math.min(objectsDone + 1, objectsTotal), total: objectsTotal }) : ''}
         </p>
       </div>
     </div>

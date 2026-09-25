@@ -13,7 +13,8 @@
  * on the button at every width.
  */
 import type { ReactNode } from 'react';
-import { Compass, Copy, Share2 } from 'lucide-react';
+import { Compass, Copy, Share2, Star } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   isDark: boolean;
@@ -24,6 +25,8 @@ interface Props {
   isCopying: boolean;
   canShare: boolean;
   onShare: () => void;
+  wishlistCount: number;
+  onOpenWishlist: () => void;
 }
 
 export function PlannerActions({
@@ -34,14 +37,25 @@ export function PlannerActions({
   isCopying,
   canShare,
   onShare,
+  wishlistCount,
+  onOpenWishlist,
 }: Props) {
+  const { t } = useTranslation('planner');
   return (
     <div className="flex items-center gap-2">
       <ActionButton
         isDark={isDark}
+        onClick={onOpenWishlist}
+        label={t('plannerActions.wishlist')}
+        title={t('plannerActions.wishlistTitle')}
+        icon={<Star className="h-4 w-4" />}
+        hint={wishlistCount > 0 ? String(wishlistCount) : undefined}
+      />
+      <ActionButton
+        isDark={isDark}
         onClick={onEditSky}
-        label="Visible sky"
-        title={`Set which patches of sky you can actually see (${skyLabel})`}
+        label={t('plannerActions.visibleSky')}
+        title={t('plannerActions.visibleSkyTitle', { skyLabel })}
         icon={<Compass className="h-4 w-4" />}
         hint={skyLabel}
       />
@@ -49,17 +63,17 @@ export function PlannerActions({
         isDark={isDark}
         onClick={onCopyPrevious}
         disabled={isCopying}
-        label="Copy last night"
-        title="Copy every block from the night before onto this night"
+        label={t('plannerActions.copyLastNight')}
+        title={t('plannerActions.copyLastNightTitle')}
         icon={<Copy className="h-4 w-4" />}
-        hint={isCopying ? 'Copying...' : undefined}
+        hint={isCopying ? t('plannerActions.copying') : undefined}
       />
       <ActionButton
         isDark={isDark}
         onClick={onShare}
         disabled={!canShare}
-        label="Share"
-        title={canShare ? "Share this night's plan as text or an image" : 'Nothing scheduled to share yet'}
+        label={t('plannerActions.share')}
+        title={canShare ? t('plannerActions.shareTitle') : t('plannerActions.nothingToShare')}
         icon={<Share2 className="h-4 w-4" />}
       />
     </div>

@@ -11,10 +11,12 @@
  * and the observation page, which is also why it takes the bright `accent` hex
  * directly rather than `accent-*` utilities.
  */
+import { useTranslation } from 'react-i18next';
 import { CalendarDays } from 'lucide-react';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
 import type { MonthBucket, ObservationTotals } from '../../lib/observationStats';
+import { formatDate, formatNumber } from '../../lib/formatLocale';
 import { YearActivity } from './YearActivity';
 
 interface Props {
@@ -36,29 +38,30 @@ interface Props {
 function monthYear(date: string): string {
   const [y, m] = date.split('-').map(Number);
   if (!y || !m) return date;
-  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  return formatDate(new Date(y, m - 1, 1), { month: 'short', year: 'numeric' });
 }
 
-function spanLabel(totals: ObservationTotals): string | null {
+function spanLabel(totals: ObservationTotals, t: (key: string, opts?: Record<string, unknown>) => string): string | null {
   if (!totals.firstDate || !totals.lastDate) return null;
   const from = monthYear(totals.firstDate);
   const to = monthYear(totals.lastDate);
-  return from === to ? from : `${from} to ${to}`;
+  return from === to ? from : t('hero.spanRange', { from, to });
 }
 
 export function ObservationsHero({
   totals, year, buckets, selectedMonth, onSelectMonth, onYearChange,
   yearsWithData, accent, filteredLabel,
 }: Props) {
-  const span = spanLabel(totals);
+  const { t } = useTranslation('observations');
+  const span = spanLabel(totals, t);
 
   const stats: { value: string; label: string }[] = [
-    { value: totals.nights.toLocaleString(), label: totals.nights === 1 ? 'Night out' : 'Nights out' },
-    { value: totals.objects.toLocaleString(), label: totals.objects === 1 ? 'Object' : 'Objects' },
-    { value: totals.sessions.toLocaleString(), label: totals.sessions === 1 ? 'Session' : 'Sessions' },
+    { value: formatNumber(totals.nights), label: t('hero.nights', { count: totals.nights }) },
+    { value: formatNumber(totals.objects), label: t('hero.objects', { count: totals.objects }) },
+    { value: formatNumber(totals.sessions), label: t('hero.sessions', { count: totals.sessions }) },
   ];
   if (totals.files > 0) {
-    stats.push({ value: totals.files.toLocaleString(), label: 'Files' });
+    stats.push({ value: formatNumber(totals.files), label: t('hero.files') });
   }
 
   return (
@@ -82,17 +85,17 @@ export function ObservationsHero({
         style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }}
       />
 
-      <div className="relative flex flex-col gap-7 p-5 sm:p-7 lg:flex-row lg:items-center lg:gap-10">
+      <div className="relative flex flex-col gap-7 p-4 sm:p-6 lg:flex-row lg:items-center lg:gap-10">
         {/* The record */}
         <div className="min-w-0 lg:w-[38%] lg:shrink-0">
           <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
             <CalendarDays className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
-            Observations
+            {t('hero.title')}
           </h1>
 
           <p className="mt-2 text-[13px] text-white/55">
             {totals.sessions === 0
-              ? 'Nothing recorded yet. Sessions appear here once your telescope images are imported.'
+              ? t('hero.emptyHint')
               : span}
             {filteredLabel && (
               <span className="text-white/40"> · {filteredLabel}</span>

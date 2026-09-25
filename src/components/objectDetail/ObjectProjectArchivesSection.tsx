@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileArchive, Download, Trash2, Loader2, ChevronRight, ChevronDown, Plus } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { getProjectArchives, deleteProjectArchive } from '../../lib/api/library';
 import { formatBytes } from '../../lib/utils';
+import { formatDate } from '../../lib/formatLocale';
 import { UploadProjectArchiveModal } from '../UploadProjectArchiveModal';
 import { ConfirmModal } from '../ConfirmModal';
 
@@ -25,6 +27,7 @@ export function ObjectProjectArchivesSection({
   isAdmin: boolean;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
 
   const { data: archives = [] } = useQuery({
@@ -34,6 +37,9 @@ export function ObjectProjectArchivesSection({
   });
 
   const [uploadOpen, setUploadOpen] = useState(false);
+  // Set by the empty-state dropzone below so the modal opens with that file
+  // already loaded, instead of asking the user to drop or browse again.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -71,21 +77,25 @@ export function ObjectProjectArchivesSection({
             ? <ChevronDown className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
             : <ChevronRight className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />}
           <FileArchive className={`w-4 h-4 shrink-0 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
-          <span className={`text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Processing Projects</span>
+          <span className={`text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+            {t('objectDetail.projectArchivesSection.heading')}
+          </span>
           <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {hasArchives ? `${archives.length} archived` : 'None yet'}
+            {hasArchives
+              ? t('objectDetail.projectArchivesSection.countArchived', { count: archives.length })
+              : t('objectDetail.projectArchivesSection.noneYet')}
           </span>
         </button>
         {isOpen && isAdmin && hasArchives && (
           <button
             type="button"
-            onClick={() => setUploadOpen(true)}
+            onClick={() => { setPendingFile(null); setUploadOpen(true); }}
             className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition ${
               isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             <Plus className="w-3.5 h-3.5" />
-            Add
+            {t('objectDetail.projectArchivesSection.add')}
           </button>
         )}
       </div>
@@ -95,25 +105,16 @@ export function ObjectProjectArchivesSection({
           {!hasArchives && (
             <div className="p-4 space-y-3">
               <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                No processing projects archived yet. Save your Siril or PixInsight project — process icons,
-                masters, logs — as a .zip so you can revisit or resume it later.
+                {t('objectDetail.projectArchivesSection.emptyHint')}
               </p>
               {isAdmin ? (
-                <button
-                  type="button"
-                  onClick={() => setUploadOpen(true)}
-                  className={`inline-flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg transition ${
-                    isDark
-                      ? 'bg-accent-500/15 text-accent-400 hover:bg-accent-500/25 border border-accent-500/30'
-                      : 'bg-accent-500 text-white hover:bg-accent-600'
-                  }`}
-                >
-                  <FileArchive className="w-4 h-4" />
-                  Upload project .zip
-                </button>
+                <ObjectArchiveDropzone
+                  isDark={isDark}
+                  onFile={file => { setPendingFile(file); setUploadOpen(true); }}
+                />
               ) : (
                 <p className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                  Sign in as an admin to upload.
+                  {t('objectDetail.projectArchivesSection.adminOnlyUpload')}
                 </p>
               )}
             </div>
@@ -153,7 +154,7 @@ export function ObjectProjectArchivesSection({
                       </p>
                     )}
                     <p className={`text-[11px] mt-1 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                      {formatBytes(archive.size)} · {new Date(archive.uploadedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {formatBytes(archive.size)} · {formatDate(new Date(archive.uploadedAt), { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -161,7 +162,7 @@ export function ObjectProjectArchivesSection({
                       href={archive.url}
                       download={archive.originalName}
                       className={`p-2 rounded-lg transition ${isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
-                      title="Download"
+                      title={t('objectDetail.projectArchivesSection.download')}
                     >
                       <Download className="w-4 h-4" />
                     </a>
@@ -170,7 +171,7 @@ export function ObjectProjectArchivesSection({
                         onClick={() => setConfirmDeleteId(archive.id)}
                         disabled={!!deletingId}
                         className={`p-2 rounded-lg transition disabled:opacity-50 ${isDark ? 'text-slate-400 hover:bg-red-500/10 hover:text-red-400' : 'text-slate-500 hover:bg-red-50 hover:text-red-600'}`}
-                        title="Delete"
+                        title={t('objectDetail.projectArchivesSection.delete')}
                       >
                         {deletingId === archive.id
                           ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -187,15 +188,16 @@ export function ObjectProjectArchivesSection({
 
       <UploadProjectArchiveModal
         isOpen={uploadOpen}
-        onClose={() => setUploadOpen(false)}
+        onClose={() => { setUploadOpen(false); setPendingFile(null); }}
         objectId={objectId}
+        initialFile={pendingFile}
       />
 
       {confirmDeleteId && (
         <ConfirmModal
-          title="Delete project archive?"
-          message="This will permanently delete the uploaded project archive. This cannot be undone."
-          confirmLabel="Delete"
+          title={t('objectDetail.projectArchivesSection.confirmDeleteTitle')}
+          message={t('objectDetail.projectArchivesSection.confirmDeleteMessage')}
+          confirmLabel={t('objectDetail.projectArchivesSection.confirmDeleteConfirmLabel')}
           onCancel={() => setConfirmDeleteId(null)}
           onConfirm={() => {
             const id = confirmDeleteId;
@@ -204,6 +206,55 @@ export function ObjectProjectArchivesSection({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Empty-state drop target, shown the moment the section is expanded so
+ * reaching a real drag/drop surface never takes a second click — matching
+ * ObjectProcessedSection's own inline dropzone. The metadata fields
+ * (title/software/notes) still need the modal's form, so a picked file is
+ * handed up via `onFile` rather than uploaded directly from here.
+ */
+function ObjectArchiveDropzone({ isDark, onFile }: { isDark: boolean; onFile: (file: File) => void }) {
+  const { t } = useTranslation('library');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  return (
+    <div
+      className={`rounded-xl border-2 border-dashed transition cursor-pointer py-8 px-4 ${
+        isDragging
+          ? isDark ? 'border-accent-500/60 bg-accent-500/10' : 'border-accent-400 bg-accent-50'
+          : isDark ? 'border-slate-700 hover:border-slate-600' : 'border-slate-200 hover:border-slate-300'
+      }`}
+      onClick={() => fileInputRef.current?.click()}
+      onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={e => {
+        e.preventDefault();
+        setIsDragging(false);
+        const f = e.dataTransfer.files[0];
+        if (f) onFile(f);
+      }}
+    >
+      <div className="flex flex-col items-center justify-center gap-2">
+        <FileArchive className={`w-6 h-6 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+        <p className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          {t('objectDetail.uploadProjectArchiveModal.dropHere')}
+        </p>
+        <p className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+          {t('objectDetail.uploadProjectArchiveModal.acceptedFormatsHint')}
+        </p>
+      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".zip"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ''; }}
+      />
     </div>
   );
 }

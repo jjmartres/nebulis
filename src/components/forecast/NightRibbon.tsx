@@ -22,14 +22,17 @@
  * so the HTML scrub tooltip can be positioned against the same coordinates.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ForecastHour } from '../../lib/api/planner';
 import {
   calculateVisibilityScore,
   formatTemp,
   formatTime,
+  moonUpSpans,
   scoreHex,
   type DarkWindow,
 } from '../../lib/forecastScore';
+import { activeLocale } from '../../lib/formatLocale';
 
 interface TonightInfo {
   moonIllumination: number;
@@ -80,10 +83,10 @@ function lerp(a: number, b: number, t: number): number {
 function hourTickLabel(ms: number, timeZone: string | undefined): string {
   try {
     return new Date(ms)
-      .toLocaleTimeString('en-US', { hour: 'numeric', hour12: true, ...(timeZone ? { timeZone } : {}) })
+      .toLocaleTimeString(activeLocale(), { hour: 'numeric', hour12: true, ...(timeZone ? { timeZone } : {}) })
       .replace(' ', '');
   } catch {
-    return new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }).replace(' ', '');
+    return new Date(ms).toLocaleTimeString(activeLocale(), { hour: 'numeric', hour12: true }).replace(' ', '');
   }
 }
 
@@ -138,6 +141,7 @@ function useMeasuredWidth<T extends HTMLElement>() {
 export function NightRibbon({
   hours, tonight, timeZone, darkWindow, tempUnit, selectedTime, onSelect,
 }: Props) {
+  const { t } = useTranslation('forecast');
   const [wrapRef, width] = useMeasuredWidth<HTMLDivElement>();
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -234,9 +238,9 @@ export function NightRibbon({
     () => hours.map(h => ({
       hour: h,
       ms: new Date(h.time).getTime(),
-      vis: calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow),
+      vis: calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow, t),
     })),
-    [hours, tonight.moonIllumination, timeZone, darkWindow],
+    [hours, tonight.moonIllumination, timeZone, darkWindow, t],
   );
 
   if (hours.length < 2) return null;
@@ -286,24 +290,15 @@ export function NightRibbon({
     };
   };
 
-  // Moon-up intervals inside the window. A rise later than the set means the
-  // Moon is already up when the window opens and rises again before it closes.
-  const moonRise = tonight.moonRise ? new Date(tonight.moonRise).getTime() : null;
-  const moonSet = tonight.moonSet ? new Date(tonight.moonSet).getTime() : null;
-  const moonSpans: [number, number][] = (() => {
-    if (moonRise == null && moonSet == null) return [];
-    if (moonRise == null) return [[t0, moonSet!]];
-    if (moonSet == null) return [[moonRise, t1]];
-    return moonRise < moonSet ? [[moonRise, moonSet]] : [[t0, moonSet], [moonRise, t1]];
-  })()
-    .map(([a, b]): [number, number] => [Math.max(t0, a), Math.min(t1, b)])
-    .filter(([a, b]) => b > a);
+  // Moon-up intervals inside the window. Shared with the imaging window table
+  // so both shade the same moonlit stretch from the same rise and set times.
+  const moonSpans = moonUpSpans(t0, t1, tonight.moonRise, tonight.moonSet);
 
   const boundaries = [
-    { ms: new Date(tonight.sunset).getTime(), label: 'Sunset' },
-    { ms: tonight.astronomicalTwilightEnd ? new Date(tonight.astronomicalTwilightEnd).getTime() : NaN, label: 'Astro dark' },
-    { ms: tonight.astronomicalTwilightStart ? new Date(tonight.astronomicalTwilightStart).getTime() : NaN, label: 'Astro dawn' },
-    { ms: new Date(tonight.sunrise).getTime(), label: 'Sunrise' },
+    { ms: new Date(tonight.sunset).getTime(), label: t('nightRibbon.sunset') },
+    { ms: tonight.astronomicalTwilightEnd ? new Date(tonight.astronomicalTwilightEnd).getTime() : NaN, label: t('nightRibbon.astroDark') },
+    { ms: tonight.astronomicalTwilightStart ? new Date(tonight.astronomicalTwilightStart).getTime() : NaN, label: t('nightRibbon.astroDawn') },
+    { ms: new Date(tonight.sunrise).getTime(), label: t('nightRibbon.sunrise') },
   ].filter(b => Number.isFinite(b.ms) && inRange(b.ms));
 
   // Label every hour when there is room, otherwise thin them out.
@@ -343,7 +338,7 @@ export function NightRibbon({
       className="relative w-full select-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-white/40"
       tabIndex={0}
       role="group"
-      aria-label="Hourly sky conditions. Use the left and right arrow keys to step through the night."
+      aria-label={t('nightRibbon.ariaLabel')}
       onKeyDown={e => {
         if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
@@ -359,7 +354,7 @@ export function NightRibbon({
             viewBox={`0 0 ${width} ${H}`}
             className="block rounded-2xl"
             role="img"
-            aria-label="Tonight's sky conditions from dusk to dawn"
+            aria-label={t('nightRibbon.svgAriaLabel')}
             onPointerMove={e => setHoverIndex(indexFromClientX(e.clientX))}
             onPointerLeave={() => setHoverIndex(null)}
             onClick={e => {
@@ -581,8 +576,9 @@ export function NightRibbon({
                       x={xOf(a) + MOON_H + 6} y={MOON_Y + MOON_H - 4}
                       fontSize="8.5" fill="rgba(253,246,227,0.9)"
                       letterSpacing="0.12em" fontWeight="600"
+                      style={{ textTransform: 'uppercase' }}
                     >
-                      MOON UP · {Math.round(tonight.moonIllumination)}%
+                      {t('nightRibbon.moonUp', { percent: Math.round(tonight.moonIllumination) })}
                     </text>
                   )}
                 </g>
@@ -664,7 +660,7 @@ export function NightRibbon({
                 {active.vis.label}
               </div>
               <div className="mt-1 text-[11px] text-white/55 tabular-nums">
-                {active.hour.cloudCover}% cloud · {formatTemp(active.hour.temperature, tempUnit)}
+                {t('nightRibbon.cloudTemp', { percent: active.hour.cloudCover, temp: formatTemp(active.hour.temperature, tempUnit) })}
               </div>
             </div>
           )}

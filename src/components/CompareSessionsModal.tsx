@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { X, Columns, GripVertical, Layers, ImageOff, RotateCcw } from 'lucide-react';
 import { getLibrarySessions } from '../lib/api/library';
 import { useTheme } from '../hooks/useTheme';
+import { formatDate } from '../lib/formatLocale';
 import { Modal } from './ui/Modal';
 
 interface Props {
@@ -12,6 +14,7 @@ interface Props {
 
 export function CompareSessionsModal({ objectId, onClose }: Props) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const [mode, setMode] = useState<'side-by-side' | 'slider'>('side-by-side');
   const [leftId, setLeftId] = useState<string | null>(null);
   const [rightId, setRightId] = useState<string | null>(null);
@@ -49,7 +52,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
     thumbnailUrl: s.thumbnailUrl,
     label:
       s.date !== 'unknown'
-        ? new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        ? formatDate(new Date(s.date + 'T12:00:00'), { month: 'short', day: 'numeric', year: 'numeric' })
         : s.id,
     stackedCount: s.stackedCount,
   }));
@@ -199,7 +202,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
     <Modal
       isOpen
       onClose={onClose}
-      title="Compare Sessions"
+      title={t('compareSessionsModal.title')}
       className="flex flex-col w-full max-w-7xl h-full max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 bg-black"
     >
       {/* ── Header ──────────────────────────────────────────── */}
@@ -216,12 +219,12 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
           >
             {sessionOptions.map(s => (
               <option key={`l-${s.value}`} value={s.value}>
-                {s.label} ({s.stackedCount} stacked)
+                {t('compareSessionsModal.sessionOption', { label: s.label, count: s.stackedCount })}
               </option>
             ))}
           </select>
 
-          <span className="text-slate-600 text-xs shrink-0 hidden sm:block">vs</span>
+          <span className="text-slate-600 text-xs shrink-0 hidden sm:block">{t('compareSessionsModal.vs')}</span>
 
           <span className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
             2
@@ -233,7 +236,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
           >
             {sessionOptions.map(s => (
               <option key={`r-${s.value}`} value={s.value}>
-                {s.label} ({s.stackedCount} stacked)
+                {t('compareSessionsModal.sessionOption', { label: s.label, count: s.stackedCount })}
               </option>
             ))}
           </select>
@@ -251,7 +254,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
               }`}
             >
               <Columns className="w-3 h-3 inline mr-1" />
-              Side by Side
+              {t('compareSessionsModal.sideBySide')}
             </button>
             <button
               onClick={() => setMode('slider')}
@@ -262,7 +265,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
               }`}
             >
               <GripVertical className="w-3 h-3 inline mr-1" />
-              Slider
+              {t('compareSessionsModal.slider')}
             </button>
           </div>
 
@@ -270,7 +273,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
           {zoom > 1 && (
             <button
               onClick={resetView}
-              title="Reset zoom"
+              title={t('compareSessionsModal.resetZoomTitle')}
               className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition"
             >
               <RotateCcw className="w-4 h-4" />
@@ -279,7 +282,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
 
           <button
             onClick={onClose}
-            title="Close (Esc)"
+            title={t('compareSessionsModal.closeEsc')}
             className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition"
           >
             <X className="w-5 h-5" />
@@ -310,7 +313,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
           <div className="h-full flex items-center justify-center">
             <div className="text-center space-y-3">
               <Layers className="w-10 h-10 mx-auto opacity-20 text-white" />
-              <p className="text-slate-500 text-sm">Select two sessions above to compare</p>
+              <p className="text-slate-500 text-sm">{t('compareSessionsModal.selectTwoSessions')}</p>
             </div>
           </div>
         ) : mode === 'side-by-side' ? (
@@ -318,7 +321,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
           <div className="flex h-full">
             <SideBySidePanel
               src={effectiveLeft}
-              alt="Session 1"
+              alt={t('compareSessionsModal.sessionAlt', { number: 1 })}
               label={leftLabel}
               badge={1}
               transform={transformStyle}
@@ -326,7 +329,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
             <div className="w-px bg-slate-800 shrink-0" />
             <SideBySidePanel
               src={effectiveRight}
-              alt="Session 2"
+              alt={t('compareSessionsModal.sessionAlt', { number: 2 })}
               label={rightLabel}
               badge={2}
               transform={transformStyle}
@@ -342,7 +345,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
             >
               <img
                 src={effectiveRight}
-                alt="Session 2"
+                alt={t('compareSessionsModal.sessionAlt', { number: 2 })}
                 className="w-full h-full object-contain"
                 draggable={false}
               />
@@ -359,7 +362,7 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
               >
                 <img
                   src={effectiveLeft}
-                  alt="Session 1"
+                  alt={t('compareSessionsModal.sessionAlt', { number: 1 })}
                   className="w-full h-full object-contain"
                   draggable={false}
                 />
@@ -399,9 +402,9 @@ export function CompareSessionsModal({ objectId, onClose }: Props) {
 
       {/* ── Footer hint ─────────────────────────────────────── */}
       <div className="flex items-center justify-center gap-4 px-4 py-1.5 text-xs text-slate-600 border-t border-slate-900 bg-slate-950 shrink-0">
-        <span>Scroll to zoom</span>
-        {zoom > 1 && <span>Drag to pan</span>}
-        {mode === 'slider' && <span>Drag divider to compare</span>}
+        <span>{t('compareSessionsModal.scrollToZoom')}</span>
+        {zoom > 1 && <span>{t('compareSessionsModal.dragToPan')}</span>}
+        {mode === 'slider' && <span>{t('compareSessionsModal.dragDividerToCompare')}</span>}
       </div>
     </Modal>
   );
@@ -420,6 +423,7 @@ function SideBySidePanel({
   badge: 1 | 2;
   transform: string;
 }) {
+  const { t } = useTranslation('library');
   const [error, setError] = useState(false);
   return (
     <div className="flex-1 min-w-0 relative overflow-hidden bg-black">
@@ -442,8 +446,8 @@ function SideBySidePanel({
       {error ? (
         <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
           <ImageOff className="w-8 h-8 mb-2" />
-          <span className="text-sm">Failed to load</span>
-          <span className="text-xs opacity-60 mt-1">Close and reopen to try again.</span>
+          <span className="text-sm">{t('compareSessionsModal.failedToLoad')}</span>
+          <span className="text-xs opacity-60 mt-1">{t('compareSessionsModal.retryHint')}</span>
         </div>
       ) : (
         <div

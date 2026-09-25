@@ -48,9 +48,14 @@ export type Colormap = 'gray' | 'heat' | 'cool';
 
 const BAYER_PATTERNS = new Set(['RGGB', 'BGGR', 'GRBG', 'GBRG']);
 
-export function parseFits(buffer: ArrayBuffer): FitsData {
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+const corruptMessage = (t?: TFunc) =>
+  t ? t('errors:fitsCorruptOrEmpty') : 'This FITS file is empty or corrupted and cannot be displayed.';
+
+export function parseFits(buffer: ArrayBuffer, t?: TFunc): FitsData {
   if (buffer.byteLength < 2880) {
-    throw new Error('This FITS file is empty or corrupted and cannot be displayed.');
+    throw new Error(corruptMessage(t));
   }
 
   const view = new DataView(buffer);
@@ -61,7 +66,7 @@ export function parseFits(buffer: ArrayBuffer): FitsData {
   while (!headerDone) {
     for (let i = 0; i < 36 && !headerDone; i++) {
       if (offset + 80 > buffer.byteLength) {
-        throw new Error('This FITS file is empty or corrupted and cannot be displayed.');
+        throw new Error(corruptMessage(t));
       }
       const card = new TextDecoder('ascii').decode(new Uint8Array(buffer, offset, 80));
       offset += 80;
@@ -102,8 +107,25 @@ export function parseFits(buffer: ArrayBuffer): FitsData {
   const bzero = typeof header.BZERO === 'number' ? header.BZERO : 0;
   const bscale = typeof header.BSCALE === 'number' ? header.BSCALE : 1;
 
+  // Guard the allocation and the decode against the header, not the other way
+  // round. `pixelCount` is two header cards' worth of arithmetic: a truncated
+  // download or a lying NAXIS1/NAXIS2 used to allocate that many floats (a
+  // 30000x30000 claim is a 3.6 GB Float32Array) and then leave the missing tail
+  // zeroed by the `break` in readPlane, rendering a plausible half-black frame.
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new Error(corruptMessage(t));
+  }
   const pixelCount = width * height;
   const bytesPerPixel = Math.abs(bitpix) / 8;
+  if (!Number.isFinite(bytesPerPixel) || bytesPerPixel <= 0) {
+    throw new Error(corruptMessage(t));
+  }
+  // Only the planes this viewer decodes have to be present: plane 0 always, and
+  // all three for an RGB cube. A 4-plane cube (LRGB) still only reads plane 0.
+  const planesToRead = naxis3 === 3 ? 3 : 1;
+  if (offset + pixelCount * bytesPerPixel * planesToRead > buffer.byteLength) {
+    throw new Error(corruptMessage(t));
+  }
 
   const readPlane = (planeIndex: number): Float32Array => {
     const plane = new Float32Array(pixelCount);

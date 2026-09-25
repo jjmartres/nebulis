@@ -49,6 +49,17 @@ export const DWARF_BASE_PATH = 'Astronomy';
 export const STARTRAILS_FOLDER = 'STARTRAILS';
 export const STARTRAILS_TARGET_NAME = 'DWARF Star Trails';
 
+/** Timelapse/short-clip videos. Unlike STARTRAILS, this is a SIBLING of
+ *  Astronomy/ at the volume root (both DWARF3_WIDE_TL_*.mp4 clips and their
+ *  Astronomy/ session folders sit directly under the same resolved device
+ *  root), not nested under it — confirmed against a real Dwarf 3 volume:
+ *  `Videos/DWARF3_WIDE_TL_<timestamp>.mp4` with previews in
+ *  `Videos/Thumbnail/<same-stem>.jpg`. */
+export const VIDEOS_FOLDER = 'Videos';
+export const VIDEOS_TARGET_NAME = 'DWARF Videos';
+const VIDEOS_THUMBNAIL_DIR = 'Thumbnail';
+const VIDEO_EXTENSIONS = /\.(mp4|mov|avi)$/i;
+
 /** Folder-name prefixes that identify a Dwarf session folder (subframes inside). */
 const SESSION_PREFIXES = ['DWARF3_RAW_', 'DWARF_RAW_'];
 
@@ -185,6 +196,22 @@ export async function discoverDwarfObjects(profile: TelescopeProfile): Promise<D
     debugLog('walker:dwarf', `STARTRAILS folder not present or unreadable — skipping (${err instanceof Error ? err.message : String(err)})`);
   }
 
+  // Videos: same "fold into one synthetic object" idea as STARTRAILS above,
+  // but the files sit flat (no per-capture subfolder) — see listDwarfVideoFiles,
+  // which does the real per-video grouping. This step just checks whether
+  // there is anything to import at all, isolated the same way so a missing or
+  // unreadable Videos/ folder can never affect ordinary object discovery.
+  try {
+    const videoEntries = await smbListDir(VIDEOS_FOLDER, profile);
+    const videoCount = videoEntries.filter(e => e.type === 'file' && VIDEO_EXTENSIONS.test(e.name)).length;
+    if (videoCount > 0) {
+      debugLog('walker:dwarf', `Videos: ${videoCount} video file(s) found`);
+      result.push({ folderName: VIDEOS_TARGET_NAME, subFolderName: null });
+    }
+  } catch (err) {
+    debugLog('walker:dwarf', `Videos folder not present or unreadable — skipping (${err instanceof Error ? err.message : String(err)})`);
+  }
+
   debugLog('walker:dwarf', `${result.length} distinct target(s) discovered: ${result.map(o => o.folderName).join(', ') || '(none)'}`);
   return result;
 }
@@ -281,4 +308,79 @@ export function buildDwarfFilePath(fileName: string, base: string = DWARF_BASE_P
   // Just prepend the base path (Astronomy/ for an ordinary object, or
   // Astronomy/STARTRAILS/ for the synthetic Star Trails object).
   return path.posix.join(base, fileName);
+}
+
+/** List every video (and its matching preview, if any) under Videos/.
+ *
+ *  There is no per-video subfolder the way STARTRAILS has one per capture, so
+ *  listDwarfObjectFiles's "each _dwarfSessionFolders entry is a real
+ *  directory" contract doesn't fit here. Instead each video's own basename
+ *  (sans extension) stands in as a synthetic per-video session key, tagged
+ *  onto the entry the same way listDwarfObjectFiles tags a real session
+ *  folder — that key is real enough for dwarfFolderNightDate to pull a date
+ *  out of (Dwarf's own trailing timestamp, already in the format
+ *  extractDateFromSessionFolder expects) and for sessionFolderFor to give
+ *  each video its own on-disk directory, even though it names nothing that
+ *  exists on the device. buildDwarfVideoFilePath is the matching counterpart
+ *  that strips the synthetic key back off to resolve the real remote path. */
+export async function listDwarfVideoFiles(
+  profile: TelescopeProfile,
+  opts: { includeThumbnails?: boolean } = {},
+): Promise<{ files: SmbEntry[]; subFiles: SmbEntry[] }> {
+  const files: SmbEntry[] = [];
+  let videoEntries: SmbEntry[] = [];
+  try {
+    videoEntries = await smbListDir(VIDEOS_FOLDER, profile);
+  } catch (err) {
+    debugLog('walker:dwarf', `Failed to list ${VIDEOS_FOLDER} — skipping`);
+    log.warn({ err: err instanceof Error ? err.message : String(err) }, '[dwarf-walker] Videos listing failed; skipping');
+    return { files, subFiles: [] };
+  }
+  const videoFiles = videoEntries.filter(e => e.type === 'file' && VIDEO_EXTENSIONS.test(e.name));
+  if (videoFiles.length === 0) return { files, subFiles: [] };
+
+  // A preview's only purpose is to preview a video, so when videos are turned
+  // off there's nothing for it to preview. Left ungated, it would import fine
+  // on its own (its extension passes the plain importJpg check, which knows
+  // nothing about this vendor-specific pairing) and the synthetic Videos
+  // object would still appear in the library — full of orphaned still frames
+  // with no actual video behind them, which is not what turning "Import
+  // Videos" off means to a user. Skipping the Thumbnail/ listing entirely
+  // here also saves an FTP/SMB round trip on every sync for anyone who
+  // doesn't want this feature at all.
+  const stem = (name: string) => name.slice(0, name.length - path.posix.extname(name).length);
+  const thumbByStem = new Map<string, SmbEntry>();
+  if (opts.includeThumbnails !== false) {
+    // Missing/unreadable Thumbnail/ just means no previews, not a failed
+    // import — same tolerance listDwarfObjectFiles gives a session's own
+    // sub-directory.
+    try {
+      const thumbEntries = await smbListDir(path.posix.join(VIDEOS_FOLDER, VIDEOS_THUMBNAIL_DIR), profile);
+      for (const e of thumbEntries) {
+        if (e.type === 'file') thumbByStem.set(stem(e.name), e);
+      }
+    } catch (err) {
+      debugLog('walker:dwarf', `${VIDEOS_FOLDER}/${VIDEOS_THUMBNAIL_DIR} unreadable — continuing without previews (${err instanceof Error ? err.message : String(err)})`);
+    }
+  }
+
+  for (const video of videoFiles) {
+    const key = stem(video.name);
+    files.push({ ...video, name: `${key}/${video.name}` });
+    const thumb = thumbByStem.get(key);
+    if (thumb) files.push({ ...thumb, name: `${key}/${VIDEOS_THUMBNAIL_DIR}/${thumb.name}` });
+  }
+  debugLog('walker:dwarf', `Videos: ${videoFiles.length} video(s), ${files.length - videoFiles.length} matched preview(s)`);
+  return { files, subFiles: [] };
+}
+
+/** Counterpart to buildDwarfFilePath for the synthetic Videos object: the
+ *  tag's first path segment is a per-video grouping key invented by
+ *  listDwarfVideoFiles, not a real remote folder, so it's dropped rather than
+ *  joined onto the base — the rest of the tag (the real basename, or
+ *  `Thumbnail/<basename>`) already is the path relative to Videos/. */
+export function buildDwarfVideoFilePath(fileName: string): string {
+  const slash = fileName.indexOf('/');
+  const real = slash >= 0 ? fileName.slice(slash + 1) : fileName;
+  return path.posix.join(VIDEOS_FOLDER, real);
 }

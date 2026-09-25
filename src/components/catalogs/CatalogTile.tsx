@@ -9,9 +9,11 @@
 import { memo } from 'react';
 import { getCatalogStaticThumbnailUrl, getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import type { CatalogProgressObject } from '../../lib/api/catalogs';
+import { Check, Star } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { FitAssessment } from '../../lib/telescopeFov';
+import { fitDisplayStrings } from '../../lib/telescopeFov';
 import { FitBadge } from '../FitBadge';
-import { Check } from 'lucide-react';
 
 interface Props {
   object: CatalogProgressObject;
@@ -27,17 +29,24 @@ interface Props {
    *  `null` when the object's angular size isn't known. Explains the "Best
    *  frame fit" sort and is shown regardless of which sort is active. */
   fit: FitAssessment | null;
+  /** Whether this object is on the wishlist, precomputed once per board
+   *  render (`CatalogBoard`'s wishlist `idSet`) for the same reason as `fit`. */
+  inWishlist: boolean;
   /** Takes the object id, not a bound callback, so the board can pass its
    *  setState setter directly — a stable reference `memo` can actually rely
    *  on, instead of a fresh arrow that would re-render every tile whenever
    *  the board re-renders (as-typed on a 400-object catalog like Herschel 400). */
   onSelect: (id: string) => void;
+  /** Takes the object id for the same reason as `onSelect`. */
+  onToggleWishlist: (id: string) => void;
 }
 
-export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, fit, onSelect }: Props) {
+export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, fit, inWishlist, onSelect, onToggleWishlist }: Props) {
+  const { t } = useTranslation('catalogs');
   const staticUrl = getCatalogStaticThumbnailUrl(object.id);
   const apiUrl = getCatalogThumbnailUrl(object.id, object.majorAxisArcmin);
   const imaged = object.isImaged;
+  const fitStrings = fit ? fitDisplayStrings(fit, t) : null;
 
   // Secondary line: prefer the common name, fall back to the object type.
   const subtitle = object.name !== object.id ? object.name : object.type;
@@ -51,7 +60,9 @@ export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, f
         ${isDark ? 'focus-visible:ring-offset-slate-950' : 'focus-visible:ring-offset-slate-50'}
         focus-visible:ring-accent-500/40`}
       style={{ boxShadow: imaged ? `0 14px 30px -18px ${accent}b3` : '0 10px 24px -20px rgba(0,0,0,0.9)' }}
-      aria-label={`${object.id}, ${object.name}${imaged ? ', imaged' : ', not yet imaged'}`}
+      aria-label={imaged
+        ? t('catalogTile.imagedAriaLabel', { id: object.id, name: object.name })
+        : t('catalogTile.notImagedAriaLabel', { id: object.id, name: object.name })}
     >
       <img
         src={staticUrl}
@@ -98,19 +109,41 @@ export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, f
         </div>
       )}
 
+      {/* Wishlist toggle. Persistent once starred so a wishlisted object reads
+          at a glance without hovering; hover-revealed otherwise, same as the
+          magnitude/fit chips it sits above. */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleWishlist(object.id); }}
+        aria-pressed={inWishlist}
+        aria-label={inWishlist
+          ? t('catalogTile.removeFromWishlistAriaLabel', { name: object.name })
+          : t('catalogTile.addToWishlistAriaLabel', { name: object.name })}
+        title={inWishlist ? t('catalogTile.removeFromWishlist') : t('catalogTile.addToWishlist')}
+        className={`absolute top-2 left-2 z-10 flex h-6 w-6 items-center justify-center rounded-full backdrop-blur-md transition ${
+          inWishlist
+            ? 'bg-amber-500/90 text-white opacity-100'
+            : 'bg-slate-950/55 text-white/70 opacity-0 hover:text-amber-300 group-hover:opacity-100'
+        }`}
+      >
+        <Star className={`w-3.5 h-3.5 ${inWishlist ? 'fill-current' : ''}`} />
+      </button>
+
       {/* Magnitude + frame-fit badge, kept out of the way until the tile is
-          hovered. FitBadge is always passed isDark={true} here regardless of
-          the app theme: the photo underneath is dark in every theme, so its
+          hovered. FitBadge is always passed isDark regardless of the app
+          theme: the photo underneath is dark in every theme, so its
           translucent-on-dark variant is what reads, the same reasoning as
-          the magnitude chip's fixed bg-slate-950/60 below. */}
-      {(object.magnitude != null || fit) && (
-        <div className="absolute top-2 left-2 flex flex-col items-start gap-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          the magnitude chip's fixed bg-slate-950/60 below. Shifted down to
+          leave room for the wishlist star above it. */}
+      {(object.magnitude != null || fitStrings) && (
+        <div className="absolute top-9 left-2 flex flex-col items-start gap-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           {object.magnitude != null && (
             <div className="rounded-full bg-slate-950/60 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white/80 ring-1 ring-inset ring-white/15 backdrop-blur-md">
-              mag {object.magnitude.toFixed(1)}
+              {t('catalogTile.magnitude', { value: object.magnitude.toFixed(1) })}
             </div>
           )}
-          {fit && <FitBadge tag={fit.tag} label={fit.short} title={fit.label} isDark className="backdrop-blur-md" />}
+          {fit && fitStrings && (
+            <FitBadge tag={fit.tag} label={fitStrings.short} title={fitStrings.label} isDark className="backdrop-blur-md" />
+          )}
         </div>
       )}
 
@@ -134,7 +167,7 @@ export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, f
         </div>
         {imaged && object.sessionCount > 0 && (
           <div className="mt-1 text-[10px] tabular-nums text-white/45">
-            {object.sessionCount} {object.sessionCount === 1 ? 'session' : 'sessions'}
+            {t('catalogTile.sessionCount', { count: object.sessionCount })}
           </div>
         )}
       </div>

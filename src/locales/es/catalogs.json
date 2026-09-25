@@ -1,0 +1,252 @@
+{
+  "catalogBoard": {
+    "loadFailed": "No se pudo cargar el catálogo. Intenta actualizar.",
+    "noSearchMatch": "Ningún objeto de este catálogo coincide con esa búsqueda.",
+    "noneImaged": "Todavía no has fotografiado ninguno de estos objetos.",
+    "allImaged": "Se ha fotografiado cada objeto de esta selección.",
+    "nothingToShow": "No hay nada que mostrar con los filtros actuales.",
+    "clearFilters": "Borrar filtros"
+  },
+  "catalogsHero": {
+    "percentImagedAriaLabel": "{{percent}}% de los objetos del catálogo fotografiados",
+    "imaged": "Fotografiados",
+    "catalogObjects": "Objetos del catálogo",
+    "title": "Catálogos",
+    "subtitle": "Sigue tu progreso fotográfico a través de programas de observación clásicos."
+  },
+  "catalogMeta": {
+    "messier": {
+      "label": "Messier",
+      "tagline": "110 joyas brillantes registradas por un cazador de cometas que seguía confundiéndolas con cometas.",
+      "blurb": "Messier catalogó estas 110 manchas difusas mientras cazaba cometas, para dejar de confundirlas con otros nuevos. Cada entrada es lo bastante brillante para un telescopio pequeño, lo que convierte a esta lista en la que la mayoría de los astrofotógrafos completan primero."
+    },
+    "caldwell": {
+      "label": "Caldwell",
+      "tagline": "109 joyas que Messier dejó fuera, ordenadas por declinación y que llegan hasta el sur profundo.",
+      "blurb": "Patrick Moore eligió 109 joyas brillantes que Messier dejó fuera, ordenadas por declinación y que alcanzan lo más profundo del cielo austral. Espera objetivos que la lista Messier no incluye, como el Velo, la Hélice y el Cúmulo Doble."
+    },
+    "herschel400": {
+      "label": "Herschel 400",
+      "tagline": "400 objetos más tenues de los propios barridos de William Herschel. El paso natural después de Messier.",
+      "blurb": "400 objetos extraídos de los propios barridos del cielo de William Herschel, elegidos como el desafío natural tras Messier. Más tenues, más pequeños y en su mayoría galaxias, por lo que recompensa la integración larga y los cielos oscuros."
+    },
+    "sharpless": {
+      "label": "Sharpless",
+      "tagline": "313 nubes de hidrógeno incandescente, las nebulosas de emisión detrás de muchos de los nombres familiares del cielo.",
+      "blurb": "Stewart Sharpless catalogó 313 regiones HII a partir de las placas del relevamiento celeste del National Geographic. Son las nubes de hidrógeno alfa que persiguen los astrofotógrafos de banda estrecha: grandes, tenues y llenas de estructura. Algunas llevan nombres familiares como la Cueva, el Mago y el Comecocos, pero muchas son campos sin nombre que esperan una larga exposición."
+    }
+  },
+  "objectClass": {
+    "galaxy": "Galaxias",
+    "nebula": "Nebulosas",
+    "cluster": "Cúmulos",
+    "other": "Otros"
+  },
+  "catalogHero": {
+    "allCatalogs": "Todos los catálogos",
+    "imaged": "fotografiados",
+    "programComplete": "Programa completo",
+    "stillToImage_one": "{{count}} pendiente de fotografiar",
+    "stillToImage_other": "{{count}} pendientes de fotografiar",
+    "planTonightTitle": "Planificar esta noche con objetos de {{label}} aún sin fotografiar",
+    "planTonight": "Planificar esta noche"
+  },
+  "catalogPanel": {
+    "ariaLabel": "Catálogo {{label}}, {{imaged}} de {{total}} objetos fotografiados",
+    "objectsCount_one": "{{count}} objeto",
+    "objectsCount_other": "{{count}} objetos",
+    "loadingProgress": "Cargando progreso",
+    "imagedOfTotal": "{{imaged}} de {{total}} fotografiados",
+    "complete": "Completo",
+    "toGo_one": "{{count}} pendiente",
+    "toGo_other": "{{count}} pendientes",
+    "openBoard": "Abrir tablero"
+  },
+  "catalogTile": {
+    "imagedAriaLabel": "{{id}}, {{name}}, fotografiado",
+    "notImagedAriaLabel": "{{id}}, {{name}}, aún no fotografiado",
+    "magnitude": "mag {{value}}",
+    "sessionCount_one": "{{count}} sesión",
+    "sessionCount_other": "{{count}} sesiones",
+    "addToWishlist": "Añadir a la lista de deseos",
+    "removeFromWishlist": "Quitar de la lista de deseos",
+    "addToWishlistAriaLabel": "Añadir {{name}} a la lista de deseos",
+    "removeFromWishlistAriaLabel": "Quitar {{name}} de la lista de deseos"
+  },
+  "catalogToolbar": {
+    "filterAll": "Todos",
+    "filterImaged": "Fotografiados",
+    "filterRemaining": "Pendientes",
+    "sortCatalogOrder": "Orden del catálogo",
+    "sortName": "Nombre",
+    "sortBrightestFirst": "Más brillantes primero",
+    "sortConstellation": "Constelación",
+    "sortFrameFit": "Mejor ajuste de encuadre",
+    "filterByStatus": "Filtrar por estado de fotografiado",
+    "objectsCount_one": "{{count}} objeto",
+    "objectsCount_other": "{{count}} objetos",
+    "shownOfTotal": "{{shown}} de {{total}} mostrados",
+    "searchPlaceholder": "Buscar nombre, id, constelación",
+    "searchAriaLabel": "Buscar en este catálogo",
+    "clearSearch": "Borrar búsqueda",
+    "sortObjects": "Ordenar objetos"
+  },
+  "catalogObjectModal": {
+    "maxAltitudeHeading": "Altitud máxima durante la oscuridad: próximos 12 meses",
+    "bestSingle": "Mejor: {{date}}",
+    "bestRange": "Mejor: {{start}} – {{end}}",
+    "monthAltitude": "{{label}}: {{deg}}°",
+    "monthBelowHorizon": "{{label}}: bajo el horizonte",
+    "previousObject": "Objeto anterior",
+    "nextObject": "Siguiente objeto",
+    "imagedSessions_one": "Fotografiado ({{count}} sesión)",
+    "imagedSessions_other": "Fotografiado ({{count}} sesiones)",
+    "mag": "Mag {{value}}",
+    "raDec": "AR {{ra}}h · Dec {{dec}}°",
+    "close": "Cerrar",
+    "viewLargerImage": "Ver imagen más grande",
+    "referenceImageAlt": "Imagen de referencia de {{id}}",
+    "noDescription": "No hay ninguna descripción disponible.",
+    "wikipedia": "Wikipedia",
+    "belowMinimumAltitude": "Este objeto permanece por debajo de tu altitud mínima ({{deg}}°) durante la oscuridad todo el año desde tu ubicación.",
+    "setLocationForWindow": "Configura tu ubicación en Configuración para ver la mejor ventana de fotografiado para tu cielo.",
+    "notVisibleTonight": "Este objeto permanece bajo el horizonte toda la noche desde tu ubicación, así que no puedes verlo esta noche.",
+    "viewObservations": "Ver observaciones",
+    "notVisibleTitle": "Este objeto no es visible desde tu ubicación esta noche.",
+    "openInPlanner": "Abrir en el planificador",
+    "framingButton": "Encuadre y mosaico",
+    "framingButtonTitle": "Previsualiza cómo encuadra este objeto en tu telescopio y planifica un mosaico",
+    "addToWishlist": "Añadir a la lista de deseos",
+    "removeFromWishlist": "Quitar de la lista de deseos"
+  },
+  "filterRecommendations": {
+    "heading": "Recomendaciones de filtros",
+    "colorRig": "Color",
+    "monoRig": "Mono",
+    "unknown": {
+      "label": "LRGB de banda ancha",
+      "short": "LRGB",
+      "rationale": "No hay recomendación de filtro para este tipo de objeto, así que el LRGB de banda ancha es la opción segura."
+    },
+    "keys": {
+      "no-filter": {
+        "label": "Sin filtro",
+        "short": "Ninguno",
+        "rationale": "La luz aquí es amplia en todo el espectro, un filtro solo te costaría señal."
+      },
+      "no-filter-lrgb": {
+        "label": "Sin filtro, LRGB de banda ancha",
+        "short": "LRGB",
+        "rationale": "El LRGB de banda ancha da el color más fiel para este tipo de objeto, y un filtro de banda estrecha rechazaría casi toda su luz."
+      },
+      "lrgb": {
+        "label": "LRGB de banda ancha",
+        "short": "LRGB",
+        "rationale": "LRGB estándar: luminancia para el detalle, RGB para el color. La banda estrecha aporta poco en este tipo de objeto."
+      },
+      "luminance": {
+        "label": "Luminancia o filtro claro",
+        "short": "Lum",
+        "rationale": "Empieza por la luminancia para el detalle y añade Ha u OIII solo si tu cielo tiene mucha contaminación lumínica o quieres más contraste."
+      },
+      "ha-dual": {
+        "label": "Ha o banda estrecha doble",
+        "short": "Ha/doble",
+        "rationale": "Ha resalta el detalle de la emisión, y un filtro de doble banda como L-Extreme o Duo-Band también recorta la contaminación lumínica en una cámara de color."
+      },
+      "ha-oiii": {
+        "label": "Ha y OIII",
+        "short": "Ha+OIII",
+        "rationale": "Tanto Ha como OIII aportan señal real en este objeto, así que capturar ambos revela toda la estructura bicolor."
+      },
+      "oiii-ha": {
+        "label": "OIII primero, luego Ha",
+        "short": "OIII+Ha",
+        "rationale": "OIII es la línea dominante aquí, y Ha completa la envoltura exterior y los filamentos."
+      },
+      "sho": {
+        "label": "SHO (paleta Hubble)",
+        "short": "SHO",
+        "rationale": "SII, Ha y OIII muestran cada uno estructuras distintas en este objeto, y la paleta Hubble aprovecha los tres."
+      }
+    }
+  },
+  "catalogPlanModal": {
+    "tonight": "esta noche",
+    "close": "Cerrar",
+    "title": "Planificar esta noche · {{catalogLabel}}",
+    "subtitle": "Los objetos de {{catalogLabel}} que aún no has fotografiado que más alto suben la noche del {{nightLabel}}, elegidos para mantenerse alejados de la Luna ({{moonPct}}% iluminada). Elige cuántos incluir y los distribuiremos en la ventana de oscuridad.",
+    "noDarkWindow": "No hay ninguna ventana de oscuridad disponible para tu ubicación ahora mismo.",
+    "allImagedNiceWork": "Ya has fotografiado todos los objetos de este catálogo. Buen trabajo.",
+    "noPlannableCoords": "Ninguno de los objetos restantes de este catálogo tiene coordenadas con las que podamos planificar.",
+    "howManyObjects": "¿Cuántos objetos?",
+    "leftCount": "{{count}} de {{total}} restantes",
+    "buildingPlan": "Elaborando el plan…",
+    "buildFailed": "No se pudo elaborar un plan. Comprueba tu conexión e inténtalo de nuevo.",
+    "nothingClears": "Nada en este catálogo se aleja de la Luna y sube lo suficiente esta noche.",
+    "moonDown": "Luna bajo el horizonte",
+    "awayDeg": "a {{deg}}°",
+    "cancel": "Cancelar",
+    "creating": "Creando…",
+    "createPlan": "Crear plan ({{count}})"
+  },
+  "framingModal": {
+    "angularSizeUnknown": "Tamaño angular desconocido",
+    "fitsInSingleFrame": "Cabe en una sola toma",
+    "needsMosaic": "Necesita un mosaico de {{cols}} × {{rows}} para capturarlo por completo",
+    "fitFits": "Cabe",
+    "fitFitsLabel": "Cabe cómodamente en una sola toma",
+    "fitTight": "Encuadre ajustado",
+    "fitTightLabel": "Cabe, pero llena casi todo el encuadre. Poco margen para girar o recortar.",
+    "fitTiny": "Diminuto",
+    "fitTinyLabel": "Cabe con mucho margen. Se verá pequeño en la toma.",
+    "customLabel": "Personalizado",
+    "decreaseLabel": "Reducir {{label}}",
+    "increaseLabel": "Aumentar {{label}}",
+    "title": "Encuadre y mosaico",
+    "close": "Cerrar",
+    "skyFieldAlt": "Campo de cielo alrededor de {{objectName}}",
+    "skyImageUnavailable": "Imagen del cielo no disponible",
+    "frameRotation": "Rotación del encuadre",
+    "reset": "Restablecer",
+    "telescope": "Telescopio",
+    "customOption": "Personalizado (focal + sensor)…",
+    "opticsMm": "Óptica (mm)",
+    "focal": "Distancia focal",
+    "sensorW": "Ancho del sensor",
+    "sensorH": "Alto del sensor",
+    "yourTelescopes": "Tus telescopios",
+    "builtInModels": "Modelos integrados",
+    "savedRigs": "Tus equipos guardados",
+    "noOpticsWarning": "{{name}} no tiene una configuración óptica guardada, así que este es un encuadre genérico de referencia. Añade una (distancia focal + tamaño del sensor) en Configuración → Telescopios → Editar para obtener uno preciso.",
+    "pixelSize": "Tamaño de píxel (µm)",
+    "optionalPlaceholder": "opcional",
+    "customOpticsHint": "Guárdalo como preajuste con nombre abajo para reutilizarlo aquí más tarde. Para un equipo que también usarás en otra parte de Nebulis, añádelo una vez en Configuración → Telescopios → Editar y elígelo de la lista de arriba. El tamaño de píxel es opcional: solo afecta a la lectura de escala de placa de abajo.",
+    "rigNamePlaceholder": "Nombre del equipo",
+    "confirmSaveRig": "Guardar preajuste",
+    "cancel": "Cancelar",
+    "updateRig": "Actualizar \"{{name}}\"",
+    "rigUpdated": "Actualizado",
+    "rigSaved": "Guardado",
+    "saveRigAsNew": "Guardar como nuevo",
+    "saveRigAs": "Guardar como preajuste…",
+    "deleteRig": "Eliminar preajuste",
+    "deleteRigConfirm": "¿Eliminar el preajuste guardado \"{{name}}\"? Esto no se puede deshacer.",
+    "plateScale": "Escala de placa",
+    "plateScaleValue": "{{value}}″/px",
+    "verdict": "Veredicto",
+    "mosaic": "Mosaico",
+    "autoFitTitle": "Establecer el mosaico más pequeño que cubra este objeto",
+    "autoFit": "Ajuste automático",
+    "columns": "Columnas",
+    "rows": "Filas",
+    "overlap": "Superposición",
+    "frameFov": "Campo de visión de la toma",
+    "coverage": "Cobertura",
+    "tiles": "Recuadros",
+    "objectSize": "Tamaño del objeto",
+    "saveFraming": "Guardar encuadre para esta sesión",
+    "framingSaved": "Guardado",
+    "fovDisclaimer": "Los valores del campo de visión son aproximados. Los telescopios inteligentes son alt-az, por lo que el ángulo real de la toma rota durante una sesión."
+  }
+}

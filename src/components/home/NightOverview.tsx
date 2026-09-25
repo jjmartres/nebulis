@@ -34,6 +34,7 @@
  */
 import { useEffect, useRef, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import i18n from '../../i18n';
 import { AlertCircle, Clock, Cloud, Locate, Moon, RotateCw, Sparkles, Star, Sunrise, Sunset } from 'lucide-react';
 import { lookupSiteBortle, updateSite, type ObservingSite } from '../../lib/api/sites';
 import { useAuth } from '../../contexts/AuthContext';
@@ -121,6 +122,8 @@ interface Props {
   isDark: boolean;
 }
 
+const t = (k: string, opts?: Record<string, unknown>) => i18n.t(k, { ns: 'forecast', ...opts });
+
 // ─── Component ────────────────────────────────────────────────────────────
 export function NightOverview({ tonight, hours, darkWindow, site, timeZone, isDark }: Props) {
   const { isAdmin } = useAuth();
@@ -177,7 +180,7 @@ export function NightOverview({ tonight, hours, darkWindow, site, timeZone, isDa
     let totalScore = 0;
     let totalCloud = 0;
     for (const h of hours) {
-      const vis = calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow);
+      const vis = calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow, t);
       totalScore += vis.score;
       totalCloud += h.cloudCover;
     }
@@ -283,7 +286,7 @@ export function NightOverview({ tonight, hours, darkWindow, site, timeZone, isDa
                           className="ml-1.5 text-xl font-semibold"
                           style={{ color: `${hex}99` }}
                         >
-                          {scoreLabel(nightWeather.avgScore)}
+                          {scoreLabel(nightWeather.avgScore, t)}
                         </span>
                       </p>
                       {/* Cloud cover */}

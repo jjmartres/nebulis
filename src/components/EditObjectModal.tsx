@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Loader2, RotateCcw } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import {
@@ -61,6 +62,7 @@ function placeholder(value: unknown): string {
 }
 
 export function EditObjectModal({ objectId, current, onClose }: EditObjectModalProps) {
+  const { t } = useTranslation('library');
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(() => initialState(null));
@@ -152,12 +154,12 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
     };
     if (form.magnitude.trim()) {
       const n = Number(form.magnitude);
-      if (!Number.isFinite(n)) { setError('Magnitude must be a number.'); return; }
+      if (!Number.isFinite(n)) { setError(t('editObjectModal.magnitudeMustBeNumber')); return; }
       patch.magnitude = n;
     }
     if (form.distanceLy.trim()) {
       const n = Number(form.distanceLy);
-      if (!Number.isFinite(n)) { setError('Distance must be a number.'); return; }
+      if (!Number.isFinite(n)) { setError(t('editObjectModal.distanceMustBeNumber')); return; }
       patch.distanceLy = n;
     }
     save.mutate(patch);
@@ -197,7 +199,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
     <Modal
       isOpen
       onClose={requestClose}
-      title={`Edit ${objectId}`}
+      title={t('editObjectModal.title', { id: objectId })}
       className="relative w-full max-w-2xl mx-4 max-h-[90vh]"
     >
       <form
@@ -208,16 +210,16 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
       >
         <div className={`px-6 py-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
           <h2 className={`font-display text-lg font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-            Edit {objectId}
+            {t('editObjectModal.title', { id: objectId })}
           </h2>
           <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-            Your edits override catalog data for this object only. Leave a field blank to use the catalog value.
+            {t('editObjectModal.subtitle')}
           </p>
         </div>
 
         <div className="px-6 py-5 space-y-4">
           <div>
-            <label className={labelClass}>Name</label>
+            <label className={labelClass}>{t('editObjectModal.name')}</label>
             <input
               type="text"
               value={form.name}
@@ -229,7 +231,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Type</label>
+              <label className={labelClass}>{t('editObjectModal.type')}</label>
               {/* A combo box, not a dropdown: the suggestions are the types
                   already in your library, but the field stays free text so a
                   type nothing in the catalogs uses can still be typed in. */}
@@ -246,7 +248,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
               </datalist>
             </div>
             <div>
-              <label className={labelClass}>Constellation</label>
+              <label className={labelClass}>{t('editObjectModal.constellation')}</label>
               <input
                 type="text"
                 value={form.constellation}
@@ -258,7 +260,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
           </div>
 
           <div>
-            <label className={labelClass}>Description</label>
+            <label className={labelClass}>{t('editObjectModal.description')}</label>
             <textarea
               value={form.description}
               onChange={e => set('description', e.target.value)}
@@ -270,7 +272,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Magnitude</label>
+              <label className={labelClass}>{t('editObjectModal.magnitude')}</label>
               <input
                 type="text"
                 inputMode="decimal"
@@ -281,7 +283,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
               />
             </div>
             <div>
-              <label className={labelClass}>Distance (light-years)</label>
+              <label className={labelClass}>{t('editObjectModal.distanceLy')}</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -295,7 +297,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>RA</label>
+              <label className={labelClass}>{t('editObjectModal.ra')}</label>
               <input
                 type="text"
                 value={form.ra}
@@ -305,7 +307,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
               />
             </div>
             <div>
-              <label className={labelClass}>Dec</label>
+              <label className={labelClass}>{t('editObjectModal.dec')}</label>
               <input
                 type="text"
                 value={form.dec}
@@ -335,7 +337,7 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
             }`}
           >
             <RotateCcw className="w-4 h-4" />
-            Clear overrides
+            {t('editObjectModal.clearOverrides')}
           </button>
           <div className="flex items-center gap-3">
             <button
@@ -346,21 +348,21 @@ export function EditObjectModal({ objectId, current, onClose }: EditObjectModalP
                 isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
-              Cancel
+              {t('editObjectModal.cancel')}
             </button>
             <button
               type="submit"
               disabled={busy}
               className="inline-flex items-center justify-center gap-2 min-w-[5rem] px-4 py-2 rounded-xl text-sm font-semibold bg-accent-500 text-white hover:bg-accent-600 active:scale-[0.99] transition disabled:opacity-60"
             >
-              {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+              {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t('editObjectModal.save')}
             </button>
           </div>
         </div>
       </form>
       {confirmingClose && (
         <CloseConfirm
-          message="Discard unsaved edits?"
+          message={t('editObjectModal.discardUnsavedEdits')}
           onCancel={() => setConfirmingClose(false)}
           onDiscard={() => { setConfirmingClose(false); onClose(); }}
           isDark={isDark}

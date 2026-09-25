@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { getCatalog, getById, search, filterCatalog } from '../../server/lib/dsoCatalog';
+import { getCatalog, getById, search, searchFiltered, filterCatalog } from '../../server/lib/dsoCatalog';
+import { maxPossibleAltitude } from '../../server/lib/astroCalc';
+
+// A mid-northern site (roughly New York), used by the lat/minAlt
+// ("ever visible from here") filter tests below.
+const NORTHERN_LAT = 40.7;
 
 describe('dsoCatalog', () => {
   describe('getCatalog', () => {
@@ -103,12 +108,91 @@ describe('dsoCatalog', () => {
     });
   });
 
+  describe('searchFiltered', () => {
+    it('matches plain search() for the same query and limit, unfiltered', () => {
+      // searchFiltered is a superset of search()'s scoring/ranking logic with
+      // no type/sort override applied — the two should agree exactly.
+      expect(searchFiltered('andromeda', { limit: 30 }).entries.map(e => e.id))
+        .toEqual(search('andromeda', 30).map(e => e.id));
+    });
+
+    it('filters matches by type', () => {
+      const { entries, total } = searchFiltered('ngc', { type: 'galaxy', limit: 500 });
+      expect(total).toBeGreaterThan(0);
+      for (const entry of entries) {
+        expect(entry.type.toLowerCase()).toContain('galaxy');
+      }
+    });
+
+    it('paginates the matched (not just returned) set via offset/limit, with a stable total', () => {
+      const full = searchFiltered('nebula', { limit: 500 });
+      const page = searchFiltered('nebula', { limit: 5, offset: 0 });
+      expect(page.total).toBe(full.total);
+      expect(page.entries.length).toBeLessThanOrEqual(5);
+      expect(page.total).toBeGreaterThan(5);
+      // The next page picks up where the first left off, not a repeat of it.
+      const nextPage = searchFiltered('nebula', { limit: 5, offset: 5 });
+      expect(nextPage.entries.map(e => e.id)).toEqual(full.entries.slice(5, 10).map(e => e.id));
+    });
+
+    it('sorts by name across the full matched set, overriding relevance order', () => {
+      const { entries } = searchFiltered('nebula', { sort: 'name', limit: 500 });
+      const names = entries.map(e => (e.name || e.id).toLowerCase());
+      expect(names).toEqual([...names].sort());
+    });
+
+    it('with lat/minAlt, drops every match that can never clear that altitude from that latitude', () => {
+      const unfiltered = searchFiltered('nebula', { limit: 500 });
+      const filtered = searchFiltered('nebula', { lat: NORTHERN_LAT, minAlt: 20, limit: 500 });
+      expect(filtered.total).toBeLessThan(unfiltered.total);
+      for (const entry of filtered.entries) {
+        expect(maxPossibleAltitude(NORTHERN_LAT, entry.dec)).toBeGreaterThanOrEqual(20);
+      }
+      // Every dropped match is dropped for the stated reason, not silently
+      // lost for some other one.
+      const filteredIds = new Set(filtered.entries.map(e => e.id));
+      for (const entry of unfiltered.entries) {
+        if (!filteredIds.has(entry.id)) {
+          expect(maxPossibleAltitude(NORTHERN_LAT, entry.dec)).toBeLessThan(20);
+        }
+      }
+    });
+  });
+
   describe('filterCatalog', () => {
     it('filters by constellation', () => {
       const { entries, total } = filterCatalog({ constellation: 'Andromeda' });
       expect(total).toBeGreaterThan(0);
       for (const entry of entries) {
         expect(entry.constellation?.toLowerCase()).toBe('andromeda');
+      }
+    });
+
+    it('sorts by magnitude, nulls last', () => {
+      const { entries } = filterCatalog({ limit: 500, sort: 'magnitude' });
+      const mags = entries.map(e => e.magnitude);
+      const withMag = mags.filter((m): m is number => m != null);
+      expect(withMag).toEqual([...withMag].sort((a, b) => a - b));
+      // Every null-magnitude entry sorts after every real measurement.
+      const firstNullIndex = mags.indexOf(null);
+      if (firstNullIndex !== -1) {
+        expect(mags.slice(firstNullIndex).every(m => m == null)).toBe(true);
+      }
+    });
+
+    it('with lat/minAlt, keeps only entries that can clear that altitude from that latitude', () => {
+      const unfiltered = filterCatalog({ limit: 500 });
+      const filtered = filterCatalog({ lat: NORTHERN_LAT, minAlt: 20, limit: 500 });
+      expect(filtered.total).toBeLessThan(unfiltered.total);
+      for (const entry of filtered.entries) {
+        expect(maxPossibleAltitude(NORTHERN_LAT, entry.dec)).toBeGreaterThanOrEqual(20);
+      }
+    });
+
+    it('lat with no minAlt defaults to "ever rises above the horizon at all" (0°)', () => {
+      const { entries } = filterCatalog({ lat: NORTHERN_LAT, limit: 500 });
+      for (const entry of entries) {
+        expect(maxPossibleAltitude(NORTHERN_LAT, entry.dec)).toBeGreaterThanOrEqual(0);
       }
     });
 

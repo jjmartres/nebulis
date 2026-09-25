@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import i18n from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -31,9 +32,9 @@ export class ErrorBoundary extends Component<Props, State> {
         }`}>
           <div className="max-w-md text-center space-y-4">
             <p className="text-4xl">⚠</p>
-            <h1 className="text-xl font-semibold">Something went wrong</h1>
+            <h1 className="text-xl font-semibold">{i18n.t('errorBoundary.title', { ns: 'common' })}</h1>
             <p className={`text-sm ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              An unexpected error occurred. Refresh the page to continue.
+              {i18n.t('errorBoundary.description', { ns: 'common' })}
             </p>
             <pre className={`text-xs text-left rounded-lg p-4 overflow-auto max-h-40 text-rose-500 ${
               isLight ? 'bg-white border border-slate-200' : 'bg-slate-900'
@@ -44,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={() => window.location.reload()}
               className="px-4 py-2 bg-accent-500 text-white rounded-lg text-sm font-medium hover:bg-accent-600 transition"
             >
-              Reload page
+              {i18n.t('errorBoundary.reloadPage', { ns: 'common' })}
             </button>
           </div>
         </div>

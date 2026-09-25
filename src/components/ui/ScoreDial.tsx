@@ -3,17 +3,21 @@
  * score's own band colour with a matching bloom behind it, so the rating reads
  * before the number does.
  */
-import { scoreHex, scoreLabel } from '../../lib/forecastScore';
+import { scoreHex } from '../../lib/forecastScore';
 
 interface Props {
   score: number;
   size?: number;
   /** Hides the band name under the number when the caller shows it elsewhere. */
   showLabel?: boolean;
+  /** The band name text (from scoreLabel(score, t) — this component has no
+   *  useTranslation() of its own, so the caller resolves it). Required when
+   *  showLabel is true. */
+  label?: string;
   className?: string;
 }
 
-export function ScoreDial({ score, size = 132, showLabel = true, className = '' }: Props) {
+export function ScoreDial({ score, size = 132, showLabel = true, label, className = '' }: Props) {
   const hex = scoreHex(score);
   const R = 46;
   const circumference = 2 * Math.PI * R;
@@ -45,12 +49,12 @@ export function ScoreDial({ score, size = 132, showLabel = true, className = '' 
         >
           {score}
         </span>
-        {showLabel && (
+        {showLabel && label && (
           <span
             className="mt-1 font-semibold uppercase tracking-[0.16em]"
             style={{ color: hex, fontSize: Math.max(9, size * 0.082) }}
           >
-            {scoreLabel(score)}
+            {label}
           </span>
         )}
       </div>

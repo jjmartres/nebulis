@@ -31,6 +31,27 @@ export interface ListShareData {
   showTelescopeDots: boolean;
 }
 
+/**
+ * Every translated fragment the card needs, precomputed by the caller (which
+ * has `useTranslation()`) so this module never imports i18next itself. The
+ * plural counts are pre-rendered too ("3 observations") since composing them
+ * from a bare number here would hand-roll pluralization outside i18next's
+ * `_one`/`_other` machinery. `moreNotShown` stays a function because the
+ * truncated count is only known once `MAX_ROWS` is applied below.
+ */
+export interface ListShareStrings {
+  title: string;
+  totalLine: string;
+  statsAcross: string;
+  statsDot: string;
+  moreNotShown: (count: number) => string;
+  sharedFrom: string;
+  objectHeader: string;
+  catalogHeader: string;
+  dateHeader: string;
+  observationLog: string;
+}
+
 // ── Palette (shared with calendarShare.ts/planShare.ts) ─────────────────────
 const BG = '#0F1426';
 const SURFACE = '#1C243D';
@@ -58,14 +79,14 @@ const MAX_ROWS = 60;
 
 // ── Plain text ────────────────────────────────────────────────────────────
 
-export function buildListShareText(data: ListShareData): string {
+export function buildListShareText(data: ListShareData, strings: ListShareStrings): string {
   const rows = data.rows.slice(0, MAX_ROWS);
   const objectW = Math.max(6, ...rows.map(r => r.display.length));
   const catalogW = Math.max(7, ...rows.map(r => r.catalog.length));
 
   const lines = [
-    `Observations · ${data.rows.length} total`,
-    `${data.rows.length} observation${data.rows.length === 1 ? '' : 's'} across ${data.uniqueObjects} object${data.uniqueObjects === 1 ? '' : 's'}`,
+    strings.totalLine,
+    strings.statsAcross,
     data.sortLabel,
     '',
   ];
@@ -74,10 +95,10 @@ export function buildListShareText(data: ListShareData): string {
     lines.push(`${row.display.padEnd(objectW)}  ${row.catalog.padEnd(catalogW)}  ${row.dateLabel}`);
   }
   if (data.rows.length > rows.length) {
-    lines.push('', `+ ${data.rows.length - rows.length} more not shown`);
+    lines.push('', strings.moreNotShown(data.rows.length - rows.length));
   }
 
-  lines.push('', 'Shared from Nebulis');
+  lines.push('', strings.sharedFrom);
   return lines.join('\n');
 }
 
@@ -102,6 +123,7 @@ const COL_FRACTIONS = [0.52, 0.24, 0.24];
 export function drawListShareCard(
   canvas: HTMLCanvasElement,
   data: ListShareData,
+  strings: ListShareStrings,
   scale = 2,
 ): { width: number; height: number } {
   const rows = data.rows.slice(0, MAX_ROWS);
@@ -165,13 +187,12 @@ export function drawListShareCard(
 
     ctx.fillStyle = TEXT_PRI;
     ctx.font = font(24, 700);
-    ctx.fillText('Observations', PAD, 46);
+    ctx.fillText(strings.title, PAD, 46);
 
     ctx.textAlign = 'right';
     ctx.font = font(13, 500);
     ctx.fillStyle = TEXT_SEC;
-    const stats = `${data.rows.length} observation${data.rows.length === 1 ? '' : 's'} · ${data.uniqueObjects} object${data.uniqueObjects === 1 ? '' : 's'}`;
-    ctx.fillText(stats, W - PAD, 24);
+    ctx.fillText(strings.statsDot, W - PAD, 24);
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.7);
     ctx.font = font(12, 400);
     ctx.fillText(data.sortLabel, W - PAD, 44);
@@ -188,9 +209,9 @@ export function drawListShareCard(
     ctx.font = font(11, 700);
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.55);
     const midY = top + COL_HEAD_H / 2;
-    ctx.fillText('OBJECT', colX[0], midY);
-    ctx.fillText('CATALOG', colX[1], midY);
-    ctx.fillText('DATE', colX[2], midY);
+    ctx.fillText(strings.objectHeader, colX[0], midY);
+    ctx.fillText(strings.catalogHeader, colX[1], midY);
+    ctx.fillText(strings.dateHeader, colX[2], midY);
     ctx.textBaseline = 'top';
   }
 
@@ -236,7 +257,7 @@ export function drawListShareCard(
     ctx.textBaseline = 'middle';
     ctx.font = font(11, 500, true);
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.5);
-    ctx.fillText(`+ ${data.rows.length - rows.length} more not shown`, PAD, rowTop + 12);
+    ctx.fillText(strings.moreNotShown(data.rows.length - rows.length), PAD, rowTop + 12);
     ctx.textBaseline = 'top';
     rowTop += 24;
   }
@@ -251,7 +272,7 @@ export function drawListShareCard(
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.4);
     ctx.fillText('nebulis.app', PAD, rowTop + FOOTER_H / 2 + 1);
     ctx.textAlign = 'right';
-    ctx.fillText('Observation log', W - PAD, rowTop + FOOTER_H / 2 + 1);
+    ctx.fillText(strings.observationLog, W - PAD, rowTop + FOOTER_H / 2 + 1);
     ctx.textBaseline = 'top';
   }
 

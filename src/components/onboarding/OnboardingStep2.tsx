@@ -9,6 +9,7 @@ import {
   Usb,
   Network,
 } from 'lucide-react';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   TELESCOPE_PRESETS,
   TELESCOPE_KINDS,
@@ -84,6 +85,7 @@ export function OnboardingStep2({
   onSmbPasswordChange,
   onTestConnection,
 }: OnboardingStep2Props) {
+  const { t } = useTranslation('onboarding');
   const preset = kind ? TELESCOPE_PRESETS[kind] : null;
   // Same check the telescope editor and the server apply. Catching it here
   // means a first-run user who pastes "10.0.1.5/SeeStar/" is told which half
@@ -105,16 +107,16 @@ export function OnboardingStep2({
         </div>
         <div>
           <h3 className={`font-display font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-            Connect Your Telescope
+            {t('step2.heading')}
           </h3>
           <p className={`text-xs ${subText}`}>
-            {isLocalKind ? 'Select the type and plug in the USB drive' : 'Select the type and enter its IP address or hostname'}
+            {isLocalKind ? t('step2.subheadingLocal') : t('step2.subheadingNetwork')}
           </p>
         </div>
       </div>
 
       <div>
-        <label className={labelClass}>Telescope Type</label>
+        <label className={labelClass}>{t('step2.telescopeTypeLabel')}</label>
         <select
           value={kind}
           onChange={e => {
@@ -123,19 +125,19 @@ export function OnboardingStep2({
           }}
           className={inputClass}
         >
-          <option value="" disabled>Select a telescope…</option>
+          <option value="" disabled>{t('step2.selectPlaceholder')}</option>
           {TELESCOPE_KINDS.map(k => (
             <option key={k} value={k}>{TELESCOPE_PRESETS[k].label}</option>
           ))}
         </select>
-        <p className={helperClass}>Pick your telescope model, or "Other" for a custom SMB share.</p>
+        <p className={helperClass}>{t('step2.telescopeTypeHelp')}</p>
       </div>
 
       <div>
-        <label className={labelClass}>Display Name <span className="opacity-60">(optional)</span></label>
+        <label className={labelClass}>{t('step2.displayNameLabel')} <span className="opacity-60">{t('step2.optional')}</span></label>
         <input
           type="text"
-          placeholder={preset?.label ?? 'My Telescope'}
+          placeholder={preset?.label ?? t('step2.displayNamePlaceholder')}
           value={telescopeName}
           onChange={e => onTelescopeNameChange(e.target.value)}
           className={inputClass}
@@ -147,7 +149,7 @@ export function OnboardingStep2({
           network interface) and SMB for Seestar. */}
       {(isSeestarKind || isDwarfKind || isAsiairKind) && onTransportModeChange && (
         <div>
-          <label className={labelClass}>Connection</label>
+          <label className={labelClass}>{t('step2.connectionLabel')}</label>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -159,7 +161,7 @@ export function OnboardingStep2({
               }`}
             >
               <Network className="w-4 h-4" />
-              {isDwarfKind ? 'Wi-Fi (FTP)' : 'Wi-Fi (SMB)'}
+              {isDwarfKind ? t('step2.wifiFtp') : t('step2.wifiSmb')}
             </button>
             <button
               type="button"
@@ -171,7 +173,7 @@ export function OnboardingStep2({
               }`}
             >
               <Usb className="w-4 h-4" />
-              USB cable
+              {t('step2.usbCable')}
             </button>
           </div>
         </div>
@@ -183,9 +185,7 @@ export function OnboardingStep2({
         <div className={`flex items-start gap-3 p-3 rounded-xl ${isDark ? 'bg-slate-800/60' : 'bg-slate-50'}`}>
           <Info className={`w-4 h-4 mt-0.5 shrink-0 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
           <p className={`text-sm ${subText}`}>
-            {isFtpMode
-              ? 'Make sure the telescope is powered on and this device is joined to its Wi-Fi, or that both are on the same network if you use station mode.'
-              : 'Make sure your telescope is powered on and connected to the same network as this device.'}
+            {isFtpMode ? t('step2.poweredOnFtp') : t('step2.poweredOnNetwork')}
           </p>
         </div>
       )}
@@ -216,11 +216,11 @@ export function OnboardingStep2({
       {!isLocalKind && (
         <>
           <div>
-            <label className={labelClass}>Hostname / IP Address</label>
+            <label className={labelClass}>{t('step2.hostnameLabel')}</label>
             <div className="flex gap-2 items-center">
               <input
                 type="text"
-                placeholder={preset?.defaultHostname || '192.168.1.100'}
+                placeholder={preset?.defaultHostname || t('step2.hostnamePlaceholder')}
                 value={hostname}
                 onChange={e => onHostnameChange(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && kind && hostname.trim() && onTestConnection()}
@@ -246,7 +246,7 @@ export function OnboardingStep2({
                 ) : (
                   <Wifi className="w-4 h-4" />
                 )}
-                Test Connection
+                {t('step2.testConnection')}
               </button>
             </div>
 
@@ -280,10 +280,10 @@ export function OnboardingStep2({
           {kind === 'other' && (
             <>
               <div>
-                <label className={labelClass}>SMB Share Name</label>
+                <label className={labelClass}>{t('step2.smbShareNameLabel')}</label>
                 <input
                   type="text"
-                  placeholder="e.g. Astronomy"
+                  placeholder={t('step2.smbShareNamePlaceholder')}
                   value={smbShareName}
                   onChange={e => onSmbShareNameChange(e.target.value)}
                   className={inputClass}
@@ -292,20 +292,20 @@ export function OnboardingStep2({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Username</label>
+                  <label className={labelClass}>{t('step2.usernameLabel')}</label>
                   <input
                     type="text"
-                    placeholder="guest"
+                    placeholder={t('step2.usernamePlaceholder')}
                     value={smbUsername}
                     onChange={e => onSmbUsernameChange(e.target.value)}
                     className={inputClass}
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Password</label>
+                  <label className={labelClass}>{t('step2.passwordLabel')}</label>
                   <input
                     type="password"
-                    placeholder="(optional)"
+                    placeholder={t('step2.passwordPlaceholderOptional')}
                     value={smbPassword}
                     onChange={e => onSmbPasswordChange(e.target.value)}
                     className={inputClass}
@@ -321,8 +321,8 @@ export function OnboardingStep2({
             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>
               {isFtpMode
-                ? <>Leave the address at <strong>192.168.88.1</strong> when you join the telescope Wi-Fi directly. If you run station mode instead, set a <strong>DHCP reservation</strong> in your router so the address stays put.</>
-                : <>For best reliability, configure a <strong>DHCP reservation</strong> in your router so your telescope keeps the same IP address.</>}
+                ? <Trans i18nKey="step2.ftpDhcpNote" ns="onboarding" components={{ 1: <strong />, 3: <strong /> }} />
+                : <Trans i18nKey="step2.networkDhcpNote" ns="onboarding" components={{ 1: <strong /> }} />}
             </span>
           </div>
         </>

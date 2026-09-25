@@ -1,0 +1,252 @@
+{
+  "catalogBoard": {
+    "loadFailed": "Could not load catalog. Try refreshing.",
+    "noSearchMatch": "No objects in this catalog match that search.",
+    "noneImaged": "You haven't imaged any of these objects yet.",
+    "allImaged": "Every object in this selection has been imaged.",
+    "nothingToShow": "Nothing to show for the current filters.",
+    "clearFilters": "Clear filters"
+  },
+  "catalogsHero": {
+    "percentImagedAriaLabel": "{{percent}}% of catalog objects imaged",
+    "imaged": "Imaged",
+    "catalogObjects": "Catalog objects",
+    "title": "Catalogs",
+    "subtitle": "Track your imaging progress through classic observing programs."
+  },
+  "catalogMeta": {
+    "messier": {
+      "label": "Messier",
+      "tagline": "110 bright showpieces logged by a comet hunter who kept mistaking them for comets.",
+      "blurb": "Messier logged these 110 fuzzy patches while hunting comets, so he would stop mistaking them for new ones. Every entry is bright enough for a small telescope, which makes this the list most imagers finish first."
+    },
+    "caldwell": {
+      "label": "Caldwell",
+      "tagline": "109 showpieces Messier left out, ordered by declination and reaching deep south.",
+      "blurb": "Patrick Moore picked 109 bright showpieces that Messier left out, ordered by declination and reaching deep into the southern sky. Expect targets the Messier list misses, including the Veil, the Helix, and the Double Cluster."
+    },
+    "herschel400": {
+      "label": "Herschel 400",
+      "tagline": "400 fainter objects from William Herschel's own sweeps. The natural step after Messier.",
+      "blurb": "400 objects drawn from William Herschel's own sweeps of the sky, chosen as the natural challenge after Messier. Fainter, smaller, and mostly galaxies, so it rewards long integration and dark skies."
+    },
+    "sharpless": {
+      "label": "Sharpless",
+      "tagline": "313 clouds of glowing hydrogen, the emission nebulae behind many of the sky's familiar names.",
+      "blurb": "Stewart Sharpless catalogued 313 HII regions from the National Geographic sky survey plates. These are the hydrogen-alpha clouds narrowband imagers chase: large, faint, and full of structure. Some carry familiar names like the Cave, the Wizard, and the Pacman, but plenty are unnamed fields waiting for a long exposure."
+    }
+  },
+  "objectClass": {
+    "galaxy": "Galaxies",
+    "nebula": "Nebulae",
+    "cluster": "Clusters",
+    "other": "Other"
+  },
+  "catalogHero": {
+    "allCatalogs": "All catalogs",
+    "imaged": "imaged",
+    "programComplete": "Program complete",
+    "stillToImage_one": "{{count}} still to image",
+    "stillToImage_other": "{{count}} still to image",
+    "planTonightTitle": "Plan tonight from un-imaged {{label}} objects",
+    "planTonight": "Plan tonight"
+  },
+  "catalogPanel": {
+    "ariaLabel": "{{label}} catalog, {{imaged}} of {{total}} objects imaged",
+    "objectsCount_one": "{{count}} object",
+    "objectsCount_other": "{{count}} objects",
+    "loadingProgress": "Loading progress",
+    "imagedOfTotal": "{{imaged}} of {{total}} imaged",
+    "complete": "Complete",
+    "toGo_one": "{{count}} to go",
+    "toGo_other": "{{count}} to go",
+    "openBoard": "Open board"
+  },
+  "catalogTile": {
+    "imagedAriaLabel": "{{id}}, {{name}}, imaged",
+    "notImagedAriaLabel": "{{id}}, {{name}}, not yet imaged",
+    "magnitude": "mag {{value}}",
+    "sessionCount_one": "{{count}} session",
+    "sessionCount_other": "{{count}} sessions",
+    "addToWishlist": "Add to wishlist",
+    "removeFromWishlist": "Remove from wishlist",
+    "addToWishlistAriaLabel": "Add {{name}} to wishlist",
+    "removeFromWishlistAriaLabel": "Remove {{name}} from wishlist"
+  },
+  "catalogToolbar": {
+    "filterAll": "All",
+    "filterImaged": "Imaged",
+    "filterRemaining": "Remaining",
+    "sortCatalogOrder": "Catalog order",
+    "sortName": "Name",
+    "sortBrightestFirst": "Brightest first",
+    "sortConstellation": "Constellation",
+    "sortFrameFit": "Best frame fit",
+    "filterByStatus": "Filter by imaging status",
+    "objectsCount_one": "{{count}} object",
+    "objectsCount_other": "{{count}} objects",
+    "shownOfTotal": "{{shown}} of {{total}} shown",
+    "searchPlaceholder": "Search name, id, constellation",
+    "searchAriaLabel": "Search this catalog",
+    "clearSearch": "Clear search",
+    "sortObjects": "Sort objects"
+  },
+  "catalogObjectModal": {
+    "maxAltitudeHeading": "Max altitude during darkness — next 12 months",
+    "bestSingle": "Best: {{date}}",
+    "bestRange": "Best: {{start}} – {{end}}",
+    "monthAltitude": "{{label}}: {{deg}}°",
+    "monthBelowHorizon": "{{label}}: below horizon",
+    "previousObject": "Previous object",
+    "nextObject": "Next object",
+    "imagedSessions_one": "Imaged ({{count}} session)",
+    "imagedSessions_other": "Imaged ({{count}} sessions)",
+    "mag": "Mag {{value}}",
+    "raDec": "RA {{ra}}h · Dec {{dec}}°",
+    "close": "Close",
+    "viewLargerImage": "View larger image",
+    "referenceImageAlt": "Reference image of {{id}}",
+    "noDescription": "No description available.",
+    "wikipedia": "Wikipedia",
+    "belowMinimumAltitude": "This object stays below your minimum altitude ({{deg}}°) during darkness year-round from your location.",
+    "setLocationForWindow": "Set your location in Settings to see the best imaging window for your sky.",
+    "notVisibleTonight": "This object stays below the horizon all night from your location, so you can't see it tonight.",
+    "viewObservations": "View observations",
+    "notVisibleTitle": "This object isn't visible from your location tonight.",
+    "openInPlanner": "Open in Planner",
+    "framingButton": "Framing & Mosaic",
+    "framingButtonTitle": "Preview how this object frames in your telescope, and plan a mosaic",
+    "addToWishlist": "Add to wishlist",
+    "removeFromWishlist": "Remove from wishlist"
+  },
+  "filterRecommendations": {
+    "heading": "Filter recommendations",
+    "colorRig": "Color",
+    "monoRig": "Mono",
+    "unknown": {
+      "label": "Broadband LRGB",
+      "short": "LRGB",
+      "rationale": "There is no filter guidance for this object type, so broadband LRGB is the safe choice."
+    },
+    "keys": {
+      "no-filter": {
+        "label": "No filter",
+        "short": "None",
+        "rationale": "The light here is broad across the spectrum, so a filter would only cost you signal."
+      },
+      "no-filter-lrgb": {
+        "label": "No filter, broadband LRGB",
+        "short": "LRGB",
+        "rationale": "Broadband LRGB gives the truest color for this object type, and a narrowband filter would reject most of its light."
+      },
+      "lrgb": {
+        "label": "Broadband LRGB",
+        "short": "LRGB",
+        "rationale": "Standard LRGB: luminance for detail, RGB for color. Narrowband adds little for this object type."
+      },
+      "luminance": {
+        "label": "Luminance or clear filter",
+        "short": "Lum",
+        "rationale": "Start with luminance for detail, then add Ha or OIII only if your skies are heavily light polluted or you want more contrast."
+      },
+      "ha-dual": {
+        "label": "Ha or dual narrowband",
+        "short": "Ha/Dual-NB",
+        "rationale": "Ha brings out the emission detail, and a dual-pass filter such as L-Extreme or Duo-Band also cuts light pollution on a one-shot-color rig."
+      },
+      "ha-oiii": {
+        "label": "Ha and OIII",
+        "short": "Ha+OIII",
+        "rationale": "Both Ha and OIII carry real signal in this object, so shooting the pair brings out the full two-color structure."
+      },
+      "oiii-ha": {
+        "label": "OIII first, then Ha",
+        "short": "OIII+Ha",
+        "rationale": "OIII is the dominant line here, and Ha fills in the outer envelope and filaments."
+      },
+      "sho": {
+        "label": "SHO (Hubble palette)",
+        "short": "SHO",
+        "rationale": "SII, Ha and OIII each show different structure in this object, and the Hubble palette makes the most of all three."
+      }
+    }
+  },
+  "catalogPlanModal": {
+    "tonight": "tonight",
+    "close": "Close",
+    "title": "Plan Tonight · {{catalogLabel}}",
+    "subtitle": "The {{catalogLabel}} objects you haven't imaged yet that climb highest on the night of {{nightLabel}}, picked to stay clear of the moon ({{moonPct}}% lit). Choose how many to include and we'll lay them out across the dark window.",
+    "noDarkWindow": "No dark window is available for your location right now.",
+    "allImagedNiceWork": "You've already imaged every object in this catalog. Nice work.",
+    "noPlannableCoords": "None of the remaining objects in this catalog have coordinates we can plan with.",
+    "howManyObjects": "How many objects?",
+    "leftCount": "{{count}} of {{total}} left",
+    "buildingPlan": "Building plan…",
+    "buildFailed": "Couldn't build a plan. Check your connection and try reopening this.",
+    "nothingClears": "Nothing in this catalog clears the moon and gets high enough on this night.",
+    "moonDown": "moon down",
+    "awayDeg": "{{deg}}° away",
+    "cancel": "Cancel",
+    "creating": "Creating…",
+    "createPlan": "Create plan ({{count}})"
+  },
+  "framingModal": {
+    "angularSizeUnknown": "Angular size unknown",
+    "fitsInSingleFrame": "Fits in a single frame",
+    "needsMosaic": "Needs a {{cols}} × {{rows}} mosaic to capture fully",
+    "fitFits": "Fits",
+    "fitFitsLabel": "Fits comfortably in a single frame",
+    "fitTight": "Tight crop",
+    "fitTightLabel": "Fits, but fills most of the frame. Not much room to rotate or crop.",
+    "fitTiny": "Tiny",
+    "fitTinyLabel": "Fits with room to spare. Will look small in the frame.",
+    "customLabel": "Custom",
+    "decreaseLabel": "Decrease {{label}}",
+    "increaseLabel": "Increase {{label}}",
+    "title": "Framing & mosaic",
+    "close": "Close",
+    "skyFieldAlt": "Sky field around {{objectName}}",
+    "skyImageUnavailable": "Sky image unavailable",
+    "frameRotation": "Frame rotation",
+    "reset": "Reset",
+    "telescope": "Telescope",
+    "customOption": "Custom (focal + sensor)…",
+    "opticsMm": "Optics (mm)",
+    "focal": "Focal length",
+    "sensorW": "Sensor width",
+    "sensorH": "Sensor height",
+    "yourTelescopes": "Your telescopes",
+    "builtInModels": "Built-in models",
+    "savedRigs": "Your saved rigs",
+    "noOpticsWarning": "{{name}} has no optical configuration saved, so this is a generic stand-in frame. Add one (focal length + sensor size) under Settings → Telescopes → Edit for an accurate one.",
+    "pixelSize": "Pixel size (µm)",
+    "optionalPlaceholder": "optional",
+    "customOpticsHint": "Save it as a named preset below to reuse it here later. For a rig you'll also use elsewhere in Nebulis, add it once under Settings → Telescopes → Edit instead and pick it from the list above. Pixel size is optional: it only drives the plate-scale readout below.",
+    "rigNamePlaceholder": "Rig name",
+    "confirmSaveRig": "Save preset",
+    "cancel": "Cancel",
+    "updateRig": "Update \"{{name}}\"",
+    "rigUpdated": "Updated",
+    "rigSaved": "Saved",
+    "saveRigAsNew": "Save as new",
+    "saveRigAs": "Save as preset…",
+    "deleteRig": "Delete preset",
+    "deleteRigConfirm": "Delete the saved preset \"{{name}}\"? This can't be undone.",
+    "plateScale": "Plate scale",
+    "plateScaleValue": "{{value}}″/px",
+    "verdict": "Verdict",
+    "mosaic": "Mosaic",
+    "autoFitTitle": "Set the smallest mosaic that covers this object",
+    "autoFit": "Auto-fit",
+    "columns": "Columns",
+    "rows": "Rows",
+    "overlap": "Overlap",
+    "frameFov": "Frame FOV",
+    "coverage": "Coverage",
+    "tiles": "Tiles",
+    "objectSize": "Object size",
+    "saveFraming": "Save framing to this session",
+    "framingSaved": "Saved",
+    "fovDisclaimer": "Field of view values are approximate. Smart telescopes are alt-az, so the true frame angle rotates during a session."
+  }
+}

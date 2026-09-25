@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { Settings as SettingsType } from '../../types';
 import { Sec, Row, Toggle, getInputClass } from './SettingsUI';
 import { Telescope, Globe } from 'lucide-react';
@@ -73,13 +74,14 @@ export function LibrarySection({
   form: Partial<SettingsType>;
   setForm: React.Dispatch<React.SetStateAction<Partial<SettingsType>>>;
 }) {
+  const { t } = useTranslation('settings');
   const imageSource = form.galleryImageSource ?? 'sky-survey';
 
   return (
     <>
       <Sec
-        title="Display"
-        description="How object cards and slideshow show images and information."
+        title={t('librarySection.display.title')}
+        description={t('librarySection.display.description')}
         isDark={isDark}
       >
         <div className={`p-4 space-y-2 border-b ${isDark ? 'border-slate-800/70' : 'border-slate-100'}`}>
@@ -89,8 +91,8 @@ export function LibrarySection({
             onSelect={v => setForm(f => ({ ...f, galleryImageSource: v }))}
             isDark={isDark}
             icon={<Globe className="w-4 h-4" />}
-            label="Reference image"
-            description="Catalog imagery from Hubble, DSS2, NASA, and Caldwell. Rich color, wide availability."
+            label={t('librarySection.display.referenceImage.label')}
+            description={t('librarySection.display.referenceImage.description')}
           />
           <ImageSourceOption
             value="telescope"
@@ -98,13 +100,13 @@ export function LibrarySection({
             onSelect={v => setForm(f => ({ ...f, galleryImageSource: v }))}
             isDark={isDark}
             icon={<Telescope className="w-4 h-4" />}
-            label="My telescope images"
-            description="Your own captures, for every object you have imaged."
+            label={t('librarySection.display.myTelescopeImages.label')}
+            description={t('librarySection.display.myTelescopeImages.description')}
           />
         </div>
         <Row
-          label="Gallery: Show processed images only"
-          description='Gallery opens with the "Processed only" filter on by default.'
+          label={t('librarySection.display.galleryProcessedOnly.label')}
+          description={t('librarySection.display.galleryProcessedOnly.description')}
           isDark={isDark}
         >
           <Toggle
@@ -113,8 +115,8 @@ export function LibrarySection({
           />
         </Row>
         <Row
-          label="Slideshow: Show object information"
-          description="Shows the name, type, and distance while images play."
+          label={t('librarySection.display.slideshowShowInfo.label')}
+          description={t('librarySection.display.slideshowShowInfo.description')}
           isDark={isDark}
         >
           <Toggle
@@ -123,8 +125,8 @@ export function LibrarySection({
           />
         </Row>
         <Row
-          label="Slideshow: Start with processed images only"
-          description="Slideshow opens with only processed images; switch anytime."
+          label={t('librarySection.display.slideshowProcessedOnly.label')}
+          description={t('librarySection.display.slideshowProcessedOnly.description')}
           isDark={isDark}
         >
           <Toggle
@@ -134,10 +136,10 @@ export function LibrarySection({
         </Row>
       </Sec>
 
-      <Sec title="Image behavior" isDark={isDark}>
+      <Sec title={t('librarySection.imageBehavior.title')} isDark={isDark}>
         <Row
-          label="Rotate images 90° counter-clockwise"
-          description="Corrects telescopes that capture rotated, slideshow included."
+          label={t('librarySection.imageBehavior.rotate.label')}
+          description={t('librarySection.imageBehavior.rotate.description')}
           isDark={isDark}
         >
           <Toggle
@@ -147,10 +149,10 @@ export function LibrarySection({
         </Row>
       </Sec>
 
-      <Sec title="Organization" isDark={isDark}>
+      <Sec title={t('librarySection.organization.title')} isDark={isDark}>
         <Row
-          label="Prefer Caldwell numbers"
-          description={'New objects are named "C5" instead of "IC342." Existing folders are unchanged.'}
+          label={t('librarySection.organization.preferCaldwell.label')}
+          description={t('librarySection.organization.preferCaldwell.description')}
           isDark={isDark}
         >
           {/* A 2-value enum rendered as a toggle. If PREFERRED_CATALOGS in
@@ -163,8 +165,8 @@ export function LibrarySection({
           />
         </Row>
         <Row
-          label="Group by observing night"
-          description="An 11pm–1am session counts as one night, not two calendar dates."
+          label={t('librarySection.organization.groupByNight.label')}
+          description={t('librarySection.organization.groupByNight.description')}
           isDark={isDark}
         >
           <Toggle
@@ -175,13 +177,13 @@ export function LibrarySection({
       </Sec>
 
       <Sec
-        title="Calibration"
-        description="Bias and darks are reusable across sessions on a cooled camera, but not indefinitely."
+        title={t('librarySection.calibration.title')}
+        description={t('librarySection.calibration.description')}
         isDark={isDark}
       >
         <Row
-          label="Dark/bias validity"
-          description="A sensor's dark current and read noise drift as it ages, so a bundle older than this is flagged Expired on the Calibrations page and can be deleted from there. Flats and flat-darks aren't affected — they're matched to a session instead of aged out."
+          label={t('librarySection.calibration.expiryDays.label')}
+          description={t('librarySection.calibration.expiryDays.description')}
           isDark={isDark}
         >
           <div className="flex items-center gap-2">
@@ -197,7 +199,9 @@ export function LibrarySection({
               }}
               className={`w-20 ${getInputClass(isDark)}`}
             />
-            <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>days</span>
+            <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {t('librarySection.calibration.expiryDays.unit')}
+            </span>
           </div>
         </Row>
       </Sec>

@@ -7,27 +7,24 @@
  * and the type breakdown live in the banner, so the only thing that stays
  * pinned while scrolling is a slim bar of controls.
  */
-import { useState, useMemo, useDeferredValue } from 'react';
+import { useCallback, useState, useMemo, useDeferredValue } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { SearchX, Telescope } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import { getCatalogProgress, type CatalogProgressObject, type ObjectClass } from '../lib/api/catalogs';
 import { getSettings } from '../lib/api/settings';
 import { getCatalogMeta } from '../lib/catalogMeta';
 import { useResolvedFov } from '../hooks/useResolvedFov';
-import { classifyFit, objectExtentArcmin, FRAME_FIT_RANK, type FitAssessment } from '../lib/telescopeFov';
+import { useWishlist } from '../hooks/useWishlist';
+import { classifyFit, objectExtentArcmin, type FitAssessment } from '../lib/telescopeFov';
+import { compareBy } from '../lib/catalogSort';
 import { CatalogHero } from '../components/catalogs/CatalogHero';
 import { CatalogToolbar, type SortKey, type StatusFilter } from '../components/catalogs/CatalogToolbar';
 import { CatalogTile } from '../components/catalogs/CatalogTile';
 import { CatalogObjectModal } from '../components/catalogs/CatalogObjectModal';
 import { CatalogPlanModal } from '../components/catalogs/CatalogPlanModal';
-
-/** Objects with no magnitude sort last rather than ahead of the brightest. */
-const NO_MAGNITUDE = Number.POSITIVE_INFINITY;
-/** Objects with no known angular size (so no `FitAssessment` at all) sort
- *  last under "Best frame fit", same reasoning as NO_MAGNITUDE above. */
-const NO_FIT_RANK = Number.POSITIVE_INFINITY;
 
 function matchesSearch(obj: CatalogProgressObject, needle: string): boolean {
   return (
@@ -39,47 +36,8 @@ function matchesSearch(obj: CatalogProgressObject, needle: string): boolean {
   );
 }
 
-/** `fitById` is precomputed once per (catalog, fov) pair — every tile shows
- *  its `FitAssessment` as a badge regardless of the active sort, so the
- *  "Best frame fit" order is explained rather than a silent reshuffle; this
- *  just reuses that same map for the actual comparison. */
-/** Exported for direct unit testing (tests/frontend/catalogBoardSort.test.ts)
- *  — it's a pure function, so there's no reason to only exercise it through
- *  a full page render. */
-export function compareBy(sort: SortKey, fitById: Map<string, FitAssessment | null>) {
-  return (a: CatalogProgressObject, b: CatalogProgressObject): number => {
-    switch (sort) {
-      case 'name':
-        return a.name.localeCompare(b.name);
-      case 'magnitude':
-        return (a.magnitude ?? NO_MAGNITUDE) - (b.magnitude ?? NO_MAGNITUDE);
-      case 'constellation':
-        return (a.constellation ?? 'zzz').localeCompare(b.constellation ?? 'zzz')
-          || (a.number ?? 0) - (b.number ?? 0);
-      case 'frameFit': {
-        const fa = fitById.get(a.id) ?? null;
-        const fb = fitById.get(b.id) ?? null;
-        const ra = fa ? FRAME_FIT_RANK[fa.tag] : NO_FIT_RANK;
-        const rb = fb ? FRAME_FIT_RANK[fb.tag] : NO_FIT_RANK;
-        // Same tag (e.g. both "mosaic")? Break the tie by how extreme the fill
-        // ratio is — a barely-too-big mosaic candidate sorts ahead of a
-        // wildly-oversized one, and likewise within "fits"/"tight"/"tiny".
-        return ra - rb || (fa?.fillRatio ?? 0) - (fb?.fillRatio ?? 0) || a.name.localeCompare(b.name);
-      }
-      // Catalog order is the order the list already arrives in, so this is a
-      // deliberate no-op rather than an unhandled key.
-      case 'catalog':
-        return 0;
-      default: {
-        const _exhaustive: never = sort;
-        void _exhaustive;
-        return 0;
-      }
-    }
-  };
-}
-
 export function CatalogBoard() {
+  const { t } = useTranslation('catalogs');
   const { catalog = 'messier' } = useParams<{ catalog: string }>();
   const { isDark, isNight, isSpace } = useTheme();
 
@@ -131,6 +89,25 @@ export function CatalogBoard() {
     return map;
   }, [progress, fov]);
 
+  const wishlist = useWishlist();
+  const objectsById = useMemo(() => {
+    const map = new Map<string, CatalogProgressObject>();
+    for (const o of progress?.objects ?? []) map.set(o.id, o);
+    return map;
+  }, [progress]);
+  const handleToggleWishlist = useCallback((id: string) => {
+    const obj = objectsById.get(id);
+    if (!obj) return;
+    wishlist.toggle({
+      objectId: obj.id,
+      name: obj.name,
+      type: obj.type,
+      constellation: obj.constellation,
+      magnitude: obj.magnitude,
+      majorAxisArcmin: obj.majorAxisArcmin,
+    });
+  }, [objectsById, wishlist]);
+
   // Deferred so a keystroke doesn't block on re-filtering a full catalog
   // (Herschel 400, Sharpless 313, etc).
   const deferredSearch = useDeferredValue(search);
@@ -174,7 +151,7 @@ export function CatalogBoard() {
     return (
       <div className="p-8 text-center">
         <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Could not load catalog. Try refreshing.
+          {t('catalogBoard.loadFailed')}
         </p>
       </div>
     );
@@ -231,7 +208,9 @@ export function CatalogBoard() {
                 isDark={isDark}
                 accent={accent}
                 fit={fitById.get(obj.id) ?? null}
+                inWishlist={wishlist.idSet.has(obj.id)}
                 onSelect={setSelectedId}
+                onToggleWishlist={handleToggleWishlist}
               />
             ))}
           </div>
@@ -243,6 +222,8 @@ export function CatalogBoard() {
         <CatalogObjectModal
           object={selected}
           fit={fitById.get(selected.id) ?? null}
+          inWishlist={wishlist.idSet.has(selected.id)}
+          onToggleWishlist={() => handleToggleWishlist(selected.id)}
           hasPrev={selectedIndex > 0}
           hasNext={selectedIndex < filteredObjects.length - 1}
           onPrev={() => setSelectedId(filteredObjects[Math.max(0, selectedIndex - 1)].id)}
@@ -281,14 +262,15 @@ function EmptyState({
   filter: StatusFilter;
   onReset: () => void;
 }) {
+  const { t } = useTranslation('catalogs');
   const Icon = searching ? SearchX : Telescope;
   const message = searching
-    ? 'No objects in this catalog match that search.'
+    ? t('catalogBoard.noSearchMatch')
     : filter === 'imaged'
-      ? "You haven't imaged any of these objects yet."
+      ? t('catalogBoard.noneImaged')
       : filter === 'remaining'
-        ? 'Every object in this selection has been imaged.'
-        : 'Nothing to show for the current filters.';
+        ? t('catalogBoard.allImaged')
+        : t('catalogBoard.nothingToShow');
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-24">
@@ -302,7 +284,7 @@ function EmptyState({
             : 'text-slate-600 ring-slate-300 hover:bg-slate-100'
         }`}
       >
-        Clear filters
+        {t('catalogBoard.clearFilters')}
       </button>
     </div>
   );

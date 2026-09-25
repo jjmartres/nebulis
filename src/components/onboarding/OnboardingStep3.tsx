@@ -1,13 +1,14 @@
 import { Clock, AlertTriangle, Image, FileText, Film, Download } from 'lucide-react';
+import { Trans, useTranslation } from 'react-i18next';
 import { OnboardingStorageChoice } from './OnboardingStorageChoice';
 
 const INTERVAL_OPTIONS = [
-  { value: 0, label: 'Manual only: no automatic import' },
-  { value: 5, label: 'Every 5 minutes' },
-  { value: 15, label: 'Every 15 minutes' },
-  { value: 60, label: 'Every hour' },
-  { value: 360, label: 'Every 6 hours' },
-];
+  { value: 0, labelKey: 'step3.interval.manual' },
+  { value: 5, labelKey: 'step3.interval.every5' },
+  { value: 15, labelKey: 'step3.interval.every15' },
+  { value: 60, labelKey: 'step3.interval.everyHour' },
+  { value: 360, labelKey: 'step3.interval.every6Hours' },
+] as const;
 
 export { INTERVAL_OPTIONS };
 
@@ -46,6 +47,7 @@ export function OnboardingStep3({
   onImportSubFramesChange,
   onPrefetchCatalogAssetsChange,
 }: OnboardingStep3Props) {
+  const { t } = useTranslation('onboarding');
   return (
     <>
       <OnboardingStorageChoice isDark={isDark} subText={subText} />
@@ -56,21 +58,21 @@ export function OnboardingStep3({
         </div>
         <div>
           <h3 className={`font-display font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-            Automatic Import
+            {t('step3.heading')}
           </h3>
-          <p className={`text-xs ${subText}`}>Configure how frequently the system imports from your telescope</p>
+          <p className={`text-xs ${subText}`}>{t('step3.subheading')}</p>
         </div>
       </div>
 
       <div>
-        <label className={labelClass}>Import Frequency</label>
+        <label className={labelClass}>{t('step3.importFrequencyLabel')}</label>
         <select
           value={autoImportInterval}
           onChange={e => onAutoImportIntervalChange(Number(e.target.value))}
           className={inputClass}
         >
           {INTERVAL_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
           ))}
         </select>
       </div>
@@ -96,16 +98,16 @@ export function OnboardingStep3({
         <Download className={`w-4 h-4 mt-0.5 ${isDark ? 'text-accent-400' : 'text-accent-500'}`} />
         <div className="flex-1">
           <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-            Download catalog imagery &amp; descriptions
+            {t('step3.downloadCatalogLabel')}
           </span>
           <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            ~80&nbsp;MB of reference images for Messier, Caldwell, and popular targets. Downloads in the background after setup.
+            {t('step3.downloadCatalogDescription')}
           </p>
         </div>
       </label>
 
       <div>
-        <label className={labelClass}>Backup Options</label>
+        <label className={labelClass}>{t('step3.backupOptionsLabel')}</label>
         <div className="space-y-0.5">
           <label className={`flex items-center gap-3 py-2 px-2 rounded-lg cursor-pointer transition ${
             isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'
@@ -118,8 +120,8 @@ export function OnboardingStep3({
             />
             <Image className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
             <div>
-              <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Stacked Images</span>
-              <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Final stacked JPG from each session</p>
+              <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{t('step3.stackedImagesLabel')}</span>
+              <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('step3.stackedImagesDescription')}</p>
             </div>
           </label>
 
@@ -134,8 +136,8 @@ export function OnboardingStep3({
             />
             <FileText className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
             <div>
-              <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>FITS Files</span>
-              <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Scientific data for processing and analysis</p>
+              <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{t('step3.fitsFilesLabel')}</span>
+              <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('step3.fitsFilesDescription')}</p>
             </div>
           </label>
 
@@ -150,8 +152,8 @@ export function OnboardingStep3({
             />
             <Film className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
             <div className="flex-1">
-              <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Subframes</span>
-              <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Individual exposure frames for manual stacking</p>
+              <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{t('step3.subframesLabel')}</span>
+              <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('step3.subframesDescription')}</p>
             </div>
           </label>
 
@@ -161,7 +163,7 @@ export function OnboardingStep3({
             }`}>
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>
-                <strong>Warning:</strong> Subframes can consume very large amounts of storage. A single night of imaging can produce several gigabytes of subframe data.
+                <Trans i18nKey="step3.subframesWarning" ns="onboarding" components={{ 1: <strong /> }} />
               </span>
             </div>
           )}

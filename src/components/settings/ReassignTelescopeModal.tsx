@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import { ArrowRight, X } from 'lucide-react';
 import { reassignTelescopeSessions, type TelescopeProfile } from '../../lib/api/telescopes';
+import { Modal } from '../ui/Modal';
 
 /**
  * "Move all sessions from telescope A → B" picker.
@@ -21,6 +23,7 @@ export function ReassignTelescopeModal({
   isDark: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const [targetId, setTargetId] = useState<string>(candidates[0]?.id ?? '');
   const [result, setResult] = useState<{ sessionsUpdated: number; objectsUpdated: number } | null>(null);
@@ -46,26 +49,19 @@ export function ReassignTelescopeModal({
   const sessionCount = source.sessionCount ?? 0;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Reassign telescope sessions"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-      onClick={onClose}
-    >
+    <Modal isOpen onClose={onClose} title={t('reassignTelescopeModal.ariaLabel')}>
       <div
-        onClick={e => e.stopPropagation()}
         className={`w-full max-w-md rounded-2xl border shadow-xl ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/60 dark:border-slate-800/60">
           <h3 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-            Move sessions
+            {t('reassignTelescopeModal.title')}
           </h3>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('reassignTelescopeModal.close')}
             className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
           >
             <X className="w-4 h-4" />
@@ -75,17 +71,40 @@ export function ReassignTelescopeModal({
         <div className="px-5 py-4 space-y-4">
           {result ? (
             <div className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              Moved <strong>{result.sessionsUpdated}</strong> session{result.sessionsUpdated === 1 ? '' : 's'} and{' '}
-              <strong>{result.objectsUpdated}</strong> object attribution{result.objectsUpdated === 1 ? '' : 's'}.
-              Future syncs of those sessions will hit the new telescope.
+              <Trans
+                i18nKey={result.sessionsUpdated === 1 ? 'reassignTelescopeModal.movedSessions_one' : 'reassignTelescopeModal.movedSessions_other'}
+                ns="settings"
+                values={{ count: result.sessionsUpdated }}
+                components={{ 1: <strong /> }}
+              />
+              {' '}
+              <Trans
+                i18nKey={result.objectsUpdated === 1 ? 'reassignTelescopeModal.movedObjects_one' : 'reassignTelescopeModal.movedObjects_other'}
+                ns="settings"
+                values={{ count: result.objectsUpdated }}
+                components={{ 1: <strong /> }}
+              />
+              {' '}
+              {t('reassignTelescopeModal.futureSyncsNote')}
             </div>
           ) : (
             <>
               <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                Move every session captured by <strong>{source.name}</strong>
-                {sessionCount > 0 && <> ({sessionCount} session{sessionCount === 1 ? '' : 's'})</>}
-                {' '}to another telescope. Existing local files stay where they are; only the attribution changes,
-                so future re-syncs will hit the new telescope.
+                {sessionCount > 0 ? (
+                  <Trans
+                    i18nKey={sessionCount === 1 ? 'reassignTelescopeModal.moveExplanationWithCount_one' : 'reassignTelescopeModal.moveExplanationWithCount_other'}
+                    ns="settings"
+                    values={{ name: source.name, count: sessionCount }}
+                    components={{ 1: <strong /> }}
+                  />
+                ) : (
+                  <Trans
+                    i18nKey="reassignTelescopeModal.moveExplanationNoCount"
+                    ns="settings"
+                    values={{ name: source.name }}
+                    components={{ 1: <strong /> }}
+                  />
+                )}
               </p>
 
               <div className="flex items-center gap-3">
@@ -109,7 +128,7 @@ export function ReassignTelescopeModal({
                   <div className={`flex-1 rounded-lg border px-3 py-2 text-sm italic ${
                     isDark ? 'bg-slate-800/50 border-slate-700 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400'
                   }`}>
-                    No other active telescope
+                    {t('reassignTelescopeModal.noOtherTelescope')}
                   </div>
                 ) : (
                   <select
@@ -121,8 +140,8 @@ export function ReassignTelescopeModal({
                         : 'bg-white border-slate-200 text-slate-700'
                     }`}
                   >
-                    {candidates.map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+                    {candidates.map(candidate => (
+                      <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
                     ))}
                   </select>
                 )}
@@ -144,7 +163,7 @@ export function ReassignTelescopeModal({
               onClick={onClose}
               className="px-4 py-2 rounded-lg bg-accent-500 text-white text-sm font-medium hover:bg-accent-600 transition"
             >
-              Done
+              {t('reassignTelescopeModal.done')}
             </button>
           ) : (
             <>
@@ -155,7 +174,7 @@ export function ReassignTelescopeModal({
                   isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                Cancel
+                {t('reassignTelescopeModal.cancel')}
               </button>
               <button
                 type="button"
@@ -167,12 +186,12 @@ export function ReassignTelescopeModal({
                     : 'bg-accent-500 text-white hover:bg-accent-600'
                 }`}
               >
-                {mutation.isPending ? 'Moving…' : 'Move sessions'}
+                {mutation.isPending ? t('reassignTelescopeModal.moving') : t('reassignTelescopeModal.moveSessionsButton')}
               </button>
             </>
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

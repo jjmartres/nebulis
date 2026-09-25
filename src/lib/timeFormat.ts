@@ -1,3 +1,5 @@
+import { formatDate, formatRelativeDuration, formatTime24 } from './formatLocale';
+
 /** "2m 14s" / "1h 06m". Used for elapsed time and for an ETA. */
 export function formatDuration(ms: number): string {
   if (ms < 1000) return 'just started';
@@ -27,33 +29,28 @@ export function formatEta(ms: number): string {
   return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
 }
 
-/** "just now" / "18m ago" / "Mar 15, 11:00 PM". */
+/** "just now" / "18 minutes ago" / "Mar 15, 11:00 PM". */
 export function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const diff = Date.now() - then;
   if (diff < 60_000) return 'just now';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  if (diff < 3_600_000) return formatRelativeDuration(Math.floor(diff / 60_000), 'minute');
+  if (diff < 86_400_000) return formatRelativeDuration(Math.floor(diff / 3_600_000), 'hour');
+  if (diff < 7 * 86_400_000) return formatRelativeDuration(Math.floor(diff / 86_400_000), 'day');
+  return formatDate(new Date(iso), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-/** Shortest honest form of a relative time, for a stat value: "18m", "3d". */
+/** Shortest honest form of a relative time, for a stat value: "18m ago", "3d ago". */
 export function formatRelativeShort(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const diff = Date.now() - then;
   if (diff < 60_000) return 'Just now';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (diff < 3_600_000) return formatRelativeDuration(Math.floor(diff / 60_000), 'minute', 'narrow');
+  if (diff < 86_400_000) return formatRelativeDuration(Math.floor(diff / 3_600_000), 'hour', 'narrow');
+  if (diff < 7 * 86_400_000) return formatRelativeDuration(Math.floor(diff / 86_400_000), 'day', 'narrow');
+  return formatDate(new Date(iso), { month: 'short', day: 'numeric' });
 }
 
 /** Minutes as a sync cadence: "30 min", "1 h", "6 h", "1 day". */
@@ -68,11 +65,9 @@ export function formatInterval(minutes: number): string {
 }
 
 export function formatHm(d: Date, timeZone?: string): string {
-  // hourCycle:'h23' (not hour12:false) so midnight renders as "00:00"; some
-  // WebKit builds emit "24:00" for en-GB + hour12:false.
   if (timeZone) {
     try {
-      return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone });
+      return formatTime24(d, timeZone);
     } catch { /* fall through */ }
   }
   const hh = String(d.getHours()).padStart(2, '0');
@@ -86,6 +81,9 @@ export function formatHm(d: Date, timeZone?: string): string {
 function secondsIntoHour(d: Date, timeZone?: string): number {
   if (!timeZone) return d.getMinutes() * 60 + d.getSeconds();
   try {
+    // 'en-US' here is locale-invariant PARSING (formatToParts pulls minute/
+    // second as digits), not display — do not route through formatLocale.ts
+    // or swap in the active display locale. See that module's header comment.
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone,
       minute: '2-digit',

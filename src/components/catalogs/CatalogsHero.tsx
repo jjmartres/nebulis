@@ -12,8 +12,10 @@
  * text white.
  */
 import { BookOpen } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
+import { formatNumber } from '../../lib/formatLocale';
 
 interface Props {
   /** Unique objects imaged across every program (payload already deduped on
@@ -31,6 +33,7 @@ interface Props {
 /** Circular imaged/total gauge. The percentage sits in the middle because a
  *  ring on its own can't be read to any precision. */
 function ProgressRing({ pct, accent }: { pct: number; accent: string }) {
+  const { t } = useTranslation('catalogs');
   const r = 46;
   const circumference = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(100, pct));
@@ -39,7 +42,7 @@ function ProgressRing({ pct, accent }: { pct: number; accent: string }) {
       viewBox="0 0 112 112"
       className="h-24 w-24 shrink-0 sm:h-28 sm:w-28"
       role="img"
-      aria-label={`${clamped}% of catalog objects imaged`}
+      aria-label={t('catalogsHero.percentImagedAriaLabel', { percent: clamped })}
     >
       <circle cx="56" cy="56" r={r} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="10" />
       <circle
@@ -71,9 +74,10 @@ function ProgressRing({ pct, accent }: { pct: number; accent: string }) {
 }
 
 export function CatalogsHero({ imaged, total, pct, loaded, accent }: Props) {
+  const { t } = useTranslation('catalogs');
   const stats: { value: string; label: string }[] = [
-    { value: imaged.toLocaleString(), label: 'Imaged' },
-    { value: total.toLocaleString(), label: 'Catalog objects' },
+    { value: formatNumber(imaged), label: t('catalogsHero.imaged') },
+    { value: formatNumber(total), label: t('catalogsHero.catalogObjects') },
   ];
 
   return (
@@ -93,14 +97,14 @@ export function CatalogsHero({ imaged, total, pct, loaded, accent }: Props) {
         style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }}
       />
 
-      <div className="relative flex min-h-[9.5rem] flex-col justify-center gap-6 p-5 sm:min-h-[11.5rem] sm:flex-row sm:items-center sm:justify-between sm:p-7">
+      <div className="relative flex hero-min-h flex-col justify-center gap-6 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="min-w-0">
           <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
             <BookOpen className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
-            Catalogs
+            {t('catalogsHero.title')}
           </h1>
           <p className="mt-2 text-[13px] text-white/55">
-            Track your imaging progress through classic observing programs.
+            {t('catalogsHero.subtitle')}
           </p>
 
           {loaded && (

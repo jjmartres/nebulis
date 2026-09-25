@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { X, Sparkles, Wrench, ArrowRight, AlertCircle } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { useTheme } from '../hooks/useTheme';
 import { fetchJSON } from '../lib/api/client';
+
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 
 interface ChangelogEntry {
   version: string;
@@ -12,11 +15,16 @@ interface ChangelogEntry {
   sections: Record<string, string[]>;
 }
 
-const SECTION_META: Record<string, { label: string; Icon: React.ElementType; chip: string }> = {
-  Added:   { label: 'Added',   Icon: Sparkles,   chip: 'bg-emerald-500/15 text-emerald-400' },
-  Changed: { label: 'Changed', Icon: ArrowRight,  chip: 'bg-blue-500/15 text-blue-400' },
-  Fixed:   { label: 'Fixed',   Icon: Wrench,      chip: 'bg-amber-500/15 text-amber-400' },
-  Removed: { label: 'Removed', Icon: AlertCircle, chip: 'bg-red-500/15 text-red-400' },
+// The parsed CHANGELOG.md section names are a fixed, known set (Keep a
+// Changelog convention), so each gets its own translated label key. The
+// bullet text underneath each section is the changelog's own editorial
+// content and stays in English (same deferred-scope decision as the
+// server-side error message prose).
+const SECTION_META: Record<string, { labelKey: string; Icon: React.ElementType; chip: string }> = {
+  Added:   { labelKey: 'changelogModal.sections.added',   Icon: Sparkles,   chip: 'bg-emerald-500/15 text-emerald-400' },
+  Changed: { labelKey: 'changelogModal.sections.changed', Icon: ArrowRight,  chip: 'bg-blue-500/15 text-blue-400' },
+  Fixed:   { labelKey: 'changelogModal.sections.fixed',   Icon: Wrench,      chip: 'bg-amber-500/15 text-amber-400' },
+  Removed: { labelKey: 'changelogModal.sections.removed', Icon: AlertCircle, chip: 'bg-red-500/15 text-red-400' },
 };
 const SECTION_META_LIGHT: Record<string, { chip: string }> = {
   Added:   { chip: 'bg-emerald-50 text-emerald-700' },
@@ -46,6 +54,7 @@ interface Props {
 
 export function ChangelogModal({ isOpen, onClose, onAcknowledge, acknowledging, onlyVersion, onViewAll }: Props) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('common');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const { data: entries = [], isPending: loading, isError: error } = useQuery({
@@ -97,26 +106,28 @@ export function ChangelogModal({ isOpen, onClose, onAcknowledge, acknowledging, 
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="What's New"
+      title={t('changelogModal.title')}
       // Two-pane layout needs more horizontal room than the single-pane
-      // popup, so widen the modal when the version rail is showing.
-      className={`w-full ${showRail ? 'max-w-2xl' : 'max-w-lg'} max-h-[80vh] flex flex-col`}
+      // popup, so widen the modal when the version rail is showing. Both
+      // step up on large viewports so release notes don't render as a narrow
+      // column on high-resolution displays.
+      className={`w-full ${showRail ? 'max-w-2xl xl:max-w-4xl 2xl:max-w-5xl' : 'max-w-lg xl:max-w-2xl 2xl:max-w-3xl'} max-h-[80vh] 2xl:max-h-[85vh] flex flex-col`}
     >
       <div className={`flex flex-col rounded-2xl border shadow-xl overflow-hidden ${bg} ${border}`}>
         {/* Header */}
         <div className={`flex items-center justify-between px-5 py-4 border-b ${divider}`}>
           <div>
             <h2 className={`text-base font-bold ${heading}`}>
-              {renderedVersion ? `What's New in v${renderedVersion}` : "What's New"}
+              {renderedVersion ? t('changelogModal.titleForVersion', { version: renderedVersion }) : t('changelogModal.title')}
             </h2>
             <p className={`text-xs mt-0.5 ${muted}`}>
-              {renderedVersion ? 'Highlights from this release' : 'Release history'}
+              {renderedVersion ? t('changelogModal.highlightsFromRelease') : t('changelogModal.releaseHistory')}
             </p>
           </div>
           <button
             onClick={onClose}
             className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
-            aria-label="Close"
+            aria-label={t('changelogModal.close')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -126,13 +137,13 @@ export function ChangelogModal({ isOpen, onClose, onAcknowledge, acknowledging, 
         {(loading || error || visibleOrAll.length === 0) && (
           <div className="flex-1 overflow-y-auto px-5 py-4">
             {loading && (
-              <p className={`text-sm text-center py-8 ${muted}`}>Loading...</p>
+              <p className={`text-sm text-center py-8 ${muted}`}>{t('changelogModal.loading')}</p>
             )}
             {error && (
-              <p className={`text-sm text-center py-8 text-red-400`}>Could not load changelog.</p>
+              <p className={`text-sm text-center py-8 text-red-400`}>{t('changelogModal.loadFailed')}</p>
             )}
             {!loading && !error && visibleOrAll.length === 0 && (
-              <p className={`text-sm text-center py-8 ${muted}`}>No entries yet.</p>
+              <p className={`text-sm text-center py-8 ${muted}`}>{t('changelogModal.noEntries')}</p>
             )}
           </div>
         )}
@@ -143,7 +154,7 @@ export function ChangelogModal({ isOpen, onClose, onAcknowledge, acknowledging, 
                 entry is in scope (auto-popup case). */}
             {showRail && (
               <nav
-                aria-label="Release versions"
+                aria-label={t('changelogModal.releaseVersions')}
                 className={`w-36 shrink-0 overflow-y-auto py-3 ${isDark ? 'bg-slate-950/40' : 'bg-slate-50/60'}`}
               >
                 <ul className="space-y-0.5 px-2">
@@ -185,6 +196,7 @@ export function ChangelogModal({ isOpen, onClose, onAcknowledge, acknowledging, 
                   muted={muted}
                   itemText={itemText}
                   versionBadge={versionBadge}
+                  t={t}
                 />
               )}
             </div>
@@ -202,7 +214,7 @@ export function ChangelogModal({ isOpen, onClose, onAcknowledge, acknowledging, 
                 onClick={onViewAll}
                 className={`text-xs font-medium transition ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                View full release notes
+                {t('changelogModal.viewFullReleaseNotes')}
               </button>
             ) : <span />}
             <div className="flex items-center gap-2">
@@ -213,14 +225,14 @@ export function ChangelogModal({ isOpen, onClose, onAcknowledge, acknowledging, 
                   isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
                 }`}
               >
-                Remind me later
+                {t('changelogModal.remindMeLater')}
               </button>
               <button
                 onClick={onAcknowledge}
                 disabled={acknowledging || loading}
                 className="px-3 py-2 rounded-lg text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-50"
               >
-                {acknowledging ? 'Saving…' : 'Got it'}
+                {acknowledging ? t('changelogModal.saving') : t('changelogModal.gotIt')}
               </button>
             </div>
           </div>
@@ -240,6 +252,7 @@ function EntryDetail({
   muted,
   itemText,
   versionBadge,
+  t,
 }: {
   entry: ChangelogEntry;
   isDark: boolean;
@@ -247,13 +260,14 @@ function EntryDetail({
   muted: string;
   itemText: string;
   versionBadge: string;
+  t: TFunc;
 }) {
   return (
     <div>
       <div className="flex items-baseline gap-2 mb-3">
         <span className={`text-sm font-bold ${heading}`}>v{entry.version}</span>
         <span className={`text-xs font-mono px-1.5 py-0.5 rounded border ${versionBadge}`}>
-          build {entry.build}
+          {t('changelogModal.build', { number: entry.build })}
         </span>
         <span className={`text-xs ${muted}`}>{entry.date}</span>
       </div>
@@ -265,11 +279,12 @@ function EntryDetail({
             ? (meta?.chip ?? 'bg-slate-700 text-slate-300')
             : (lightMeta?.chip ?? 'bg-slate-100 text-slate-600');
           const Icon = meta?.Icon;
+          const sectionLabel = meta ? t(meta.labelKey) : sectionName;
           return (
             <div key={sectionName}>
               <div className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full mb-2 ${chipClass}`}>
                 {Icon && <Icon className="w-3 h-3" />}
-                {sectionName}
+                {sectionLabel}
               </div>
               <ul className="space-y-1">
                 {items.map((item, j) => (

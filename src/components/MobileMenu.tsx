@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Smartphone, QrCode, Tv } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { useClickOutside } from '../hooks/useClickOutside';
@@ -15,6 +16,7 @@ const ANDROID_APP_URL = 'https://play.google.com/store/apps/details?id=com.nebul
  */
 export function MobileMenu() {
   const { isDark, isNight, isSpace } = useTheme();
+  const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const [showConnect, setShowConnect] = useState(false);
   const [showEnterCode, setShowEnterCode] = useState(false);
@@ -25,7 +27,7 @@ export function MobileMenu() {
     <div ref={ref} className="relative ml-1">
       <button
         onClick={() => setOpen(o => !o)}
-        title="Mobile & TV apps"
+        title={t('mobileMenu.title')}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium select-none transition-all ${
           open
             ? isNight
@@ -45,7 +47,7 @@ export function MobileMenu() {
         }`}
       >
         <Smartphone className="w-4 h-4 shrink-0" />
-        <span className="hidden sm:inline">Mobile</span>
+        <span className="hidden sm:inline">{t('mobileMenu.mobile')}</span>
       </button>
 
       {open && (
@@ -61,7 +63,7 @@ export function MobileMenu() {
           <div className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider border-b ${
             isDark ? 'text-slate-500 border-slate-800' : 'text-slate-400 border-slate-100'
           }`}>
-            Connect your device
+            {t('mobileMenu.connectYourDevice')}
           </div>
 
           <div className="p-2 space-y-1">
@@ -75,10 +77,10 @@ export function MobileMenu() {
               <QrCode className={`w-5 h-5 shrink-0 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
               <div className="min-w-0">
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                  Scan QR code
+                  {t('mobileMenu.scanQrCode')}
                 </p>
                 <p className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Connect a phone or tablet
+                  {t('mobileMenu.connectPhoneOrTablet')}
                 </p>
               </div>
             </button>
@@ -92,10 +94,10 @@ export function MobileMenu() {
               <Tv className={`w-5 h-5 shrink-0 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
               <div className="min-w-0">
                 <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                  Enter code
+                  {t('mobileMenu.enterCode')}
                 </p>
                 <p className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Add an Apple TV
+                  {t('mobileMenu.addAppleTv')}
                 </p>
               </div>
             </button>
@@ -104,7 +106,7 @@ export function MobileMenu() {
           <div className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider border-t ${
             isDark ? 'text-slate-500 border-slate-800' : 'text-slate-400 border-slate-100'
           }`}>
-            Get Nebulis on your device
+            {t('mobileMenu.getNebulisOnYourDevice')}
           </div>
 
           <div className="p-2 space-y-1">
@@ -119,10 +121,10 @@ export function MobileMenu() {
               <Smartphone className={`w-5 h-5 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
               <div className="min-w-0">
                 <p className={`text-sm font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                  iPhone, iPad + Apple TV
+                  {t('mobileMenu.iosDevices')}
                 </p>
                 <p className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Download on the App Store
+                  {t('mobileMenu.downloadOnAppStore')}
                 </p>
               </div>
             </a>
@@ -137,10 +139,10 @@ export function MobileMenu() {
               <Smartphone className={`w-5 h-5 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
               <div className="min-w-0">
                 <p className={`text-sm font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                  Android
+                  {t('mobileMenu.android')}
                 </p>
                 <p className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Get it on Google Play
+                  {t('mobileMenu.getItOnGooglePlay')}
                 </p>
               </div>
             </a>

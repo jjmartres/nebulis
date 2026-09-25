@@ -15,11 +15,13 @@
  */
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Cloud, Film, Image as ImageIcon, Layers, NotebookPen, RotateCw, Sparkles, Thermometer, Timer, Trash2,
 } from 'lucide-react';
 import { formatTemp } from '../../lib/forecastScore';
 import { formatIntegration } from './objectStats';
+import { formatDate, formatNumber } from '../../lib/formatLocale';
 import type { SessionCaptureSummary, SessionWeather } from '../../types';
 
 export interface ObservationCardModel {
@@ -62,7 +64,7 @@ function splitDate(date: string): { day: string; year: string } | null {
   // and renders as the previous day west of Greenwich.
   const dt = new Date(y, m - 1, d);
   return {
-    day: dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+    day: formatDate(dt, { weekday: 'short', month: 'short', day: 'numeric' }),
     year: String(y),
   };
 }
@@ -77,6 +79,7 @@ function variantBadgeClass(label: string): string {
 }
 
 export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: Props) {
+  const { t } = useTranslation('library');
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -93,21 +96,21 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
     facts.push({ key: 'integration', icon: Timer, text: formatIntegration(o.capture.integrationSec) });
   }
   if (o.capture?.framesStacked != null) {
-    facts.push({ key: 'frames', icon: Layers, text: `${o.capture.framesStacked.toLocaleString()} frames` });
+    facts.push({ key: 'frames', icon: Layers, text: t('objectDetail.observationCard.frames', { count: o.capture.framesStacked, formattedCount: formatNumber(o.capture.framesStacked) }) });
   } else if (o.stackedCount > 0) {
-    facts.push({ key: 'stacked', icon: Layers, text: `${o.stackedCount} stacked` });
+    facts.push({ key: 'stacked', icon: Layers, text: t('objectDetail.observationCard.stacked', { count: o.stackedCount }) });
   }
   if (o.subFrameCount > 0) {
-    facts.push({ key: 'subs', icon: ImageIcon, text: `${o.subFrameCount.toLocaleString()} subs` });
+    facts.push({ key: 'subs', icon: ImageIcon, text: t('objectDetail.observationCard.subs', { count: o.subFrameCount, formattedCount: formatNumber(o.subFrameCount) }) });
   }
   if (o.processedCount > 0) {
-    facts.push({ key: 'processed', icon: Sparkles, text: `${o.processedCount} processed` });
+    facts.push({ key: 'processed', icon: Sparkles, text: t('objectDetail.observationCard.processed', { count: o.processedCount }) });
   }
   if (videoCount > 0) {
-    facts.push({ key: 'video', icon: Film, text: `${videoCount} video${videoCount !== 1 ? 's' : ''}` });
+    facts.push({ key: 'video', icon: Film, text: t('objectDetail.observationCard.video', { count: videoCount }) });
   }
   if (o.weather?.cloudCover != null) {
-    facts.push({ key: 'cloud', icon: Cloud, text: `${Math.round(o.weather.cloudCover)}% cloud` });
+    facts.push({ key: 'cloud', icon: Cloud, text: t('objectDetail.observationCard.cloudCover', { percent: Math.round(o.weather.cloudCover) }) });
   }
   if (o.weather?.temperature != null) {
     facts.push({ key: 'temp', icon: Thermometer, text: formatTemp(o.weather.temperature, tempUnit) });
@@ -132,7 +135,7 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
               <Film className={`h-8 w-8 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
               <span className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                {videoCount > 1 ? `${videoCount} videos` : 'Video'}
+                {t('objectDetail.observationCard.videoOverlay', { count: videoCount })}
               </span>
             </div>
           ) : !imgError ? (
@@ -155,7 +158,7 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
               <ImageIcon className={`h-8 w-8 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
-              <span className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>No preview</span>
+              <span className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{t('objectDetail.observationCard.noPreview')}</span>
             </div>
           )}
         </div>
@@ -165,7 +168,7 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
             <span className={`font-display text-[15px] font-semibold tracking-tight ${
               isDark ? 'text-slate-100' : 'text-slate-800'
             }`}>
-              {parts ? parts.day : 'Unknown date'}
+              {parts ? parts.day : t('objectDetail.observationCard.unknownDate')}
             </span>
             {parts && (
               <span className={`text-xs tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -175,7 +178,7 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
             {o.hasNote && (
               <NotebookPen
                 className={`ml-auto h-3.5 w-3.5 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}
-                aria-label="Has notes"
+                aria-label={t('objectDetail.observationCard.hasNotes')}
               />
             )}
           </div>
@@ -197,7 +200,7 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
                     {text}
                   </span>
                 ))
-              : <span>No files</span>}
+              : <span>{t('objectDetail.observationCard.noFiles')}</span>}
           </div>
         </div>
       </Link>
@@ -207,7 +210,7 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
           onClick={e => { e.preventDefault(); onDelete(); }}
           className="absolute right-2 top-2 rounded-lg bg-red-600/80 p-1.5 text-white opacity-0 transition
             hover:bg-red-600 focus-visible:opacity-100 group-hover:opacity-100"
-          title="Delete observation"
+          title={t('objectDetail.observationCard.deleteTitle')}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

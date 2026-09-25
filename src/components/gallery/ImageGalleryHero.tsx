@@ -12,10 +12,12 @@
  * hex directly rather than `accent-*` utilities and styles its own text white.
  */
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Images, Clapperboard } from 'lucide-react';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
 import type { LibraryImage } from '../../lib/api/library';
+import { formatDate, formatNumber } from '../../lib/formatLocale';
 
 interface Props {
   /** The full image set, before search and chip filters. The counts describe
@@ -30,10 +32,11 @@ interface Props {
 function monthYear(date: string): string | null {
   const [y, m] = date.split('-').map(Number);
   if (!y || !m) return null;
-  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  return formatDate(new Date(y, m - 1, 1), { month: 'short', year: 'numeric' });
 }
 
 export function ImageGalleryHero({ images, accent, onLaunchPlanetarium, canLaunchPlanetarium }: Props) {
+  const { t } = useTranslation('library');
   const { total, objects, processed, favorites, span } = useMemo(() => {
     const objectIds = new Set<string>();
     let proc = 0;
@@ -53,19 +56,19 @@ export function ImageGalleryHero({ images, accent, onLaunchPlanetarium, canLaunc
     if (min && max) {
       const from = monthYear(min);
       const to = monthYear(max);
-      spanLabel = from && to ? (from === to ? from : `${from} to ${to}`) : null;
+      spanLabel = from && to ? (from === to ? from : t('galleryHero.spanRange', { from, to })) : null;
     }
     return { total: images.length, objects: objectIds.size, processed: proc, favorites: favs, span: spanLabel };
-  }, [images]);
+  }, [images, t]);
 
   const empty = total === 0;
 
   const stats: { value: string; label: string }[] = [
-    { value: total.toLocaleString(), label: total === 1 ? 'Image' : 'Images' },
-    { value: objects.toLocaleString(), label: objects === 1 ? 'Object' : 'Objects' },
+    { value: formatNumber(total), label: t('galleryHero.images', { count: total }) },
+    { value: formatNumber(objects), label: t('galleryHero.objects', { count: objects }) },
   ];
-  if (processed > 0) stats.push({ value: processed.toLocaleString(), label: 'Processed' });
-  if (favorites > 0) stats.push({ value: favorites.toLocaleString(), label: 'Favorites' });
+  if (processed > 0) stats.push({ value: formatNumber(processed), label: t('galleryHero.processed') });
+  if (favorites > 0) stats.push({ value: formatNumber(favorites), label: t('galleryHero.favorites') });
 
   return (
     <section
@@ -86,17 +89,17 @@ export function ImageGalleryHero({ images, accent, onLaunchPlanetarium, canLaunc
         style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }}
       />
 
-      <div className="relative flex flex-col gap-6 p-5 sm:p-7">
+      <div className="relative flex hero-min-h flex-col justify-center gap-6 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
               <Images className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
-              Image Gallery
+              {t('galleryHero.title')}
             </h1>
             <p className="mt-2 text-[13px] text-white/55">
-              {empty ? 'No frames yet. Images appear here once your telescope captures are imported.' : (
+              {empty ? t('galleryHero.empty') : (
                 <>
-                  Every frame from your library
+                  {t('galleryHero.everyFrame')}
                   {span && <span className="text-white/40"> · {span}</span>}
                 </>
               )}
@@ -110,7 +113,7 @@ export function ImageGalleryHero({ images, accent, onLaunchPlanetarium, canLaunc
               style={{ background: accent, boxShadow: `0 8px 24px -12px ${accent}` }}
             >
               <Clapperboard className="h-4 w-4" />
-              Planetarium
+              {t('galleryHero.planetarium')}
             </button>
           )}
         </div>

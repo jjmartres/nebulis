@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { MapPin, CheckCircle2, AlertCircle } from 'lucide-react';
 import { updateSettings } from '../lib/api/settings';
 
@@ -12,7 +13,7 @@ export function LocationPrompt({
   isNight,
   isSpace,
   subText,
-  description = 'The target planner needs your latitude and longitude to calculate object visibility.',
+  description,
   invalidateKeys = [],
 }: {
   isDark: boolean;
@@ -23,14 +24,17 @@ export function LocationPrompt({
   /** Extra query keys to invalidate after saving (page-specific data). */
   invalidateKeys?: readonly (readonly unknown[])[];
 }) {
+  const { t } = useTranslation('common');
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<'idle' | 'detecting' | 'saving' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
+  const effectiveDescription = description ?? t('locationPrompt.defaultDescription');
+
   function handleDetect() {
     if (!navigator.geolocation) {
       setStatus('error');
-      setErrorMsg('Geolocation is not supported by this browser.');
+      setErrorMsg(t('locationPrompt.geolocationUnsupported'));
       return;
     }
     // Geolocation only works on https:// or http://localhost. If the page was
@@ -38,10 +42,7 @@ export function LocationPrompt({
     // the request with POSITION_UNAVAILABLE, which is opaque without context.
     if (!window.isSecureContext) {
       setStatus('error');
-      setErrorMsg(
-        `Geolocation needs a secure connection. You opened this page at "${window.location.host}" over HTTP. ` +
-        `Use http://localhost, or enter coordinates manually in Settings.`,
-      );
+      setErrorMsg(t('locationPrompt.insecureContext', { host: window.location.host }));
       return;
     }
     setStatus('detecting');
@@ -68,7 +69,7 @@ export function LocationPrompt({
           setStatus('success');
         } catch (e) {
           setStatus('error');
-          setErrorMsg(e instanceof Error ? e.message : 'Failed to save location.');
+          setErrorMsg(e instanceof Error ? e.message : t('locationPrompt.saveFailed'));
         }
       },
       (err) => {
@@ -76,12 +77,12 @@ export function LocationPrompt({
         const isMac = /Mac/i.test(navigator.platform);
         setErrorMsg(
           err.code === 1
-            ? 'Location access denied. Allow it in your browser, or set coordinates manually in Settings.'
+            ? t('locationPrompt.accessDenied')
             : err.code === 2
               ? isMac
-                ? 'Location unavailable. Check System Settings → Privacy & Security → Location Services is on for your browser, or enter coordinates manually in Settings.'
-                : 'Location unavailable. Check that your OS has location services enabled for this browser, or enter coordinates manually in Settings.'
-              : 'Location request timed out. Try again, or enter coordinates manually in Settings.',
+                ? t('locationPrompt.unavailableMac')
+                : t('locationPrompt.unavailableOther')
+              : t('locationPrompt.timedOut'),
         );
       },
       { timeout: 15000, maximumAge: 300000, enableHighAccuracy: false },
@@ -93,9 +94,9 @@ export function LocationPrompt({
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
       <MapPin className={`w-12 h-12 ${subText}`} />
-      <h2 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Location not set</h2>
+      <h2 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{t('locationPrompt.title')}</h2>
       <p className={`max-w-md ${subText}`}>
-        {description}
+        {effectiveDescription}
       </p>
       <button
         type="button"
@@ -108,13 +109,13 @@ export function LocationPrompt({
         }`}
       >
         <MapPin className="w-4 h-4" />
-        {status === 'detecting' ? 'Detecting…'
-          : status === 'saving' ? 'Saving…'
-            : 'Use current location'}
+        {status === 'detecting' ? t('locationPrompt.detecting')
+          : status === 'saving' ? t('locationPrompt.saving')
+            : t('locationPrompt.useCurrentLocation')}
       </button>
       {status === 'success' && (
         <span className="text-sm text-emerald-500 flex items-center gap-1.5">
-          <CheckCircle2 className="w-4 h-4" /> Location saved
+          <CheckCircle2 className="w-4 h-4" /> {t('locationPrompt.locationSaved')}
         </span>
       )}
       {status === 'error' && (
@@ -123,7 +124,7 @@ export function LocationPrompt({
         </span>
       )}
       <Link to="/settings" className={`text-xs ${subText} hover:underline`}>
-        Or set coordinates manually in Settings
+        {t('locationPrompt.setManuallyLink')}
       </Link>
     </div>
   );

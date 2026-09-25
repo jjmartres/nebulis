@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Download,
   RotateCw,
@@ -20,6 +21,9 @@ import {
   type PackStateRow,
 } from '../../lib/api/catalog';
 import { getSatelliteCatalogStatus, clearSatelliteCache, refreshSatelliteCatalog } from '../../lib/api/observations';
+import { formatDate, formatRelativeDuration } from '../../lib/formatLocale';
+import { ConfirmModal } from '../ConfirmModal';
+import { Modal } from '../ui/Modal';
 
 export function CatalogSection({
   isDark,
@@ -50,6 +54,7 @@ function OfflineCatalogCard({
   form: Partial<SettingsType>;
   setForm: React.Dispatch<React.SetStateAction<Partial<SettingsType>>>;
 }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const enabled = form.prefetchCatalogAssets ?? false;
 
@@ -81,8 +86,8 @@ function OfflineCatalogCard({
 
   return (
     <Sec
-      title="Offline catalog data"
-      description="Downloads imagery and descriptions from nebulis.app packs, so objects load instantly."
+      title={t('offlineCatalog.title')}
+      description={t('offlineCatalog.description')}
       isDark={isDark}
       actions={
         <Toggle
@@ -93,8 +98,7 @@ function OfflineCatalogCard({
     >
       {!enabled || !status ? (
         <p className={`p-4 sm:p-5 text-xs leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          Turn this on to download packs in the background. Messier, Caldwell, and popular DSOs come bundled
-          with imagery and descriptions in one download.
+          {t('offlineCatalog.turnOnHint')}
         </p>
       ) : (
         <div className="p-4 sm:p-5 space-y-3">
@@ -120,7 +124,7 @@ function OfflineCatalogCard({
                 }`}
               >
                 <X className="w-3.5 h-3.5" />
-                Cancel download
+                {t('offlineCatalog.cancelDownload')}
               </button>
             ) : (
               <>
@@ -134,7 +138,7 @@ function OfflineCatalogCard({
                   }`}
                 >
                   {isStarting ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                  Download
+                  {t('offlineCatalog.download')}
                 </button>
                 <button
                   onClick={() => setShowFullConfirm(true)}
@@ -144,10 +148,10 @@ function OfflineCatalogCard({
                       ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
-                  title="Download every catalog pack plus sky images and descriptions for the entire catalog, for fully offline use"
+                  title={t('offlineCatalog.downloadEverythingTitle')}
                 >
                   <Package className="w-3.5 h-3.5" />
-                  Download everything
+                  {t('offlineCatalog.downloadEverything')}
                 </button>
               </>
             )}
@@ -161,27 +165,24 @@ function OfflineCatalogCard({
               }`}
             >
               {wipeMutation.isPending ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              Wipe &amp; reset
+              {t('offlineCatalog.wipeAndReset')}
             </button>
             {status.errors > 0 && !isBusy && (
               <span className={`text-[11px] ml-auto ${isDark ? 'text-amber-500/70' : 'text-amber-600/70'}`}>
-                {status.errors} item{status.errors !== 1 ? 's' : ''} failed last run
+                {t('offlineCatalog.itemsFailed', { count: status.errors })}
               </span>
             )}
           </div>
 
           {/* ── Full download confirm dialog ── */}
           {showFullConfirm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/60" onClick={() => setShowFullConfirm(false)} />
+            <Modal isOpen onClose={() => setShowFullConfirm(false)} title={t('offlineCatalog.downloadEverythingConfirmTitle')}>
               <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-900 border border-slate-700/60' : 'bg-white border border-slate-200'}`}>
                 <h3 className={`text-base font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Download everything?
+                  {t('offlineCatalog.downloadEverythingConfirmTitle')}
                 </h3>
                 <p className={`text-sm mb-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  This installs every catalog pack, including the extended set, then downloads sky images and
-                  descriptions for the entire catalog and your library. Expect 1 to 2 GB of disk and a download
-                  that runs for a while in the background. You can cancel any time, and it resumes where it left off.
+                  {t('offlineCatalog.downloadEverythingConfirmBody')}
                 </p>
                 <div className="flex gap-2 justify-end">
                   <button
@@ -190,7 +191,7 @@ function OfflineCatalogCard({
                       isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    Cancel
+                    {t('offlineCatalog.cancel')}
                   </button>
                   <button
                     onClick={() => {
@@ -199,42 +200,22 @@ function OfflineCatalogCard({
                     }}
                     className="px-4 py-2 rounded-xl text-sm font-semibold bg-accent-500 text-white hover:bg-accent-600 transition"
                   >
-                    Download everything
+                    {t('offlineCatalog.downloadEverything')}
                   </button>
                 </div>
               </div>
-            </div>
+            </Modal>
           )}
 
           {/* ── Wipe confirm dialog ── */}
           {showWipeConfirm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/60" onClick={() => setShowWipeConfirm(false)} />
-              <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-900 border border-slate-700/60' : 'bg-white border border-slate-200'}`}>
-                <h3 className={`text-base font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Wipe catalog cache?
-                </h3>
-                <p className={`text-sm mb-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  All cached data and download progress will be deleted. You can re-download everything afterward.
-                </p>
-                <div className="flex gap-2 justify-end">
-                  <button
-                    onClick={() => setShowWipeConfirm(false)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                      isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => { wipeMutation.mutate(); setShowWipeConfirm(false); }}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition"
-                  >
-                    Wipe &amp; reset
-                  </button>
-                </div>
-              </div>
-            </div>
+            <ConfirmModal
+              title={t('offlineCatalog.wipeConfirmTitle')}
+              message={t('offlineCatalog.wipeConfirmBody')}
+              confirmLabel={t('offlineCatalog.wipeAndReset')}
+              onConfirm={() => { wipeMutation.mutate(); setShowWipeConfirm(false); }}
+              onCancel={() => setShowWipeConfirm(false)}
+            />
           )}
         </div>
       )}
@@ -249,19 +230,26 @@ function PackStatesRow({ isDark, packStates, activePhase, processed, total }: {
   processed: number;
   total: number;
 }) {
+  const { t } = useTranslation('settings');
   // Any active job phase shows the progress bar, not just pack installs —
   // the full download runs through images / wikipedia / caldwell phases after
   // the packs and would otherwise look stuck for its entire remaining runtime.
   const PHASE_LABELS: Record<string, { badge: string; unit: string }> = {
-    pack: { badge: 'Downloading packs', unit: 'packs' },
-    images: { badge: 'Downloading sky images', unit: 'objects' },
-    wikipedia: { badge: 'Downloading descriptions', unit: 'objects' },
-    caldwell: { badge: 'Downloading Caldwell imagery', unit: 'objects' },
+    pack: { badge: t('offlineCatalog.packStates.downloadingPacks'), unit: t('offlineCatalog.packStates.unitPacks') },
+    images: { badge: t('offlineCatalog.packStates.downloadingImages'), unit: t('offlineCatalog.packStates.unitObjects') },
+    wikipedia: { badge: t('offlineCatalog.packStates.downloadingDescriptions'), unit: t('offlineCatalog.packStates.unitObjects') },
+    caldwell: { badge: t('offlineCatalog.packStates.downloadingCaldwell'), unit: t('offlineCatalog.packStates.unitObjects') },
   };
   const phaseInfo = activePhase ? PHASE_LABELS[activePhase] ?? null : null;
   const isInstalling = phaseInfo !== null;
   const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
-  const TIER_LABELS: Record<string, string> = { messier: 'Messier', caldwell: 'Caldwell', popular: 'Popular DSOs', extended: 'Extended', sharpless: 'Sharpless' };
+  const TIER_LABELS: Record<string, string> = {
+    messier: t('offlineCatalog.packStates.tiers.messier'),
+    caldwell: t('offlineCatalog.packStates.tiers.caldwell'),
+    popular: t('offlineCatalog.packStates.tiers.popular'),
+    extended: t('offlineCatalog.packStates.tiers.extended'),
+    sharpless: t('offlineCatalog.packStates.tiers.sharpless'),
+  };
 
   return (
     <div className={`p-3 rounded-xl border transition-all ${
@@ -280,25 +268,25 @@ function PackStatesRow({ isDark, packStates, activePhase, processed, total }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className={`text-xs font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-              Asset Packs
+              {t('offlineCatalog.packStates.assetPacks')}
             </p>
             {isInstalling ? (
               <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                 isDark ? 'bg-accent-500/15 text-accent-400' : 'bg-accent-100 text-accent-600'
               }`}>
                 <RotateCw className="w-2.5 h-2.5 animate-spin" />
-                {phaseInfo?.badge ?? 'Downloading'}
+                {phaseInfo?.badge ?? t('offlineCatalog.packStates.downloading')}
               </span>
             ) : packStates.length > 0 ? (
               <span className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                Auto-updated
+                {t('offlineCatalog.packStates.autoUpdated')}
               </span>
             ) : (
               <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                 isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'
               }`}>
                 <XCircle className="w-2.5 h-2.5" />
-                Not installed
+                {t('offlineCatalog.packStates.notInstalled')}
               </span>
             )}
           </div>
@@ -313,7 +301,7 @@ function PackStatesRow({ isDark, packStates, activePhase, processed, total }: {
               </div>
               {total > 0 && (
                 <span className={`text-[10px] tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {processed} / {total} {phaseInfo?.unit ?? 'packs'}
+                  {t('offlineCatalog.packStates.progressOf', { processed, total, unit: phaseInfo?.unit ?? t('offlineCatalog.packStates.unitPacks') })}
                 </span>
               )}
             </div>
@@ -321,7 +309,7 @@ function PackStatesRow({ isDark, packStates, activePhase, processed, total }: {
 
           {!isInstalling && packStates.length === 0 && (
             <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Pre-built packs for Messier, Caldwell, and popular DSOs. Imagery and descriptions in one download.
+              {t('offlineCatalog.packStates.prebuiltDescription')}
             </p>
           )}
 
@@ -350,10 +338,10 @@ function PackStatesRow({ isDark, packStates, activePhase, processed, total }: {
 function formatShortDate(ms: number): string {
   const diff = Date.now() - ms;
   if (diff < 60_000) return 'just now';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
-  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+  if (diff < 3_600_000) return formatRelativeDuration(Math.floor(diff / 60_000), 'minute', 'narrow');
+  if (diff < 86_400_000) return formatRelativeDuration(Math.floor(diff / 3_600_000), 'hour', 'narrow');
+  if (diff < 7 * 86_400_000) return formatRelativeDuration(Math.floor(diff / 86_400_000), 'day', 'narrow');
+  return formatDate(new Date(ms), { month: 'short', day: 'numeric', year: '2-digit' });
 }
 
 function formatTleDate(iso: string): string {
@@ -364,10 +352,11 @@ function formatArchiveDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr + 'T00:00:00Z');
   if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit', timeZone: 'UTC' });
+  return formatDate(d, { month: 'short', day: 'numeric', year: '2-digit', timeZone: 'UTC' });
 }
 
 function TleCatalogCard({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const { data: status } = useQuery({
     queryKey: ['satellite-catalog-status'],
@@ -422,25 +411,25 @@ function TleCatalogCard({ isDark }: { isDark: boolean }) {
     status.isStale ? (
       <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>
         <AlertCircle className="w-2.5 h-2.5" />
-        Stale
+        {t('tleCatalog.stale')}
       </span>
     ) : status.count > 0 ? (
       <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
         <CheckCircle2 className="w-2.5 h-2.5" />
-        Current
+        {t('tleCatalog.current')}
       </span>
     ) : (
       <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
         <XCircle className="w-2.5 h-2.5" />
-        Not loaded
+        {t('tleCatalog.notLoaded')}
       </span>
     )
   );
 
   return (
     <Sec
-      title="Satellite catalog"
-      description="Orbital elements for satellite trail identification, fetched from CelesTrak."
+      title={t('tleCatalog.title')}
+      description={t('tleCatalog.description')}
       isDark={isDark}
       actions={statusBadge}
     >
@@ -448,22 +437,26 @@ function TleCatalogCard({ isDark }: { isDark: boolean }) {
         {status && (
           <div className={`flex flex-col gap-1 text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
             {status.count > 0 && (
-              <span>{status.count.toLocaleString()} satellites from CelesTrak, refreshed every 24 hours.</span>
+              <span>{t('tleCatalog.satelliteCount', { count: status.count })}</span>
             )}
             {status.lastFetch && (
-              <span>Last download: {formatTleDate(status.lastFetch)}</span>
+              <span>{t('tleCatalog.lastDownload', { date: formatTleDate(status.lastFetch) })}</span>
             )}
             {status.archiveRange.count > 0 && (
               <span>
-                Historical archive: {formatArchiveDate(status.archiveRange.oldest)} – {formatArchiveDate(status.archiveRange.newest)} ({status.archiveRange.count} daily snapshot{status.archiveRange.count !== 1 ? 's' : ''})
+                {t('tleCatalog.archiveRange', {
+                  count: status.archiveRange.count,
+                  oldest: formatArchiveDate(status.archiveRange.oldest),
+                  newest: formatArchiveDate(status.archiveRange.newest),
+                })}
               </span>
             )}
             {status.archiveRange.count === 0 && (
-              <span>No historical archive yet. Snapshots are saved daily after each download.</span>
+              <span>{t('tleCatalog.noArchiveYet')}</span>
             )}
             {status.usingSeed && (
               <span className={isDark ? 'text-amber-400' : 'text-amber-600'}>
-                No download has succeeded on this server yet. Using the bundled snapshot from {formatArchiveDate(status.seedEpoch)}.
+                {t('tleCatalog.usingSeed', { date: formatArchiveDate(status.seedEpoch) })}
               </span>
             )}
           </div>
@@ -474,17 +467,19 @@ function TleCatalogCard({ isDark }: { isDark: boolean }) {
           }`}>
             <AlertCircle className="w-3.5 h-3.5 mt-px shrink-0" />
             <div className="flex flex-col gap-1">
-              <span>Last download failed. {status.lastError}</span>
+              <span>{t('tleCatalog.downloadFailed', { error: status.lastError })}</span>
               {status.retryInMinutes > 0 && (
                 <span className={isDark ? 'text-red-400/80' : 'text-red-600/80'}>
-                  Next automatic attempt in about {status.retryInMinutes < 60
-                    ? `${status.retryInMinutes} min`
-                    : `${Math.round(status.retryInMinutes / 60)} h`}. Trail identification keeps working from the cached catalog.
+                  {t('tleCatalog.retryInMinutes', {
+                    time: status.retryInMinutes < 60
+                      ? t('tleCatalog.retryMinutesUnit', { count: status.retryInMinutes })
+                      : t('tleCatalog.retryHoursUnit', { count: Math.round(status.retryInMinutes / 60) }),
+                  })}
                 </span>
               )}
               {status.lastError.includes('HTTP 403') && (
                 <span className={isDark ? 'text-red-400/80' : 'text-red-600/80'}>
-                  A 403 or repeated timeouts usually means CelesTrak has rate-limited this server's IP address. Fetch less often, or contact CelesTrak to have the IP reviewed.
+                  {t('tleCatalog.rateLimitHint')}
                 </span>
               )}
             </div>
@@ -499,10 +494,10 @@ function TleCatalogCard({ isDark }: { isDark: boolean }) {
                 ? 'bg-accent-500/15 text-accent-400 hover:bg-accent-500/25'
                 : 'bg-accent-50 text-accent-700 hover:bg-accent-100'
             }`}
-            title="Fetch the latest orbital elements from CelesTrak now"
+            title={t('tleCatalog.refreshNowTitle')}
           >
             <RotateCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing…' : 'Refresh now'}
+            {refreshing ? t('tleCatalog.refreshing') : t('tleCatalog.refreshNow')}
           </button>
           <button
             onClick={handleClearCache}
@@ -514,19 +509,19 @@ function TleCatalogCard({ isDark }: { isDark: boolean }) {
             }`}
           >
             <Trash2 className="w-3 h-3" />
-            {clearingCache ? 'Clearing…' : 'Clear detection cache'}
+            {clearingCache ? t('tleCatalog.clearing') : t('tleCatalog.clearDetectionCache')}
           </button>
           {refreshResult === 'refreshed' && (
-            <span className={`text-xs ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Catalog refreshed</span>
+            <span className={`text-xs ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{t('tleCatalog.catalogRefreshed')}</span>
           )}
           {refreshResult === 'error' && (
-            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>Failed to refresh</span>
+            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>{t('tleCatalog.refreshFailed')}</span>
           )}
           {clearResult === 'cleared' && (
-            <span className={`text-xs ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Cache cleared</span>
+            <span className={`text-xs ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{t('tleCatalog.cacheCleared')}</span>
           )}
           {clearResult === 'error' && (
-            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>Failed to clear</span>
+            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>{t('tleCatalog.clearFailed')}</span>
           )}
         </div>
       </div>

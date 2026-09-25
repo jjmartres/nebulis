@@ -11,11 +11,13 @@
  * which is also why it takes the bright `accent` hex directly rather than
  * `accent-*` utilities and styles its own text white.
  */
+import { Trans, useTranslation } from 'react-i18next';
 import { FolderSync, Download, RefreshCw, X, Clock, AlertTriangle, Ban } from 'lucide-react';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
 import { formatBytes } from '../../lib/utils';
 import { formatDuration, formatEta, formatRelativeShort } from '../../lib/timeFormat';
+import { formatNumber } from '../../lib/formatLocale';
 import type { ImportStatus } from '../../lib/api/library';
 
 export interface BackupRollup {
@@ -92,6 +94,7 @@ export function BackupHero({
   status, accent, telescopesOnline, telescopesTotal, rollup,
   syncLabel, syncDisabled, syncPending, onSync, onCancel, cancelPending,
 }: Props) {
+  const { t } = useTranslation('library');
   const running = status?.running ?? false;
   const warming = status?.warmingThumbnails ?? null;
   const { percent, elapsed, rate, eta } = deriveRun(status);
@@ -121,26 +124,43 @@ export function BackupHero({
         style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }}
       />
 
-      <div className="relative flex min-h-[9.5rem] flex-col justify-center gap-6 p-5 sm:min-h-[11.5rem] sm:p-7">
+      <div className="relative flex hero-min-h flex-col justify-center gap-6 p-4 sm:p-6">
         {/* Stacks on a phone: side by side, the title wraps to two lines and the
             button crowds it. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 lg:max-w-[58%]">
             <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
               <FolderSync className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
-              Backup Status
+              {t('backupHero.title')}
             </h1>
 
             <p className="mt-2 text-[13px] text-white/55">
               {running ? (
                 warming ? (
-                  <>Building thumbnails for <span className="text-white/80">{warming.total}</span> object{warming.total !== 1 ? 's' : ''}. The files are already safe.</>
+                  <Trans
+                    i18nKey="backupHero.buildingThumbnails"
+                    ns="library"
+                    count={warming.total}
+                    values={{ count: warming.total }}
+                    components={{ 1: <span className="text-white/80" /> }}
+                  />
                 ) : status?.currentObject ? (
-                  <>
-                    Copying <span className="text-white/80">{status.currentObject}</span>
-                    {status.telescopeName && <> from <span className="text-white/80">{status.telescopeName}</span></>}
-                  </>
-                ) : 'Looking for new captures.'
+                  status.telescopeName ? (
+                    <Trans
+                      i18nKey="backupHero.copyingObjectFrom"
+                      ns="library"
+                      values={{ object: status.currentObject, telescope: status.telescopeName }}
+                      components={{ 1: <span className="text-white/80" />, 3: <span className="text-white/80" /> }}
+                    />
+                  ) : (
+                    <Trans
+                      i18nKey="backupHero.copyingObject"
+                      ns="library"
+                      values={{ object: status.currentObject }}
+                      components={{ 1: <span className="text-white/80" /> }}
+                    />
+                  )
+                ) : t('backupHero.lookingForCaptures')
               ) : failed ? (
                 // The panel below names the failure. This says what it means for
                 // the library, which is the part a person actually wants.
@@ -149,13 +169,13 @@ export function BackupHero({
                     ? <Ban className="h-3.5 w-3.5 shrink-0 text-amber-300" />
                     : <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-300" />}
                   {status?.cancelled
-                    ? 'Stopped partway. Anything already copied is still here.'
-                    : 'Some captures may still be waiting on the telescope.'}
+                    ? t('backupHero.stoppedPartway')
+                    : t('backupHero.waitingOnTelescope')}
                 </span>
               ) : lastRunIso ? (
-                <>Everything captured up to your last sync is on this machine.</>
+                <>{t('backupHero.upToDate')}</>
               ) : (
-                'No sync has run yet. Connect a telescope, then pull your captures across.'
+                t('backupHero.noSyncYet')
               )}
             </p>
           </div>
@@ -171,14 +191,14 @@ export function BackupHero({
                 className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-50 sm:w-auto"
               >
                 <X className="h-4 w-4" />
-                {cancelPending ? 'Cancelling' : 'Cancel'}
+                {cancelPending ? t('backupHero.cancelling') : t('backupHero.cancel')}
               </button>
             ) : null
           ) : (
             <button
               onClick={onSync}
               disabled={syncDisabled}
-              title={syncDisabled ? 'No telescope is reachable right now' : undefined}
+              title={syncDisabled ? t('backupHero.noTelescopeReachable') : undefined}
               className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
               style={{ background: accent, boxShadow: `0 8px 24px -12px ${accent}` }}
             >
@@ -222,31 +242,32 @@ function LiveProgress({
   rate: number;
   eta: number;
 }) {
+  const { t } = useTranslation('library');
   const warming = status.warmingThumbnails;
 
   const chips: { label: string; value: string }[] = warming
-    ? [{ label: 'Objects', value: `${warming.done} / ${warming.total}` }]
+    ? [{ label: t('backupHero.chipObjects'), value: `${formatNumber(warming.done)} / ${formatNumber(warming.total)}` }]
     : [
-        { label: 'Objects', value: `${status.objectsDone} / ${status.objectsTotal}` },
-        { label: 'Files', value: `${status.filesDone} / ${status.filesTotal}` },
+        { label: t('backupHero.chipObjects'), value: `${formatNumber(status.objectsDone)} / ${formatNumber(status.objectsTotal)}` },
+        { label: t('backupHero.chipFiles'), value: `${formatNumber(status.filesDone)} / ${formatNumber(status.filesTotal)}` },
         {
-          label: 'Data',
+          label: t('backupHero.chipData'),
           value: status.bytesTotal > 0
             ? `${formatBytes(status.bytesDone)} / ${formatBytes(status.bytesTotal)}`
-            : 'Measuring',
+            : t('backupHero.measuring'),
         },
       ];
 
-  if (rate > 0) chips.push({ label: 'Speed', value: `${formatBytes(rate)}/s` });
+  if (rate > 0) chips.push({ label: t('backupHero.chipSpeed'), value: `${formatBytes(rate)}/s` });
   // The one number people actually wait on, so it goes last where the eye lands
   // after the rate that produced it.
-  if (eta > 0) chips.push({ label: 'Time left', value: formatEta(eta) });
+  if (eta > 0) chips.push({ label: t('backupHero.chipTimeLeft'), value: formatEta(eta) });
 
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between gap-4">
         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/45">
-          {warming ? 'Generating thumbnails' : 'Syncing in progress'}
+          {warming ? t('backupHero.generatingThumbnails') : t('backupHero.syncingInProgress')}
         </span>
         <span className="flex items-center gap-3 text-xs text-white/45">
           <span className="inline-flex items-center gap-1.5">
@@ -264,7 +285,7 @@ function LiveProgress({
         aria-valuenow={percent}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={warming ? 'Thumbnail progress' : 'Sync progress'}
+        aria-label={warming ? t('backupHero.thumbnailProgress') : t('backupHero.syncProgress')}
         className="h-2 overflow-hidden rounded-full bg-white/10"
       >
         <div
@@ -299,6 +320,7 @@ function IdleStats({
   lastRunIso: string | null;
   lastRunFailed: boolean;
 }) {
+  const { t } = useTranslation('library');
   const stats: { value: string; label: string; tone?: 'warn' }[] = [];
 
   if (lastRunIso) {
@@ -306,23 +328,23 @@ function IdleStats({
     // and this is the one that says how current the library is.
     stats.push({
       value: formatRelativeShort(lastRunIso),
-      label: lastRunFailed ? 'Last good sync' : 'Last sync',
+      label: lastRunFailed ? t('backupHero.lastGoodSync') : t('backupHero.lastSync'),
     });
   }
   if (telescopesTotal > 0) {
     // Always a ratio, never the words "Online"/"Offline": those belong to the
     // telescope cards below, and repeating one of them up here would leave two
     // places claiming to be the connection state.
-    stats.push({ value: `${telescopesOnline} / ${telescopesTotal}`, label: 'Telescopes online' });
+    stats.push({ value: `${formatNumber(telescopesOnline)} / ${formatNumber(telescopesTotal)}`, label: t('backupHero.telescopesOnline') });
   }
   if (rollup.windowFiles > 0) {
-    stats.push({ value: rollup.windowFiles.toLocaleString(), label: `Files · ${rollup.windowDays}d` });
-    stats.push({ value: formatBytes(rollup.windowBytes), label: `Copied · ${rollup.windowDays}d` });
+    stats.push({ value: formatNumber(rollup.windowFiles), label: t('backupHero.filesOverDays', { days: rollup.windowDays }) });
+    stats.push({ value: formatBytes(rollup.windowBytes), label: t('backupHero.copiedOverDays', { days: rollup.windowDays }) });
   }
   if (rollup.windowFailures > 0) {
     stats.push({
-      value: String(rollup.windowFailures),
-      label: `Failed · ${rollup.windowDays}d`,
+      value: formatNumber(rollup.windowFailures),
+      label: t('backupHero.failedOverDays', { days: rollup.windowDays }),
       tone: 'warn',
     });
   }

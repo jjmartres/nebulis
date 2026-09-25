@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Zoom and pan engine for the image lightboxes.
@@ -77,6 +77,9 @@ export function useZoomPan(
   const [userZoom, setUserZoom] = useState<number | null>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  /** View-only rotation in 90° steps, applied as a CSS transform — never
+   *  touches the file. Resets on navigation like zoom and pan. */
+  const [rotation, setRotation] = useState(0);
 
   // Track the pane size so fit zoom follows resizes, orientation changes, and
   // the modal's own open animation.
@@ -101,10 +104,24 @@ export function useZoomPan(
     setUserZoom(null);
     setPan({ x: 0, y: 0 });
     setNatural(null);
+    setRotation(0);
   }
 
-  const fitZoom = natural && container.w > 0 && container.h > 0
-    ? Math.min(container.w / natural.w, container.h / natural.h, 1)
+  /**
+   * The image's footprint as it actually appears on screen: `natural` swapped
+   * when rotated a quarter turn. Fit, pan bounds, and overflow all reason
+   * about what's visually on screen, not the file's own width/height — a
+   * photo rotated 90° needs the pane's *height* to constrain its width.
+   * The `<img>` itself is still sized and scaled from the real `natural`
+   * dimensions (see `imageStyle`); only `rotate()` turns it, via CSS.
+   */
+  const effNatural = useMemo(
+    () => (natural && rotation % 180 === 90 ? { w: natural.h, h: natural.w } : natural),
+    [natural, rotation],
+  );
+
+  const fitZoom = effNatural && container.w > 0 && container.h > 0
+    ? Math.min(container.w / effNatural.w, container.h / effNatural.h, 1)
     : 1;
 
   const zoom = userZoom ?? fitZoom;
@@ -117,11 +134,11 @@ export function useZoomPan(
    * off-screen with no way back except toggling Fit.
    */
   const clampPan = useCallback((p: { x: number; y: number }, z: number) => {
-    if (!natural) return { x: 0, y: 0 };
-    const maxX = Math.max(0, (natural.w * z - container.w) / 2);
-    const maxY = Math.max(0, (natural.h * z - container.h) / 2);
+    if (!effNatural) return { x: 0, y: 0 };
+    const maxX = Math.max(0, (effNatural.w * z - container.w) / 2);
+    const maxY = Math.max(0, (effNatural.h * z - container.h) / 2);
     return { x: clamp(p.x, -maxX, maxX), y: clamp(p.y, -maxY, maxY) };
-  }, [natural, container.w, container.h]);
+  }, [effNatural, container.w, container.h]);
 
   // The bounds depend on the pane size, so a resize can put a previously valid
   // pan out of range. Clamping on read rather than storing a corrected value
@@ -238,13 +255,13 @@ export function useZoomPan(
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     // Touch is reserved for swipe-to-close and pinch; only drag with a mouse or pen.
     if (e.pointerType === 'touch') return;
-    if (!natural) return;
-    const overflows = natural.w * zoom > container.w + 1 || natural.h * zoom > container.h + 1;
+    if (!effNatural) return;
+    const overflows = effNatural.w * zoom > container.w + 1 || effNatural.h * zoom > container.h + 1;
     if (!overflows) return;
     e.preventDefault();
     panStartRef.current = { x: e.clientX, y: e.clientY, ox: clampedPan.x, oy: clampedPan.y };
     setIsPanning(true);
-  }, [natural, zoom, container.w, container.h, clampedPan.x, clampedPan.y]);
+  }, [effNatural, zoom, container.w, container.h, clampedPan.x, clampedPan.y]);
 
   useEffect(() => {
     if (!isPanning) return;
@@ -311,8 +328,17 @@ export function useZoomPan(
     }
   }, []);
 
-  const overflows = !!natural
-    && (natural.w * zoom > container.w + 1 || natural.h * zoom > container.h + 1);
+  const overflows = !!effNatural
+    && (effNatural.w * zoom > container.w + 1 || effNatural.h * zoom > container.h + 1);
+
+  /** Rotates a quarter turn clockwise and snaps back to Fit — rotating at an
+   *  arbitrary pan/zoom would leave the picture off-center relative to the
+   *  new orientation, and re-fitting is what every other viewer does anyway. */
+  const rotate = useCallback(() => {
+    setRotation(r => (r + 90) % 360);
+    setUserZoom(null);
+    setPan({ x: 0, y: 0 });
+  }, []);
 
   return {
     containerRef,
@@ -320,6 +346,8 @@ export function useZoomPan(
     isFit,
     fitZoom,
     natural,
+    rotation,
+    rotate,
     pan: clampedPan,
     isPanning,
     /** True when the image is larger than the pane, so panning does something. */
@@ -353,7 +381,10 @@ export function useZoomPan(
           width: natural.w * zoom,
           height: natural.h * zoom,
           maxWidth: 'none' as const,
-          transform: `translate3d(${clampedPan.x}px, ${clampedPan.y}px, 0)`,
+          // Pan first (screen-space, from drag/wheel), then rotate the box
+          // around its own center — rotation never changes how a drag delta
+          // maps to on-screen movement, only how the box itself is drawn.
+          transform: `translate3d(${clampedPan.x}px, ${clampedPan.y}px, 0) rotate(${rotation}deg)`,
           willChange: isPanning ? ('transform' as const) : undefined,
         }
       : undefined,

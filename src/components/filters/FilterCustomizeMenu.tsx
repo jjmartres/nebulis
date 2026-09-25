@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
 import type { LibraryObjectFilter } from '../../lib/api/library';
 import { ALL_FILTER_ID, type TypeFilter } from '../../lib/objectTypeFilters';
+import { formatNumber } from '../../lib/formatLocale';
 
 interface Row {
   id: string;
@@ -31,22 +33,23 @@ export function FilterCustomizeMenu({
   onClearAll,
   isDark,
 }: FilterCustomizeMenuProps) {
+  const { t } = useTranslation('library');
   const groupRows: Row[] = groups
     .filter(g => g.id !== ALL_FILTER_ID)
     .map(g => ({ id: g.id, label: g.label }));
-  const typeRows: Row[] = typeFilters.map(t => ({ id: t.id, label: t.label, count: t.count }));
+  const typeRows: Row[] = typeFilters.map(tf => ({ id: tf.id, label: tf.label, count: tf.count }));
 
   return (
     <div
       role="menu"
-      aria-label="Customize filters"
+      aria-label={t('filterCustomizeMenu.ariaLabel')}
       className={`absolute left-0 top-full mt-1.5 z-30 w-64 max-h-96 overflow-y-auto rounded-xl border shadow-lg ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}
     >
       <div className="flex items-center justify-between gap-2 px-4 py-2.5">
         <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          Pick which filters show on the top row.
+          {t('filterCustomizeMenu.hint')}
         </span>
         <button
           type="button"
@@ -56,13 +59,13 @@ export function FilterCustomizeMenu({
             isDark ? 'text-accent-400 hover:text-accent-300' : 'text-accent-600 hover:text-accent-700'
           }`}
         >
-          Clear all
+          {t('filterCustomizeMenu.clearAll')}
         </button>
       </div>
 
-      <Section title="Groups" isDark={isDark} rows={groupRows} enabledIds={enabledIds} onToggle={onToggle} />
+      <Section title={t('filterCustomizeMenu.groups')} isDark={isDark} rows={groupRows} enabledIds={enabledIds} onToggle={onToggle} />
       {typeRows.length > 0 && (
-        <Section title="Object types" isDark={isDark} rows={typeRows} enabledIds={enabledIds} onToggle={onToggle} />
+        <Section title={t('filterCustomizeMenu.objectTypes')} isDark={isDark} rows={typeRows} enabledIds={enabledIds} onToggle={onToggle} />
       )}
     </div>
   );
@@ -116,7 +119,7 @@ function Section({
               <span className="flex-1 truncate">{row.label}</span>
               {row.count !== undefined && (
                 <span className={`text-xs tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {row.count}
+                  {formatNumber(row.count)}
                 </span>
               )}
             </button>
