@@ -11,6 +11,7 @@
  */
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, AlertTriangle, Ban, Telescope, Plus } from 'lucide-react';
 import {
@@ -33,6 +34,7 @@ const WINDOW_DAYS = 30;
 const ROLLUP_ROWS = 50;
 
 export function BackupStatus() {
+  const { t } = useTranslation('library');
   const { isDark, isNight, isSpace } = useTheme();
   // The hero is night-side in every theme (a picture of the sky), so it takes
   // the bright accent hex directly rather than the light-mode-darkened token,
@@ -80,7 +82,7 @@ export function BackupStatus() {
   });
 
   const isRunning = status?.running ?? false;
-  const anyOnline = allTelescopeStatus?.some(t => t.online) ?? false;
+  const anyOnline = allTelescopeStatus?.some(scope => scope.online) ?? false;
   const multiple = (allTelescopeStatus?.length ?? 0) > 1;
 
   const importMutation = useMutation({
@@ -127,11 +129,11 @@ export function BackupStatus() {
 
   const cards: TelescopeCardModel[] = useMemo(() => {
     const entries = recentHistory?.entries ?? [];
-    return (allTelescopeStatus ?? []).map(t => {
-      const profile = profiles?.find(p => p.id === t.id);
+    return (allTelescopeStatus ?? []).map(scope => {
+      const profile = profiles?.find(p => p.id === scope.id);
       return {
-        ...t,
-        lastSyncAt: lastSuccessFor(entries, t.id),
+        ...scope,
+        lastSyncAt: lastSuccessFor(entries, scope.id),
         autoSync: profile
           ? { enabled: profile.autoImportEnabled ?? false, intervalMinutes: profile.autoImportInterval ?? 60 }
           : undefined,
@@ -150,16 +152,16 @@ export function BackupStatus() {
         }`}
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Library
+        {t('backupStatus.backToLibrary')}
       </Link>
 
       <BackupHero
         status={status}
         accent={accent}
-        telescopesOnline={allTelescopeStatus?.filter(t => t.online).length ?? 0}
+        telescopesOnline={allTelescopeStatus?.filter(scope => scope.online).length ?? 0}
         telescopesTotal={allTelescopeStatus?.length ?? 0}
         rollup={rollup}
-        syncLabel={multiple ? 'Sync All' : 'Sync Now'}
+        syncLabel={multiple ? t('backupStatus.syncAll') : t('backupStatus.syncNow')}
         syncDisabled={importMutation.isPending || !anyOnline}
         syncPending={importMutation.isPending}
         onSync={() => importMutation.mutate()}
@@ -185,7 +187,7 @@ export function BackupStatus() {
                 ? (isDark ? 'text-amber-300' : 'text-amber-800')
                 : (isDark ? 'text-red-300' : 'text-red-800')
             }`}>
-              {lastFailure.cancelled ? 'Last sync was cancelled' : 'Last sync failed'}
+              {lastFailure.cancelled ? t('backupStatus.lastSyncCancelled') : t('backupStatus.lastSyncFailed')}
             </p>
             <p className={`select-text break-words text-sm ${
               lastFailure.cancelled
@@ -196,7 +198,7 @@ export function BackupStatus() {
             </p>
             {lastFailure.lastRun && (
               <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-                Attempted {formatRelativeTime(lastFailure.lastRun)}
+                {t('backupStatus.attempted', { time: formatRelativeTime(lastFailure.lastRun) })}
               </p>
             )}
           </div>
@@ -208,7 +210,7 @@ export function BackupStatus() {
           isDark ? 'text-slate-500' : 'text-slate-400'
         }`}>
           <Telescope className="h-4 w-4" />
-          Telescopes
+          {t('backupStatus.telescopes')}
         </h2>
 
         {cards.length === 0 ? (
@@ -216,7 +218,7 @@ export function BackupStatus() {
             isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
           }`}>
             <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              No telescope is set up yet. Add one and its captures will sync here.
+              {t('backupStatus.noTelescope')}
             </p>
             <Link
               to="/settings?tab=hardware"
@@ -225,20 +227,20 @@ export function BackupStatus() {
               }`}
             >
               <Plus className="h-3.5 w-3.5" />
-              Add a telescope
+              {t('backupStatus.addTelescope')}
             </Link>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {cards.map(t => (
+            {cards.map(scope => (
               <TelescopeCard
-                key={t.id}
-                telescope={t}
+                key={scope.id}
+                telescope={scope}
                 isDark={isDark}
                 importRunning={isRunning}
                 runningTelescopeId={status?.telescopeId ?? null}
-                pending={singleImportMutation.isPending && singleImportMutation.variables === t.id}
-                onSync={() => singleImportMutation.mutate(t.id)}
+                pending={singleImportMutation.isPending && singleImportMutation.variables === scope.id}
+                onSync={() => singleImportMutation.mutate(scope.id)}
               />
             ))}
           </div>
@@ -254,8 +256,8 @@ export function BackupStatus() {
         skipped={status?.skipped}
         isDark={isDark}
         heading={total => isRunning
-          ? `${total.toLocaleString()} file${total !== 1 ? 's' : ''} on the telescope are being left out:`
-          : `${total.toLocaleString()} file${total !== 1 ? 's' : ''} were left on the telescope:`}
+          ? t('backupStatus.beingLeftOut', { count: total })
+          : t('syncHistoryPanel.leftOnTelescope', { count: total })}
         onInspect={setInspectSkip}
         onReviewDeletedSessions={() => setShowDeletedSessions(true)}
       />

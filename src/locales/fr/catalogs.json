@@ -1,0 +1,252 @@
+{
+  "catalogBoard": {
+    "loadFailed": "Impossible de charger le catalogue. Essayez d'actualiser.",
+    "noSearchMatch": "Aucun objet de ce catalogue ne correspond à cette recherche.",
+    "noneImaged": "Vous n'avez encore photographié aucun de ces objets.",
+    "allImaged": "Chaque objet de cette sélection a été photographié.",
+    "nothingToShow": "Rien à afficher avec les filtres actuels.",
+    "clearFilters": "Effacer les filtres"
+  },
+  "catalogsHero": {
+    "percentImagedAriaLabel": "{{percent}}% des objets du catalogue photographiés",
+    "imaged": "Photographiés",
+    "catalogObjects": "Objets du catalogue",
+    "title": "Catalogues",
+    "subtitle": "Suivez votre progression photographique à travers des programmes d'observation classiques."
+  },
+  "catalogMeta": {
+    "messier": {
+      "label": "Messier",
+      "tagline": "110 joyaux brillants recensés par un chasseur de comètes qui n'arrêtait pas de les confondre avec des comètes.",
+      "blurb": "Messier a recensé ces 110 taches floues en chassant les comètes, pour arrêter de les confondre avec de nouvelles. Chaque entrée est assez brillante pour un petit télescope, ce qui fait de cette liste celle que la plupart des astrophotographes terminent en premier."
+    },
+    "caldwell": {
+      "label": "Caldwell",
+      "tagline": "109 joyaux que Messier a laissés de côté, classés par déclinaison et atteignant le sud profond.",
+      "blurb": "Patrick Moore a choisi 109 joyaux brillants que Messier avait laissés de côté, classés par déclinaison et atteignant les confins du ciel austral. Attendez-vous à des cibles absentes de la liste Messier, dont le Voile, l'Hélice et l'Amas Double."
+    },
+    "herschel400": {
+      "label": "Herschel 400",
+      "tagline": "400 objets plus faibles issus des propres relevés de William Herschel. La suite naturelle après Messier.",
+      "blurb": "400 objets tirés des propres relevés du ciel de William Herschel, choisis comme le défi naturel après Messier. Plus faibles, plus petits et surtout des galaxies, ce qui récompense les longues intégrations et les cieux sombres."
+    },
+    "sharpless": {
+      "label": "Sharpless",
+      "tagline": "313 nuages d'hydrogène incandescent, les nébuleuses en émission derrière beaucoup de noms familiers du ciel.",
+      "blurb": "Stewart Sharpless a recensé 313 régions HII à partir des plaques du relevé céleste du National Geographic. Ce sont les nuages d'hydrogène alpha que traquent les astrophotographes en bande étroite : grands, faibles et riches en structure. Certains portent des noms familiers comme la Grotte, le Sorcier et Pac-Man, mais beaucoup sont des champs sans nom qui attendent une longue pose."
+    }
+  },
+  "objectClass": {
+    "galaxy": "Galaxies",
+    "nebula": "Nébuleuses",
+    "cluster": "Amas",
+    "other": "Autres"
+  },
+  "catalogHero": {
+    "allCatalogs": "Tous les catalogues",
+    "imaged": "photographiés",
+    "programComplete": "Programme complet",
+    "stillToImage_one": "{{count}} restant à photographier",
+    "stillToImage_other": "{{count}} restants à photographier",
+    "planTonightTitle": "Planifier ce soir avec des objets {{label}} non encore photographiés",
+    "planTonight": "Planifier ce soir"
+  },
+  "catalogPanel": {
+    "ariaLabel": "Catalogue {{label}}, {{imaged}} objets photographiés sur {{total}}",
+    "objectsCount_one": "{{count}} objet",
+    "objectsCount_other": "{{count}} objets",
+    "loadingProgress": "Chargement de la progression",
+    "imagedOfTotal": "{{imaged}} sur {{total}} photographiés",
+    "complete": "Terminé",
+    "toGo_one": "{{count}} restant",
+    "toGo_other": "{{count}} restants",
+    "openBoard": "Ouvrir le tableau"
+  },
+  "catalogTile": {
+    "imagedAriaLabel": "{{id}}, {{name}}, photographié",
+    "notImagedAriaLabel": "{{id}}, {{name}}, pas encore photographié",
+    "magnitude": "mag {{value}}",
+    "sessionCount_one": "{{count}} session",
+    "sessionCount_other": "{{count}} sessions",
+    "addToWishlist": "Ajouter à la liste de souhaits",
+    "removeFromWishlist": "Retirer de la liste de souhaits",
+    "addToWishlistAriaLabel": "Ajouter {{name}} à la liste de souhaits",
+    "removeFromWishlistAriaLabel": "Retirer {{name}} de la liste de souhaits"
+  },
+  "catalogToolbar": {
+    "filterAll": "Tous",
+    "filterImaged": "Photographiés",
+    "filterRemaining": "Restants",
+    "sortCatalogOrder": "Ordre du catalogue",
+    "sortName": "Nom",
+    "sortBrightestFirst": "Plus brillants d'abord",
+    "sortConstellation": "Constellation",
+    "sortFrameFit": "Meilleur cadrage",
+    "filterByStatus": "Filtrer par statut de prise de vue",
+    "objectsCount_one": "{{count}} objet",
+    "objectsCount_other": "{{count}} objets",
+    "shownOfTotal": "{{shown}} affichés sur {{total}}",
+    "searchPlaceholder": "Rechercher nom, id, constellation",
+    "searchAriaLabel": "Rechercher dans ce catalogue",
+    "clearSearch": "Effacer la recherche",
+    "sortObjects": "Trier les objets"
+  },
+  "catalogObjectModal": {
+    "maxAltitudeHeading": "Altitude maximale pendant l'obscurité : 12 prochains mois",
+    "bestSingle": "Meilleure : {{date}}",
+    "bestRange": "Meilleure : {{start}} – {{end}}",
+    "monthAltitude": "{{label}} : {{deg}}°",
+    "monthBelowHorizon": "{{label}} : sous l'horizon",
+    "previousObject": "Objet précédent",
+    "nextObject": "Objet suivant",
+    "imagedSessions_one": "Photographié ({{count}} session)",
+    "imagedSessions_other": "Photographié ({{count}} sessions)",
+    "mag": "Mag {{value}}",
+    "raDec": "AD {{ra}}h · Dec {{dec}}°",
+    "close": "Fermer",
+    "viewLargerImage": "Voir l'image en plus grand",
+    "referenceImageAlt": "Image de référence de {{id}}",
+    "noDescription": "Aucune description disponible.",
+    "wikipedia": "Wikipédia",
+    "belowMinimumAltitude": "Cet objet reste sous votre altitude minimale ({{deg}}°) pendant l'obscurité toute l'année depuis votre position.",
+    "setLocationForWindow": "Définissez votre position dans Paramètres pour voir la meilleure fenêtre de prise de vue pour votre ciel.",
+    "notVisibleTonight": "Cet objet reste sous l'horizon toute la nuit depuis votre position, vous ne pouvez donc pas le voir ce soir.",
+    "viewObservations": "Voir les observations",
+    "notVisibleTitle": "Cet objet n'est pas visible depuis votre position ce soir.",
+    "openInPlanner": "Ouvrir dans le planificateur",
+    "framingButton": "Cadrage et mosaïque",
+    "framingButtonTitle": "Prévisualisez le cadrage de cet objet dans votre télescope et planifiez une mosaïque",
+    "addToWishlist": "Ajouter à la liste de souhaits",
+    "removeFromWishlist": "Retirer de la liste de souhaits"
+  },
+  "filterRecommendations": {
+    "heading": "Recommandations de filtres",
+    "colorRig": "Couleur",
+    "monoRig": "Mono",
+    "unknown": {
+      "label": "LRGB large bande",
+      "short": "LRGB",
+      "rationale": "Aucune recommandation de filtre n'existe pour ce type d'objet, le LRGB large bande est donc le choix sûr."
+    },
+    "keys": {
+      "no-filter": {
+        "label": "Aucun filtre",
+        "short": "Aucun",
+        "rationale": "La lumière est ici large sur tout le spectre, un filtre ne ferait que réduire le signal."
+      },
+      "no-filter-lrgb": {
+        "label": "Aucun filtre, LRGB large bande",
+        "short": "LRGB",
+        "rationale": "Le LRGB large bande donne la couleur la plus fidèle pour ce type d'objet, un filtre à bande étroite rejetterait l'essentiel de sa lumière."
+      },
+      "lrgb": {
+        "label": "LRGB large bande",
+        "short": "LRGB",
+        "rationale": "LRGB classique : la luminance pour le détail, le RVB pour la couleur. La bande étroite apporte peu pour ce type d’objet."
+      },
+      "luminance": {
+        "label": "Luminance ou filtre clair",
+        "short": "Lum",
+        "rationale": "Commencez par la luminance pour le détail, puis ajoutez Ha ou OIII seulement si votre ciel est très pollué ou si vous voulez plus de contraste."
+      },
+      "ha-dual": {
+        "label": "Ha ou bande étroite double",
+        "short": "Ha/double",
+        "rationale": "Ha fait ressortir le détail des émissions, et un filtre double bande comme L-Extreme ou Duo-Band coupe aussi la pollution lumineuse sur une caméra couleur."
+      },
+      "ha-oiii": {
+        "label": "Ha et OIII",
+        "short": "Ha+OIII",
+        "rationale": "Ha et OIII portent tous deux un vrai signal sur cet objet, les associer révèle toute la structure bicolore."
+      },
+      "oiii-ha": {
+        "label": "OIII d’abord, puis Ha",
+        "short": "OIII+Ha",
+        "rationale": "OIII est la raie dominante ici, Ha complète l’enveloppe externe et les filaments."
+      },
+      "sho": {
+        "label": "SHO (palette Hubble)",
+        "short": "SHO",
+        "rationale": "SII, Ha et OIII montrent chacun des structures différentes sur cet objet, la palette Hubble tire le meilleur des trois."
+      }
+    }
+  },
+  "catalogPlanModal": {
+    "tonight": "ce soir",
+    "close": "Fermer",
+    "title": "Planifier ce soir · {{catalogLabel}}",
+    "subtitle": "Les objets {{catalogLabel}} que vous n'avez pas encore photographiés qui montent le plus haut la nuit du {{nightLabel}}, choisis pour rester à l'écart de la Lune ({{moonPct}}% illuminée). Choisissez combien en inclure et nous les répartirons dans la fenêtre d'obscurité.",
+    "noDarkWindow": "Aucune fenêtre d'obscurité n'est disponible pour votre position en ce moment.",
+    "allImagedNiceWork": "Vous avez déjà photographié tous les objets de ce catalogue. Bien joué.",
+    "noPlannableCoords": "Aucun des objets restants de ce catalogue n'a de coordonnées avec lesquelles nous pouvons planifier.",
+    "howManyObjects": "Combien d'objets ?",
+    "leftCount": "{{count}} sur {{total}} restants",
+    "buildingPlan": "Élaboration du plan…",
+    "buildFailed": "Impossible d'élaborer un plan. Vérifiez votre connexion et réessayez.",
+    "nothingClears": "Rien dans ce catalogue ne s'éloigne de la Lune et ne monte assez haut cette nuit.",
+    "moonDown": "Lune sous l'horizon",
+    "awayDeg": "à {{deg}}°",
+    "cancel": "Annuler",
+    "creating": "Création…",
+    "createPlan": "Créer le plan ({{count}})"
+  },
+  "framingModal": {
+    "angularSizeUnknown": "Taille angulaire inconnue",
+    "fitsInSingleFrame": "Tient dans une seule pose",
+    "needsMosaic": "Nécessite une mosaïque de {{cols}} × {{rows}} pour être capturé entièrement",
+    "fitTight": "Cadrage serré",
+    "fitTightLabel": "Tient, mais remplit presque tout le cadre. Peu de marge pour tourner ou recadrer.",
+    "fitFits": "Tient",
+    "fitFitsLabel": "Tient confortablement dans une seule pose",
+    "fitTiny": "Minuscule",
+    "fitTinyLabel": "Tient avec beaucoup de marge. Paraîtra petit dans le cadre.",
+    "customLabel": "Personnalisé",
+    "decreaseLabel": "Diminuer {{label}}",
+    "increaseLabel": "Augmenter {{label}}",
+    "title": "Cadrage et mosaïque",
+    "close": "Fermer",
+    "skyFieldAlt": "Champ céleste autour de {{objectName}}",
+    "skyImageUnavailable": "Image du ciel indisponible",
+    "frameRotation": "Rotation du cadrage",
+    "reset": "Réinitialiser",
+    "telescope": "Télescope",
+    "customOption": "Personnalisé (focale + capteur)…",
+    "opticsMm": "Optique (mm)",
+    "focal": "Longueur focale",
+    "sensorW": "Largeur du capteur",
+    "sensorH": "Hauteur du capteur",
+    "yourTelescopes": "Vos télescopes",
+    "builtInModels": "Modèles intégrés",
+    "savedRigs": "Vos équipements enregistrés",
+    "noOpticsWarning": "{{name}} n'a aucune configuration optique enregistrée, il s'agit donc d'un cadre générique provisoire. Ajoutez-en une (longueur focale + taille du capteur) dans Paramètres → Télescopes → Modifier pour un cadre précis.",
+    "pixelSize": "Taille de pixel (µm)",
+    "optionalPlaceholder": "facultatif",
+    "customOpticsHint": "Enregistrez-le comme préréglage nommé ci-dessous pour le réutiliser ici plus tard. Pour un instrument que vous utiliserez aussi ailleurs dans Nebulis, ajoutez-le une fois dans Paramètres → Télescopes → Modifier et choisissez-le dans la liste ci-dessus. La taille de pixel est facultative : elle ne sert qu'à la lecture de l'échelle de champ ci-dessous.",
+    "rigNamePlaceholder": "Nom de l'équipement",
+    "confirmSaveRig": "Enregistrer le préréglage",
+    "cancel": "Annuler",
+    "updateRig": "Mettre à jour \"{{name}}\"",
+    "rigUpdated": "Mis à jour",
+    "rigSaved": "Enregistré",
+    "saveRigAsNew": "Enregistrer comme nouveau",
+    "saveRigAs": "Enregistrer comme préréglage…",
+    "deleteRig": "Supprimer le préréglage",
+    "deleteRigConfirm": "Supprimer le préréglage enregistré \"{{name}}\" ? Cette action est irréversible.",
+    "plateScale": "Échelle de champ",
+    "plateScaleValue": "{{value}}″/px",
+    "verdict": "Verdict",
+    "mosaic": "Mosaïque",
+    "autoFitTitle": "Définir la plus petite mosaïque qui couvre cet objet",
+    "autoFit": "Ajustement auto",
+    "columns": "Colonnes",
+    "rows": "Lignes",
+    "overlap": "Chevauchement",
+    "frameFov": "Champ de vision de la pose",
+    "coverage": "Couverture",
+    "tiles": "Tuiles",
+    "objectSize": "Taille de l'objet",
+    "saveFraming": "Enregistrer le cadrage pour cette session",
+    "framingSaved": "Enregistré",
+    "fovDisclaimer": "Les valeurs de champ de vision sont approximatives. Les télescopes intelligents sont en monture alt-az, donc l'angle réel de la pose tourne pendant une session."
+  }
+}

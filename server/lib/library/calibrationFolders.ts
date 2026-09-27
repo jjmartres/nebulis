@@ -99,6 +99,30 @@ export function isCalibrationFolderName(name: string): boolean {
   return calibrationTypeForFolderName(name) !== null;
 }
 
+/**
+ * The real bias/dark/flat/flat-dark type ONE FILE inside a `mixed`
+ * (`CALI_FRAME`) group belongs to, read from the name of the subfolder that
+ * directly holds it — `CALI_FRAME/dark/cam_0/...` names its `dark` folder
+ * exactly like a standalone `Darks` archive would. Excludes `mixed` itself
+ * (that is `CALI_FRAME`'s own folder name, never a per-file type) and,
+ * like `calibrationTypeForFolderName`, returns `undefined` rather than
+ * guessing for anything else — a camera-setting subfolder (`G100_TECm8`) or
+ * an unrecognized layout.
+ *
+ * Without this, a bias and a flat frame that happen to share every encoded
+ * setting (real example: Dwarf's `bias_gain_2_bin_1.fits` and
+ * `flat_gain_2_bin_1.fits` — neither carries an exposure or a temperature)
+ * parse to an identical settings key and silently merge into one bundle,
+ * mixing two different frame types together. See calibrationScan.ts's
+ * `buildSettingsGroups`, which folds this into the bucket key for `mixed`
+ * groups only — a non-`mixed` group's own type already disambiguates this
+ * with no help needed here.
+ */
+export function calibrationFrameTypeFromFolderName(name: string): CalibrationFrameType | undefined {
+  const type = calibrationTypeForFolderName(name);
+  return type === null || type === 'mixed' ? undefined : type;
+}
+
 export interface CalibrationFrameInfo {
   /** Exposure length in seconds, when the filename encodes one (a `ms` unit
    *  is converted to seconds). */
@@ -123,10 +147,29 @@ export interface CalibrationFrameInfo {
    *  File Name" screen, not a temperature reading (see
    *  telescopeFiles.ts's validated ASIAIR parser for the same field). */
   cameraAngleDeg?: number;
-  /** When the frame was captured, derived from the filename's timestamp. */
+  /** When the frame was captured, derived from the filename's timestamp. Never
+   *  present for a Dwarf frame — its filename carries no timestamp, see
+   *  `parseDwarfCalibrationFilename`. */
   capturedAt?: string;
-  /** Frame sequence number within its capture run. */
+  /** Frame sequence number within its capture run. ASIAIR-only. */
   sequence?: number;
+  /** Which of a Dwarf 3's two optical paths this master was captured on —
+   *  the raw `cam_0`/`cam_1` folder token (see `dwarfCameraFromRelPath`),
+   *  not a semantic 'wide'/'tele' label, since which physical lens is which
+   *  index is not confirmed against ZWO/DWARFLAB documentation. Undefined
+   *  for every non-Dwarf frame, and for a single-camera Dwarf (II/Mini)
+   *  whose CALI_FRAME/DWARF_DARK nests frames directly with no cam_N split. */
+  camera?: string;
+  /** How many raw frames the Dwarf firmware itself combined into this master
+   *  (its `_stack_<n>` filename token). Dwarf's CALI_FRAME already holds
+   *  pre-stacked masters, not raw subs the way ASIAIR's calibration folders
+   *  do, so this is the closest equivalent to `sequence` for a Dwarf frame. */
+  stackCount?: number;
+  /** This file's real bias/dark/flat/flat-dark type, read from its
+   *  containing subfolder's name — see `calibrationFrameTypeFromFolderName`.
+   *  Only ever set within a `mixed` (`CALI_FRAME`) group; a non-`mixed`
+   *  group's files are already all one type via the group itself. */
+  frameType?: CalibrationFrameType;
 }
 
 /** `120_0` -> `120.0`, `-8.0` -> `-8.0`: ASIAIR writes decimal points as
@@ -173,7 +216,7 @@ function toDecimal(raw: string): number {
 const CALIBRATION_FILENAME_RE =
   /^[A-Za-z]+_(?<exp>\d+(?:[._]\d+)?)(?<unit>m?s)_Bin(?<bin>\d+)(?<middle>(?:_[A-Za-z0-9+-]+)*?)_(?<date>\d{8})-(?<time>\d{6})\d*(?:_(?<angle>\d+)deg)?(?:_(?<temp>-?\d+(?:[._]\d+)?)C)?(?:_(?<seq>\d+))?\.[^.]+$/i;
 
-export function parseCalibrationFilename(name: string): CalibrationFrameInfo | null {
+function parseAsiairCalibrationFilename(name: string): CalibrationFrameInfo | null {
   const m = CALIBRATION_FILENAME_RE.exec(name);
   if (!m?.groups) return null;
   const g = m.groups;
@@ -209,4 +252,140 @@ export function parseCalibrationFilename(name: string): CalibrationFrameInfo | n
   if (!isNaN(parsed.getTime())) info.capturedAt = parsed.toISOString();
 
   return info;
+}
+
+/**
+ * Dwarf 3's own CALI_FRAME filename convention — confirmed against a real
+ * device export (`Astronomy/CALI_FRAME/{bias,dark,flat}/cam_{0,1}/...`),
+ * unlike the rest of this module's ASIAIR/N.I.N.A. assumptions:
+ *
+ *   bias_gain_2_bin_1.fits
+ *   flat_gain_2_bin_1.fits
+ *   flat_gain_2_bin_1_ir_1.fits
+ *   dark_exp_30.000000_gain_60_bin_1_22C_stack_6.fits
+ *
+ * Bias and flat carry no exposure or temperature (bias has none by
+ * definition; the real export never showed one for flat either) and no
+ * decimal-underscore quirk — exposure is a plain decimal, temperature a bare
+ * unsigned integer (Dwarf's sensor is uncooled, so this is an ambient
+ * reading, not a TEC setpoint, and the real export never showed a negative
+ * one). `_ir_<n>` (flat only, cam_0 only in the sample) is the IR-cut filter
+ * position; folded into `filterLabel` as `IR<n>` since it plays the same
+ * "which optical state was this shot in" role ASIAIR's filter-wheel token
+ * does. `_stack_<n>` is how many raw frames Dwarf's own firmware combined
+ * into this master — CALI_FRAME already holds pre-stacked masters, not raw
+ * subs, unlike ASIAIR's calibration folders.
+ *
+ * The `cam_0`/`cam_1` split is a folder, not a filename token, so it is not
+ * parsed here — see `dwarfCameraFromRelPath`, applied by the caller.
+ */
+const DWARF_MASTER_CALIBRATION_FILENAME_RE =
+  /^(?:bias|dark|flat)_(?:exp_(?<exp>\d+(?:\.\d+)?)_)?gain_(?<gain>\d+)_bin_(?<bin>\d+)(?:_ir_(?<ir>\d+))?(?:_(?<temp>\d+)C)?(?:_stack_(?<stack>\d+))?\.[^.]+$/i;
+
+function parseDwarfMasterCalibrationFilename(name: string): CalibrationFrameInfo | null {
+  const m = DWARF_MASTER_CALIBRATION_FILENAME_RE.exec(name);
+  if (!m?.groups) return null;
+  const g = m.groups;
+
+  const info: CalibrationFrameInfo = {
+    gain: Number(g.gain),
+    binning: Number(g.bin),
+  };
+  if (g.exp !== undefined) info.exposureSec = Number(g.exp);
+  if (g.temp !== undefined) info.sensorTempC = Number(g.temp);
+  if (g.ir !== undefined) info.filterLabel = `IR${g.ir}`;
+  if (g.stack !== undefined) info.stackCount = Number(g.stack);
+
+  return info;
+}
+
+/**
+ * Dwarf's OTHER calibration convention: `DWARF_DARK` (the folder
+ * `driveEnumeration.ts`/`dwarfMounts.ts` already know is distinct from
+ * `CALI_FRAME`) holds raw, unstacked sub-frames in per-session folders,
+ * rather than `CALI_FRAME`'s pre-stacked masters — confirmed against a real
+ * export where a single Dwarf 3 had accumulated both (an older firmware's
+ * `DWARF_DARK` output alongside a newer one's `CALI_FRAME` output):
+ *
+ *   DWARF_DARK/tele_exp_60_gain_60_bin_1_2025-06-19-22-47-27-957/
+ *     raw_60s_60_0009_20250619-225727031_37C.fits
+ *   DWARF_DARK/wide_exp_30_gain_60_bin_1_2025-07-24-23-43-28-522/
+ *     raw_30s_60_0000_20250724-234357539_22C.fits
+ *
+ * The session folder's name carries `camera` (a semantic `tele`/`wide` token
+ * here, unlike `CALI_FRAME`'s numeric `cam_0`/`cam_1`) and `binning` — the
+ * one field the file's own name doesn't repeat. Exposure, gain, sequence,
+ * capture timestamp and sensor temperature all live in the per-file name
+ * instead; see `parseDwarfRawCalibrationFilename` below.
+ */
+const DWARF_DARK_SESSION_FOLDER_RE = /^(?<camera>[a-z]+)_exp_\d+(?:\.\d+)?_gain_\d+_bin_(?<bin>\d+)_/i;
+
+/** Camera + binning from a `DWARF_DARK` session folder's own name, or null
+ *  for anything else (a `CALI_FRAME` type-folder name like `dark`/`bias`/
+ *  `flat` never matches this, since it has no `_exp_..._gain_..._bin_..._`
+ *  shape). Applied by the caller alongside the per-file parse — see
+ *  calibrationScan.ts's `buildSubfolder`. */
+export function dwarfDarkSessionFolderInfo(name: string): { camera: string; binning: number } | null {
+  const m = DWARF_DARK_SESSION_FOLDER_RE.exec(name);
+  if (!m?.groups) return null;
+  return { camera: m.groups.camera.toLowerCase(), binning: Number(m.groups.bin) };
+}
+
+const DWARF_RAW_CALIBRATION_FILENAME_RE =
+  /^raw_(?<exp>\d+(?:\.\d+)?)s_(?<gain>\d+)_(?<seq>\d+)_(?<date>\d{8})-(?<time>\d{6})\d*_(?<temp>-?\d+)C\.[^.]+$/i;
+
+function parseDwarfRawCalibrationFilename(name: string): CalibrationFrameInfo | null {
+  const m = DWARF_RAW_CALIBRATION_FILENAME_RE.exec(name);
+  if (!m?.groups) return null;
+  const g = m.groups;
+
+  const info: CalibrationFrameInfo = {
+    exposureSec: Number(g.exp),
+    gain: Number(g.gain),
+    sequence: Number(g.seq),
+    sensorTempC: Number(g.temp),
+  };
+
+  // YYYYMMDD-HHMMSS(+milliseconds), local time as always for a Dwarf
+  // filename timestamp — same limitation as everywhere else in this module.
+  const { date, time } = g;
+  const iso = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}T${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}`;
+  const parsed = new Date(iso);
+  if (!isNaN(parsed.getTime())) info.capturedAt = parsed.toISOString();
+
+  return info;
+}
+
+/**
+ * Parse the metadata a calibration frame's own filename encodes.
+ *
+ * Tries the ASIAIR/N.I.N.A. convention first, then Dwarf's `CALI_FRAME`
+ * master convention, then Dwarf's `DWARF_DARK` raw-sub-frame convention — the
+ * three shapes cannot collide (each has a distinct, required literal prefix
+ * or timestamp token the others never produce). Best-effort: returns null
+ * for anything that matches none of them rather than guessing, since a file
+ * that fails to parse is still listed (just without the derived chips)
+ * rather than dropped.
+ */
+export function parseCalibrationFilename(name: string): CalibrationFrameInfo | null {
+  return parseAsiairCalibrationFilename(name)
+    ?? parseDwarfMasterCalibrationFilename(name)
+    ?? parseDwarfRawCalibrationFilename(name);
+}
+
+/** Dwarf 3's per-camera `CALI_FRAME` calibration subfolder, e.g.
+ *  `cam_0/dark_....fits` as it appears in a `CalibrationFile.name` (relative
+ *  to its type folder, posix-style so this works the same on every OS
+ *  regardless of which separator the filesystem walk used to build it).
+ *  Returns the raw token (`cam_0`, `cam_1`), not a semantic label — see
+ *  `CalibrationFrameInfo.camera`. Never matches a `DWARF_DARK` file, whose
+ *  camera comes from its session folder's name instead — see
+ *  `dwarfDarkSessionFolderInfo`. */
+const DWARF_CAMERA_FOLDER_RE = /^cam_(\d+)$/i;
+
+export function dwarfCameraFromRelPath(relName: string): string | undefined {
+  const posixName = relName.split(/[/\\]/).join('/');
+  const dir = posixName.includes('/') ? posixName.slice(0, posixName.lastIndexOf('/')) : '';
+  const leaf = dir.includes('/') ? dir.slice(dir.lastIndexOf('/') + 1) : dir;
+  return DWARF_CAMERA_FOLDER_RE.test(leaf) ? leaf.toLowerCase() : undefined;
 }

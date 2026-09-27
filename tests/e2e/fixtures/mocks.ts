@@ -394,33 +394,6 @@ export const MOCK = {
     warmingThumbnails: null,
   },
 
-  wishlist: [
-    {
-      id: 'wl-1',
-      objectId: 'M51',
-      objectName: 'Whirlpool Galaxy',
-      catalogId: 'M51',
-      type: 'Galaxy',
-      constellation: 'Canes Venatici',
-      magnitude: 8.4,
-      priority: 'high' as const,
-      notes: 'Great spring target',
-      addedAt: '2024-03-01T00:00:00Z',
-    },
-    {
-      id: 'wl-2',
-      objectId: 'M81',
-      objectName: 'Bode\'s Galaxy',
-      catalogId: 'M81',
-      type: 'Galaxy',
-      constellation: 'Ursa Major',
-      magnitude: 6.9,
-      priority: 'medium' as const,
-      notes: '',
-      addedAt: '2024-02-15T00:00:00Z',
-    },
-  ],
-
   // Tonight's observable targets, in the current PlannerTarget shape returned
   // by GET /planner/tonight (see src/lib/api/planner.ts). The planner library
   // pane renders these; the timeline/night-window fields are added by the route
@@ -497,6 +470,45 @@ export const MOCK = {
     },
   ],
 
+  wishlist: [
+    {
+      id: 'w-m42',
+      objectId: 'M42',
+      name: 'Orion Nebula',
+      type: 'Emission Nebula',
+      constellation: 'Orion',
+      magnitude: 4.0,
+      majorAxisArcmin: 85,
+      priority: 'high',
+      notes: '',
+      addedAt: '2026-01-02T12:00:00.000Z',
+    },
+    {
+      id: 'w-m94',
+      objectId: 'M94',
+      name: 'M94',
+      type: 'Galaxy',
+      constellation: 'Canes Venatici',
+      magnitude: 8.2,
+      majorAxisArcmin: 11,
+      priority: 'medium',
+      notes: '',
+      addedAt: '2026-01-03T12:00:00.000Z',
+    },
+    {
+      id: 'w-ngc104',
+      objectId: 'NGC104',
+      name: '47 Tucanae',
+      type: 'Globular Cluster',
+      constellation: 'Tucana',
+      magnitude: 4.0,
+      majorAxisArcmin: 50,
+      priority: 'low',
+      notes: '',
+      addedAt: '2026-01-04T12:00:00.000Z',
+    },
+  ],
+
   // A DSO-catalog entry that never clears the horizon from the mock observer
   // (lat 37.77, far-southern declination). The planner omits it from
   // /planner/tonight, so a search must surface it from the full /dso catalog as
@@ -516,6 +528,23 @@ export const MOCK = {
     messier: null,
   },
 
+  // Up at some point in the year from the mock observer, but not tonight: the
+  // "so when is it actually visible" case a wishlist card has to answer.
+  dsoOffSeason: {
+    id: 'M94',
+    ngcName: 'NGC 4736',
+    name: 'M94',
+    type: 'Galaxy',
+    typeCode: 'Gx',
+    constellation: 'Canes Venatici',
+    magnitude: 8.2,
+    majorAxisArcmin: 11,
+    ra: 12.85,
+    dec: 41.12,
+    commonNames: [],
+    messier: 94,
+  },
+
   altitudeCurve: {
     objectId: 'M42',
     points: Array.from({ length: 48 }, (_, i) => ({
@@ -530,7 +559,13 @@ export const MOCK = {
   },
 
   storageStats: {
-    telescopeOnline: false,
+    // Must be true: StorageDashboard renders the per-object telescope table
+    // only in its online branch, and every storage.spec assertion about object
+    // rows/sizes/counts depends on that table being present.
+    telescopeOnline: true,
+    // Must be a SeeStar kind: the whole "SeeStar Storage" section (table and
+    // stat tiles) is gated on isSeestarKind(telescopeKind).
+    telescopeKind: 'seestar-s50',
     objects: [
       {
         id: 'M42',
@@ -570,6 +605,36 @@ export const MOCK = {
       freeFormatted: '250 GB',
     },
     dataDir: { path: '/data', size: 734003200, files: 67, sizeFormatted: '700 MB' },
+  },
+
+  // Library location + migration. Without this the page falls through to the
+  // real backend, which answers 401 in a fresh browser context, and the
+  // LibraryUnavailableBanner renders its error state on every page.
+  libraryLocation: {
+    location: {
+      path: '/data/library',
+      isDefault: true,
+      available: true,
+      libraryId: 'lib-1',
+      locationType: 'local',
+      defaultPath: '/data/library',
+      network: { host: '', share: '', domain: '', username: '', subpath: '' },
+      networkLibrarySupported: true,
+      pinned: false,
+    },
+    migration: {
+      phase: 'idle',
+      fromPath: null,
+      toPath: null,
+      bytesTotal: 0,
+      bytesCopied: 0,
+      filesTotal: 0,
+      filesCopied: 0,
+      error: null,
+      startedAt: null,
+      completedAt: null,
+      previousPath: null,
+    },
   },
 
   // Shape must track `ForecastData` in lib/api/planner.ts. This drifted badly
@@ -909,26 +974,6 @@ export async function mockAllRoutes(page: Page) {
   await page.route('**/api/notes/object/**', r => r.fulfill(json(ok(MOCK.note))));
   await page.route('**/api/notes/object/M42/2024-03-15', r => r.fulfill(json(ok(MOCK.note))));
 
-  // Wishlist. Least-specific first so specific endpoints win.
-  await page.route('**/api/wishlist/**', async r => {
-    const method = r.request().method();
-    if (method === 'PATCH') {
-      r.fulfill(json(ok({ ...MOCK.wishlist[0], priority: 'low' })));
-    } else if (method === 'DELETE') {
-      r.fulfill(json(ok({ deleted: true })));
-    } else {
-      r.fulfill(json(ok(MOCK.wishlist[0])));
-    }
-  });
-  await page.route('**/api/wishlist/object/**', r => r.fulfill(json(ok({ deleted: true }))));
-  await page.route('**/api/wishlist', async r => {
-    if (r.request().method() === 'POST') {
-      r.fulfill(json(ok([...MOCK.wishlist, { id: 'wl-new', objectId: 'M63', objectName: 'Sunflower Galaxy', catalogId: 'M63', type: 'Galaxy', constellation: 'Canes Venatici', magnitude: 8.6, priority: 'medium' as const, notes: '', addedAt: new Date().toISOString() }])));
-    } else {
-      r.fulfill(json(ok(MOCK.wishlist)));
-    }
-  });
-
   // Planner. The night-window and timeline fields are anchored to "now" so the
   // dusk-to-dawn timeline always renders regardless of when the suite runs.
   await page.route('**/api/planner/tonight**', r => {
@@ -957,13 +1002,13 @@ export async function mockAllRoutes(page: Page) {
     else r.fulfill(json(ok({ id: 1 })));
   });
 
-  // DSO catalog. The browse/search endpoint (GET /dso?q=) drives both wishlist
-  // search and the planner's below-horizon backfill, so match the query against
-  // the observable targets plus the below-horizon entry.
+  // DSO catalog. The browse/search endpoint (GET /dso?q=) drives the planner's
+  // below-horizon backfill, so match the query against the observable targets
+  // plus the below-horizon entry.
   await page.route('**/api/dso**', r => {
     const url = new URL(r.request().url());
     const q = (url.searchParams.get('q') ?? '').toLowerCase().replace(/\s+/g, '');
-    const catalog = [...MOCK.plannerTargets, MOCK.dsoBelowHorizon];
+    const catalog = [...MOCK.plannerTargets, MOCK.dsoBelowHorizon, MOCK.dsoOffSeason];
     const matches = (e: { id: string; ngcName: string; name: string; commonNames: string[] }) =>
       [e.id, e.ngcName, e.name, ...e.commonNames].some(f => (f ?? '').toLowerCase().replace(/\s+/g, '').includes(q));
     const results = q ? catalog.filter(matches) : catalog;
@@ -973,6 +1018,11 @@ export async function mockAllRoutes(page: Page) {
   // Storage
   await page.route('**/api/storage/system', r => r.fulfill(json(ok(MOCK.systemStorage))));
   await page.route('**/api/storage', r => r.fulfill(json(ok(MOCK.storageStats))));
+  // Library-side storage table. Kept empty on purpose: storage.spec targets the
+  // telescope table, and populating this with the same object names would make
+  // its `getByText('Orion Nebula')` locators resolve to two elements.
+  await page.route('**/api/storage/library', r => r.fulfill(json(ok({ objects: [] }))));
+  await page.route('**/api/storage/library-location', r => r.fulfill(json(ok(MOCK.libraryLocation))));
 
   // Forecast
   await page.route('**/api/forecast**', r => r.fulfill(json(ok(MOCK.forecast))));
@@ -994,8 +1044,38 @@ export async function mockAllRoutes(page: Page) {
   await page.route('**/api/telescopes/status', r => r.fulfill(json(ok(MOCK.telescopeStatus))));
   await page.route('**/api/telescopes/status/all', r => r.fulfill(json(ok(MOCK.allTelescopeStatusList))));
 
-  // SMB connection test
-  await page.route('**/api/telescope/test', r => r.fulfill(json(ok(MOCK.connectionTest))));
+  // Telescope connection test. The endpoint moved from /api/telescope/test to
+  // /api/telescopes/test-connection when telescope profiles went plural.
+  await page.route('**/api/telescopes/test-connection', r => r.fulfill(json(ok(MOCK.connectionTest))));
+
+  // Version, update status and last-seen version. Every authenticated page load
+  // fetches these. Left unmocked they fall through to the real backend, which
+  // answers 401 for a test token, and src/lib/api/client.ts clears the stored
+  // token on ANY 401. That silently flipped role-gated specs (viewer/admin) to
+  // the open-access fallback. Shapes mirror VersionInfo
+  // (SettingsHero / WhatsNewAutoPopup) and UpdateStatus (lib/api/update.ts).
+  // lastSeenVersion === version so the What's New gate stays closed.
+  await page.route('**/api/meta/version', r =>
+    r.fulfill(json(ok({ version: '1.0.0', shortVersion: '1.0.0', build: 1 }))));
+  await page.route('**/api/meta/update', r =>
+    r.fulfill(json(ok({
+      platform: null,
+      channel: 'stable',
+      autoUpdateEnabled: false,
+      currentVersion: '1.0.0',
+      currentBuild: 1,
+      latestVersion: null,
+      latestBuild: null,
+      updateAvailable: false,
+      mandatory: false,
+      notesUrl: null,
+      staged: false,
+      applyRequested: false,
+      lastCheckedAt: null,
+      lastError: null,
+    }))));
+  await page.route('**/api/preferences/last-seen-version', r =>
+    r.fulfill(json(ok({ lastSeenVersion: '1.0.0' }))));
 
   // Thumbnails — return a tiny blank PNG
   await page.route('**/thumbnail**', r =>
@@ -1062,6 +1142,16 @@ export async function mockAdminAuth(page: Page) {
     window.localStorage.setItem('nebulis_auth_token', 'admin-test-token');
   });
   await page.route('**/api/auth/me', r => r.fulfill(json(ok(MOCK.loginResponse.user))));
+}
+
+/** Rows for GET /wishlist, covering the three card states: up tonight with a
+ *  target (M42), off-season but visible later in the year (M94), and never
+ *  above the observer's minimum altitude (NGC104).
+ *
+ *  Deliberately NOT part of `mockAllRoutes`: a populated wishlist changes what
+ *  the Planner's own panel renders, so only the spec that wants it opts in. */
+export async function mockWishlist(page: Page, items = MOCK.wishlist) {
+  await page.route('**/api/wishlist', r => r.fulfill(json(ok(items))));
 }
 
 /**

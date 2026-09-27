@@ -1,40 +1,44 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Play, Info } from 'lucide-react';
 import type { Settings as SettingsType } from '../../types';
 import { runNightlyMaintenanceNow } from '../../lib/api/settings';
+import { formatDate, formatRelativeDuration } from '../../lib/formatLocale';
 import { Sec, Toggle } from './SettingsUI';
 
 function formatShortDate(ms: number): string {
   const diff = Date.now() - ms;
   if (diff < 60_000) return 'just now';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
-  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+  if (diff < 3_600_000) return formatRelativeDuration(Math.floor(diff / 60_000), 'minute', 'narrow');
+  if (diff < 86_400_000) return formatRelativeDuration(Math.floor(diff / 3_600_000), 'hour', 'narrow');
+  if (diff < 7 * 86_400_000) return formatRelativeDuration(Math.floor(diff / 86_400_000), 'day', 'narrow');
+  return formatDate(new Date(ms), { month: 'short', day: 'numeric', year: '2-digit' });
 }
 
 /** The tasks that run each night. Kept in one list so the (i) reveal and the
- *  toggle stay the single source of truth: maintenance on = all of these run. */
+ *  toggle stay the single source of truth: maintenance on = all of these run.
+ *  labelKey/descriptionKey rather than literal text: this array is built at
+ *  module load, before any component's useTranslation() hook exists. */
 const TASKS = [
   {
-    label: 'Faster Planner startup',
-    description: 'Pre-caches thumbnails for tonight\'s visible objects.',
+    labelKey: 'nightlyMaintenance.tasks.plannerPrefetch.label',
+    descriptionKey: 'nightlyMaintenance.tasks.plannerPrefetch.description',
     lastRunKey: 'plannerPrefetchLastRun',
   },
   {
-    label: 'Current catalog data',
-    description: 'Checks nebulis.app for newer catalog packs in the background.',
+    labelKey: 'nightlyMaintenance.tasks.catalogData.label',
+    descriptionKey: 'nightlyMaintenance.tasks.catalogData.description',
     lastRunKey: null,
   },
   {
-    label: 'Tidier library',
-    description: 'Removes macOS resource forks and stale upload temp folders.',
+    labelKey: 'nightlyMaintenance.tasks.housekeeping.label',
+    descriptionKey: 'nightlyMaintenance.tasks.housekeeping.description',
     lastRunKey: 'nightlyHousekeepingLastRun',
   },
   {
-    label: 'Conditions ready on open',
-    description: 'Refreshes the weather and seeing cache.',
+    labelKey: 'nightlyMaintenance.tasks.forecast.label',
+    descriptionKey: 'nightlyMaintenance.tasks.forecast.description',
     lastRunKey: 'nightlyForecastLastRun',
   },
 ] as const;
@@ -48,6 +52,7 @@ export function NightlyMaintenanceSection({
   form: Partial<SettingsType>;
   setForm: React.Dispatch<React.SetStateAction<Partial<SettingsType>>>;
 }) {
+  const { t } = useTranslation('settings');
   const time = form.plannerPrefetchTime ?? '03:00';
   // One master switch gates the whole batch server-side. On means every task
   // runs; off means none do (and the scheduler no-ops).
@@ -77,8 +82,8 @@ export function NightlyMaintenanceSection({
 
   return (
     <Sec
-      title="Nightly maintenance"
-      description="Tasks the server runs on its own each night."
+      title={t('nightlyMaintenance.title')}
+      description={t('nightlyMaintenance.description')}
       isDark={isDark}
     >
       {/* Master toggle. The (i) reveals the task list below; there are no
@@ -90,11 +95,11 @@ export function NightlyMaintenanceSection({
       >
         <div className="min-w-0 flex items-center gap-1.5">
           <div className={`text-[13px] font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-            Run nightly maintenance
+            {t('nightlyMaintenance.runNightly')}
           </div>
           <button
             type="button"
-            aria-label="See which tasks will run"
+            aria-label={t('nightlyMaintenance.seeWhichTasks')}
             aria-expanded={showTasks}
             onClick={() => setShowTasks(s => !s)}
             className={`flex items-center justify-center w-4 h-4 rounded-full transition-colors ${
@@ -118,23 +123,23 @@ export function NightlyMaintenanceSection({
           <div className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-2 ${
             isDark ? 'text-slate-500' : 'text-slate-400'
           }`}>
-            Runs each night
+            {t('nightlyMaintenance.runsEachNight')}
           </div>
           <ul className="space-y-2.5">
             {TASKS.map(task => {
               const lastRun = task.lastRunKey ? (form[task.lastRunKey] as number | undefined) ?? null : null;
               return (
-                <li key={task.label} className="flex items-start gap-2.5">
+                <li key={task.labelKey} className="flex items-start gap-2.5">
                   <span className={`mt-1 h-1 w-1 shrink-0 rounded-full ${isDark ? 'bg-accent-400' : 'bg-accent-500'}`} />
                   <div className="min-w-0">
                     <div className={`text-[13px] font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {task.label}
+                      {t(task.labelKey)}
                     </div>
                     <div className={`text-xs mt-0.5 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {task.description}
+                      {t(task.descriptionKey)}
                       {lastRun !== null && (
                         <span className={`ml-1.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                          Last run {formatShortDate(lastRun)}.
+                          {t('nightlyMaintenance.lastRun', { time: formatShortDate(lastRun) })}
                         </span>
                       )}
                     </div>
@@ -149,7 +154,7 @@ export function NightlyMaintenanceSection({
       {maintenanceEnabled && (
         <div className="px-5 py-4 flex items-center gap-3 flex-wrap">
             <label className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              Run at
+              {t('nightlyMaintenance.runAt')}
             </label>
             <input
               type="time"
@@ -162,7 +167,7 @@ export function NightlyMaintenanceSection({
               }`}
             />
             <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              local time
+              {t('nightlyMaintenance.localTime')}
             </span>
 
             <button
@@ -174,20 +179,20 @@ export function NightlyMaintenanceSection({
                   ? 'border-slate-700 text-slate-200 hover:bg-slate-800'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
               } disabled:opacity-50`}
-              title="Run the maintenance tasks now instead of waiting for the scheduled time"
+              title={t('nightlyMaintenance.runNowTitle')}
             >
               <Play className="w-3 h-3" />
-              {runNow.isPending ? 'Starting…' : 'Run now'}
+              {runNow.isPending ? t('nightlyMaintenance.starting') : t('nightlyMaintenance.runNow')}
             </button>
 
           {justStarted && (
             <span className={`text-xs w-full ${isDark ? 'text-accent-400' : 'text-accent-600'}`}>
-              Maintenance started. Tasks are running in the background.
+              {t('nightlyMaintenance.started')}
             </span>
           )}
           {runNow.isError && (
             <span className={`text-xs w-full ${isDark ? 'text-red-400' : 'text-red-600'}`}>
-              {runNow.error instanceof Error ? runNow.error.message : 'Could not start maintenance.'}
+              {runNow.error instanceof Error ? runNow.error.message : t('nightlyMaintenance.startFailed')}
             </span>
           )}
         </div>

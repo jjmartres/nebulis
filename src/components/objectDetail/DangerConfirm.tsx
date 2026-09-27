@@ -8,13 +8,14 @@
  * genuinely fail server-side (an unreachable library answers 503), and a delete
  * dialog that closes on a failure it never reported is worse than no dialog.
  */
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Modal } from '../ui/Modal';
 import { useTheme } from '../../hooks/useTheme';
 
 export function DangerConfirm({
-  title, body, confirmLabel = 'Delete permanently', pending, error, onConfirm, onCancel,
+  title, body, confirmLabel, pending, error, onConfirm, onCancel,
 }: {
   title: string;
   body: ReactNode;
@@ -25,6 +26,7 @@ export function DangerConfirm({
   onCancel: () => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
 
   return (
     <Modal
@@ -44,7 +46,7 @@ export function DangerConfirm({
 
       {error != null && (
         <p className="text-sm text-red-500">
-          {error instanceof Error ? error.message : 'That did not work. Try again.'}
+          {error instanceof Error ? error.message : t('objectDetail.dangerConfirm.genericError')}
         </p>
       )}
 
@@ -55,7 +57,7 @@ export function DangerConfirm({
             isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          Cancel
+          {t('objectDetail.dangerConfirm.cancel')}
         </button>
         <button
           onClick={onConfirm}
@@ -64,7 +66,7 @@ export function DangerConfirm({
             text-white transition hover:bg-red-700 disabled:opacity-50"
         >
           {pending && <RotateCw className="h-4 w-4 animate-spin" />}
-          {confirmLabel}
+          {confirmLabel ?? t('objectDetail.dangerConfirm.deletePermanently')}
         </button>
       </div>
     </Modal>

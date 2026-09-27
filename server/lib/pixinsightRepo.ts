@@ -93,7 +93,7 @@ export function getAppVersion(): string {
       }
     } catch { /* try next */ }
   }
-  return '2.0.2';
+  return '2.1.0';
 }
 
 /**
@@ -120,7 +120,7 @@ export function readNebulisPluginScript(): string {
  * common version comment formats (e.g. `Version: 1.2.3`), falling back to the Nebulis app version.
  *
  * @param scriptContent - The raw source text of the PJSR script.
- * @returns Cleaned version string (e.g. "2.0.2").
+ * @returns Cleaned version string (e.g. "2.1.0").
  */
 export function extractScriptVersion(scriptContent: string): string {
   // Check for explicit variable declaration

@@ -11,8 +11,9 @@
  * The night panel and the timeline's weather gutter both open this. Opening it
  * from a gutter hour lands on that hour's breakdown.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { CloudSun, RefreshCw, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { TonightHero } from '../forecast/TonightHero';
 import { HourDetail } from '../forecast/HourDetail';
@@ -21,6 +22,7 @@ import { RatingLegend } from '../ui/RatingLegend';
 import { hoursForNight } from '../../lib/forecastNights';
 import type { DarkWindow } from '../../lib/forecastScore';
 import type { ForecastHour, NightRating } from '../../lib/api/planner';
+import { formatDate } from '../../lib/formatLocale';
 
 /** The shape TonightHero and NightRibbon need to draw a night end to end. */
 export interface NightAstro {
@@ -60,6 +62,10 @@ interface Props {
   initialHourTime?: string | null;
   onRefresh: () => void | Promise<void>;
   isRefreshing: boolean;
+  /** The light-pollution tile for the active site. Handed in as a node because
+   *  this dialog is scoped to one night and holds no site data of its own; the
+   *  planner does, and passes the same tile the Forecast page renders. */
+  lightPollution?: ReactNode;
   onClose: () => void;
 }
 
@@ -80,24 +86,24 @@ export function NightWeatherModal({
   initialHourTime,
   onRefresh,
   isRefreshing,
+  lightPollution,
   onClose,
 }: Props) {
+  const { t } = useTranslation('planner');
   // Seeded once: the dialog is only mounted while open, and its backdrop
   // covers the gutter, so the launching hour cannot change underneath it.
   const [selectedHour, setSelectedHour] = useState<ForecastHour | null>(
     () => hours.find(h => h.time === initialHourTime) ?? null,
   );
 
-  const dateLabel = date.toLocaleDateString(undefined, {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
+  const dateLabel = formatDate(date, { weekday: 'long', month: 'long', day: 'numeric' });
   const upcoming = nightRatings.filter(n => n.date > selectedDateKey);
 
   return (
     <Modal
       isOpen
       onClose={onClose}
-      title={`Weather for ${dateLabel}`}
+      title={t('nightWeatherModal.title', { date: dateLabel })}
       focusOnOpen="dialog"
       className={`flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl shadow-2xl ${
         isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
@@ -107,7 +113,7 @@ export function NightWeatherModal({
         <CloudSun className={`h-5 w-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-lg font-semibold leading-tight">
-            {isToday ? "Tonight's weather" : 'Weather for this night'}
+            {isToday ? t('nightWeatherModal.tonightsWeather') : t('nightWeatherModal.weatherForThisNight')}
           </h2>
           <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>{dateLabel}</p>
         </div>
@@ -117,15 +123,15 @@ export function NightWeatherModal({
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-40 ${
             isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-200'
           }`}
-          title="Fetch the latest forecast"
+          title={t('nightWeatherModal.fetchLatestTitle')}
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          {t('nightWeatherModal.refresh')}
         </button>
         <button
           onClick={onClose}
           className={`rounded-lg p-2 transition ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-200'}`}
-          aria-label="Close weather"
+          aria-label={t('nightWeatherModal.closeWeather')}
         >
           <X className="h-5 w-5" />
         </button>
@@ -142,12 +148,13 @@ export function NightWeatherModal({
             selectedTime={selectedHour?.time ?? null}
             onSelect={(h) => setSelectedHour(prev => (prev?.time === h.time ? null : h))}
             accent={accent}
+            lightPollution={lightPollution}
           />
         ) : (
           <div className={`rounded-2xl border p-6 text-sm ${
             isDark ? 'border-slate-800 bg-slate-900 text-slate-500' : 'border-slate-200 bg-white text-slate-400'
           }`}>
-            No hourly forecast reaches this night yet. The outlook runs a few days ahead.
+            {t('nightWeatherModal.noHourlyForecast')}
           </div>
         )}
 
@@ -169,7 +176,7 @@ export function NightWeatherModal({
         {upcoming.length > 0 && (
           <div>
             <h3 className={`mb-3 font-display text-base font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-              The nights after this one
+              {t('nightWeatherModal.nightsAfterThisOne')}
             </h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {upcoming.map(night => (

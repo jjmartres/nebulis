@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Tv, Trash2, Pencil, Check, X, Loader2, QrCode } from 'lucide-react';
 import { ConnectDeviceModal } from './ConnectDeviceModal';
 import {
@@ -13,24 +14,26 @@ import {
 } from '../../lib/api/devices';
 import { useAuth } from '../../contexts/AuthContext';
 import { Sec, Seg, getInputClass } from './SettingsUI';
+import { formatRelativeDuration } from '../../lib/formatLocale';
 
 function relativeTime(ms: number): string {
   const diff = Date.now() - ms;
   const sec = Math.round(diff / 1000);
   if (sec < 60) return 'just now';
   const min = Math.round(sec / 60);
-  if (min < 60) return `${min} min ago`;
+  if (min < 60) return formatRelativeDuration(min, 'minute', 'narrow');
   const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr} hr ago`;
+  if (hr < 24) return formatRelativeDuration(hr, 'hour', 'narrow');
   const day = Math.round(hr / 24);
-  if (day < 30) return `${day} day${day === 1 ? '' : 's'} ago`;
+  if (day < 30) return formatRelativeDuration(day, 'day', 'narrow');
   const mo = Math.round(day / 30);
-  return `${mo} mo ago`;
+  return formatRelativeDuration(mo, 'month', 'narrow');
 }
 
 type Scope = 'mine' | 'all';
 
 export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   const inputClass = getInputClass(isDark);
@@ -105,8 +108,8 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
 
   return (
     <Sec
-      title="Devices"
-      description="Phones and Apple TVs linked to your account."
+      title={t('connectedDevices.title')}
+      description={t('connectedDevices.description')}
       isDark={isDark}
       actions={
         <button
@@ -115,7 +118,7 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
           className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium bg-accent-500 text-white hover:bg-accent-600 transition-colors shadow-sm"
         >
           <QrCode className="w-4 h-4" />
-          Connect a device
+          {t('connectedDevices.connectDevice')}
         </button>
       }
     >
@@ -124,17 +127,20 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
       <div className={`flex items-start justify-between gap-4 px-5 py-4 border-b ${isDark ? 'border-slate-800/70' : 'border-slate-100'}`}>
         <p className={`text-xs flex-1 min-w-0 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
           {scope === 'all'
-            ? 'Every device linked across all users.'
-            : <>On your Apple TV, open Nebulis, then visit{' '}
+            ? t('connectedDevices.allDevicesNote')
+            : <>{t('connectedDevices.pairInstructionsBefore')}{' '}
                 <a
                   href={`${window.location.origin}/link`}
                   target="_blank"
                   rel="noreferrer"
                   className={`font-mono underline underline-offset-2 ${isDark ? 'text-accent-400 hover:text-accent-300' : 'text-accent-700 hover:text-accent-600'}`}
                 >
+                  {/* eslint-disable-next-line local/no-hardcoded-jsx-text -- this is
+                      the literal URL itself (a route path, not prose), shown so the
+                      user can read/type/click it; it is never translated. */}
                   {window.location.origin}/link
                 </a>{' '}
-                on this device to pair it.</>}
+                {t('connectedDevices.pairInstructionsAfter')}</>}
         </p>
 
         {isAdmin && (
@@ -143,8 +149,8 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
             onChange={setScope}
             isDark={isDark}
             options={[
-              { id: 'mine', label: 'Mine' },
-              { id: 'all', label: 'All devices' },
+              { id: 'mine', label: t('connectedDevices.mine') },
+              { id: 'all', label: t('connectedDevices.allDevices') },
             ]}
           />
         )}
@@ -154,14 +160,14 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
         {isLoading && (
           <div className={`flex items-center gap-2 text-sm py-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Loading…
+            {t('connectedDevices.loading')}
           </div>
         )}
 
         {!isLoading && devices && devices.length === 0 && (
           <div className={`text-center py-10 rounded-xl border-2 border-dashed ${isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
             <Tv className="w-8 h-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">No devices linked yet.</p>
+            <p className="text-sm">{t('connectedDevices.noDevices')}</p>
             {scope === 'mine' && (
               <button
                 type="button"
@@ -169,7 +175,7 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
                 className={`mt-3 inline-flex items-center gap-1.5 text-sm font-medium ${isDark ? 'text-accent-400 hover:text-accent-300' : 'text-accent-700 hover:text-accent-600'}`}
               >
                 <QrCode className="w-4 h-4" />
-                Connect your phone
+                {t('connectedDevices.connectYourPhone')}
               </button>
             )}
           </div>
@@ -217,12 +223,12 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
                                       <span className={isDark ? 'text-slate-600' : 'text-slate-400'}> @{owner.ownerUsername}</span>
                                     )}
                                   </span>
-                                : <span className="italic">deleted user</span>}
+                                : <span className="italic">{t('connectedDevices.deletedUser')}</span>}
                             </span>
                           )}
                         </div>
                         <div className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                          Linked {relativeTime(d.createdAt)} · last seen {relativeTime(d.lastSeenAt)}
+                          {t('connectedDevices.linkedInfo', { linked: relativeTime(d.createdAt), lastSeen: relativeTime(d.lastSeenAt) })}
                         </div>
                       </>
                     )}
@@ -233,7 +239,7 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
                       <>
                         <button
                           type="button"
-                          aria-label="Save name"
+                          aria-label={t('connectedDevices.saveName')}
                           onClick={commitRename}
                           disabled={rename.isPending}
                           className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800 text-emerald-400' : 'hover:bg-slate-100 text-emerald-600'}`}
@@ -242,7 +248,7 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
                         </button>
                         <button
                           type="button"
-                          aria-label="Cancel"
+                          aria-label={t('connectedDevices.cancel')}
                           onClick={() => setEditingId(null)}
                           className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
                         >
@@ -252,14 +258,14 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
                     ) : isConfirming ? (
                       <>
                         <span className={`text-xs mr-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                          Disconnect?
+                          {t('connectedDevices.disconnectQuestion')}
                         </span>
                         <button
                           type="button"
                           onClick={() => { revokeDevice(d.id); setConfirmingId(null); }}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors"
                         >
-                          Disconnect
+                          {t('connectedDevices.disconnect')}
                         </button>
                         <button
                           type="button"
@@ -276,7 +282,7 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
                         {scope === 'mine' && (
                           <button
                             type="button"
-                            aria-label="Rename device"
+                            aria-label={t('connectedDevices.renameDevice')}
                             onClick={() => beginRename(d)}
                             className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'}`}
                           >
@@ -285,7 +291,7 @@ export function ConnectedDevicesSection({ isDark }: { isDark: boolean }) {
                         )}
                         <button
                           type="button"
-                          aria-label="Disconnect device"
+                          aria-label={t('connectedDevices.disconnectDevice')}
                           onClick={() => setConfirmingId(d.id)}
                           className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-rose-500/15 text-slate-400 hover:text-rose-400' : 'hover:bg-rose-50 text-slate-500 hover:text-rose-600'}`}
                         >

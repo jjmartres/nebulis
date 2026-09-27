@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { MapPin, Plus, Pencil, Trash2, Star, Sparkles, Compass } from 'lucide-react';
 import { getSites, deleteSite, setDefaultSite, updateSite, type ObservingSite } from '../../lib/api/sites';
 import { SiteEditorModal } from './SiteEditorModal';
@@ -18,6 +19,7 @@ import type { VisibleSkyMap } from '../../lib/visibilityCheck';
  * first.
  */
 export function SiteManagerList({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editing, setEditing] = useState<ObservingSite | null>(null);
@@ -56,7 +58,7 @@ export function SiteManagerList({ isDark }: { isDark: boolean }) {
   // hasn't got one.
   const rawMutationError: unknown = deleteMutation.error ?? saveSkyMutation.error;
   const mutationError = rawMutationError
-    ? (rawMutationError instanceof Error ? rawMutationError.message : 'That site could not be saved. Try again, and check the system log if it keeps failing.')
+    ? (rawMutationError instanceof Error ? rawMutationError.message : t('siteManager.genericSaveError'))
     : null;
 
   return (
@@ -77,9 +79,9 @@ export function SiteManagerList({ isDark }: { isDark: boolean }) {
       )}
       {deleting && (
         <ConfirmModal
-          title="Delete observing site"
-          message={`Delete "${deleting.name}"? Sessions tagged to it will show under your default site instead; nothing on disk is affected.`}
-          confirmLabel="Delete"
+          title={t('siteManager.deleteSiteTitle')}
+          message={t('siteManager.deleteSiteConfirm', { name: deleting.name })}
+          confirmLabel={t('siteManager.delete')}
           pending={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate(deleting.id)}
           onCancel={() => setDeleting(null)}
@@ -115,7 +117,7 @@ export function SiteManagerList({ isDark }: { isDark: boolean }) {
         }`}
       >
         <Plus className="w-4 h-4" />
-        Add observing site
+        {t('siteManager.addSite')}
       </button>
     </div>
   );
@@ -140,6 +142,7 @@ function SiteRow({
   canDelete: boolean;
   isPending: boolean;
 }) {
+  const { t } = useTranslation('settings');
   const hasLocation = site.latitude != null && site.longitude != null;
   const hasSkyMap = site.visibleSkyMap.length > 0;
 
@@ -165,16 +168,16 @@ function SiteRow({
             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border shrink-0 ${
               isDark ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200'
             }`}>
-              <Star className="w-2.5 h-2.5" /> Default
+              <Star className="w-2.5 h-2.5" /> {t('siteManager.default')}
             </span>
           )}
         </div>
         <p className={`text-xs mt-0.5 truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {hasLocation ? `${site.latitude!.toFixed(4)}, ${site.longitude!.toFixed(4)}` : 'No coordinates set'}
-          {' · '}min alt {site.minAlt}°
+          {hasLocation ? `${site.latitude!.toFixed(4)}, ${site.longitude!.toFixed(4)}` : t('siteManager.noCoordinates')}
+          {' · '}{t('siteManager.minAlt', { degrees: site.minAlt })}
           {hasSkyMap && (
             <span className="inline-flex items-center gap-1 ml-1">
-              <Sparkles className="w-3 h-3 inline" /> sky mapped
+              <Sparkles className="w-3 h-3 inline" /> {t('siteManager.skyMapped')}
             </span>
           )}
         </p>
@@ -183,7 +186,7 @@ function SiteRow({
       <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={e => { e.stopPropagation(); onSetSky(); }}
-          title="Set visible sky"
+          title={t('siteManager.setVisibleSky')}
           className={`p-2 rounded-lg transition ${isDark ? 'text-slate-400 hover:text-teal-400 hover:bg-slate-800' : 'text-slate-500 hover:text-teal-600 hover:bg-slate-100'}`}
         >
           <Compass className="w-4 h-4" />
@@ -192,7 +195,7 @@ function SiteRow({
           <button
             onClick={e => { e.stopPropagation(); onSetDefault(); }}
             disabled={isPending}
-            title="Set as default"
+            title={t('siteManager.setAsDefault')}
             className={`p-2 rounded-lg transition disabled:opacity-40 ${
               isDark ? 'text-slate-400 hover:text-amber-400 hover:bg-slate-800' : 'text-slate-500 hover:text-amber-600 hover:bg-slate-100'
             }`}
@@ -202,7 +205,7 @@ function SiteRow({
         )}
         <button
           onClick={e => { e.stopPropagation(); onEdit(); }}
-          title="Edit"
+          title={t('siteManager.edit')}
           className={`p-2 rounded-lg transition ${isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
         >
           <Pencil className="w-4 h-4" />
@@ -210,7 +213,7 @@ function SiteRow({
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
           disabled={isPending || !canDelete}
-          title={canDelete ? 'Delete' : 'Cannot delete the last observing site. Add another first.'}
+          title={canDelete ? t('siteManager.delete') : t('siteManager.cannotDeleteLast')}
           className={`p-2 rounded-lg transition disabled:opacity-40 ${
             isDark ? 'text-slate-400 hover:text-red-400 hover:bg-slate-800' : 'text-slate-500 hover:text-red-600 hover:bg-slate-100'
           }`}

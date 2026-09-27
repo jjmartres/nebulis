@@ -275,7 +275,16 @@ router.post('/detect', requireAdmin, async (req: Request, res: Response) => {
     const rawDateObs = v['DATE-OBS'] ?? v['DATE_OBS'] ?? v['DATE'];
     const dateObs = typeof rawDateObs === 'string' ? rawDateObs : undefined;
     const expTime = headerNumber(v, 'EXPTIME', 'EXPOSURE', 'EXP');
-    const ra = v['RA'] ?? v['OBJCTRA'] ?? v['CRVAL1'] ?? v['RA_OBJ'];
+    // Which card supplied RA decides what a bare decimal means: OBJCTRA is
+    // sexagesimal HOURS by the FITS standard, so '18.5' there is 277.5°, while
+    // CRVAL1 is always degrees. Carrying the keyword alongside the value is what
+    // stops a decimal OBJCTRA being read as 18.5° (a 259° error).
+    const raKeys = ['RA', 'OBJCTRA', 'CRVAL1', 'RA_OBJ'] as const;
+    let ra: unknown = undefined;
+    let raKeyword: string | undefined;
+    for (const key of raKeys) {
+      if (v[key] != null) { ra = v[key]; raKeyword = key; break; }
+    }
     const dec = v['DEC'] ?? v['OBJCTDEC'] ?? v['CRVAL2'] ?? v['DEC_OBJ'];
 
     // Resolution order for observer coordinates:
@@ -398,7 +407,11 @@ router.post('/detect', requireAdmin, async (req: Request, res: Response) => {
     let tleArchiveUnavailable = false;
 
     if (missingFields.length === 0 && !locationRequired && dateObs !== undefined && expTime !== undefined) {
-      const raNum = typeof ra === 'string' ? parseRaToDegs(ra) : typeof ra === 'number' ? ra : 0;
+      // OBJCTRA is the one RA card whose unit is hours by definition (see the
+      // raKeys comment above); everything else treats a bare decimal as degrees.
+      const raNum = typeof ra === 'string'
+        ? parseRaToDegs(ra, { decimalIsHours: raKeyword === 'OBJCTRA' })
+        : typeof ra === 'number' ? ra : 0;
       const decNum = typeof dec === 'string' ? parseDecToDegs(dec) : typeof dec === 'number' ? dec : 0;
       const latNum = typeof obsLat === 'string' ? parseFloat(obsLat) : typeof obsLat === 'number' ? obsLat : 0;
       const lonNum = typeof obsLon === 'string' ? parseFloat(obsLon) : typeof obsLon === 'number' ? obsLon : 0;

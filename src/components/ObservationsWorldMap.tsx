@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { ObservationLocation } from '../lib/api/observations';
@@ -118,6 +119,7 @@ export const ObservationsWorldMap = forwardRef<ObservationsWorldMapHandle, Obser
   isNight,
   isSpace,
 }, captureRef) {
+  const { t } = useTranslation('observations');
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const navigate = useNavigate();
@@ -222,14 +224,17 @@ export const ObservationsWorldMap = forwardRef<ObservationsWorldMapHandle, Obser
           <span style="opacity:0.6;">${escapeHtml(o.date)}</span>
         </a>`;
       }).join('');
-      const more = count > shown.length ? `<div style="opacity:0.6;padding-top:4px;">+${count - shown.length} more</div>` : '';
+      const more = count > shown.length
+        ? `<div style="opacity:0.6;padding-top:4px;">${escapeHtml(t('worldMap.moreCount', { count: count - shown.length }))}</div>`
+        : '';
+      const approximateSuffix = site.approximate ? ` · ${escapeHtml(t('worldMap.approximate'))}` : '';
 
       L.marker([site.lat, site.lon], { icon })
         .addTo(map)
         .bindPopup(
           `<div style="font:12px system-ui;min-width:200px;max-width:260px;">
-             <div style="font-weight:700;margin-bottom:2px;">${count} observation${count === 1 ? '' : 's'}</div>
-             <div style="opacity:0.6;margin-bottom:6px;">${site.lat.toFixed(3)}°, ${site.lon.toFixed(3)}°${site.approximate ? ' · approximate' : ''}</div>
+             <div style="font-weight:700;margin-bottom:2px;">${escapeHtml(t('worldMap.observationCount', { count }))}</div>
+             <div style="opacity:0.6;margin-bottom:6px;">${site.lat.toFixed(3)}°, ${site.lon.toFixed(3)}°${approximateSuffix}</div>
              <div style="max-height:180px;overflow-y:auto;">${rows}${more}</div>
            </div>`,
           { maxWidth: 300 },
@@ -267,7 +272,7 @@ export const ObservationsWorldMap = forwardRef<ObservationsWorldMapHandle, Obser
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, [sites, telescopeById, showTelescopeUI, isDark, accent]);
+  }, [sites, telescopeById, showTelescopeUI, isDark, accent, t]);
 
   useImperativeHandle(captureRef, () => ({
     captureImage: async () => {

@@ -16,10 +16,13 @@
  * hex directly rather than `accent-*` utilities and styles its own text white.
  */
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Library } from 'lucide-react';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
 import type { AstroObject } from '../../types';
+import { formatDate, formatRelativeDuration, formatNumber } from '../../lib/formatLocale';
+import { classOfType, type ObjectClass } from '../../lib/objectCategories';
 
 interface Props {
   /** Objects the hero describes. Already narrowed by the telescope facet so the
@@ -31,28 +34,18 @@ interface Props {
   filteredLabel: string | null;
 }
 
-type CoarseClass = 'galaxy' | 'nebula' | 'cluster';
-
-const CLASS_META: Record<CoarseClass, { label: string; plural: string; dot: string }> = {
-  galaxy:  { label: 'galaxy',  plural: 'galaxies', dot: '#a78bfa' },
-  nebula:  { label: 'nebula',  plural: 'nebulae',  dot: '#22d3ee' },
-  cluster: { label: 'cluster', plural: 'clusters', dot: '#fbbf24' },
+/** i18next plural key per coarse class, resolved with `t(key, { count })` at
+ *  render time — a module-level array can't call useTranslation() itself. */
+const CLASS_META: Record<ObjectClass, { key: string; dot: string }> = {
+  galaxy:  { key: 'libraryHero.class.galaxy',  dot: '#a78bfa' },
+  nebula:  { key: 'libraryHero.class.nebula',  dot: '#22d3ee' },
+  cluster: { key: 'libraryHero.class.cluster', dot: '#fbbf24' },
 };
 
-/** Display order for the class breakdown. Declared with an explicit element
- *  type so the literals are checked against CoarseClass instead of asserted. */
-const BREAKDOWN_ORDER: readonly CoarseClass[] = ['galaxy', 'nebula', 'cluster'];
-
-/** Bucket a raw catalog type into one of the three coarse classes, or null for
- *  everything else (double stars, asterisms, dark nebulae we don't want to
- *  mislabel as emission nebulae, etc.). Kept deliberately small. */
-function classOf(type: string): CoarseClass | null {
-  const t = type.toLowerCase();
-  if (t.includes('galax')) return 'galaxy';
-  if (t.includes('cluster')) return 'cluster';
-  if (t.includes('nebula')) return 'nebula';
-  return null;
-}
+/** Display order for the class breakdown. Deliberately separate from the shared
+ *  module's precedence order: this is how the chips are laid out, not which
+ *  family wins when a type belongs to two. */
+const BREAKDOWN_ORDER: readonly ObjectClass[] = ['galaxy', 'nebula', 'cluster'];
 
 /**
  * The most recent capture date, as something you read rather than parse.
@@ -61,7 +54,7 @@ function classOf(type: string): CoarseClass | null {
  * that has not grown in three months should say so plainly, and one you added
  * to last night should feel current.
  */
-function lastNightLabel(date: string): string {
+function lastNightLabel(date: string, t: (key: string) => string): string {
   const [y, m, d] = date.split('-').map(Number);
   if (!y || !m || !d) return date;
   // Constructed local, not parsed from the ISO string: `new Date('2026-08-11')`
@@ -72,24 +65,28 @@ function lastNightLabel(date: string): string {
     (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - then.getTime())
     / 86_400_000,
   );
-  if (days <= 0) return 'Tonight';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
-  if (days < 14) return 'Last week';
-  if (days < 60) return `${Math.round(days / 7)} weeks ago`;
-  return then.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  // See objectStats.ts's nightsAgo for why 'Tonight'/'Yesterday'/'Last week'
+  // stay short domain phrases while the numeric buckets go through
+  // Intl.RelativeTimeFormat (via formatRelativeDuration).
+  if (days <= 0) return t('libraryHero.lastNight.tonight');
+  if (days === 1) return t('libraryHero.lastNight.yesterday');
+  if (days < 7) return formatRelativeDuration(days, 'day');
+  if (days < 14) return t('libraryHero.lastNight.lastWeek');
+  if (days < 60) return formatRelativeDuration(Math.round(days / 7), 'week');
+  return formatDate(then, { month: 'short', year: 'numeric' });
 }
 
 export function LibraryHero({ objects, accent, filteredLabel }: Props) {
+  const { t } = useTranslation('library');
   const { total, observations, favorites, breakdown, lastNight } = useMemo(() => {
     let obs = 0;
     let favs = 0;
     let last: string | null = null;
-    const counts: Record<CoarseClass, number> = { galaxy: 0, nebula: 0, cluster: 0 };
+    const counts: Record<ObjectClass, number> = { galaxy: 0, nebula: 0, cluster: 0 };
     for (const o of objects) {
       obs += o.sessionCount ?? 0;
       if (o.isFavorite) favs += 1;
-      const cls = classOf(o.type);
+      const cls = classOfType(o.type);
       if (cls) counts[cls] += 1;
       // `YYYY-MM-DD` compares lexicographically in date order.
       if (o.lastSessionDate && (last === null || o.lastSessionDate > last)) last = o.lastSessionDate;
@@ -111,11 +108,11 @@ export function LibraryHero({ objects, accent, filteredLabel }: Props) {
   // from the number size (not all the way to text-base, which read as a
   // caption next to the figures rather than a peer stat).
   const stats: { value: string; label: string; prose?: boolean }[] = [
-    { value: total.toLocaleString(), label: total === 1 ? 'Object' : 'Objects' },
-    { value: observations.toLocaleString(), label: observations === 1 ? 'Observation' : 'Observations' },
+    { value: formatNumber(total), label: t('libraryHero.stats.objects', { count: total }) },
+    { value: formatNumber(observations), label: t('libraryHero.stats.observations', { count: observations }) },
   ];
-  if (favorites > 0) stats.push({ value: favorites.toLocaleString(), label: 'Favorites' });
-  if (lastNight) stats.push({ value: lastNightLabel(lastNight), label: 'Last Observation', prose: true });
+  if (favorites > 0) stats.push({ value: formatNumber(favorites), label: t('libraryHero.stats.favorites') });
+  if (lastNight) stats.push({ value: lastNightLabel(lastNight, t), label: t('libraryHero.stats.lastObservation'), prose: true });
 
   return (
     <section
@@ -138,18 +135,18 @@ export function LibraryHero({ objects, accent, filteredLabel }: Props) {
 
       {/* min-height, not more padding: the artwork needs a band tall enough to
           read as a nebula rather than a smear, and the stats do not fill it. */}
-      <div className="relative flex min-h-[9.5rem] flex-col justify-center p-5 sm:min-h-[11.5rem] sm:p-7">
+      <div className="relative flex hero-min-h flex-col justify-center p-4 sm:p-6">
         {/* The collection. Held to a share of the width on a wide screen so the
             artwork behind has somewhere to be seen. */}
         <div className="min-w-0 lg:max-w-[52%]">
           <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
             <Library className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
-            Library
+            {t('libraryHero.title')}
           </h1>
 
           <p className="mt-2 text-[13px] text-white/55">
             {empty ? (
-              'Nothing here yet. Objects appear once your telescope images are imported.'
+              t('libraryHero.emptyHint')
             ) : (
               <>
                 {breakdown.length > 0 ? (
@@ -158,12 +155,12 @@ export function LibraryHero({ objects, accent, filteredLabel }: Props) {
                       <span key={cls} className="inline-flex items-center gap-1.5">
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: CLASS_META[cls].dot }} />
                         <span className="tabular-nums text-white/70">{count}</span>
-                        <span>{count === 1 ? CLASS_META[cls].label : CLASS_META[cls].plural}</span>
+                        <span>{t(CLASS_META[cls].key, { count })}</span>
                       </span>
                     ))}
                   </span>
                 ) : (
-                  'Everything you have captured, in one place.'
+                  t('libraryHero.allCaptured')
                 )}
                 {filteredLabel && <span className="text-white/40"> · {filteredLabel}</span>}
               </>

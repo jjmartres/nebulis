@@ -101,7 +101,7 @@ Your data and logins survive the update as long as `/app/data` is on a persisten
 
 ## PixInsight Integration
 
-Nebulis includes an official PixInsight JavaScript Runtime (PJSR) connector script and hosts an embedded PixInsight update repository, enabling seamless integration between your observatory library and PixInsight (versions $\ge$ 1.8.9 and 1.9.x on macOS, Linux, and Windows). The connector version is always synchronized with the Nebulis application version (currently **`v2.0.2`**).
+Nebulis includes an official PixInsight JavaScript Runtime (PJSR) connector script and hosts an embedded PixInsight update repository, enabling seamless integration between your observatory library and PixInsight (versions $\ge$ 1.8.9 and 1.9.x on macOS, Linux, and Windows). The connector version is always synchronized with the Nebulis application version (currently **`v2.1.0`**).
 
 ### Adding the Update Repository to PixInsight
 
@@ -116,7 +116,7 @@ Nebulis serves an official PixInsight update repository directly from your serve
    *(e.g., `http://192.168.1.50:8080/plugins/pixinsight/` or `http://localhost:3002/plugins/pixinsight/`)*
 3. Click **OK**, then check for updates via:  
    **Resources → Updates → Check for Updates**
-4. PixInsight will detect **Nebulis Connector for PixInsight (v2.0.2)**. Click **Apply updates** and restart PixInsight when prompted.
+4. PixInsight will detect **Nebulis Connector for PixInsight (v2.1.0)**. Click **Apply updates** and restart PixInsight when prompted.
 5. Launch the connector anytime from:  
    **Script → Nebulis → Nebulis Connector**
 6. Authenticate using your user-linked **API Key** (generated in Nebulis under **Settings → Account → API Keys**, prefixed with `neb-`).

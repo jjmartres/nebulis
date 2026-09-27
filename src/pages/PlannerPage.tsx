@@ -15,7 +15,7 @@
  * checked against that map and indicated with a green / amber / red stripe.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   DndContext,
@@ -27,7 +27,8 @@ import {
   type DragMoveEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { CalendarRange, Check, ListTree, Frame } from 'lucide-react';
+import { CalendarRange, CalendarPlus, Check, ListTree, Frame, Moon, Telescope } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import { getPlannerTargets, getForecastForSite, getBlockVerdicts, type ForecastHour, type PlannerTarget } from '../lib/api/planner';
 import { getSites, getActiveSite, setActiveSite, updateSite, type ObservingSite } from '../lib/api/sites';
@@ -48,12 +49,18 @@ import { PlanCalendar } from '../components/planner/PlanCalendar';
 import { NightHero } from '../components/planner/NightHero';
 import { NightStrip, type StripNight } from '../components/planner/NightStrip';
 import { PlannerActions } from '../components/planner/PlannerActions';
+import { WishlistPanel } from '../components/planner/WishlistPanel';
+import { useWishlist } from '../hooks/useWishlist';
+import type { WishlistItem } from '../lib/api/wishlist';
 import { parsePlannerDragData } from '../components/planner/dragData';
 import { NightWeatherModal, type NightAstro } from '../components/planner/NightWeatherModal';
+import { LightPollutionPill } from '../components/forecast/LightPollutionPill';
 import { FramingModal, FRAMING_MOSAIC_ENABLED } from '../components/catalogs/FramingModal';
 import { useResolvedFov } from '../hooks/useResolvedFov';
-import { classifyFit, objectExtentArcmin } from '../lib/telescopeFov';
+import { classifyFit, fitDisplayStrings, objectExtentArcmin } from '../lib/telescopeFov';
 import { FitBadge } from '../components/FitBadge';
+import { filterRecommendations } from '../lib/filterRecommendations';
+import { FilterRecommendationPanel } from '../components/catalogs/FilterRecommendationPanel';
 import {
   dateFromKey,
   formatPlannerDate,
@@ -89,7 +96,7 @@ import {
   type BlockVisibilityResult,
   type VisibleSkyMap,
 } from '../lib/visibilityCheck';
-import type { MoonProximityResult } from '../lib/moonProximity';
+import { checkMoonProximity, type MoonProximityResult } from '../lib/moonProximity';
 import { AutoPlanModal } from '../components/planner/AutoPlanModal';
 import { PlanShareModal } from '../components/planner/PlanShareModal';
 import { TourAnchor } from '../components/tour/TourAnchor';
@@ -110,18 +117,24 @@ const STRIP_NIGHTS = 14;
 const MIN_GAP_MINUTES = 40;
 
 export function PlannerPage() {
+  const { t } = useTranslation('planner');
   const { isDark, isNight, isSpace } = useTheme();
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-accent-500';
   // The hero and the schedule canvas are night-side in every theme, so they
   // take the bright accent value rather than the light-mode-darkened token.
   const accent = isNight ? '#f87171' : isSpace ? '#a78bfa' : '#fbbf24';
   const queryClient = useQueryClient();
+  const wishlist = useWishlist();
   const location = useLocation();
-  const navState = location.state as { searchQuery?: string; focusDate?: string } | null;
+  const navigate = useNavigate();
+  const navState = location.state as { searchQuery?: string; focusDate?: string; openWishlist?: boolean } | null;
   const initialSearch = navState?.searchQuery ?? '';
   // When arriving from "Plan Tonight" on a catalog, open on the night the plan
   // was scheduled into rather than the planner's own default "today".
   const initialFocusDate = navState?.focusDate;
+  // Set when the Wishlist page's "Minimize" button sent us back here — reopen
+  // the popup instead of landing on a bare Planner.
+  const initialOpenWishlist = navState?.openWishlist ?? false;
 
   // ── Observing site ───────────────────────────────────────────────────────
   // Every location/sky value below (coordinates, minAlt, horizon, visible-sky
@@ -283,8 +296,8 @@ export function PlannerPage() {
     const darkWindow = nightStart && nightEnd
       ? { start: nightStart.getTime(), end: nightEnd.getTime() }
       : null;
-    return scoreNight(nightForecastHours, planner?.moonIllumination ?? 0, observerTimezone, darkWindow);
-  }, [nightForecastHours, nightStart, nightEnd, planner?.moonIllumination, observerTimezone]);
+    return scoreNight(nightForecastHours, planner?.moonIllumination ?? 0, observerTimezone, darkWindow, t);
+  }, [nightForecastHours, nightStart, nightEnd, planner?.moonIllumination, observerTimezone, t]);
 
   // ── The fortnight ahead ────────────────────────────────────────────────
   // One extra sessions read covering the whole strip, so each night can show
@@ -334,7 +347,7 @@ export function PlannerPage() {
           ? scoreNight(hours, Math.round(illum.fraction * 100), observerTimezone, {
               start: window.start.getTime(),
               end: window.end.getTime(),
-            })?.score ?? null
+            }, t)?.score ?? null
           : null;
       }
 
@@ -349,7 +362,7 @@ export function PlannerPage() {
       });
     }
     return out;
-  }, [stripStart, stripNightCount, observerLat, observerLon, forecastHourly, observerTimezone, settingsToday, stripSessionsQuery.data]);
+  }, [stripStart, stripNightCount, observerLat, observerLon, forecastHourly, observerTimezone, settingsToday, stripSessionsQuery.data, t]);
 
   // ── Mutations ──────────────────────────────────────────────────────────
   const createMut = useMutation({
@@ -373,6 +386,7 @@ export function PlannerPage() {
         startTime: vars.startTime,
         endTime: vars.endTime,
         notes: vars.notes ?? '',
+        framingSetup: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -402,7 +416,7 @@ export function PlannerPage() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['planned-sessions'] }),
   });
   const updateMut = useMutation({
-    mutationFn: (vars: { id: number; patch: { startTime?: string; endTime?: string } }) =>
+    mutationFn: (vars: { id: number; patch: { startTime?: string; endTime?: string; framingSetup?: string } }) =>
       updatePlannedSession(vars.id, vars.patch),
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ['planned-sessions'] });
@@ -441,7 +455,7 @@ export function PlannerPage() {
   const [skyMapSaveError, setSkyMapSaveError] = useState<string | null>(null);
   const saveSkyMapMut = useMutation({
     mutationFn: (map: VisibleSkyMap) => {
-      if (!effectiveSiteId) return Promise.reject(new Error('No observing site selected'));
+      if (!effectiveSiteId) return Promise.reject(new Error(t('plannerPage.noObservingSiteSelected')));
       return updateSite(effectiveSiteId, { visibleSkyMap: map });
     },
     onSuccess: () => {
@@ -450,7 +464,7 @@ export function PlannerPage() {
       queryClient.invalidateQueries({ queryKey: ['active-site'] });
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
-    onError: (err: Error) => setSkyMapSaveError(err.message ?? 'Failed to save sky map'),
+    onError: (err: Error) => setSkyMapSaveError(err.message ?? t('plannerPage.failedToSaveSkyMap')),
   });
 
   // ── Drag state ─────────────────────────────────────────────────────────
@@ -479,17 +493,28 @@ export function PlannerPage() {
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
   const [autoPlanRange, setAutoPlanRange] = useState<{ start: Date; end: Date; clearFirst: boolean } | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [wishlistOpen, setWishlistOpen] = useState(initialOpenWishlist);
+  const [addingAllWishlist, setAddingAllWishlist] = useState(false);
   const [weatherOpen, setWeatherOpen] = useState(false);
   const [weatherHourTime, setWeatherHourTime] = useState<string | null>(null);
   const [refreshingForecast, setRefreshingForecast] = useState(false);
   const [mobilePane, setMobilePane] = useState<'targets' | 'schedule'>('targets');
   const [detailsSession, setDetailsSession] = useState<{
+    /** The scheduled block's id, so a mosaic can be saved to it. Null when
+     *  opened from an unscheduled target candidate, which has no block yet. */
+    sessionId: number | null;
     objectId: string;
     objectName: string;
     ra: number;
     dec: number;
     majorAxisArcmin: number | null;
+    framingSetup: string | null;
   } | null>(null);
+  // Jumped straight to from the timeline block's own framing shortcut icon
+  // (only shown when that block already has a saved mosaic), bypassing the
+  // session-details peek entirely. Independent of `detailsSession` above so
+  // opening one doesn't disturb the other.
+  const [framingSession, setFramingSession] = useState<PlannedSession | null>(null);
 
   // Track pointer Y at the window level while a drag is in progress. dnd-kit
   // does not surface live cursor position to onDragEnd, and computing it from
@@ -667,12 +692,12 @@ export function PlannerPage() {
     } catch (err) {
       // Previously the try/finally swallowed this: a copy that failed part-way
       // through looked identical to a completed one.
-      setCopyPrevNightError(err instanceof Error ? err.message : 'Could not copy last night. Some blocks may not have been added.');
+      setCopyPrevNightError(err instanceof Error ? err.message : t('plannerPage.copyPrevNightFailed'));
       await queryClient.invalidateQueries({ queryKey: ['planned-sessions'] });
     } finally {
       setCopyingPrevNight(false);
     }
-  }, [observerLat, observerLon, timelineStartIso, timelineEndIso, queryClient]);
+  }, [observerLat, observerLon, timelineStartIso, timelineEndIso, queryClient, t]);
 
   // Moon-proximity + sky-visibility verdicts for placed blocks. Computed
   // server-side (POST /planner/verdict, see server/lib/autoPlan.ts's sibling
@@ -737,6 +762,14 @@ export function PlannerPage() {
 
   const scheduledIds = useMemo(() => new Set(sessions.map(s => s.objectId)), [sessions]);
 
+  // Full target lookup for SessionDetailsModal's "Add to Tonight" button —
+  // detailsSession only carries the narrow fields the modal needs to render,
+  // not the full PlannerTarget handleQuickAdd requires.
+  const detailsTarget = useMemo(
+    () => detailsSession ? planner?.targets.find(t => t.id === detailsSession.objectId) : undefined,
+    [detailsSession, planner?.targets],
+  );
+
   // Where the moon is above the horizon across this night, for the timeline
   // band and the hero's rise/set readout.
   const moonIntervals: Interval[] = useMemo(() => {
@@ -776,6 +809,9 @@ export function PlannerPage() {
 
     return {
       moonIllumination: planner?.moonIllumination ?? 0,
+      // 'Unknown' stays a plain English sentinel here, same convention as the
+      // other canonical moon-phase names from the server — translated once,
+      // at display time, via translateMoonPhase (see moonPhase.unknown).
       moonPhase: planner?.moonPhase ?? 'Unknown',
       moonRise: moonRise?.toISOString() ?? null,
       moonSet: moonSet?.toISOString() ?? null,
@@ -869,6 +905,7 @@ export function PlannerPage() {
         windowEnd,
         durationMinutes: DEFAULT_BLOCK_MINUTES,
         busy,
+        moonIllumination: planner?.moonIllumination ?? undefined,
       });
       if (!slot) return;
 
@@ -886,8 +923,68 @@ export function PlannerPage() {
       });
       setMobilePane('schedule');
     },
-    [observerLat, observerLon, timelineStartIso, timelineEndIso, darkStartIso, darkEndIso, sessions, createMutate],
+    [observerLat, observerLon, timelineStartIso, timelineEndIso, darkStartIso, darkEndIso, sessions, createMutate, planner?.moonIllumination],
   );
+
+  /**
+   * The Wishlist panel's "Add all visible tonight" bulk action: the same
+   * highest-free-slot placement as handleQuickAdd above, run for several
+   * targets in one pass. Sequential with a locally-accumulated busy list
+   * (rather than looping handleQuickAdd's optimistic mutation) so each slot
+   * sees the ones already placed in this same batch instead of racing
+   * against stale `sessions` state.
+   */
+  const handleAddAllWishlistToPlan = useCallback(async (wishlistTargets: WishlistItem[]) => {
+    if (observerLat == null || observerLon == null || !timelineStartIso || !timelineEndIso) return;
+    const tStart = new Date(timelineStartIso);
+    const tEnd = new Date(timelineEndIso);
+    const windowStart = darkStartIso ? new Date(darkStartIso) : tStart;
+    const windowEnd = darkEndIso ? new Date(darkEndIso) : tEnd;
+
+    const FIVE = 5 * 60_000;
+    const nowMs = Date.now();
+    const earliest = nowMs > windowStart.getTime() && nowMs < windowEnd.getTime()
+      ? new Date(Math.ceil(nowMs / FIVE) * FIVE)
+      : windowStart;
+
+    const busy = sessions.map(s => ({ start: new Date(s.startTime).getTime(), end: new Date(s.endTime).getTime() }));
+    const candidates = wishlistTargets
+      .map(item => planner?.targets.find(t => t.id === item.objectId))
+      .filter((t): t is PlannerTarget => !!t);
+
+    setAddingAllWishlist(true);
+    try {
+      for (const target of candidates) {
+        const slot = bestSlotFor({
+          ra: target.ra,
+          dec: target.dec,
+          lat: observerLat,
+          lon: observerLon,
+          windowStart: earliest,
+          windowEnd,
+          durationMinutes: DEFAULT_BLOCK_MINUTES,
+          busy,
+          moonIllumination: planner?.moonIllumination ?? undefined,
+        });
+        if (!slot) continue;
+        const start = clampTime(snapToGrid(slot.start), tStart, tEnd);
+        const end = clampTime(new Date(start.getTime() + DEFAULT_BLOCK_MINUTES * 60_000), tStart, tEnd);
+        if (minutesBetween(start, end) < MIN_BLOCK_MINUTES) continue;
+        await createPlannedSession({
+          objectId: target.id,
+          objectName: target.name,
+          ra: target.ra,
+          dec: target.dec,
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+        });
+        busy.push({ start: start.getTime(), end: end.getTime() });
+      }
+      await queryClient.invalidateQueries({ queryKey: ['planned-sessions'] });
+    } finally {
+      setAddingAllWishlist(false);
+    }
+  }, [observerLat, observerLon, timelineStartIso, timelineEndIso, darkStartIso, darkEndIso, sessions, planner?.targets, planner?.moonIllumination, queryClient]);
 
   /** Fill an empty stretch by running the auto-planner over just that window. */
   const handleFillGap = useCallback((gap: NightGap) => {
@@ -943,11 +1040,13 @@ export function PlannerPage() {
   // above the early returns below: a hook can't be called conditionally.
   const handleShowTargetDetails = useCallback((t: Pick<PlannerTarget, 'id' | 'name' | 'ra' | 'dec' | 'majorAxisArcmin'>) => {
     setDetailsSession({
+      sessionId: null,
       objectId: t.id,
       objectName: t.name,
       ra: t.ra,
       dec: t.dec,
       majorAxisArcmin: t.majorAxisArcmin,
+      framingSetup: null,
     });
   }, []);
 
@@ -959,17 +1058,27 @@ export function PlannerPage() {
   }, [deleteMutate]);
   const handleShowSessionDetails = useCallback((s: PlannedSession) => {
     setDetailsSession({
+      // A still-optimistic block (negative temp id, see makeTempId) can't be
+      // saved into yet — treat it like an unscheduled candidate until the
+      // real row comes back.
+      sessionId: s.id > 0 ? s.id : null,
       objectId: s.objectId,
       objectName: s.objectName,
       ra: s.ra,
       dec: s.dec,
       majorAxisArcmin: planner?.targets.find(t => t.id === s.objectId)?.majorAxisArcmin ?? null,
+      framingSetup: s.framingSetup,
     });
   }, [planner?.targets]);
+  // Memoized for the same reason as the other block-row callbacks above:
+  // ScheduledImagingBlock is React.memo'd and this is passed to every block.
+  const handleShowFraming = useCallback((s: PlannedSession) => {
+    setFramingSession(s);
+  }, []);
 
   // ── Render ─────────────────────────────────────────────────────────────
   if (sitesQuery.isLoading || activeSiteQuery.isLoading || plannerQuery.isLoading) {
-    return <div className={`p-6 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Loading planner...</div>;
+    return <div className={`p-6 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{t('plannerPage.loading')}</div>;
   }
 
   if (planner && !planner.locationSet) {
@@ -1021,7 +1130,7 @@ export function PlannerPage() {
     planWindowStartMs != null &&
     planWindowEndMs != null &&
     planWindowStartMs < planWindowEndMs - 15 * 60_000;
-  const nightLabel = isToday ? 'Tonight' : formatPlannerDate(selectedDate);
+  const nightLabel = isToday ? t('plannerPage.tonight') : formatPlannerDate(selectedDate);
 
   const openAutoPlan = () => {
     if (planWindowStartMs == null || planWindowEndMs == null) return;
@@ -1086,6 +1195,7 @@ export function PlannerPage() {
           onResize={handleResize}
           observerTimezone={observerTimezone}
           onShowDetails={handleShowSessionDetails}
+          onShowFraming={handleShowFraming}
         />
       </div>
       {/* The band chart squeezes a 12-hour axis into the pane width, so it is
@@ -1110,7 +1220,7 @@ export function PlannerPage() {
     <div className={`flex h-full items-center justify-center rounded-2xl border p-6 text-center text-sm ${
       isDark ? 'border-slate-800 bg-slate-900/60 text-slate-400' : 'border-slate-200 bg-white text-slate-600'
     }`}>
-      No observable night window is available for this location and date.
+      {t('plannerPage.noObservableWindow')}
     </div>
   );
 
@@ -1162,17 +1272,19 @@ export function PlannerPage() {
         <PlannerActions
           isDark={isDark}
           onEditSky={() => setSkyEditorOpen(true)}
-          skyLabel={skyConfigured ? `${visibleCellCount} / ${SKY_MAP_CELLS}` : 'not set'}
+          skyLabel={skyConfigured ? `${visibleCellCount} / ${SKY_MAP_CELLS}` : t('plannerPage.skyNotSet')}
           onCopyPrevious={handleCopyFromPrevNight}
           isCopying={copyingPrevNight}
           canShare={sessions.length > 0 && hasWindow}
           onShare={() => setShareOpen(true)}
+          wishlistCount={wishlist.items.length}
+          onOpenWishlist={() => setWishlistOpen(true)}
         />
       </div>
 
       {skyMapSaveError && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/15 px-3 py-2 text-xs text-red-400">
-          Could not save sky map: {skyMapSaveError}
+          {t('plannerPage.skyMapSaveFailed', { error: skyMapSaveError })}
         </div>
       )}
 
@@ -1188,11 +1300,11 @@ export function PlannerPage() {
       <div className="flex gap-2 lg:hidden">
         <PaneTab active={mobilePane === 'targets'} onClick={() => setMobilePane('targets')} isDark={isDark}>
           <ListTree className="h-4 w-4" />
-          Targets
+          {t('plannerPage.targetsTab')}
         </PaneTab>
         <PaneTab active={mobilePane === 'schedule'} onClick={() => setMobilePane('schedule')} isDark={isDark}>
           <CalendarRange className="h-4 w-4" />
-          Schedule
+          {t('plannerPage.scheduleTab')}
           {sessions.length > 0 && (
             <span className="ml-1 rounded-full bg-accent-500 px-1.5 text-[10px] font-semibold text-white tabular-nums">
               {sessions.length}
@@ -1221,7 +1333,7 @@ export function PlannerPage() {
           {activeLibraryDrag && (
             <div className="pointer-events-none rounded-xl border border-accent-400 bg-slate-900/95 px-3 py-2 text-sm font-medium text-slate-100 shadow-2xl">
               {formatObjectName(activeLibraryDrag.objectId, activeLibraryDrag.objectName)}
-              <div className="mt-0.5 text-[11px] opacity-80">Drop on the timeline to schedule 90 minutes</div>
+              <div className="mt-0.5 text-[11px] opacity-80">{t('plannerPage.dropToSchedule')}</div>
             </div>
           )}
         </DragOverlay>
@@ -1274,6 +1386,30 @@ export function PlannerPage() {
         />
       )}
 
+      {wishlistOpen && (
+        <WishlistPanel
+          items={wishlist.items}
+          targets={planner?.targets ?? []}
+          scheduledIds={scheduledIds}
+          observerLat={observerLat}
+          observerLon={observerLon}
+          minAlt={currentSite?.minAlt ?? 20}
+          moonIllumination={planner?.moonIllumination}
+          observerTimezone={observerTimezone}
+          isDark={isDark}
+          isNight={isNight}
+          isSpace={isSpace}
+          onSetPriority={wishlist.setPriority}
+          onSetNotes={wishlist.setNotes}
+          onRemove={wishlist.remove}
+          onQuickAdd={hasWindow ? handleQuickAdd : undefined}
+          onAddAllVisibleToPlan={handleAddAllWishlistToPlan}
+          addingAll={addingAllWishlist}
+          onExpand={() => navigate('/wishlist', { state: { fromPlanner: true } })}
+          onClose={() => setWishlistOpen(false)}
+        />
+      )}
+
       {weatherOpen && nightAstro && (
         <NightWeatherModal
           date={selectedDate}
@@ -1294,6 +1430,7 @@ export function PlannerPage() {
           initialHourTime={weatherHourTime}
           onRefresh={refreshForecast}
           isRefreshing={refreshingForecast}
+          lightPollution={<LightPollutionPill site={currentSite} />}
           onClose={() => setWeatherOpen(false)}
         />
       )}
@@ -1321,7 +1458,30 @@ export function PlannerPage() {
           nightEnd={nightEnd}
           minAlt={currentSite?.minAlt}
           isDark={isDark}
+          framingSetup={detailsSession.framingSetup}
+          onSaveFraming={detailsSession.sessionId != null
+            ? (json: string) => updateMutate({ id: detailsSession.sessionId!, patch: { framingSetup: json } })
+            : undefined}
+          onQuickAdd={detailsSession.sessionId == null && hasWindow && detailsTarget
+            ? () => handleQuickAdd(detailsTarget)
+            : undefined}
+          isScheduled={detailsSession.sessionId == null && scheduledIds.has(detailsSession.objectId)}
+          isAlreadyImaged={detailsTarget?.isAlreadyImaged}
+          libraryObjectId={detailsTarget?.libraryObjectId}
+          moonIllumination={planner?.moonIllumination}
           onClose={() => setDetailsSession(null)}
+        />
+      )}
+      {framingSession && (
+        <FramingModal
+          catalogId={framingSession.objectId}
+          objectName={framingSession.objectName}
+          isDark={isDark}
+          savedFraming={framingSession.framingSetup}
+          onSaveFraming={framingSession.id > 0
+            ? (json: string) => updateMutate({ id: framingSession.id, patch: { framingSetup: json } })
+            : undefined}
+          onClose={() => setFramingSession(null)}
         />
       )}
     </div>
@@ -1362,6 +1522,7 @@ function PaneTab({
 }
 
 function SaveIndicator({ isPending }: { isPending: boolean }) {
+  const { t } = useTranslation('planner');
   const [showSaved, setShowSaved] = useState(false);
   const wasPending = useRef(false);
 
@@ -1382,12 +1543,12 @@ function SaveIndicator({ isPending }: { isPending: boolean }) {
       {isPending ? (
         <>
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-          Saving...
+          {t('plannerPage.saving')}
         </>
       ) : (
         <>
           <Check className="h-3 w-3" />
-          Saved
+          {t('plannerPage.saved')}
         </>
       )}
     </span>
@@ -1407,6 +1568,22 @@ interface SessionDetailsModalProps {
   nightEnd: Date | null;
   minAlt: number | undefined;
   isDark: boolean;
+  framingSetup: string | null;
+  onSaveFraming?: (framingSetupJson: string) => void;
+  /** Undefined hides the button entirely — this popup is for an already-
+   *  scheduled block (saving a mosaic to it is a different action, above),
+   *  or there's no tonight window to schedule into at all. */
+  onQuickAdd?: () => void;
+  /** True once this object has a block on tonight's timeline, whether it
+   *  was there already or was just added — swaps the button for a checkmark. */
+  isScheduled?: boolean;
+  /** From PlannerTarget — undefined when the object isn't in tonight's
+   *  target list (e.g. a scheduled block for something no longer visible),
+   *  in which case the imaged badge/button just don't render. */
+  isAlreadyImaged?: boolean;
+  libraryObjectId?: string | null;
+  /** Tonight's moon illumination (0-100), for the moon-proximity check. */
+  moonIllumination?: number;
   onClose: () => void;
 }
 
@@ -1423,8 +1600,18 @@ function SessionDetailsModal({
   nightEnd,
   minAlt,
   isDark,
+  framingSetup,
+  onSaveFraming,
+  onQuickAdd,
+  isScheduled,
+  isAlreadyImaged,
+  libraryObjectId,
+  moonIllumination,
   onClose,
 }: SessionDetailsModalProps) {
+  const { t } = useTranslation('planner');
+  const { t: tCatalogs } = useTranslation('catalogs');
+  const navigate = useNavigate();
   const hasLocation = observerLat != null && observerLon != null;
 
   // Default the sky chart to the object's highest point tonight, the natural
@@ -1447,19 +1634,51 @@ function SessionDetailsModal({
   const [scrubTime, setScrubTime] = useState<Date | null>(null);
   const skyTime = scrubTime ?? bestTime;
 
+  // Not Infinity — see the matching comment in WishlistObjectModal, which
+  // shares this same query key: a freshly-imported object's description
+  // can still be mid-enrichment when this first loads, and an infinite
+  // staleTime would pin the empty result for the rest of the tab's life.
   const { data: info } = useQuery({
     queryKey: ['catalog-info', objectId],
     queryFn: () => getCatalogObjectInfo(objectId),
-    staleTime: Infinity,
+    staleTime: 5 * 60_000,
   });
   const description = info?.description?.trim() || '';
   const wikiUrl = info?.wikiUrl || null;
+  // Same "type from the already-fetched catalog info" trick as CatalogObjectModal
+  // and WishlistObjectModal — costs no extra request.
+  const filterRec = info?.type?.trim() ? filterRecommendations(info.type) : null;
+
+  // Worst-case moon proximity across tonight's whole dark window (not just
+  // the currently-scrubbed instant the sky tracker's own caption already
+  // shows) — answers "will the moon actually be a problem tonight" as one
+  // verdict, the same heuristic ScheduledImagingBlock uses for blocks
+  // already on the timeline.
+  const moonCheck = useMemo(() => {
+    if (!hasLocation || moonIllumination == null) return null;
+    const { start, end } = nightStart && nightEnd
+      ? { start: nightStart, end: nightEnd }
+      : buildTonightWindow(new Date(), observerTimezone);
+    return checkMoonProximity(ra, dec, observerLat!, observerLon!, start, end, moonIllumination, 10, observerTimezone);
+  }, [hasLocation, ra, dec, observerLat, observerLon, nightStart, nightEnd, moonIllumination, observerTimezone]);
 
   const referenceUrl = getCatalogThumbnailUrl(objectId, majorAxisArcmin);
 
   const fov = useResolvedFov();
   const fit = useMemo(() => classifyFit(fov, objectExtentArcmin(null, majorAxisArcmin)), [fov, majorAxisArcmin]);
+  const fitStrings = useMemo(() => (fit ? fitDisplayStrings(fit, tCatalogs) : null), [fit, tCatalogs]);
   const [framingOpen, setFramingOpen] = useState(false);
+
+  useEffect(() => {
+    // Guard against framingOpen: FramingModal below is a nested overlay with
+    // its own window-level Escape handler, so without this, one Escape press
+    // while Framing & Mosaic is open would close it AND this modal at once.
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !framingOpen) onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, framingOpen]);
 
   return (
     <>
@@ -1468,128 +1687,239 @@ function SessionDetailsModal({
       onClick={onClose}
     >
       <div
-        className={`relative rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-auto ${
+        className={`relative flex flex-col rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] ${
           isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-slate-700/40">
-          <div>
-            <h2 className="text-lg font-semibold">{formatObjectName(objectId, objectName)}</h2>
-            <p className="text-xs opacity-70 mt-0.5">RA {ra.toFixed(2)}h · Dec {dec.toFixed(2)}°</p>
+        {/* Header — stays pinned so the object identity and close button
+            are always visible, even when the body below scrolls. Same
+            title/info-line/badge shape as WishlistObjectModal and
+            CatalogObjectModal. */}
+        <div className="shrink-0 flex items-start justify-between p-5 border-b border-slate-700/40 gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-display font-bold tracking-tight">{objectId}</h2>
+              {objectName !== objectId && (
+                <span className={`text-base font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {objectName}
+                </span>
+              )}
+              {fit && fitStrings && (
+                <FitBadge tag={fit.tag} label={fitStrings.short} title={fitStrings.label} isDark={isDark} />
+              )}
+              {isAlreadyImaged && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-white bg-emerald-500">
+                  {t('wishlistObjectModal.imaged')}
+                </span>
+              )}
+            </div>
+            <div className={`flex items-center flex-wrap gap-3 mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {info?.type && <span>{info.type}</span>}
+              {info?.constellation && <span>· {info.constellation}</span>}
+              {info?.magnitude != null && <span>· {tCatalogs('catalogObjectModal.mag', { value: info.magnitude.toFixed(1) })}</span>}
+              <span>· {tCatalogs('catalogObjectModal.raDec', { ra: ra.toFixed(2), dec: dec.toFixed(2) })}</span>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/10 transition"
-            aria-label="Close details"
+            className="shrink-0 p-2 rounded-lg hover:bg-white/10 transition"
+            aria-label={t('plannerPage.closeDetails')}
           >
             <CloseIcon />
           </button>
         </div>
-        <div className="p-5 space-y-5">
-          {FRAMING_MOSAIC_ENABLED && (
-            <div className="-mb-1 flex flex-wrap items-center gap-2">
-              {fit && <FitBadge tag={fit.tag} label={fit.short} title={fit.label} isDark={isDark} />}
+
+        {/* Body — scrolls independently of the pinned header/footer. */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
+          {/* Reference photo + description, same compact treatment as
+              WishlistObjectModal/CatalogObjectModal rather than a large
+              square image. */}
+          <div className="flex gap-4 items-start">
+            <img
+              src={referenceUrl}
+              alt={t('plannerPage.referenceImageAlt', { name: objectName })}
+              loading="lazy"
+              className={`w-36 h-36 shrink-0 rounded-xl overflow-hidden border object-cover ${
+                isDark ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-slate-100'
+              }`}
+            />
+            <div className="min-w-0">
+              {description ? (
+                <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {description}
+                </p>
+              ) : (
+                <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+                  {t('plannerPage.noCatalogDescription')}
+                </p>
+              )}
+              {wikiUrl && (
+                <a
+                  href={wikiUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-block text-xs mt-2 ${isDark ? 'text-amber-400 hover:text-amber-300' : 'text-amber-600 hover:text-amber-700'}`}
+                >
+                  {t('plannerPage.readMoreWikipedia')}
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Left: filter recommendations + altitude tonight, stacked.
+              Right: sky-position tracker — this modal's one feature
+              Wishlist/Catalogs don't have, so it keeps its own column.
+              Stacking altitude under the filter panel (rather than full
+              width below both) keeps the two columns closer in height and
+              lets the chart size itself to the column instead of floating
+              in a wider area than it fills. */}
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+            {/* The left column is held to the star chart's own height (the
+                chart beside it is square, and both columns are the same
+                width), so the moon verdict's bottom edge lands on the star
+                chart's bottom edge rather than on the caption lines that hang
+                below it. min-h-fit lets it grow past that when the text needs
+                more room than the square gives it, which is what happens on
+                narrower screens. */}
+            <div className="flex flex-col gap-4 sm:aspect-square sm:min-h-fit">
+              {filterRec && <FilterRecommendationPanel recommendations={filterRec} isDark={isDark} />}
+              {/* Altitude takes whatever height this column has left over, so
+                  the moon verdict below stays tight under the curve and the
+                  chart stays 16px under the filter panel. That leftover height
+                  becomes plot, so nothing is padded to fake the fit. */}
+              {hasLocation ? (
+                <AltitudeChart
+                  fill
+                  ra={ra}
+                  dec={dec}
+                  lat={observerLat}
+                  lon={observerLon}
+                  minAlt={minAlt}
+                  moonIllumination={moonIllumination}
+                  timeZone={observerTimezone}
+                  isDark={isDark}
+                  onScrub={(p) => setScrubTime(p ? p.time : null)}
+                />
+              ) : (
+                <div className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {t('plannerPage.setLocationForAltitude')}
+                </div>
+              )}
+
+              {/* Moon tonight — worst-case proximity across the whole dark
+                  window, so "should I even bother with this tonight" has one
+                  answer instead of requiring a mental read of the sky tracker
+                  at every scrub position. */}
+              {moonCheck && (
+                <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs leading-snug ${
+                  moonCheck.verdict === 'ok'
+                    ? isDark ? 'bg-slate-800/50 text-slate-400' : 'bg-slate-100 text-slate-500'
+                    : moonCheck.verdict === 'caution'
+                      ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+                      : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                }`}>
+                  <Moon className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {moonCheck.verdict === 'ok'
+                      ? t('plannerPage.moonOkTonight', { percent: Math.round(moonIllumination ?? 0) })
+                      : t('plannerPage.moonWarningTonight', {
+                          deg: Math.round(moonCheck.minSeparation),
+                          time: moonCheck.worstAt ? formatHm(moonCheck.worstAt, observerTimezone) : '',
+                          percent: Math.round(moonIllumination ?? 0),
+                        })}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div>
+              {observerLat != null && observerLon != null ? (
+                <SkyChart
+                  objectName={objectName}
+                  ra={ra}
+                  dec={dec}
+                  lat={observerLat}
+                  lon={observerLon}
+                  time={skyTime}
+                  isDark={isDark}
+                />
+              ) : (
+                <div className={`flex aspect-square items-center justify-center rounded-xl border px-4 text-center text-sm ${
+                  isDark ? 'border-slate-800 bg-slate-950 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'
+                }`}>
+                  {t('plannerPage.setLocationForSky')}
+                </div>
+              )}
+              {hasLocation && (
+                // Always two lines tall. The scrubbed wording is short enough
+                // for one line, the "(highest tonight)" default is not, and the
+                // modal is centered, so switching between them on hover moved
+                // the whole dialog up and down by a line. Reserving the taller
+                // state keeps the modal still while scrubbing. min-h, not a
+                // fixed height: a longer translation can still take a third
+                // line rather than being clipped.
+                <p className={`mt-1.5 min-h-[3em] text-center text-[11px] leading-normal ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+                  {scrubTime
+                    ? t('plannerPage.skyShownAt', { time: formatHm(skyTime, observerTimezone) })
+                    : t('plannerPage.skyShownAtHighest', { time: formatHm(skyTime, observerTimezone) })}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions — pinned footer. Same three actions as
+            WishlistObjectModal/CatalogObjectModal, deliberately in a different
+            order: this modal is reached from the Planner's target list, so
+            scheduling leads. It is also the only one of the three that promotes
+            the planner action to a solid fill, and the slot it sits in is the
+            one that is always occupied (button or "Scheduled" chip), so putting
+            it first keeps the primary action from sliding sideways whenever the
+            object happens to already be in the library. View observations drops
+            to the same neutral outline as Framing & Mosaic to leave exactly one
+            solid button; the green "Imaged" badge in the header already says the
+            object is in your library. */}
+        {(FRAMING_MOSAIC_ENABLED || onQuickAdd || isScheduled || (isAlreadyImaged && libraryObjectId)) && (
+          <div className={`shrink-0 flex flex-wrap gap-2 p-5 pt-3 border-t ${isDark ? 'border-slate-700/40' : 'border-slate-200'}`}>
+            {isScheduled ? (
+              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                <Check className="w-4 h-4" />
+                {t('wishlistPanel.scheduled')}
+              </span>
+            ) : onQuickAdd ? (
               <button
-                onClick={() => setFramingOpen(true)}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                onClick={onQuickAdd}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition text-white bg-accent-500 hover:bg-accent-600"
+              >
+                <CalendarPlus className="w-4 h-4" />
+                {t('plannerPage.addToTonight')}
+              </button>
+            ) : null}
+            {isAlreadyImaged && libraryObjectId && (
+              <button
+                onClick={() => { navigate(`/object/${encodeURIComponent(libraryObjectId)}`); onClose(); }}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition border ${
                   isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
-                title="Preview how this object frames in your telescope, and plan a mosaic"
               >
-                <Frame className="h-3.5 w-3.5 text-sky-500" />
-                Framing &amp; Mosaic
+                <Telescope className="w-4 h-4" />
+                {tCatalogs('catalogObjectModal.viewObservations')}
               </button>
-            </div>
-          )}
-          {/* Reference photo (left) + sky-position chart (right) */}
-          <div className="grid gap-4 sm:grid-cols-2 items-start">
-            <div className="space-y-2">
-              <img
-                src={referenceUrl}
-                alt={`Reference image of ${objectName}`}
-                loading="lazy"
-                className={`block w-full aspect-square rounded-xl object-cover border ${
-                  isDark ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-slate-100'
+            )}
+            {FRAMING_MOSAIC_ENABLED && (
+              <button
+                onClick={() => setFramingOpen(true)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition border ${
+                  isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
-              />
-              <p className={`text-[11px] text-center ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-                Reference image
-              </p>
-            </div>
-
-            {observerLat != null && observerLon != null ? (
-              <SkyChart
-                objectName={objectName}
-                ra={ra}
-                dec={dec}
-                lat={observerLat}
-                lon={observerLon}
-                time={skyTime}
-                isDark={isDark}
-              />
-            ) : (
-              <div className={`flex aspect-square items-center justify-center rounded-xl border px-4 text-center text-sm ${
-                isDark ? 'border-slate-800 bg-slate-950 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'
-              }`}>
-                Set your location in Settings to see where this sits in your sky.
-              </div>
-            )}
-          </div>
-
-          {hasLocation && (
-            <p className={`-mt-2 text-[11px] text-center ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-              Sky shown at{' '}
-              {formatHm(skyTime, observerTimezone)}
-              {scrubTime ? '' : ' (highest tonight)'}. Scrub the curve below to retime.
-            </p>
-          )}
-
-          {/* Description */}
-          <div className="min-w-0">
-            {description ? (
-              <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                {description}
-              </p>
-            ) : (
-              <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-                No catalog description available for this object.
-              </p>
-            )}
-            {wikiUrl && (
-              <a
-                href={wikiUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-block text-xs mt-2 ${isDark ? 'text-amber-400 hover:text-amber-300' : 'text-amber-600 hover:text-amber-700'}`}
+                title={tCatalogs('catalogObjectModal.framingButtonTitle')}
               >
-                Read more on Wikipedia →
-              </a>
+                <Frame className="w-4 h-4 text-sky-500" />
+                {tCatalogs('catalogObjectModal.framingButton')}
+              </button>
             )}
           </div>
-
-          {hasLocation ? (
-            <div>
-              <div className={`text-xs font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                Altitude tonight (local noon to noon)
-              </div>
-              <AltitudeChart
-                ra={ra}
-                dec={dec}
-                lat={observerLat}
-                lon={observerLon}
-                minAlt={minAlt}
-                timeZone={observerTimezone}
-                isDark={isDark}
-                onScrub={(p) => setScrubTime(p ? p.time : null)}
-              />
-            </div>
-          ) : (
-            <div className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              Set your location in Settings to see the altitude curve.
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
     {framingOpen && (
@@ -1597,6 +1927,8 @@ function SessionDetailsModal({
         catalogId={objectId}
         objectName={objectName}
         isDark={isDark}
+        savedFraming={framingSetup}
+        onSaveFraming={onSaveFraming}
         onClose={() => setFramingOpen(false)}
       />
     )}

@@ -6,6 +6,7 @@
  * Above 80° is treated as zenith and always visible (not editable here).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import {
@@ -80,8 +81,18 @@ export function VisibleSkyEditor(props: VisibleSkyEditorProps) {
 }
 
 function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorProps) {
+  const { t } = useTranslation('settings');
   const { isDark } = useTheme();
   const [map, setMap] = useState<VisibleSkyMap>(() => normalizeMap(initialMap));
+
+  // Focus this dialog on mount, the same as the shared Modal primitive does.
+  // Without this, when opened on top of another dialog (SiteManagerModal),
+  // focus stays on whatever background button was clicked to open this one —
+  // a sibling of this div, not a descendant — so the onKeyDown below would
+  // never see the keypress and Escape would silently fall through to the
+  // ancestor dialog instead.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { dialogRef.current?.focus(); }, []);
 
   // Paint mode: when the user presses on a cell, we capture the *target*
   // visibility (opposite of the pressed cell) and stamp every cell the
@@ -147,10 +158,10 @@ function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorP
   const visibleCount = map.filter(Boolean).length;
 
   const cardinalLabels: Array<{ az: number; text: string }> = [
-    { az: 0, text: 'N' },
-    { az: 90, text: 'E' },
-    { az: 180, text: 'S' },
-    { az: 270, text: 'W' },
+    { az: 0, text: t('visibleSky.compass.n') },
+    { az: 90, text: t('visibleSky.compass.e') },
+    { az: 180, text: t('visibleSky.compass.s') },
+    { az: 270, text: t('visibleSky.compass.w') },
   ];
 
   // One label per band, at the band's center altitude (5°, 15°, … for 10° bands).
@@ -163,11 +174,20 @@ function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorP
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       // z-[100]: must sit above the shared `Modal` primitive (z-[90]) now that
       // this can be opened from inside SiteManagerModal, not just directly
       // from the Planner toolbar.
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 outline-none"
       onClick={onClose}
+      onKeyDown={(e) => {
+        // A React-tree handler, not a window listener: this can be nested
+        // inside SiteManagerModal (the shared Modal primitive), and
+        // stopPropagation here keeps one Escape press from also closing
+        // that ancestor dialog.
+        if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+      }}
     >
       <div
         className={`relative rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-auto ${
@@ -177,15 +197,15 @@ function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorP
       >
         <div className="flex items-center justify-between p-5 border-b border-slate-700/40">
           <div>
-            <h2 className="text-lg font-semibold">Set Visible Sky</h2>
+            <h2 className="text-lg font-semibold">{t('visibleSky.title')}</h2>
             <p className="text-xs opacity-70 mt-0.5">
-              Click a cell to toggle whether you can see that patch of sky. {visibleCount} of {SKY_MAP_CELLS} cells visible.
+              {t('visibleSky.instructions', { visible: visibleCount, total: SKY_MAP_CELLS })}
             </p>
           </div>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-white/10 transition"
-            aria-label="Close"
+            aria-label={t('visibleSky.close')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -197,25 +217,25 @@ function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorP
               onClick={() => setMap(makeAllVisibleMap())}
               className="px-3 py-1.5 text-xs rounded-lg bg-accent-500 hover:bg-accent-600 text-white"
             >
-              All visible
+              {t('visibleSky.allVisible')}
             </button>
             <button
               onClick={() => setMap(makeAllBlockedMap())}
               className="px-3 py-1.5 text-xs rounded-lg bg-slate-700 hover:bg-slate-600 text-white"
             >
-              Clear all
+              {t('visibleSky.clearAll')}
             </button>
             <button
               onClick={() => setMap(prev => mirrorNS(prev))}
               className="px-3 py-1.5 text-xs rounded-lg bg-slate-700 hover:bg-slate-600 text-white"
             >
-              Mirror N to S
+              {t('visibleSky.mirrorNtoS', { n: t('visibleSky.compass.n'), s: t('visibleSky.compass.s') })}
             </button>
             <button
               onClick={() => setMap(prev => mirrorEW(prev))}
               className="px-3 py-1.5 text-xs rounded-lg bg-slate-700 hover:bg-slate-600 text-white"
             >
-              Mirror E to W
+              {t('visibleSky.mirrorEtoW', { e: t('visibleSky.compass.e'), w: t('visibleSky.compass.w') })}
             </button>
           </div>
 
@@ -223,7 +243,7 @@ function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorP
             viewBox={`${-VIEW_PAD} ${-VIEW_PAD} ${SVG_SIZE + VIEW_PAD * 2} ${SVG_SIZE + VIEW_PAD * 2}`}
             className="w-full max-w-[480px] h-auto select-none touch-none"
             role="img"
-            aria-label="Visible sky map editor"
+            aria-label={t('visibleSky.mapAriaLabel')}
           >
             <circle cx={CENTER} cy={CENTER} r={RING_OUTER + 8} fill="none" stroke={strokeColor} strokeWidth={1} />
             <circle cx={CENTER} cy={CENTER} r={RING_INNER} fill={visibleFill} stroke={strokeColor} strokeWidth={1} />
@@ -235,7 +255,7 @@ function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorP
               fill={labelColor}
               opacity={0.85}
             >
-              80°+ (zenith)
+              {t('visibleSky.zenith')}
             </text>
 
             {Array.from({ length: SKY_MAP_AZ_SLICES }, (_, az) =>
@@ -293,8 +313,7 @@ function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorP
           </svg>
 
           <p className="text-xs opacity-60 max-w-md text-center">
-            Bands are {SKY_MAP_BAND_HEIGHT_DEG}° tall, from the horizon (outer ring) up to 80°.
-            Above 80° is treated as zenith and always visible.
+            {t('visibleSky.bandsExplanation', { height: SKY_MAP_BAND_HEIGHT_DEG })}
           </p>
         </div>
 
@@ -305,13 +324,13 @@ function VisibleSkyEditorBody({ initialMap, onSave, onClose }: VisibleSkyEditorP
               isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-900'
             }`}
           >
-            Cancel
+            {t('visibleSky.cancel')}
           </button>
           <button
             onClick={() => onSave(map)}
             className="px-4 py-2 text-sm rounded-lg bg-accent-500 hover:bg-accent-600 text-white"
           >
-            Save sky map
+            {t('visibleSky.saveSkyMap')}
           </button>
         </div>
       </div>

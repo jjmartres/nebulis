@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { X, Smartphone, Tv, Mail } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useTheme } from '../../hooks/useTheme';
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function MobileAppsPromoModal({ isOpen, onClose }: Props) {
+  const { t } = useTranslation('help');
   const { isDark } = useTheme();
 
   function dismiss() {
@@ -31,20 +33,20 @@ export function MobileAppsPromoModal({ isOpen, onClose }: Props) {
     <Modal
       isOpen={isOpen}
       onClose={remindLater}
-      title="Nebulis Mobile Apps"
+      title={t('mobileAppsPromo.title')}
       className="w-full max-w-md"
     >
       <div className={`rounded-2xl border shadow-xl overflow-hidden ${bg} ${border}`}>
         {/* Header */}
         <div className={`flex items-center justify-between px-5 py-4 border-b ${divider}`}>
           <div>
-            <h2 className={`text-base font-bold ${heading}`}>Nebulis on Mobile</h2>
-            <p className={`text-xs mt-0.5 ${muted}`}>Take your library anywhere</p>
+            <h2 className={`text-base font-bold ${heading}`}>{t('mobileAppsPromo.heading')}</h2>
+            <p className={`text-xs mt-0.5 ${muted}`}>{t('mobileAppsPromo.subtitle')}</p>
           </div>
           <button
             onClick={remindLater}
             className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
-            aria-label="Close"
+            aria-label={t('mobileAppsPromo.close')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -53,10 +55,10 @@ export function MobileAppsPromoModal({ isOpen, onClose }: Props) {
         {/* Body */}
         <div className="px-5 py-5 space-y-4">
           <p className={`text-sm leading-relaxed ${body}`}>
-            Thank you for using Nebulis. I believe your images and data belong to you, which is why I built this as a free, secure, self-hosted solution. Your library stays on your hardware, no accounts, no subscriptions, and no data leaving your network.
+            {t('mobileAppsPromo.body1')}
           </p>
           <p className={`text-sm leading-relaxed ${body}`}>
-            The mobile apps let you browse your library on the go, or pull it up on your TV (Apple TV). I charge a small one-time fee ($4.99) to help cover ongoing development costs on those platforms.
+            {t('mobileAppsPromo.body2')}
           </p>
 
           {/* App links */}
@@ -75,8 +77,8 @@ export function MobileAppsPromoModal({ isOpen, onClose }: Props) {
                 <Smartphone className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className={`text-sm font-semibold ${heading}`}>iPhone, iPad + Apple TV</div>
-                <div className={`text-xs mt-0.5 ${muted}`}>Download on the App Store</div>
+                <div className={`text-sm font-semibold ${heading}`}>{t('mobileAppsPromo.appleLine1')}</div>
+                <div className={`text-xs mt-0.5 ${muted}`}>{t('mobileAppsPromo.appleLine2')}</div>
               </div>
               <Tv className={`ml-auto w-4 h-4 shrink-0 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
             </a>
@@ -94,8 +96,8 @@ export function MobileAppsPromoModal({ isOpen, onClose }: Props) {
                 <Smartphone className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className={`text-sm font-semibold ${heading}`}>Android</div>
-                <div className={`text-xs mt-0.5 ${muted}`}>Get it on Google Play</div>
+                <div className={`text-sm font-semibold ${heading}`}>{t('mobileAppsPromo.androidLine1')}</div>
+                <div className={`text-xs mt-0.5 ${muted}`}>{t('mobileAppsPromo.androidLine2')}</div>
               </div>
             </a>
           </div>
@@ -104,12 +106,12 @@ export function MobileAppsPromoModal({ isOpen, onClose }: Props) {
           <div className={`flex items-start gap-3 pt-1 pb-1 text-sm ${muted}`}>
             <Mail className="w-4 h-4 mt-0.5 shrink-0" />
             <span>
-              Report issues or request features:{' '}
+              {t('mobileAppsPromo.supportLine')}{' '}
               <a
                 href="mailto:support@nebulis.app"
                 className={`font-medium underline underline-offset-2 ${isDark ? 'text-accent-400 hover:text-accent-300' : 'text-accent-700 hover:text-accent-600'}`}
               >
-                support@nebulis.app
+                {t('mobileAppsPromo.supportEmail')}
               </a>
             </span>
           </div>
@@ -121,13 +123,13 @@ export function MobileAppsPromoModal({ isOpen, onClose }: Props) {
             onClick={remindLater}
             className={`px-3 py-2 rounded-lg text-sm font-medium transition ${isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'}`}
           >
-            Remind me later
+            {t('mobileAppsPromo.remindLater')}
           </button>
           <button
             onClick={dismiss}
             className="px-3 py-2 rounded-lg text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition"
           >
-            Got it
+            {t('mobileAppsPromo.gotIt')}
           </button>
         </div>
       </div>

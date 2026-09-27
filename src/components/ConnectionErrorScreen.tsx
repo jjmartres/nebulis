@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { WifiOff } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { Modal } from './ui/Modal';
@@ -11,13 +12,14 @@ import { Modal } from './ui/Modal';
  */
 export function ConnectionErrorScreen({ onRetry }: { onRetry: () => void }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('common');
   const card = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
 
   return (
     <Modal
       isOpen
       onClose={() => {}}
-      title="Can't reach the Nebulis server"
+      title={t('connectionError.title')}
       className={`w-full max-w-sm rounded-2xl border shadow-2xl p-8 text-center ${card}`}
     >
       <div className="flex flex-col items-center">
@@ -25,17 +27,17 @@ export function ConnectionErrorScreen({ onRetry }: { onRetry: () => void }) {
           <WifiOff className={`w-6 h-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
         </div>
         <h1 className={`text-xl font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-          Can't reach the server
+          {t('connectionError.heading')}
         </h1>
         <p className={`text-sm mt-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Nebulis is still starting up, or the connection was interrupted. Try again in a moment.
+          {t('connectionError.message')}
         </p>
         <button
           type="button"
           onClick={onRetry}
           className="mt-6 w-full px-4 py-3 rounded-xl bg-accent-500 hover:bg-accent-600 text-white font-medium text-sm transition-colors"
         >
-          Retry
+          {t('connectionError.retry')}
         </button>
       </div>
     </Modal>

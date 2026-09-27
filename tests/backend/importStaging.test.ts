@@ -19,6 +19,7 @@ import {
   IMPORT_TMP_BASE,
   isValidTmpId,
   isStagedPath,
+  isImportStagingBase,
   getImportTmpUsage,
   purgeImportTmp,
   purgeImportTmpSession,
@@ -73,6 +74,19 @@ describe('isStagedPath', () => {
     // Textually starts with the base, actually points at the user's library.
     const sneaky = path.join(IMPORT_TMP_BASE, '..', 'library', 'M42');
     expect(isStagedPath(sneaky)).toBe(false);
+  });
+});
+
+describe('isImportStagingBase', () => {
+  it('matches only the base itself, never a session inside it', () => {
+    // A session directory is a real staged source and must stay deletable after
+    // its import; the base is our scratch space and must never be an import
+    // source, because the post-commit cleanup would wipe every other session.
+    expect(isImportStagingBase(IMPORT_TMP_BASE)).toBe(true);
+    expect(isImportStagingBase(path.join(IMPORT_TMP_BASE, UUID))).toBe(false);
+    expect(isImportStagingBase(path.join(IMPORT_TMP_BASE, UUID, 'M42'))).toBe(false);
+    expect(isImportStagingBase(path.join(TEST_DATA_DIR, 'library'))).toBe(false);
+    expect(isImportStagingBase(path.join(IMPORT_TMP_BASE, '..', 'import-tmp'))).toBe(true);
   });
 });
 

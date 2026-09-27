@@ -7,12 +7,9 @@
  * above it, so any month in the record is two clicks away.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-
-const MONTHS_SHORT = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
+import { monthLabels } from '../../lib/formatLocale';
 
 interface Props {
   /** The year currently on the calendar. */
@@ -26,11 +23,13 @@ interface Props {
 }
 
 export function MonthYearMenu({ year, month, label, isDark, onPick }: Props) {
+  const { t } = useTranslation('observations');
   const [open, setOpen] = useState(false);
   /** The year the grid is paging through, separate from the committed one so
    *  you can look at another year without leaving the month you're on. */
   const [viewYear, setViewYear] = useState(year);
   const rootRef = useRef<HTMLDivElement>(null);
+  const monthsShort = monthLabels();
 
   const toggle = () => {
     // Always (re)open on the year you're currently looking at.
@@ -73,7 +72,7 @@ export function MonthYearMenu({ year, month, label, isDark, onPick }: Props) {
       {open && (
         <div
           role="dialog"
-          aria-label="Jump to a month"
+          aria-label={t('monthYearMenu.jumpToMonth')}
           className={`absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-xl border p-3 shadow-xl ${
             isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white'
           }`}
@@ -82,7 +81,7 @@ export function MonthYearMenu({ year, month, label, isDark, onPick }: Props) {
             <button
               type="button"
               onClick={() => setViewYear(y => y - 1)}
-              aria-label={`Show ${viewYear - 1}`}
+              aria-label={t('monthYearMenu.showYear', { year: viewYear - 1 })}
               className={`rounded-lg p-1 transition ${
                 isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'
               }`}
@@ -97,7 +96,7 @@ export function MonthYearMenu({ year, month, label, isDark, onPick }: Props) {
             <button
               type="button"
               onClick={() => setViewYear(y => y + 1)}
-              aria-label={`Show ${viewYear + 1}`}
+              aria-label={t('monthYearMenu.showYear', { year: viewYear + 1 })}
               className={`rounded-lg p-1 transition ${
                 isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'
               }`}
@@ -107,7 +106,7 @@ export function MonthYearMenu({ year, month, label, isDark, onPick }: Props) {
           </div>
 
           <div className="grid grid-cols-3 gap-1">
-            {MONTHS_SHORT.map((m, i) => {
+            {monthsShort.map((m, i) => {
               const selected = viewYear === year && i === month;
               // Filled in light mode, tinted in dark: `text-accent` on a light
               // `bg-accent/15` tint is under AA, the same reason the view switch

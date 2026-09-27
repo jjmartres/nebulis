@@ -3,7 +3,18 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
+import { reloadOnceForStaleChunk } from './lib/chunkReload';
+import './i18n';
 import './index.css';
+
+// Vite dispatches this when a module preload or a wrapped dynamic import fails.
+// The usual cause in production is a tab whose index.html predates the build the
+// server is now serving, so reload once to pick up the current chunk hashes.
+// Route-level imports are covered separately by lazyRoute() in lib/chunkReload.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  reloadOnceForStaleChunk();
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {

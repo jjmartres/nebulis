@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { MapPin, X } from 'lucide-react';
 import { SiteManagerList } from './settings/SiteManagerList';
 import { Modal } from './ui/Modal';
@@ -9,11 +10,12 @@ import { Modal } from './ui/Modal';
  * add/edit/delete/set-default/set-visible-sky behave identically everywhere.
  */
 export function SiteManagerModal({ isDark, onClose }: { isDark: boolean; onClose: () => void }) {
+  const { t } = useTranslation('settings');
   return (
     <Modal
       isOpen
       onClose={onClose}
-      title="Manage Locations"
+      title={t('siteManager.modal.title')}
       className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl ${
         isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
       }`}
@@ -24,7 +26,7 @@ export function SiteManagerModal({ isDark, onClose }: { isDark: boolean; onClose
             <MapPin className="w-4 h-4 text-teal-500" />
           </div>
           <h3 className={`font-display font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Manage Locations
+            {t('siteManager.modal.title')}
           </h3>
         </div>
         <button

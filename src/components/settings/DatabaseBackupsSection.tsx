@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Download, Trash2 } from 'lucide-react';
 import {
   getDatabaseBackups,
@@ -9,6 +10,7 @@ import {
   type DatabaseBackupInfo,
 } from '../../lib/api/storage';
 import { formatBytes } from '../../lib/utils';
+import { activeLocale } from '../../lib/formatLocale';
 import { Sec } from './SettingsUI';
 
 /**
@@ -20,6 +22,7 @@ import { Sec } from './SettingsUI';
  * download one to keep permanently or hand to a restore.
  */
 export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['db-backups'],
     queryFn: getDatabaseBackups,
@@ -40,10 +43,10 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
     setNotice(null);
     try {
       const res = await createDatabaseBackup();
-      setNotice(`Saved ${res.backup.name} (${formatBytes(res.backup.sizeBytes)}).`);
+      setNotice(t('databaseBackups.backupSaved', { name: res.backup.name, size: formatBytes(res.backup.sizeBytes) }));
       await refetch();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Backup failed');
+      setError(err instanceof Error ? err.message : t('databaseBackups.backupFailed'));
     } finally {
       setBusy(null);
     }
@@ -55,14 +58,14 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
     try {
       await downloadDatabaseBackup(b.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Download failed');
+      setError(err instanceof Error ? err.message : t('databaseBackups.downloadFailed'));
     } finally {
       setBusy(null);
     }
   };
 
   const runDelete = async (b: DatabaseBackupInfo) => {
-    if (!window.confirm(`Delete ${b.name}? This cannot be undone.`)) return;
+    if (!window.confirm(t('databaseBackups.deleteConfirm', { name: b.name }))) return;
     setBusy(b.name);
     setError(null);
     setNotice(null);
@@ -70,7 +73,7 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
       await deleteDatabaseBackup(b.name);
       await refetch();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed');
+      setError(err instanceof Error ? err.message : t('databaseBackups.deleteFailed'));
     } finally {
       setBusy(null);
     }
@@ -82,16 +85,13 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
 
   return (
     <Sec
-      title="Database backups"
-      description="Automatic snapshots taken before each version upgrade."
+      title={t('databaseBackups.title')}
+      description={t('databaseBackups.description')}
       isDark={isDark}
     >
       <div className="px-5 py-5 space-y-4">
         <p className={`text-[13px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-          Just before applying a new version, Nebulis copies its database so you can return to an
-          older release if you need to. The {keep} newest of each type are kept. Downloading a
-          backup keeps it even after it would otherwise be removed. This does not include your
-          images or library folder.
+          {t('databaseBackups.explanation', { keep })}
         </p>
 
         {failed && (
@@ -100,8 +100,7 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
               isDark ? 'bg-red-500/10 text-red-200/90' : 'bg-red-50 text-red-900'
             }`}
           >
-            The last automatic backup, before version {failed.toVersion}, failed: {failed.error}.
-            The server started anyway. Free up disk space and restart to try again, or take one now.
+            {t('databaseBackups.lastBackupFailed', { version: failed.toVersion, error: failed.error })}
           </div>
         )}
 
@@ -126,10 +125,10 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
         )}
 
         {isLoading ? (
-          <p className={`text-[13px] ${subtle}`}>Loading...</p>
+          <p className={`text-[13px] ${subtle}`}>{t('databaseBackups.loading')}</p>
         ) : backups.length === 0 ? (
           <p className={`text-[13px] ${subtle}`}>
-            No backups yet. One is created automatically the next time you upgrade, or take one now.
+            {t('databaseBackups.noBackups')}
           </p>
         ) : (
           <ul className={`rounded-lg border divide-y ${isDark ? 'border-slate-800 divide-slate-800' : 'border-slate-200 divide-slate-100'}`}>
@@ -138,7 +137,7 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className={`text-[13px] font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                      {b.version ? `v${b.version}` : 'Unknown version'}
+                      {b.version ? `v${b.version}` : t('databaseBackups.unknownVersion')}
                     </span>
                     <span
                       className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${
@@ -147,11 +146,11 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
                           : isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'
                       }`}
                     >
-                      {b.kind}
+                      {t(`databaseBackups.kind.${b.kind}`)}
                     </span>
                   </div>
                   <div className={`mt-0.5 text-[11.5px] ${subtle}`}>
-                    {new Date(b.createdAt).toLocaleString()} · {formatBytes(b.sizeBytes)}
+                    {new Date(b.createdAt).toLocaleString(activeLocale())} · {formatBytes(b.sizeBytes)}
                   </div>
                   <div className={`mt-0.5 text-[11px] font-mono break-all ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
                     {b.name}
@@ -160,7 +159,7 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
                 <button
                   onClick={() => runDownload(b)}
                   disabled={busy !== null}
-                  title="Download"
+                  title={t('databaseBackups.download')}
                   className={`${btnBase} ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                 >
                   <Download className="w-4 h-4" />
@@ -168,7 +167,7 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
                 <button
                   onClick={() => runDelete(b)}
                   disabled={busy !== null}
-                  title="Delete"
+                  title={t('databaseBackups.delete')}
                   className={`${btnBase} ${isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-300' : 'bg-red-50 hover:bg-red-100 text-red-700'}`}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -189,7 +188,7 @@ export function DatabaseBackupsSection({ isDark }: { isDark: boolean }) {
           disabled={busy !== null}
           className={`${btnBase} ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
         >
-          {busy === 'create' ? 'Backing up...' : 'Back up now'}
+          {busy === 'create' ? t('databaseBackups.backingUp') : t('databaseBackups.backUpNow')}
         </button>
       </div>
     </Sec>

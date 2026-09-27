@@ -10,7 +10,8 @@
  */
 import SunCalc from 'suncalc';
 import { altAz } from './altaz';
-import { calculateVisibilityScore, type DarkWindow } from './forecastScore';
+import { calculateVisibilityScore, type DarkWindow, type TFunc } from './forecastScore';
+import { checkMoonProximity, type MoonVerdict } from './moonProximity';
 import type { ForecastHour } from './api/planner';
 import type { PlannedSession } from './api/plannedSessions';
 
@@ -247,6 +248,16 @@ export function findGaps(
  * anything already scheduled. If every free slot is taken, the best slot
  * overall is returned so a quick-add always lands somewhere sensible and the
  * user can drag it afterwards.
+ *
+ * When `moonIllumination` is supplied, slot scoring also avoids the moon the
+ * same way autoPlan.ts's server-side "Plan My Night" scheduler does: a slot
+ * whose worst-case separation crosses into 'warning' is skipped in favor of
+ * any 'ok'/'caution' alternative, and 'caution' slots are penalized (not
+ * excluded) relative to 'ok' ones. Without this, quick-add (the target list's
+ * "+" button) picked purely on altitude and could hand back a slot the
+ * timeline immediately flags red, with no warning at add-time. A 'warning'
+ * slot is only ever returned when literally every candidate in the window is
+ * 'warning' too, so quick-add never fails outright over the moon.
  */
 export function bestSlotFor(opts: {
   ra: number;
@@ -259,8 +270,10 @@ export function bestSlotFor(opts: {
   busy?: Interval[];
   /** Candidate-start cadence in minutes. */
   stepMinutes?: number;
-}): { start: Date; end: Date; meanAlt: number; clashes: boolean } | null {
-  const { ra, dec, lat, lon, windowStart, windowEnd, durationMinutes } = opts;
+  /** Tonight's moon illumination (0-100). Omit to skip the moon check. */
+  moonIllumination?: number;
+}): { start: Date; end: Date; meanAlt: number; clashes: boolean; moonVerdict: MoonVerdict } | null {
+  const { ra, dec, lat, lon, windowStart, windowEnd, durationMinutes, moonIllumination } = opts;
   const step = Math.max(5, opts.stepMinutes ?? 15) * 60_000;
   const durationMs = durationMinutes * 60_000;
   const lastStart = windowEnd.getTime() - durationMs;
@@ -276,24 +289,47 @@ export function bestSlotFor(opts: {
     }
     return sum / samples;
   };
+  const moonVerdictOver = (startMs: number): MoonVerdict => {
+    if (moonIllumination == null) return 'ok';
+    const result = checkMoonProximity(
+      ra, dec, lat, lon,
+      new Date(startMs), new Date(startMs + durationMs),
+      moonIllumination, 15,
+    );
+    return result.verdict;
+  };
 
-  let bestFree: { start: number; meanAlt: number } | null = null;
-  let bestAny: { start: number; meanAlt: number } | null = null;
+  type Candidate = { start: number; meanAlt: number; score: number };
+  let bestFree: Candidate | null = null;
+  let bestFreeAny: Candidate | null = null;
+  let bestAny: Candidate | null = null;
+  let bestAnyAny: Candidate | null = null;
 
   for (let t = windowStart.getTime(); t <= lastStart; t += step) {
     const meanAlt = meanAltOver(t);
-    if (!bestAny || meanAlt > bestAny.meanAlt) bestAny = { start: t, meanAlt };
+    const moonVerdict = moonVerdictOver(t);
+    const moonPenalty = moonVerdict === 'caution' ? 10 : 0;
+    const score = meanAlt - moonPenalty;
+    const moonSafe = moonVerdict !== 'warning';
     const clashes = busy.some(b => t < b.end && b.start < t + durationMs);
-    if (!clashes && (!bestFree || meanAlt > bestFree.meanAlt)) bestFree = { start: t, meanAlt };
+
+    if (!bestAnyAny || meanAlt > bestAnyAny.meanAlt) bestAnyAny = { start: t, meanAlt, score };
+    if (moonSafe && (!bestAny || score > bestAny.score)) bestAny = { start: t, meanAlt, score };
+    if (!clashes) {
+      if (!bestFreeAny || meanAlt > bestFreeAny.meanAlt) bestFreeAny = { start: t, meanAlt, score };
+      if (moonSafe && (!bestFree || score > bestFree.score)) bestFree = { start: t, meanAlt, score };
+    }
   }
 
-  const chosen = bestFree ?? bestAny;
+  const chosen = bestFree ?? bestFreeAny ?? bestAny ?? bestAnyAny;
   if (!chosen) return null;
+  const clashes = busy.some(b => chosen.start < b.end && b.start < chosen.start + durationMs);
   return {
     start: new Date(chosen.start),
     end: new Date(chosen.start + durationMs),
     meanAlt: chosen.meanAlt,
-    clashes: bestFree == null,
+    clashes,
+    moonVerdict: moonVerdictOver(chosen.start),
   };
 }
 
@@ -332,11 +368,12 @@ export function scoreNight(
   moonIllumination: number,
   timeZone: string | undefined,
   darkWindow: DarkWindow | null,
+  t: TFunc,
 ): NightConditions | null {
   if (hours.length === 0) return null;
   const scored = hours.map(h => ({
     hour: h,
-    vis: calculateVisibilityScore(h, moonIllumination, timeZone, darkWindow),
+    vis: calculateVisibilityScore(h, moonIllumination, timeZone, darkWindow, t),
   }));
 
   const inWindow = darkWindow

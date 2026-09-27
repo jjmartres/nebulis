@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Download, X } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { getUpdateStatus, applyUpdate } from '../lib/api/update';
@@ -13,6 +14,7 @@ import { ChangelogModal } from './ChangelogModal';
 export function UpdateBanner() {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
+  const { t } = useTranslation('common');
   const queryClient = useQueryClient();
   const [dismissed, setDismissed] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -34,6 +36,8 @@ export function UpdateBanner() {
 
   // Windows must finish staging before Install is meaningful.
   const canInstall = status.platform !== 'win-x64' || status.staged;
+  const buildSuffix = status.latestBuild ? ` ${t('softwareUpdate.buildSuffix', { ns: 'settings', build: status.latestBuild })}` : '';
+  const requiredSuffix = status.mandatory ? ` ${t('softwareUpdate.required', { ns: 'settings' })}` : '';
 
   return (
     <>
@@ -45,10 +49,10 @@ export function UpdateBanner() {
     >
       <Download className={`w-4 h-4 flex-shrink-0 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
       <span className="flex-1 min-w-0 truncate">
-        Nebulis {status.latestVersion}{status.latestBuild ? ` (build ${status.latestBuild})` : ''} is available{status.mandatory ? ' (required)' : ''}.
-        {status.platform === 'win-x64' && status.staged && ' Downloaded and verified. Installing restarts the Nebulis service briefly.'}
+        {t('updateBanner.available', { version: status.latestVersion, buildSuffix, requiredSuffix })}
+        {status.platform === 'win-x64' && status.staged && ` ${t('softwareUpdate.installNoteWindowsStaged', { ns: 'settings' })}`}
         {status.platform === 'win-x64' && !status.staged && (
-          status.lastError ? ` Download failed: ${status.lastError}` : ' Downloading…'
+          status.lastError ? ` ${t('updateBanner.downloadFailed', { error: status.lastError })}` : ` ${t('updateBanner.downloading')}`
         )}
       </span>
       <button
@@ -56,7 +60,7 @@ export function UpdateBanner() {
         onClick={() => setWhatsNewOpen(true)}
         className={`hidden sm:inline text-xs ${isDark ? 'text-accent-300' : 'text-accent-700'} hover:underline`}
       >
-        What's new
+        {t('softwareUpdate.whatsNew', { ns: 'settings' })}
       </button>
       <button
         type="button"
@@ -66,13 +70,17 @@ export function UpdateBanner() {
           isDark ? 'bg-accent-500 text-slate-950 hover:bg-accent-400' : 'bg-accent-600 text-white hover:bg-accent-500'
         } disabled:opacity-50`}
       >
-        {apply.isSuccess ? 'Installing…' : apply.isPending ? 'Starting…' : 'Install'}
+        {apply.isSuccess
+          ? t('softwareUpdate.installing', { ns: 'settings' })
+          : apply.isPending
+            ? t('softwareUpdate.starting', { ns: 'settings' })
+            : t('updateBanner.install')}
       </button>
       {!status.mandatory && (
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          aria-label="Dismiss"
+          aria-label={t('updateBanner.dismiss')}
           className={`flex-shrink-0 p-1 rounded ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-200'}`}
         >
           <X className="w-3.5 h-3.5" />

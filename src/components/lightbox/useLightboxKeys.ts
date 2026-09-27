@@ -10,6 +10,7 @@ interface LightboxKeyActions {
   onActualSize: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onRotate?: () => void;
   onDownload?: () => void;
   onDelete?: () => void;
   onToggleFavorite?: () => void;
@@ -62,6 +63,9 @@ export function useLightboxKeys(actions: LightboxKeyActions, enabled = true) {
         case '1': e.preventDefault(); a.onActualSize(); break;
         case '+': case '=': e.preventDefault(); a.onZoomIn(); break;
         case '-': case '_': e.preventDefault(); a.onZoomOut(); break;
+        case 'r': case 'R':
+          if (a.onRotate) { e.preventDefault(); a.onRotate(); }
+          break;
         case 'd': case 'D':
           if (a.onDownload) { e.preventDefault(); a.onDownload(); }
           break;
@@ -85,6 +89,7 @@ export const LIGHTBOX_SHORTCUTS: { keys: string; label: string }[] = [
   { keys: 'F', label: 'Fit to window' },
   { keys: '1', label: 'Actual size' },
   { keys: '+ −', label: 'Zoom in / out' },
+  { keys: 'R', label: 'Rotate' },
   { keys: 'D', label: 'Download' },
   { keys: 'Esc', label: 'Close' },
 ];

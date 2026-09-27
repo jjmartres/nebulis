@@ -7,8 +7,10 @@
  * card shows the shape of the cloud cover, not just its average.
  */
 import { Cloud, CloudRain, Droplets, Wind } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ForecastHour, NightRating } from '../../lib/api/planner';
-import { formatWind, scoreHex } from '../../lib/forecastScore';
+import { formatWind, scoreHex, translateScoreRating } from '../../lib/forecastScore';
+import { formatDate } from '../../lib/formatLocale';
 
 interface Props {
   night: NightRating;
@@ -24,9 +26,9 @@ interface Props {
  *  fall back to formatting in the device's own zone rather than crash. */
 function safeLocaleDateString(d: Date, timeZone: string | undefined, options: Intl.DateTimeFormatOptions): string {
   try {
-    return d.toLocaleDateString('en-US', { ...options, ...(timeZone ? { timeZone } : {}) });
+    return formatDate(d, { ...options, ...(timeZone ? { timeZone } : {}) });
   } catch {
-    return d.toLocaleDateString('en-US', options);
+    return formatDate(d, options);
   }
 }
 
@@ -79,6 +81,7 @@ function Metric({ icon, label, value, warn, isDark }: {
 }
 
 export function NightOutlookCard({ night, hours, isDark, windUnit, timeZone }: Props) {
+  const { t } = useTranslation('forecast');
   const hex = scoreHex(night.score);
   const lowConfidence = night.confidence === 'low';
 
@@ -114,23 +117,23 @@ export function NightOutlookCard({ night, hours, isDark, windUnit, timeZone }: P
               {night.score}
             </p>
             <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: hex }}>
-              {night.rating}
+              {translateScoreRating(t, night.rating)}
             </p>
           </div>
         </div>
 
         <div className="mt-4">
           <div className={`mb-1 text-[10.5px] font-medium uppercase tracking-[0.14em] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-            Cloud cover through the night
+            {t('nightOutlookCard.cloudCoverThroughNight')}
           </div>
           <CloudSparkline hours={hours} isDark={isDark} />
         </div>
 
         <div className="mt-4 space-y-1.5 text-xs">
-          <Metric isDark={isDark} icon={<Cloud className="h-3 w-3" />} label="Clouds" value={`${night.avgCloudCover}%`} warn={night.avgCloudCover > 50} />
-          <Metric isDark={isDark} icon={<Droplets className="h-3 w-3" />} label="Humidity" value={`${night.avgHumidity}%`} />
-          <Metric isDark={isDark} icon={<Wind className="h-3 w-3" />} label="Wind" value={formatWind(night.avgWind, windUnit)} />
-          <Metric isDark={isDark} icon={<CloudRain className="h-3 w-3" />} label="Precip" value={`${night.precipChance}%`} warn={night.precipChance > 30} />
+          <Metric isDark={isDark} icon={<Cloud className="h-3 w-3" />} label={t('nightOutlookCard.clouds')} value={`${night.avgCloudCover}%`} warn={night.avgCloudCover > 50} />
+          <Metric isDark={isDark} icon={<Droplets className="h-3 w-3" />} label={t('nightOutlookCard.humidity')} value={`${night.avgHumidity}%`} />
+          <Metric isDark={isDark} icon={<Wind className="h-3 w-3" />} label={t('nightOutlookCard.wind')} value={formatWind(night.avgWind, windUnit)} />
+          <Metric isDark={isDark} icon={<CloudRain className="h-3 w-3" />} label={t('nightOutlookCard.precip')} value={`${night.precipChance}%`} warn={night.precipChance > 30} />
         </div>
       </div>
     </div>

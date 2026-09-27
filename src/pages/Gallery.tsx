@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import { useQuery, useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Search, Telescope, AlertCircle, Filter, Download, RotateCw, Upload, PlusCircle, Star, ArrowUpDown, Check, ChevronDown, Workflow } from 'lucide-react';
 import { getLibraryObjects, getLibraryObjectFilters, triggerImport, getImportStatus } from '../lib/api/library';
 import { listTelescopes } from '../lib/api/telescopes';
 import { ObjectCard } from '../components/ObjectCard';
-import { PROCESSING_STATUS_ORDER, PROCESSING_STATUS_LABEL } from '../lib/processingStatus';
+import { PROCESSING_STATUS_ORDER, processingStatusLabel } from '../lib/processingStatus';
 import type { ProcessingStatus } from '../types';
 import { LibraryHero } from '../components/library/LibraryHero';
 import { ImportModal } from '../components/ImportModal';
@@ -22,13 +23,15 @@ import { isOptionValue } from '../lib/typeGuards';
 
 type SortKey = 'name-asc' | 'name-desc' | 'session-date-desc' | 'session-date-asc' | 'session-count-desc' | 'import-desc';
 
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'name-asc',           label: 'Name (A–Z)' },
-  { value: 'name-desc',          label: 'Name (Z–A)' },
-  { value: 'session-date-desc',  label: 'Latest observation' },
-  { value: 'session-date-asc',   label: 'Oldest observation' },
-  { value: 'session-count-desc', label: 'Most sessions' },
-  { value: 'import-desc',        label: 'Recently imported' },
+// labelKey rather than literal text: this array is built at module load,
+// before any component's useTranslation() hook exists.
+const SORT_OPTIONS: { value: SortKey; labelKey: string }[] = [
+  { value: 'name-asc',           labelKey: 'gallery.sortOptions.nameAsc' },
+  { value: 'name-desc',          labelKey: 'gallery.sortOptions.nameDesc' },
+  { value: 'session-date-desc',  labelKey: 'gallery.sortOptions.latestObservation' },
+  { value: 'session-date-asc',   labelKey: 'gallery.sortOptions.oldestObservation' },
+  { value: 'session-count-desc', labelKey: 'gallery.sortOptions.mostSessions' },
+  { value: 'import-desc',        labelKey: 'gallery.sortOptions.recentlyImported' },
 ];
 
 const SORT_STORAGE_KEY = 'nebulis-library-sort';
@@ -55,6 +58,7 @@ const CATALOG_FAMILIES: { name: string; prefix: string; test: (id: string) => bo
 ];
 
 export function Gallery() {
+  const { t } = useTranslation('library');
   const { isDark, isNight, isSpace } = useTheme();
   // The hero is night-side in every theme (a picture of the sky), so it takes
   // the bright accent hex directly rather than the light-mode-darkened token,
@@ -139,8 +143,8 @@ export function Gallery() {
       .filter(f => f.id !== ALL_FILTER_ID && enabledIds.has(f.id))
       .map(f => ({ id: f.id, label: f.label }));
     const typeChips = typeFilters
-      .filter(t => enabledIds.has(t.id))
-      .map(t => ({ id: t.id, label: t.label }));
+      .filter(tf => enabledIds.has(tf.id))
+      .map(tf => ({ id: tf.id, label: tf.label }));
     return [...groupChips, ...typeChips];
   }, [objectFilters, typeFilters, enabledIds]);
 
@@ -177,7 +181,7 @@ export function Gallery() {
   // than via a corrective setState-in-effect (which flashed one frame of an
   // empty library). Same approach as effectiveFilterId above.
   const effectiveTelescopeFilter =
-    telescopeFilter === ALL_TELESCOPES_FILTER || telescopes.some(t => t.id === telescopeFilter)
+    telescopeFilter === ALL_TELESCOPES_FILTER || telescopes.some(scope => scope.id === telescopeFilter)
       ? telescopeFilter
       : ALL_TELESCOPES_FILTER;
 
@@ -216,7 +220,7 @@ export function Gallery() {
   // scope this matches the legacy single-scope behavior; with several, the
   // button kicks off a sequential fan-out across every enabled scope so the
   // user doesn't have to switch the active telescope and click again.
-  const enabledTelescopes = telescopes.filter(t => t.autoImportEnabled);
+  const enabledTelescopes = telescopes.filter(scope => scope.autoImportEnabled);
   const importsAllScopes = enabledTelescopes.length >= 2;
 
   const importResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -316,7 +320,7 @@ export function Gallery() {
   const heroFilteredLabel =
     effectiveTelescopeFilter === ALL_TELESCOPES_FILTER
       ? null
-      : telescopes.find(t => t.id === effectiveTelescopeFilter)?.name ?? null;
+      : telescopes.find(scope => scope.id === effectiveTelescopeFilter)?.name ?? null;
 
   const isImporting = importStatus?.running ?? false;
 
@@ -337,7 +341,7 @@ export function Gallery() {
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span className="text-sm font-medium">
             {importMutation.isError
-              ? (importMutation.error instanceof Error ? importMutation.error.message : 'Failed to start import')
+              ? (importMutation.error instanceof Error ? importMutation.error.message : t('gallery.importStartFailed'))
               : importStatus?.error}
           </span>
         </div>
@@ -351,7 +355,7 @@ export function Gallery() {
           }`} />
           <input
             type="text"
-            placeholder="Search objects, constellations..."
+            placeholder={t('gallery.searchPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className={`w-full pl-11 pr-4 py-2.5 rounded-full text-sm ring-1 ring-inset transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 ${
@@ -377,7 +381,7 @@ export function Gallery() {
               }`}
             >
               <Upload className="w-4 h-4" />
-              Upload Files
+              {t('gallery.uploadFiles')}
             </button>
             <button
               onClick={() => setNewObservationOpen(true)}
@@ -388,7 +392,7 @@ export function Gallery() {
               }`}
             >
               <PlusCircle className="w-4 h-4" />
-              New Observation
+              {t('gallery.newObservation')}
             </button>
           </div>
         )}
@@ -415,10 +419,10 @@ export function Gallery() {
             <button
               type="button"
               onClick={() => setFilterMenuOpen(o => !o)}
-              aria-label="Customize filters"
+              aria-label={t('gallery.customizeFilters')}
               aria-haspopup="menu"
               aria-expanded={filterMenuOpen}
-              title="Customize filters"
+              title={t('gallery.customizeFilters')}
               className={`flex items-center justify-center w-8 h-8 rounded-full ring-1 ring-inset transition-colors ${
                 filterMenuOpen
                   ? isDark ? 'bg-slate-800 ring-slate-600 text-slate-200' : 'bg-slate-100 ring-slate-300 text-slate-700'
@@ -454,7 +458,7 @@ export function Gallery() {
             }`}
           >
             <Star className={`w-3.5 h-3.5 ${effectiveFilterId === FAVORITES_FILTER_ID ? 'fill-current' : ''}`} />
-            Favorites
+            {t('gallery.favorites')}
           </button>
           <button
             onClick={() => setActiveFilterId(ALL_FILTER_ID)}
@@ -468,7 +472,7 @@ export function Gallery() {
                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
             }`}
           >
-            All
+            {t('gallery.all')}
           </button>
           {chips.map(chip => (
             <button
@@ -496,7 +500,7 @@ export function Gallery() {
         {showTelescopeUI && (() => {
           const selectedTelescope = effectiveTelescopeFilter === ALL_TELESCOPES_FILTER
             ? null
-            : telescopes.find(t => t.id === effectiveTelescopeFilter) ?? null;
+            : telescopes.find(scope => scope.id === effectiveTelescopeFilter) ?? null;
           return (
             <div ref={telescopeMenuRef} className="relative shrink-0">
               <button
@@ -523,7 +527,7 @@ export function Gallery() {
                   <Telescope className="w-3.5 h-3.5 shrink-0" />
                 )}
                 <span className="truncate max-w-[9rem]">
-                  {selectedTelescope ? selectedTelescope.name : 'All scopes'}
+                  {selectedTelescope ? selectedTelescope.name : t('gallery.allScopes')}
                 </span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 shrink-0 transition-transform ${telescopeMenuOpen ? 'rotate-180' : ''}`}
@@ -543,16 +547,16 @@ export function Gallery() {
                   >
                     <span className="flex items-center gap-2">
                       <Telescope className="w-3.5 h-3.5 shrink-0" />
-                      All scopes
+                      {t('gallery.allScopes')}
                     </span>
                     {effectiveTelescopeFilter === ALL_TELESCOPES_FILTER && <Check className="w-3.5 h-3.5 shrink-0" />}
                   </button>
-                  {telescopes.map(t => {
-                    const selected = effectiveTelescopeFilter === t.id;
+                  {telescopes.map(scope => {
+                    const selected = effectiveTelescopeFilter === scope.id;
                     return (
                       <button
-                        key={t.id}
-                        onClick={() => { setTelescopeFilter(t.id); setTelescopeMenuOpen(false); }}
+                        key={scope.id}
+                        onClick={() => { setTelescopeFilter(scope.id); setTelescopeMenuOpen(false); }}
                         className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
                           selected
                             ? isDark ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'
@@ -562,10 +566,10 @@ export function Gallery() {
                         <span className="flex items-center gap-2 min-w-0">
                           <span
                             className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: t.color }}
+                            style={{ backgroundColor: scope.color }}
                             aria-hidden="true"
                           />
-                          <span className="truncate">{t.name}</span>
+                          <span className="truncate">{scope.name}</span>
                         </span>
                         {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
                       </button>
@@ -596,7 +600,7 @@ export function Gallery() {
               >
                 <Workflow className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate max-w-[9rem]">
-                  {selectedStatus ? PROCESSING_STATUS_LABEL[selectedStatus] : 'Any status'}
+                  {selectedStatus ? processingStatusLabel(selectedStatus, t) : t('gallery.allStatuses')}
                 </span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 shrink-0 transition-transform ${processingMenuOpen ? 'rotate-180' : ''}`}
@@ -616,7 +620,7 @@ export function Gallery() {
                   >
                     <span className="flex items-center gap-2">
                       <Workflow className="w-3.5 h-3.5 shrink-0" />
-                      Any status
+                      {t('gallery.allStatuses')}
                     </span>
                     {processingFilter === ALL_PROCESSING_FILTER && <Check className="w-3.5 h-3.5 shrink-0" />}
                   </button>
@@ -632,7 +636,7 @@ export function Gallery() {
                             : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
                         }`}
                       >
-                        <span className="truncate">{PROCESSING_STATUS_LABEL[s]}</span>
+                        <span className="truncate">{processingStatusLabel(s, t)}</span>
                         {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
                       </button>
                     );
@@ -669,10 +673,10 @@ export function Gallery() {
           <AlertCircle className="w-12 h-12 mx-auto text-accent-500/50" />
           <div>
             <p className={`text-lg font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-              Unable to load library
+              {t('gallery.unableToLoad')}
             </p>
             <p className="mt-1 text-sm">
-              {error instanceof Error ? error.message : "We couldn't reach your library. Check that the Nebulis server is running, then refresh to try again."}
+              {error instanceof Error ? error.message : t('gallery.loadErrorFallback')}
             </p>
           </div>
         </div>
@@ -680,7 +684,7 @@ export function Gallery() {
         <>
           <div className="flex items-center justify-between">
             <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              {filtered.length} object{filtered.length !== 1 ? 's' : ''} in library
+              {t('gallery.objectCount', { count: filtered.length })}
             </p>
             <div ref={sortRef} className="relative">
               <button
@@ -692,7 +696,7 @@ export function Gallery() {
                 }`}
               >
                 <ArrowUpDown className="w-3.5 h-3.5" />
-                {SORT_OPTIONS.find(o => o.value === sortKey)?.label}
+                {(() => { const opt = SORT_OPTIONS.find(o => o.value === sortKey); return opt ? t(opt.labelKey) : null; })()}
               </button>
               {sortOpen && (
                 <div className={`absolute right-0 top-full mt-1.5 z-20 w-52 rounded-2xl border shadow-lg overflow-hidden ${
@@ -712,7 +716,7 @@ export function Gallery() {
                             : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                       {sortKey === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
                     </button>
                   ))}
@@ -734,19 +738,19 @@ export function Gallery() {
           <div className="space-y-2">
             <p className={`text-xl font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
               {effectiveFilterId === FAVORITES_FILTER_ID
-                ? 'No favorites yet'
+                ? t('gallery.noFavoritesYet')
                 : search || effectiveFilterId !== ALL_FILTER_ID || processingFilter !== ALL_PROCESSING_FILTER
-                  ? 'No objects match your search'
-                  : 'Your library is empty'}
+                  ? t('gallery.noSearchMatches')
+                  : t('gallery.libraryEmpty')}
             </p>
             {effectiveFilterId === FAVORITES_FILTER_ID && (
               <p className="text-sm max-w-sm mx-auto">
-                Star an object from its detail page to add it to your favorites.
+                {t('gallery.noFavoritesHint')}
               </p>
             )}
             {!search && effectiveFilterId === ALL_FILTER_ID && processingFilter === ALL_PROCESSING_FILTER && (
               <p className="text-sm max-w-sm mx-auto">
-                Import images from your SeeStar to build your local library. Configure your telescope connection in Settings first.
+                {t('gallery.libraryEmptyHint')}
               </p>
             )}
           </div>
@@ -758,7 +762,7 @@ export function Gallery() {
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-500 text-white font-medium text-sm hover:bg-accent-600 transition disabled:opacity-50"
               >
                 {isImporting ? <RotateCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {importsAllScopes ? `Import from all ${enabledTelescopes.length} telescopes` : 'Import from Telescope'}
+                {importsAllScopes ? t('gallery.importFromAllTelescopes', { count: enabledTelescopes.length }) : t('gallery.importFromTelescope')}
               </button>
               <button
                 onClick={() => setShowImportModal(true)}
@@ -770,7 +774,7 @@ export function Gallery() {
                 }`}
               >
                 <Upload className="w-4 h-4" />
-                Upload Observation
+                {t('gallery.uploadObservation')}
               </button>
               <a
                 href="/settings"
@@ -780,7 +784,7 @@ export function Gallery() {
                     : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                Configure Settings
+                {t('gallery.configureSettings')}
               </a>
             </div>
           )}

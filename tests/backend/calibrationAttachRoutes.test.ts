@@ -142,6 +142,48 @@ describe('POST /calibrations/attach', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  // A Dwarf CALI_FRAME bundle reports as the group-level 'mixed' type, but
+  // this route must check the BUNDLE's own resolved frame type (from its
+  // subfolder), not reject every bundle in the group just because the group
+  // itself isn't a plain 'flat'/'flatDark'.
+  it("attaches a flat bundle inside a mixed (CALI_FRAME) group, using its own resolved type", async () => {
+    writeFrame(path.join(getArchiveDir(null), 'CALI_FRAME', 'flat', 'cam_0'), 'flat_gain_9_bin_1.fits');
+    makeObject('MixedFlatAttach', 'Mixed Flat Attach');
+
+    const listRes = await fetch(`${baseUrl}/calibrations`);
+    const listBody = await listRes.json();
+    const mixed = listBody.data.groups.find((g: { folderName: string }) => g.folderName === 'CALI_FRAME');
+    const set = mixed.settingsGroups.find((s: { frameType: string; gain: number }) => s.frameType === 'flat' && s.gain === 9);
+
+    const res = await fetch(`${baseUrl}/calibrations/attach`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: null, folderName: 'CALI_FRAME', key: set.key, objectId: 'MixedFlatAttach' }),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.data.attachment).toMatchObject({ objectId: 'MixedFlatAttach', calibrationType: 'flat' });
+  });
+
+  it("rejects attaching a mixed group's own dark bundle, resolved from its subfolder", async () => {
+    writeFrame(path.join(getArchiveDir(null), 'CALI_FRAME', 'dark', 'cam_0'), 'dark_exp_9.000000_gain_9_bin_1_20C_stack_1.fits');
+    makeObject('MixedDarkAttach', 'Mixed Dark Attach');
+
+    const listRes = await fetch(`${baseUrl}/calibrations`);
+    const listBody = await listRes.json();
+    const mixed = listBody.data.groups.find((g: { folderName: string }) => g.folderName === 'CALI_FRAME');
+    const set = mixed.settingsGroups.find((s: { frameType: string; gain: number }) => s.frameType === 'dark' && s.gain === 9);
+
+    const res = await fetch(`${baseUrl}/calibrations/attach`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: null, folderName: 'CALI_FRAME', key: set.key, objectId: 'MixedDarkAttach' }),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error?.code).toBe('NOT_ATTACHABLE');
+  });
 });
 
 describe('DELETE /calibrations/attach/:id', () => {
@@ -232,6 +274,38 @@ describe('DELETE /calibrations/bundle', () => {
       body: JSON.stringify({ folderName: 'Darks' }), // missing scope/key
     });
     expect(res.status).toBe(400);
+  });
+
+  it("deletes a mixed group's own dark bundle, resolved from its subfolder rather than rejected for the group being 'mixed'", async () => {
+    writeFrame(path.join(getArchiveDir(null), 'CALI_FRAME', 'dark', 'cam_0'), 'dark_exp_16.000000_gain_16_bin_1_20C_stack_1.fits');
+    const before = await (await fetch(`${baseUrl}/calibrations`)).json();
+    const mixed = before.data.groups.find((g: { folderName: string }) => g.folderName === 'CALI_FRAME');
+    const set = mixed.settingsGroups.find((s: { frameType: string; gain: number }) => s.frameType === 'dark' && s.gain === 16);
+
+    const res = await fetch(`${baseUrl}/calibrations/bundle`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: null, folderName: 'CALI_FRAME', key: set.key }),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.data).toEqual({ deleted: 1, failed: 0 });
+  });
+
+  it("rejects deleting a mixed group's own flat bundle, resolved from its subfolder", async () => {
+    writeFrame(path.join(getArchiveDir(null), 'CALI_FRAME', 'flat', 'cam_0'), 'flat_gain_17_bin_1.fits');
+    const before = await (await fetch(`${baseUrl}/calibrations`)).json();
+    const mixed = before.data.groups.find((g: { folderName: string }) => g.folderName === 'CALI_FRAME');
+    const set = mixed.settingsGroups.find((s: { frameType: string; gain: number }) => s.frameType === 'flat' && s.gain === 17);
+
+    const res = await fetch(`${baseUrl}/calibrations/bundle`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: null, folderName: 'CALI_FRAME', key: set.key }),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error?.code).toBe('NOT_DELETABLE_HERE');
   });
 });
 

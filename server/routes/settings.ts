@@ -86,6 +86,9 @@ const SettingsUpdateBodySchema = z.object({
   nightlyHousekeepingEnabled: z.boolean().optional(),
   nightlyForecastPrefetchEnabled: z.boolean().optional(),
   nightlyMaintenanceEnabled: z.boolean().optional(),
+  // Settings → Library → "Dark/bias validity". Days an archived bias/dark
+  // bundle stays valid before the Calibrations page flags it isExpired.
+  calibrationExpiryDays: z.number().int().min(1).optional(),
 });
 
 const ResetDatabaseBodySchema = z.object({
@@ -168,6 +171,7 @@ const SettingsSchema = z.object({
   nightlyMaintenanceEnabled: z.boolean(),
   nightlyHousekeepingLastRun: z.number().nullable(), // Unix ms, read-only
   nightlyForecastLastRun: z.number().nullable(), // Unix ms, read-only
+  calibrationExpiryDays: z.number(),
 });
 
 type Settings = z.infer<typeof SettingsSchema>;
@@ -217,6 +221,7 @@ const defaultSettings: Settings = {
   nightlyMaintenanceEnabled: true,
   nightlyHousekeepingLastRun: null,
   nightlyForecastLastRun: null,
+  calibrationExpiryDays: 180,
 };
 
 // The persistable field list is the request schema's own key set, read off the

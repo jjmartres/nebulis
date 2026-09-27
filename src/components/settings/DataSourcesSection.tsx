@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Database,
   BookOpen,
@@ -9,6 +10,7 @@ import {
   Moon,
   Satellite,
   Map,
+  Sparkles,
   ExternalLink,
   Info,
   ChevronDown,
@@ -17,58 +19,72 @@ import type { ReactNode } from 'react';
 import { Sec } from './SettingsUI';
 
 interface DataSource {
+  // Service/product names (OpenNGC, SIMBAD, Open-Meteo...) are proper nouns
+  // and stay literal — only descriptionKey/cacheKey are translated.
   name: string;
-  description: string;
+  descriptionKey: string;
   url?: string;
   icon: ReactNode;
   badge: 'free' | 'bundled';
-  cache?: string;
+  cacheKey?: string;
 }
 
+// titleKey/descriptionKey/cacheKey rather than literal text: this array is
+// built at module load, before any component's useTranslation() hook exists.
 const DATA_SOURCE_GROUPS: Array<{
-  title: string;
+  titleKey: string;
   sources: DataSource[];
 }> = [
   {
-    title: 'Astronomy Databases',
+    titleKey: 'dataSources.groups.astronomyDatabases',
     sources: [
-      { name: 'OpenNGC Catalog', description: 'Coordinates, magnitudes, and types for 3,200+ deep sky objects', url: 'https://github.com/mattiaverga/OpenNGC', icon: <BookOpen className="w-4 h-4" />, badge: 'bundled', cache: 'Bundled with app' },
-      { name: 'CDS Sesame', description: 'Name lookups for objects missing from the bundled catalog', url: 'https://cdsweb.u-strasbg.fr', icon: <Globe className="w-4 h-4" />, badge: 'free', cache: 'Cached to disk' },
-      { name: 'SIMBAD', description: 'Size and distance details for catalog objects', url: 'https://simbad.cds.unistra.fr', icon: <Database className="w-4 h-4" />, badge: 'free' },
+      { name: 'OpenNGC Catalog', descriptionKey: 'dataSources.descriptions.openngc', url: 'https://github.com/mattiaverga/OpenNGC', icon: <BookOpen className="w-4 h-4" />, badge: 'bundled', cacheKey: 'dataSources.cache.bundledWithApp' },
+      { name: 'CDS Sesame', descriptionKey: 'dataSources.descriptions.sesame', url: 'https://cdsweb.u-strasbg.fr', icon: <Globe className="w-4 h-4" />, badge: 'free', cacheKey: 'dataSources.cache.cachedToDisk' },
+      { name: 'SIMBAD', descriptionKey: 'dataSources.descriptions.simbad', url: 'https://simbad.cds.unistra.fr', icon: <Database className="w-4 h-4" />, badge: 'free' },
     ],
   },
   {
-    title: 'Sky Images',
+    titleKey: 'dataSources.groups.skyImages',
     sources: [
-      { name: 'NASA Hubble Caldwell Catalog', description: 'Hubble images and text for the 88 Caldwell objects', url: 'https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-caldwell-catalog/', icon: <Image className="w-4 h-4" />, badge: 'free', cache: 'Cached to disk' },
-      { name: 'CDS HiPS Sky Survey', description: 'DSS2 survey images for any coordinate you point at', url: 'https://alasky.cds.unistra.fr', icon: <Image className="w-4 h-4" />, badge: 'free', cache: 'Cached to disk' },
-      { name: 'NASA Image Library', description: 'Backup images for planets, moons, and comets', url: 'https://images.nasa.gov', icon: <Image className="w-4 h-4" />, badge: 'free', cache: 'Cached to disk' },
-      { name: 'Wikipedia', description: 'Plain-language summaries and thumbnails for objects', url: 'https://en.wikipedia.org', icon: <FileText className="w-4 h-4" />, badge: 'free' },
+      { name: 'NASA Hubble Caldwell Catalog', descriptionKey: 'dataSources.descriptions.hubbleCaldwell', url: 'https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-caldwell-catalog/', icon: <Image className="w-4 h-4" />, badge: 'free', cacheKey: 'dataSources.cache.cachedToDisk' },
+      { name: 'CDS HiPS Sky Survey', descriptionKey: 'dataSources.descriptions.hips', url: 'https://alasky.cds.unistra.fr', icon: <Image className="w-4 h-4" />, badge: 'free', cacheKey: 'dataSources.cache.cachedToDisk' },
+      { name: 'NASA Image Library', descriptionKey: 'dataSources.descriptions.nasaImageLibrary', url: 'https://images.nasa.gov', icon: <Image className="w-4 h-4" />, badge: 'free', cacheKey: 'dataSources.cache.cachedToDisk' },
+      { name: 'Wikipedia', descriptionKey: 'dataSources.descriptions.wikipedia', url: 'https://en.wikipedia.org', icon: <FileText className="w-4 h-4" />, badge: 'free' },
     ],
   },
   {
-    title: 'Weather & Forecasting',
+    titleKey: 'dataSources.groups.weatherForecasting',
     sources: [
-      { name: 'Open-Meteo', description: 'Temperature, humidity, cloud, wind, and rain for your sites', url: 'https://open-meteo.com', icon: <Cloud className="w-4 h-4" />, badge: 'free' },
-      { name: '7Timer', description: 'Seeing and transparency forecasts for imaging nights', url: 'https://www.7timer.info', icon: <Cloud className="w-4 h-4" />, badge: 'free' },
-      { name: 'SunCalc', description: 'Moon phase, twilight, and sun and moon positions for your sites', icon: <Moon className="w-4 h-4" />, badge: 'bundled' },
+      { name: 'Open-Meteo', descriptionKey: 'dataSources.descriptions.openMeteo', url: 'https://open-meteo.com', icon: <Cloud className="w-4 h-4" />, badge: 'free' },
+      { name: '7Timer', descriptionKey: 'dataSources.descriptions.sevenTimer', url: 'https://www.7timer.info', icon: <Cloud className="w-4 h-4" />, badge: 'free' },
+      { name: 'SunCalc', descriptionKey: 'dataSources.descriptions.sunCalc', icon: <Moon className="w-4 h-4" />, badge: 'bundled' },
     ],
   },
   {
-    title: 'Satellite Tracking',
+    titleKey: 'dataSources.groups.satelliteTracking',
     sources: [
-      { name: 'CelesTrak', description: 'Orbital elements for active satellites, used in trail checks', url: 'https://celestrak.org', icon: <Satellite className="w-4 h-4" />, badge: 'free', cache: 'Cached 24 hours' },
+      { name: 'CelesTrak', descriptionKey: 'dataSources.descriptions.celestrak', url: 'https://celestrak.org', icon: <Satellite className="w-4 h-4" />, badge: 'free', cacheKey: 'dataSources.cache.cached24h' },
     ],
   },
   {
-    title: 'Maps',
+    titleKey: 'dataSources.groups.maps',
     sources: [
-      { name: 'Esri', description: 'Map tiles for the observation location viewer', url: 'https://www.esri.com', icon: <Map className="w-4 h-4" />, badge: 'free' },
+      { name: 'Esri', descriptionKey: 'dataSources.descriptions.esri', url: 'https://www.esri.com', icon: <Map className="w-4 h-4" />, badge: 'free' },
+    ],
+  },
+  {
+    // The one entry here that receives the observer's own coordinates. Listed
+    // separately from the weather services because it answers a different
+    // question, and because it is the newest thing leaving the machine.
+    titleKey: 'dataSources.groups.lightPollution',
+    sources: [
+      { name: 'DarkSkySites', descriptionKey: 'dataSources.descriptions.darkskysites', url: 'https://darkskysites.com', icon: <Sparkles className="w-4 h-4" />, badge: 'free', cacheKey: 'dataSources.cache.cached24h' },
     ],
   },
 ];
 
 export function DataSourcesSection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const [expanded, setExpanded] = useState(false);
 
   const badgeStyles: Record<string, string> = {
@@ -81,16 +97,16 @@ export function DataSourcesSection({ isDark }: { isDark: boolean }) {
   };
 
   const badgeLabels: Record<string, string> = {
-    free: 'Free API',
-    bundled: 'Bundled',
+    free: t('dataSources.freeApi'),
+    bundled: t('dataSources.bundled'),
   };
 
   const totalSources = DATA_SOURCE_GROUPS.reduce((sum, g) => sum + g.sources.length, 0);
 
   return (
     <Sec
-      title="Data sources"
-      description={`${totalSources} services. All free, no API keys required.`}
+      title={t('dataSources.title')}
+      description={t('dataSources.description', { count: totalSources })}
       isDark={isDark}
     >
       <div className="p-4 sm:p-5">
@@ -99,7 +115,7 @@ export function DataSourcesSection({ isDark }: { isDark: boolean }) {
           className="w-full flex items-center justify-between"
         >
           <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-            {expanded ? 'Hide' : 'Show'} all data sources
+            {expanded ? t('dataSources.hideAll') : t('dataSources.showAll')}
           </span>
           <ChevronDown
             className={`w-4 h-4 transition-transform duration-200 ${isDark ? 'text-slate-500' : 'text-slate-400'} ${
@@ -111,13 +127,13 @@ export function DataSourcesSection({ isDark }: { isDark: boolean }) {
         {expanded && (
           <div className={`space-y-6 pt-5 mt-5 border-t ${isDark ? 'border-slate-800/50' : 'border-slate-100'}`}>
             {DATA_SOURCE_GROUPS.map(group => (
-              <div key={group.title}>
+              <div key={group.titleKey}>
                 <h3
                   className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-2 ${
                     isDark ? 'text-slate-500' : 'text-slate-400'
                   }`}
                 >
-                  {group.title}
+                  {t(group.titleKey)}
                 </h3>
                 <div className="space-y-1.5">
                   {group.sources.map(source => (
@@ -142,14 +158,14 @@ export function DataSourcesSection({ isDark }: { isDark: boolean }) {
                           >
                             {badgeLabels[source.badge]}
                           </span>
-                          {source.cache && (
+                          {source.cacheKey && (
                             <span className={`text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                              {source.cache}
+                              {t(source.cacheKey)}
                             </span>
                           )}
                         </div>
                         <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                          {source.description}
+                          {t(source.descriptionKey)}
                         </p>
                       </div>
                       {source.url && (
@@ -160,7 +176,7 @@ export function DataSourcesSection({ isDark }: { isDark: boolean }) {
                           className={`shrink-0 mt-0.5 transition-colors ${
                             isDark ? 'text-slate-600 hover:text-slate-400' : 'text-slate-300 hover:text-slate-500'
                           }`}
-                          title={`Visit ${source.name}`}
+                          title={t('dataSources.visitSource', { name: source.name })}
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
@@ -178,8 +194,7 @@ export function DataSourcesSection({ isDark }: { isDark: boolean }) {
             >
               <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>
-                All external services are free and require no API keys. Data is fetched on-demand and cached where
-                possible. No personal data is sent to any external service.
+                {t('dataSources.footerNote')}
               </span>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { LogIn } from 'lucide-react';
 import { loginUser } from '../lib/api/auth';
 import { setAuthToken } from '../lib/api/client';
@@ -7,6 +8,7 @@ import { useTheme } from '../hooks/useTheme';
 import { Modal } from './ui/Modal';
 
 export function LoginModal({ onLogin }: { onLogin: () => void }) {
+  const { t } = useTranslation('common');
   const { isDark } = useTheme();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +21,7 @@ export function LoginModal({ onLogin }: { onLogin: () => void }) {
       onLogin();
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'));
     },
   });
 
@@ -43,7 +45,7 @@ export function LoginModal({ onLogin }: { onLogin: () => void }) {
     <Modal
       isOpen
       onClose={() => {}}
-      title="Sign in to Nebulis"
+      title={t('auth.title')}
       className={`w-full max-w-sm rounded-2xl border shadow-2xl p-8 ${card}`}
     >
       <div className="flex flex-col items-center mb-8">
@@ -54,27 +56,27 @@ export function LoginModal({ onLogin }: { onLogin: () => void }) {
           Nebu<span className="text-accent-500">lis</span>
         </h1>
         <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Sign in to continue
+          {t('auth.subtitle')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="login-username" className={labelClass}>Username</label>
+          <label htmlFor="login-username" className={labelClass}>{t('auth.username')}</label>
           <input
             id="login-username"
             type="text"
             value={username}
             onChange={e => setUsername(e.target.value)}
             className={inputClass}
-            placeholder="e.g. astro_fan"
+            placeholder={t('auth.usernamePlaceholder')}
             autoComplete="username"
             autoFocus
             required
           />
         </div>
         <div>
-          <label htmlFor="login-password" className={labelClass}>Password</label>
+          <label htmlFor="login-password" className={labelClass}>{t('auth.password')}</label>
           <input
             id="login-password"
             type="password"
@@ -97,7 +99,7 @@ export function LoginModal({ onLogin }: { onLogin: () => void }) {
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-accent-500 hover:bg-accent-600 text-white font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <LogIn className="w-4 h-4" />
-          {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
+          {loginMutation.isPending ? t('auth.signingIn') : t('auth.signIn')}
         </button>
       </form>
     </Modal>

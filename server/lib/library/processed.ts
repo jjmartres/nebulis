@@ -6,7 +6,6 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { getLibraryDir } from '../libraryPath.js';
 import { ILLEGAL_FS_CHARS } from './importNaming.js';
 import { isErrnoException } from '../errors.js';
 import { FITS_THUMBNAIL_PIPELINE_VERSION } from '../fitsThumbnail.js';
@@ -14,6 +13,7 @@ import { isDwarfThumbnailPreviewName } from './dwarfRestack.js';
 import {
   stmts,
   getFolderName,
+  resolveContainedObjectDir as resolveContainedObjectDirShared,
   LIBRARY_API_BASE,
   type ProcessedImageRow,
   type ProcessedImageSource,
@@ -122,11 +122,14 @@ function previewUrlFor(filename: string, libPath: string): string | null {
  *  return a path outside LIBRARY_DIR. getFolderName falls back to the raw
  *  objectId on a DB miss, so a crafted objectId with traversal tokens would
  *  otherwise escape the library root for every function in this module that
- *  reads, writes, or deletes a processed image. */
+ *  reads, writes, or deletes a processed image.
+ *
+ *  Delegates to the shared helper rather than repeating the `path.resolve` +
+ *  prefix test: the local copy allowed the library root itself (`.`) through,
+ *  and the shared version is the one place that rule now lives. */
 function resolveContainedObjectDir(objectId: string, ...extra: string[]): string {
-  const LIBRARY_DIR = getLibraryDir();
-  const dir = path.resolve(LIBRARY_DIR, getFolderName(objectId), ...extra);
-  if (dir !== LIBRARY_DIR && !dir.startsWith(LIBRARY_DIR + path.sep)) {
+  const dir = resolveContainedObjectDirShared(objectId, ...extra);
+  if (!dir) {
     throw new Error(`Object id "${objectId}" resolves outside the library`);
   }
   return dir;

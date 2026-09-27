@@ -7,8 +7,10 @@
  * rather than pretending the list is complete.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, FileX, X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
+import { formatNumber } from '../../lib/formatLocale';
 import type { ImportSkip } from '../../lib/api/library';
 
 const PAGE_SIZE = 10;
@@ -20,11 +22,12 @@ export function SkippedFilesModal({
   isDark: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('library');
   return (
     <Modal
       isOpen={!!skip}
       onClose={onClose}
-      title={skip ? `Files: ${skip.label}` : 'Skipped files'}
+      title={skip ? t('skippedFilesModal.filesFor', { label: skip.label }) : t('skippedFilesModal.title')}
       className={`flex max-h-[70vh] w-full max-w-md flex-col overflow-hidden rounded-2xl ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white shadow-xl'
       }`}
@@ -41,6 +44,7 @@ function SkippedFilesBody({
   isDark: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('library');
   const [page, setPage] = useState(0);
   const samples = skip.samples ?? [];
   const totalPages = Math.max(1, Math.ceil(samples.length / PAGE_SIZE));
@@ -59,12 +63,12 @@ function SkippedFilesBody({
             <span className="truncate">{cap(skip.label)}</span>
           </h3>
           <p className={`mt-0.5 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {skip.count.toLocaleString()} file{skip.count !== 1 ? 's' : ''} left out
+            {t('skippedFilesModal.leftOut', { count: skip.count })}
           </p>
         </div>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('skippedFilesModal.close')}
           className={`rounded-lg p-1.5 transition ${
             isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
           }`}
@@ -90,26 +94,26 @@ function SkippedFilesBody({
         isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'
       }`}>
         <span className="tabular-nums">
-          {start + 1}-{Math.min(start + PAGE_SIZE, samples.length)} of {samples.length.toLocaleString()}
-          {truncated && ` (first ${samples.length.toLocaleString()} of ${skip.count.toLocaleString()})`}
+          {t('skippedFilesModal.rangeOfTotal', { from: start + 1, to: Math.min(start + PAGE_SIZE, samples.length), total: formatNumber(samples.length) })}
+          {truncated && t('skippedFilesModal.truncatedNote', { shown: formatNumber(samples.length), total: formatNumber(skip.count) })}
         </span>
         {totalPages > 1 && (
           <span className="flex items-center gap-1">
             <button
               onClick={() => setPage(p => Math.max(0, p - 1))}
               disabled={page === 0}
-              aria-label="Previous page"
+              aria-label={t('skippedFilesModal.previousPage')}
               className={`rounded-lg p-1.5 transition disabled:opacity-30 ${
                 isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
               }`}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="tabular-nums">{page + 1} / {totalPages}</span>
+            <span className="tabular-nums">{t('skippedFilesModal.pageOfTotal', { page: page + 1, totalPages })}</span>
             <button
               onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
               disabled={page >= totalPages - 1}
-              aria-label="Next page"
+              aria-label={t('skippedFilesModal.nextPage')}
               className={`rounded-lg p-1.5 transition disabled:opacity-30 ${
                 isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
               }`}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   HardDrive, FolderOpen, ChevronRight, ArrowUp, Check,
   AlertTriangle, Loader2, RefreshCw, Server, ShieldCheck,
@@ -11,6 +12,7 @@ import {
 } from '../../lib/api/storage';
 import { getInputClass } from '../settings/SettingsUI';
 import { formatBytes } from '../../lib/utils';
+import { Modal } from './Modal';
 
 // Join a server-side path with a folder name using that path's own separator
 // (so Windows D:\ and macOS /Volumes both render correctly). The server
@@ -28,6 +30,7 @@ export function ChangeLocationModal({
   onClose: () => void;
   onStarted: () => void;
 }) {
+  const { t } = useTranslation('common');
   const [tab, setTab] = useState<'drive' | 'network'>('drive');
   const [volume, setVolume] = useState<VolumeInfo | null>(null);
   const [browsePath, setBrowsePath] = useState<string | null>(null);
@@ -62,7 +65,7 @@ export function ChangeLocationModal({
   // empty name means "use the folder shown" as-is.
   const folderName = newFolderName.trim();
   const nameError = folderName && (/[\\/]/.test(folderName) || folderName === '.' || folderName === '..')
-    ? 'Folder name cannot contain slashes.'
+    ? t('changeLocationModal.folderNameSlashError')
     : '';
   const targetPath = browsePath && !nameError
     ? (folderName ? joinPath(browsePath, folderName) : browsePath)
@@ -76,7 +79,7 @@ export function ChangeLocationModal({
       await startLibraryMigration(targetPath);
       onStarted();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start the move');
+      setError(err instanceof Error ? err.message : t('changeLocationModal.couldNotStartMove'));
       setStarting(false);
     }
   }
@@ -86,15 +89,14 @@ export function ChangeLocationModal({
   const showTabs = !!location?.networkLibrarySupported;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+    <Modal isOpen onClose={onClose} title={t('changeLocationModal.title')}>
       <div
         className={`w-full max-w-lg rounded-2xl shadow-2xl ${isDark ? 'bg-slate-900' : 'bg-white'} max-h-[85vh] flex flex-col`}
-        onClick={e => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-slate-500/10">
-          <h3 className={`font-display text-lg font-semibold ${heading}`}>Move library to a new location</h3>
+          <h3 className={`font-display text-lg font-semibold ${heading}`}>{t('changeLocationModal.title')}</h3>
           <p className={`text-xs mt-0.5 ${sub}`}>
-            Pick a connected drive or a network share. Your files are copied, never deleted.
+            {t('changeLocationModal.subtitle')}
           </p>
           {showTabs && (
             <div className={`flex gap-1 mt-3 p-1 rounded-lg w-fit ${isDark ? 'bg-slate-800/60' : 'bg-slate-100'}`}>
@@ -107,7 +109,7 @@ export function ChangeLocationModal({
                     : sub
                 }`}
               >
-                <HardDrive className="w-3.5 h-3.5" /> Drive
+                <HardDrive className="w-3.5 h-3.5" /> {t('changeLocationModal.driveTab')}
               </button>
               <button
                 type="button"
@@ -118,7 +120,7 @@ export function ChangeLocationModal({
                     : sub
                 }`}
               >
-                <Server className="w-3.5 h-3.5" /> Network share
+                <Server className="w-3.5 h-3.5" /> {t('changeLocationModal.networkTab')}
               </button>
             </div>
           )}
@@ -141,17 +143,17 @@ export function ChangeLocationModal({
           {/* Volumes */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>Drives</span>
+              <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>{t('changeLocationModal.drivesHeading')}</span>
               <button
                 type="button"
                 onClick={() => refetchVolumes()}
                 className={`text-xs inline-flex items-center gap-1 ${sub} hover:opacity-80`}
               >
-                <RefreshCw className="w-3 h-3" /> Refresh
+                <RefreshCw className="w-3 h-3" /> {t('changeLocationModal.refresh')}
               </button>
             </div>
             {volumesLoading ? (
-              <div className={`text-sm ${sub}`}>Looking for drives...</div>
+              <div className={`text-sm ${sub}`}>{t('changeLocationModal.lookingForDrives')}</div>
             ) : (
               <div className="space-y-1.5">
                 {(volumesData?.volumes ?? []).map(v => (
@@ -167,13 +169,13 @@ export function ChangeLocationModal({
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className={`text-sm font-medium truncate ${body}`}>{v.label}</span>
-                      <span className={`text-xs tabular-nums ${sub}`}>{formatBytes(v.freeBytes)} free</span>
+                      <span className={`text-xs tabular-nums ${sub}`}>{t('changeLocationModal.freeSpace', { size: formatBytes(v.freeBytes) })}</span>
                     </div>
                     <div className={`text-xs font-mono mt-0.5 truncate ${sub}`}>{v.path}</div>
                   </button>
                 ))}
                 {(volumesData?.volumes ?? []).length === 0 && (
-                  <div className={`text-sm ${sub}`}>No drives found. Connect a USB or external drive and refresh.</div>
+                  <div className={`text-sm ${sub}`}>{t('changeLocationModal.noDrivesFound')}</div>
                 )}
               </div>
             )}
@@ -182,7 +184,7 @@ export function ChangeLocationModal({
           {/* Location + folder name */}
           {volume && (
             <div>
-              <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>Location</span>
+              <span className={`text-xs font-medium uppercase tracking-wide ${sub}`}>{t('changeLocationModal.locationHeading')}</span>
               <div className="flex items-center gap-2 mt-2 mb-2">
                 <button
                   type="button"
@@ -193,7 +195,7 @@ export function ChangeLocationModal({
                     setBrowsePath(parent || volume.path);
                   }}
                   className={`p-1.5 rounded-lg ${canGoUp ? (isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100') : 'opacity-40'}`}
-                  title="Up one folder"
+                  title={t('changeLocationModal.upOneFolder')}
                 >
                   <ArrowUp className={`w-4 h-4 ${body}`} />
                 </button>
@@ -213,26 +215,30 @@ export function ChangeLocationModal({
                   </button>
                 ))}
                 {(browseData?.directories ?? []).length === 0 && (
-                  <div className={`px-3 py-2.5 text-xs ${sub}`}>This folder has no subfolders.</div>
+                  <div className={`px-3 py-2.5 text-xs ${sub}`}>{t('changeLocationModal.noSubfolders')}</div>
                 )}
               </div>
 
               <label className={`block text-xs font-medium uppercase tracking-wide mt-3 mb-1.5 ${sub}`}>
-                Folder name
+                {t('changeLocationModal.folderName')}
               </label>
               <input
                 value={newFolderName}
                 onChange={e => setNewFolderName(e.target.value)}
-                placeholder="Nebulis"
+                placeholder={t('changeLocationModal.folderNamePlaceholder')}
                 className={`${getInputClass(isDark)} w-full`}
               />
               {nameError ? (
                 <p className="text-xs mt-1.5 text-red-500">{nameError}</p>
               ) : targetPath && (
                 <p className={`text-xs mt-1.5 ${sub}`}>
-                  Your library will be stored in{' '}
-                  <span className={`font-mono ${body}`}>{targetPath}</span>.
-                  {folderName ? ' This folder is created automatically if it does not exist.' : ''}
+                  <Trans
+                    i18nKey="changeLocationModal.willBeStoredIn"
+                    ns="common"
+                    values={{ path: targetPath }}
+                    components={{ 1: <span className={`font-mono ${body}`} /> }}
+                  />
+                  {folderName ? ` ${t('changeLocationModal.folderCreatedAutomatically')}` : ''}
                 </p>
               )}
             </div>
@@ -248,7 +254,9 @@ export function ChangeLocationModal({
 
         <div className="px-5 py-4 border-t border-slate-500/10 flex items-center justify-between gap-3">
           <span className={`text-xs truncate ${sub}`}>
-            {targetPath ? <>Move to <span className="font-mono">{targetPath}</span></> : 'Pick a drive to begin'}
+            {targetPath
+              ? <Trans i18nKey="changeLocationModal.moveTo" ns="common" values={{ path: targetPath }} components={{ 1: <span className="font-mono" /> }} />
+              : t('changeLocationModal.pickDriveToBegin')}
           </span>
           <div className="flex items-center gap-2 shrink-0">
             <button
@@ -256,7 +264,7 @@ export function ChangeLocationModal({
               onClick={onClose}
               className={`text-sm font-medium px-3.5 py-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
             >
-              Cancel
+              {t('confirmModal.cancel')}
             </button>
             <button
               type="button"
@@ -269,14 +277,14 @@ export function ChangeLocationModal({
               }`}
             >
               {starting && <Loader2 className="w-4 h-4 animate-spin" />}
-              Move library here
+              {t('changeLocationModal.moveLibraryHere')}
             </button>
           </div>
         </div>
         </>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -296,6 +304,7 @@ function NetworkShareForm({
   onClose: () => void;
   onStarted: () => void;
 }) {
+  const { t } = useTranslation('common');
   const [cfg, setCfg] = useState<NetworkLibraryConfig>(() => ({
     ...DEFAULT_NETWORK_CONFIG,
     ...(location?.network ?? {}),
@@ -325,7 +334,7 @@ function NetworkShareForm({
       const result = await testNetworkLibraryConnection(cfg);
       setTestResult(result);
     } catch (err) {
-      setTestResult({ ok: false, reason: err instanceof Error ? err.message : 'Could not test the connection' });
+      setTestResult({ ok: false, reason: err instanceof Error ? err.message : t('changeLocationModal.network.couldNotTestConnection') });
     } finally {
       setTesting(false);
     }
@@ -339,7 +348,7 @@ function NetworkShareForm({
       await startNetworkLibraryMigration(cfg);
       onStarted();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start the move');
+      setError(err instanceof Error ? err.message : t('changeLocationModal.couldNotStartMove'));
       setStarting(false);
     }
   }
@@ -349,48 +358,48 @@ function NetworkShareForm({
       <div className="px-5 py-4 overflow-y-auto space-y-3.5">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>Server address</label>
+            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>{t('changeLocationModal.network.serverAddress')}</label>
             <input
               value={cfg.host}
               onChange={e => update('host', e.target.value)}
-              placeholder="nas.local or 192.168.1.20"
+              placeholder={t('changeLocationModal.network.serverAddressPlaceholder')}
               className={`${getInputClass(isDark)} w-full`}
             />
           </div>
           <div>
-            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>Share name</label>
+            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>{t('changeLocationModal.network.shareName')}</label>
             <input
               value={cfg.share}
               onChange={e => update('share', e.target.value)}
-              placeholder="Photos"
+              placeholder={t('changeLocationModal.network.shareNamePlaceholder')}
               className={`${getInputClass(isDark)} w-full`}
             />
           </div>
         </div>
 
         <div>
-          <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>Folder on the share</label>
+          <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>{t('changeLocationModal.network.folderOnShare')}</label>
           <input
             value={cfg.subpath}
             onChange={e => update('subpath', e.target.value)}
             placeholder="Nebulis"
             className={`${getInputClass(isDark)} w-full`}
           />
-          <p className={`text-xs mt-1 ${sub}`}>Created automatically if it does not exist.</p>
+          <p className={`text-xs mt-1 ${sub}`}>{t('changeLocationModal.network.createdAutomatically')}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>Username</label>
+            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>{t('changeLocationModal.network.username')}</label>
             <input
               value={cfg.username}
               onChange={e => update('username', e.target.value)}
-              placeholder="Leave blank for guest access"
+              placeholder={t('changeLocationModal.network.usernamePlaceholder')}
               className={`${getInputClass(isDark)} w-full`}
             />
           </div>
           <div>
-            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>Password</label>
+            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>{t('changeLocationModal.network.password')}</label>
             <input
               type="password"
               value={cfg.password}
@@ -402,17 +411,17 @@ function NetworkShareForm({
 
         {showDomain ? (
           <div>
-            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>Domain (optional)</label>
+            <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>{t('changeLocationModal.network.domainOptional')}</label>
             <input
               value={cfg.domain}
               onChange={e => update('domain', e.target.value)}
-              placeholder="WORKGROUP"
+              placeholder={t('changeLocationModal.network.domainPlaceholder')}
               className={`${getInputClass(isDark)} w-full`}
             />
           </div>
         ) : (
           <button type="button" onClick={() => setShowDomain(true)} className={`text-xs font-medium ${sub} hover:opacity-80`}>
-            + Add a domain
+            {t('changeLocationModal.network.addDomain')}
           </button>
         )}
 
@@ -427,7 +436,7 @@ function NetworkShareForm({
           }`}
         >
           {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-          Test connection
+          {t('changeLocationModal.network.testConnection')}
         </button>
 
         {testResult && (
@@ -440,7 +449,7 @@ function NetworkShareForm({
               ? <Check className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
               : <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />}
             <p className={`text-xs leading-relaxed ${body}`}>
-              {testResult.ok ? 'Connected successfully.' : testResult.reason}
+              {testResult.ok ? t('changeLocationModal.network.connectedSuccessfully') : testResult.reason}
             </p>
           </div>
         )}
@@ -456,8 +465,8 @@ function NetworkShareForm({
       <div className="px-5 py-4 border-t border-slate-500/10 flex items-center justify-between gap-3">
         <span className={`text-xs truncate ${sub}`}>
           {canSubmit
-            ? <>Move to <span className="font-mono">\\{cfg.host}\{cfg.share}\{cfg.subpath}</span></>
-            : 'Enter a server address and share name'}
+            ? <Trans i18nKey="changeLocationModal.moveTo" ns="common" values={{ path: `\\\\${cfg.host}\\${cfg.share}\\${cfg.subpath}` }} components={{ 1: <span className="font-mono" /> }} />
+            : t('changeLocationModal.network.enterServerAndShare')}
         </span>
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -465,7 +474,7 @@ function NetworkShareForm({
             onClick={onClose}
             className={`text-sm font-medium px-3.5 py-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
           >
-            Cancel
+            {t('confirmModal.cancel')}
           </button>
           <button
             type="button"
@@ -478,7 +487,7 @@ function NetworkShareForm({
             }`}
           >
             {starting && <Loader2 className="w-4 h-4 animate-spin" />}
-            Move library here
+            {t('changeLocationModal.moveLibraryHere')}
           </button>
         </div>
       </div>

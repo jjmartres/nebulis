@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { NotebookPen, Moon, Eye, Star, MapPin, Save, RotateCw, Trash2, X } from 'lucide-react';
 import { getNote, saveNote, deleteNote as deleteNoteApi } from '../lib/api/notes';
 import { useTheme } from '../hooks/useTheme';
@@ -36,6 +37,7 @@ const EMPTY_FORM: FormState = {
 
 export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModalProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
   const { isViewer } = useAuth();
   const queryClient = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -111,7 +113,7 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
       <Modal
         isOpen
         onClose={requestClose}
-        title="Session Notes"
+        title={t('observationDetail.sessionNotesModal.title')}
         className={`relative rounded-2xl border shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto ${
           isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
         }`}
@@ -121,18 +123,18 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
             <div className="flex items-center gap-3">
               <NotebookPen className={`w-5 h-5 ${existingNote ? 'text-amber-500' : isDark ? 'text-slate-500' : 'text-slate-400'}`} />
               <h2 className={`font-display font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Session Notes
+                {t('observationDetail.sessionNotesModal.title')}
               </h2>
               {existingNote && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">Saved</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">{t('observationDetail.sessionNotesModal.saved')}</span>
               )}
               {isViewer && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>View only</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>{t('observationDetail.sessionNotesModal.viewOnly')}</span>
               )}
             </div>
             <button
               onClick={requestClose}
-              aria-label="Close"
+              aria-label={t('observationDetail.sessionNotesModal.close')}
               className={`p-1.5 rounded-lg transition ${isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
             >
               <X className="w-4 h-4" />
@@ -149,7 +151,7 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
                   {existingNote.moonPhase}
                 </span>
                 {existingNote.moonIllumination !== null && (
-                  <span>{existingNote.moonIllumination}% illuminated</span>
+                  <span>{t('observationDetail.sessionNotesModal.moonIllumination', { percent: existingNote.moonIllumination })}</span>
                 )}
               </div>
             )}
@@ -158,7 +160,7 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <Star className="w-3 h-3 inline mr-1" />Personal Rating
+                  <Star className="w-3 h-3 inline mr-1" />{t('observationDetail.sessionNotesModal.personalRating')}
                 </label>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map(n => (
@@ -179,7 +181,7 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
               </div>
               <div>
                 <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <Eye className="w-3 h-3 inline mr-1" />Seeing
+                  <Eye className="w-3 h-3 inline mr-1" />{t('observationDetail.sessionNotesModal.seeing')}
                 </label>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map(n => (
@@ -200,7 +202,7 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
               </div>
               <div>
                 <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  Bortle Class
+                  {t('observationDetail.sessionNotesModal.bortleClass')}
                 </label>
                 <select
                   value={form.bortleClass ?? ''}
@@ -210,7 +212,7 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
                 >
                   <option value="">-</option>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
-                    <option key={n} value={n}>Bortle {n}</option>
+                    <option key={n} value={n}>{t('observationDetail.sessionNotesModal.bortleOption', { number: n })}</option>
                   ))}
                 </select>
               </div>
@@ -220,11 +222,11 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <MapPin className="w-3 h-3 inline mr-1" />Location
+                  <MapPin className="w-3 h-3 inline mr-1" />{t('observationDetail.sessionNotesModal.location')}
                 </label>
                 <input
                   type="text"
-                  placeholder="Backyard, dark site, etc."
+                  placeholder={t('observationDetail.sessionNotesModal.locationPlaceholder')}
                   value={form.location}
                   onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
                   readOnly={isViewer}
@@ -233,11 +235,11 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
               </div>
               <div>
                 <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  Equipment
+                  {t('observationDetail.sessionNotesModal.equipment')}
                 </label>
                 <input
                   type="text"
-                  placeholder="SeeStar S50, LP filter, etc."
+                  placeholder={t('observationDetail.sessionNotesModal.equipmentPlaceholder')}
                   value={form.equipment}
                   onChange={e => setForm(f => ({ ...f, equipment: e.target.value }))}
                   readOnly={isViewer}
@@ -249,10 +251,10 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
             {/* Notes */}
             <div>
               <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Notes
+                {t('observationDetail.sessionNotesModal.notes')}
               </label>
               <textarea
-                placeholder="Observing conditions, weather, what went well..."
+                placeholder={t('observationDetail.sessionNotesModal.notesPlaceholder')}
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 readOnly={isViewer}
@@ -271,7 +273,7 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-danger-500 hover:bg-danger-500/10 transition"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  Delete Note
+                  {t('observationDetail.sessionNotesModal.deleteNote')}
                 </button>
               ) : <span />}
               <button
@@ -290,13 +292,13 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
                 ) : (
                   <Save className="w-3.5 h-3.5" />
                 )}
-                Save Notes
+                {t('observationDetail.sessionNotesModal.saveNotes')}
               </button>
             </div>
           )}
           {confirmingClose && (
             <CloseConfirm
-              message="Discard unsaved notes?"
+              message={t('observationDetail.sessionNotesModal.discardUnsaved')}
               onCancel={() => setConfirmingClose(false)}
               onDiscard={() => { setConfirmingClose(false); onClose(); }}
               isDark={isDark}
@@ -306,9 +308,9 @@ export function SessionNotesModal({ objectId, date, onClose }: SessionNotesModal
 
       {confirmDelete && (
         <ConfirmModal
-          title="Delete session notes?"
-          message="This will permanently delete all notes for this session. This cannot be undone."
-          confirmLabel="Delete"
+          title={t('observationDetail.sessionNotesModal.deleteConfirmTitle')}
+          message={t('observationDetail.sessionNotesModal.deleteConfirmMessage')}
+          confirmLabel={t('confirmModal.delete', { ns: 'common' })}
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => {
             setConfirmDelete(false);

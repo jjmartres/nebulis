@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Search, Trash2, RotateCcw, Telescope, CircleHelp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { searchDsoCatalog } from '../../lib/api/planner';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -30,13 +31,15 @@ export interface ObjectEdit {
   unsortedAssign: string;
 }
 
-const SOURCE_LABEL: Record<SessionEdit['source'], string> = {
-  fits: 'from FITS header',
-  filename: 'from filename',
-  folder: 'from folder name',
-  mtime: 'from file date',
-  none: 'no date',
-};
+function sourceLabel(t: (key: string) => string, source: SessionEdit['source']): string {
+  switch (source) {
+    case 'fits': return t('objectReviewCard.sourceFits');
+    case 'filename': return t('objectReviewCard.sourceFilename');
+    case 'folder': return t('objectReviewCard.sourceFolder');
+    case 'mtime': return t('objectReviewCard.sourceMtime');
+    case 'none': return t('objectReviewCard.sourceNone');
+  }
+}
 
 export function ObjectReviewCard({
   edit,
@@ -46,6 +49,7 @@ export function ObjectReviewCard({
   onChange: (next: ObjectEdit) => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const [picking, setPicking] = useState(false);
 
   const card = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
@@ -79,7 +83,7 @@ export function ObjectReviewCard({
           checked={!edit.skip}
           onChange={e => update({ skip: !e.target.checked })}
           className="w-4 h-4 accent-accent-500 shrink-0"
-          aria-label={`Import ${edit.folderName}`}
+          aria-label={t('objectReviewCard.importFolder', { name: edit.folderName })}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -100,12 +104,12 @@ export function ObjectReviewCard({
             </button>
             {!edit.catalogName && (
               <span className={`inline-flex items-center gap-1 text-xs ${mutedText}`}>
-                <CircleHelp className="w-3 h-3" /> no catalog match
+                <CircleHelp className="w-3 h-3" /> {t('objectReviewCard.noCatalogMatch')}
               </span>
             )}
           </div>
           <p className={`text-xs mt-0.5 ${mutedText}`}>
-            {edit.fileCount} file{edit.fileCount !== 1 ? 's' : ''} · {formatBytes(edit.bytes)} · {edit.sessions.length} session{edit.sessions.length !== 1 ? 's' : ''}
+            {t('objectReviewCard.fileCount', { count: edit.fileCount })} · {formatBytes(edit.bytes)} · {t('objectReviewCard.sessionCount', { count: edit.sessions.length })}
           </p>
         </div>
       </div>
@@ -125,7 +129,7 @@ export function ObjectReviewCard({
         <div className="px-4 py-3 space-y-1.5">
           {edit.sessions.map((s, i) => (
             <div key={s.derivedDate} className={`flex items-center gap-3 ${s.drop ? 'opacity-50' : ''}`}>
-              <ConfidenceDot confidence={s.confidence} />
+              <ConfidenceDot confidence={s.confidence} t={t} />
               <input
                 type="date"
                 value={s.finalDate}
@@ -134,15 +138,15 @@ export function ObjectReviewCard({
                 className={`${inputCls} w-[9.5rem]`}
               />
               <span className={`text-sm ${subText} flex-1`}>
-                {s.fileCount} file{s.fileCount !== 1 ? 's' : ''}
-                <span className={`ml-2 text-xs ${mutedText}`}>{SOURCE_LABEL[s.source]}</span>
+                {t('objectReviewCard.fileCount', { count: s.fileCount })}
+                <span className={`ml-2 text-xs ${mutedText}`}>{sourceLabel(t, s.source)}</span>
                 {!s.drop && (finalCounts.get(s.finalDate) ?? 0) > 1 && (
-                  <span className={`ml-2 text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>merges</span>
+                  <span className={`ml-2 text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{t('objectReviewCard.merges')}</span>
                 )}
               </span>
               <button
                 onClick={() => updateSession(i, { drop: !s.drop })}
-                title={s.drop ? 'Keep this session' : 'Skip this session'}
+                title={s.drop ? t('objectReviewCard.keepSession') : t('objectReviewCard.skipSession')}
                 className={`p-1.5 rounded-lg transition ${
                   s.drop
                     ? isDark ? 'text-slate-500 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-100'
@@ -157,25 +161,25 @@ export function ObjectReviewCard({
           {/* Unsorted bucket */}
           {edit.unsortedCount > 0 && (
             <div className={`flex items-center gap-3 pt-2 mt-1 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
-              <ConfidenceDot confidence="none" />
+              <ConfidenceDot confidence="none" t={t} />
               <input
                 type="date"
                 value={edit.unsortedAssign}
                 onChange={e => update({ unsortedAssign: e.target.value })}
                 className={`${inputCls} w-[9.5rem]`}
-                placeholder="skip"
+                placeholder={t('objectReviewCard.unsortedSkipPlaceholder')}
               />
               <span className={`text-sm ${subText} flex-1`}>
-                {edit.unsortedCount} file{edit.unsortedCount !== 1 ? 's' : ''} with no detectable date
+                {t('objectReviewCard.unsortedFiles', { count: edit.unsortedCount })}
                 <span className={`ml-2 text-xs ${mutedText}`}>
-                  {edit.unsortedAssign ? 'assigned' : 'leave blank to skip'}
+                  {edit.unsortedAssign ? t('objectReviewCard.assigned') : t('objectReviewCard.leaveBlankToSkip')}
                 </span>
               </span>
             </div>
           )}
 
           <p className={`text-xs pt-1 ${mutedText}`}>
-            {keptFiles} file{keptFiles !== 1 ? 's' : ''} will import.
+            {t('objectReviewCard.willImport', { count: keptFiles })}
           </p>
         </div>
       )}
@@ -183,17 +187,17 @@ export function ObjectReviewCard({
   );
 }
 
-function ConfidenceDot({ confidence }: { confidence: SessionEdit['confidence'] }) {
+function ConfidenceDot({ confidence, t }: { confidence: SessionEdit['confidence']; t: (key: string) => string }) {
   const color =
     confidence === 'high' ? 'bg-emerald-500'
       : confidence === 'medium' ? 'bg-amber-500'
         : confidence === 'low' ? 'bg-orange-500'
           : 'bg-red-500';
   const label =
-    confidence === 'high' ? 'High confidence date'
-      : confidence === 'medium' ? 'Medium confidence date'
-        : confidence === 'low' ? 'Low confidence date'
-          : 'No date';
+    confidence === 'high' ? t('objectReviewCard.highConfidence')
+      : confidence === 'medium' ? t('objectReviewCard.mediumConfidence')
+        : confidence === 'low' ? t('objectReviewCard.lowConfidence')
+          : t('objectReviewCard.noDate');
   return <span className={`w-2 h-2 rounded-full shrink-0 ${color}`} title={label} aria-label={label} />;
 }
 
@@ -209,6 +213,7 @@ function CatalogPicker({
   onUseAsIs: () => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const [query, setQuery] = useState(folderName);
   const [debounced, setDebounced] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -237,14 +242,14 @@ function CatalogPicker({
           autoFocus
           value={query}
           onChange={e => onType(e.target.value)}
-          placeholder="Search catalog (M31, NGC 7000, Andromeda...)"
+          placeholder={t('objectReviewCard.searchPlaceholder')}
           className={`${inputCls} w-full pl-8`}
         />
       </div>
       <div className="mt-2 max-h-48 overflow-y-auto space-y-0.5">
-        {isFetching && <p className={`text-xs px-1 ${mutedText}`}>Searching...</p>}
+        {isFetching && <p className={`text-xs px-1 ${mutedText}`}>{t('objectReviewCard.searching')}</p>}
         {!isFetching && debounced && results.length === 0 && (
-          <p className={`text-xs px-1 ${mutedText}`}>No matches.</p>
+          <p className={`text-xs px-1 ${mutedText}`}>{t('objectReviewCard.noMatches')}</p>
         )}
         {results.map(r => (
           <button
@@ -264,7 +269,7 @@ function CatalogPicker({
         onClick={onUseAsIs}
         className={`mt-2 text-xs ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
       >
-        Use folder name "{folderName}" as-is
+        {t('objectReviewCard.useAsIs', { name: folderName })}
       </button>
     </div>
   );

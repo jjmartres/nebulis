@@ -18,10 +18,12 @@ import {
   stmts,
   getFolderName,
   ensureLibraryDir,
+  resolveContainedObjectDir,
   LIBRARY_API_BASE,
 } from './objects.js';
 import { isRenderableProcessedName } from './processed.js';
 import { isDwarfThumbnailPreviewName } from './dwarfRestack.js';
+import { isDwarfInternalArtifact } from './importFilter.js';
 import { getImageFavorites } from './favorites.js';
 import { caldwellToNgcId } from '../caldwellCatalog.js';
 import { hubbleImagePath, wikiImagePath, imageCachePath, fovForEntry, findCachedMaster } from '../catalogPrefetch.js';
@@ -111,6 +113,7 @@ function walkAllLibraryImages(LIBRARY_DIR: string): LibraryImageBase[] {
       if (lower.includes('_thn.')) continue;
       if (file.startsWith('sky_') || file.startsWith('gallery_')) continue;
       if (isDwarfThumbnailPreviewName(file)) continue; // Dwarf's own redundant stacked_thumbnail.* preview
+      if (isDwarfInternalArtifact(file)) continue; // Dwarf's own working artifacts (img_reference.*/img_stacked_counter.*), not a deliverable image
 
       const filePath = `${obj.folderName}/${entry.relPath}`;
       results.push({
@@ -144,6 +147,7 @@ function walkAllLibraryImages(LIBRARY_DIR: string): LibraryImageBase[] {
   ).all()) {
     if (!isRenderableProcessedName(r.filename)) continue;
     if (isDwarfThumbnailPreviewName(r.filename)) continue; // Dwarf's own redundant stacked_thumbnail.* preview
+    if (isDwarfInternalArtifact(r.filename)) continue; // Dwarf's own working artifacts (img_reference.*/img_stacked_counter.*), not a deliverable image
     const obj = objById.get(r.objectId);
     if (!obj) continue; // processed row survives a deleted/unknown object; skip rather than fabricate one
     const filePath = `${obj.folderName}/processed/${r.filename}`;
@@ -226,9 +230,12 @@ export function getAllLibraryImages(
 
 /** List all stacked JPG images across all sessions for an object. */
 export function getStackedImages(objectId: string): Array<{ name: string; path: string; date: string; downloadUrl: string }> {
-  const LIBRARY_DIR = getLibraryDir();
+  // Contained resolution, not `path.join(root, getFolderName(id))`: the folder
+  // name falls back to the raw id on a DB miss, so a traversal id would list an
+  // arbitrary directory and hand back paths outside the library.
+  const objDir = resolveContainedObjectDir(objectId);
+  if (!objDir) return [];
   const folderName = getFolderName(objectId);
-  const objDir = path.join(LIBRARY_DIR, folderName);
   if (!fs.existsSync(objDir)) return [];
 
   const results: Array<{ name: string; path: string; date: string; downloadUrl: string }> = [];
@@ -241,6 +248,7 @@ export function getStackedImages(objectId: string): Array<{ name: string; path: 
     if (lower.includes('_thn.')) continue; // skip thumbnails
     if (file.startsWith('sky_') || file.startsWith('gallery_')) continue; // skip managed images
     if (isDwarfThumbnailPreviewName(file)) continue; // Dwarf's own redundant stacked_thumbnail.* preview
+    if (isDwarfInternalArtifact(file)) continue; // Dwarf's own working artifacts (img_reference.*/img_stacked_counter.*), not a deliverable image
 
     const filePath = `${folderName}/${entry.relPath}`;
     results.push({

@@ -11,8 +11,9 @@
  * for the same inputs. This component only collects the knobs, renders the
  * result, and hands finished blocks back to the planner.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sparkles, Moon, ArrowUp, X, Shuffle, Clock, Hash, Telescope } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatHm } from '../../lib/timeFormat';
 import { formatObjectName } from '../../lib/utils';
 import { getCatalogThumbnailUrl } from '../../lib/catalogImage';
@@ -50,11 +51,11 @@ interface AutoPlanModalProps {
 
 type SplitMode = 'perObject' | 'count';
 
-const FOCUS_OPTIONS: { value: AutoPlanFocus; label: string }[] = [
-  { value: 'all', label: 'Anything' },
-  { value: 'galaxies', label: 'Galaxies' },
-  { value: 'nebulae', label: 'Nebulae' },
-  { value: 'clusters', label: 'Clusters' },
+const FOCUS_OPTIONS: { value: AutoPlanFocus; labelKey: string }[] = [
+  { value: 'all', labelKey: 'autoPlanModal.focusAnything' },
+  { value: 'galaxies', labelKey: 'autoPlanModal.focusGalaxies' },
+  { value: 'nebulae', labelKey: 'autoPlanModal.focusNebulae' },
+  { value: 'clusters', labelKey: 'autoPlanModal.focusClusters' },
 ];
 
 const HALF_HOUR = 30 * 60_000;
@@ -95,6 +96,7 @@ export function AutoPlanModal({
   onApply,
   onClose,
 }: AutoPlanModalProps) {
+  const { t } = useTranslation('planner');
   const [step, setStep] = useState<'setup' | 'preview'>('setup');
   // Start / end are stored as epoch ms picked from the night's time grid, so
   // they cross midnight and respect the observer timezone without any wall-clock
@@ -159,11 +161,11 @@ export function AutoPlanModal({
       setBlocks(await build(0));
       setStep('preview');
     } catch (err) {
-      setBuildError(err instanceof Error ? err.message : 'Could not build a plan');
+      setBuildError(err instanceof Error ? err.message : t('autoPlanModal.buildFailed'));
     } finally {
       setBuilding(false);
     }
-  }, [build]);
+  }, [build, t]);
 
   const handleShuffle = useCallback(async () => {
     setBuilding(true);
@@ -171,11 +173,11 @@ export function AutoPlanModal({
     try {
       setBlocks(await build(8));
     } catch (err) {
-      setBuildError(err instanceof Error ? err.message : 'Could not build a plan');
+      setBuildError(err instanceof Error ? err.message : t('autoPlanModal.buildFailed'));
     } finally {
       setBuilding(false);
     }
-  }, [build]);
+  }, [build, t]);
 
   const runApply = useCallback(async () => {
     setApplying(true);
@@ -187,12 +189,12 @@ export function AutoPlanModal({
       // Without this a failed apply (a dropped request part-way through the
       // create loop) closed nothing and said nothing — a half-applied plan
       // looked done.
-      setApplyError(err instanceof Error ? err.message : 'Could not apply the plan. Some blocks may not have been added.');
+      setApplyError(err instanceof Error ? err.message : t('autoPlanModal.applyFailed'));
     } finally {
       setApplying(false);
       setConfirmReplace(false);
     }
-  }, [blocks, clearFirst, onApply, onClose]);
+  }, [blocks, clearFirst, onApply, onClose, t]);
 
   // Replacing an existing plan is destructive, so make the user say so first.
   // Merging (clearFirst off) or an empty night applies straight away.
@@ -228,6 +230,12 @@ export function AutoPlanModal({
     if (v >= endMs) setEndMs(timeOptions.find(o => o.ms > v)?.ms ?? timeOptions[timeOptions.length - 1].ms);
   };
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const surface = isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900';
   const subtle = isDark ? 'text-slate-400' : 'text-slate-600';
   const chipIdle = isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200';
@@ -249,18 +257,18 @@ export function AutoPlanModal({
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 rounded-lg hover:bg-white/10 transition"
-            aria-label="Close"
+            aria-label={t('autoPlanModal.close')}
           >
             <X className="w-5 h-5" />
           </button>
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-accent-500" />
-            Plan My Night
+            {t('autoPlanModal.title')}
           </h2>
           <p className={`text-sm mt-1 ${subtle}`}>
             {step === 'setup'
-              ? `Fresh targets for ${nightLabel}, picked for height and clear of the moon.`
-              : `${blocks.length} target${blocks.length === 1 ? '' : 's'} lined up for ${nightLabel}.`}
+              ? t('autoPlanModal.setupSubtitle', { nightLabel })
+              : t('autoPlanModal.previewSubtitle', { count: blocks.length, nightLabel })}
           </p>
         </div>
 
@@ -272,11 +280,11 @@ export function AutoPlanModal({
               <section className="space-y-2">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Clock className="w-4 h-4 text-accent-500" />
-                  When do you want to image?
+                  {t('autoPlanModal.whenToImage')}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="space-y-1 block">
-                    <span className={`text-xs ${subtle}`}>Start</span>
+                    <span className={`text-xs ${subtle}`}>{t('autoPlanModal.start')}</span>
                     <select
                       value={startMs}
                       onChange={(e) => handleStartChange(Number(e.target.value))}
@@ -288,7 +296,7 @@ export function AutoPlanModal({
                     </select>
                   </label>
                   <label className="space-y-1 block">
-                    <span className={`text-xs ${subtle}`}>End</span>
+                    <span className={`text-xs ${subtle}`}>{t('autoPlanModal.end')}</span>
                     <select
                       value={endMs}
                       onChange={(e) => setEndMs(Number(e.target.value))}
@@ -301,25 +309,25 @@ export function AutoPlanModal({
                   </label>
                 </div>
                 <div className={`text-xs ${subtle}`}>
-                  {durationHours.toFixed(1)} hours of imaging, in your local time.
+                  {t('autoPlanModal.durationHint', { hours: durationHours.toFixed(1) })}
                 </div>
               </section>
 
               {/* Split mode */}
               <section className="space-y-3">
-                <div className="text-sm font-medium">How should I split the time?</div>
+                <div className="text-sm font-medium">{t('autoPlanModal.howToSplit')}</div>
                 <div className="grid grid-cols-2 gap-2">
                   <SplitButton
                     active={splitMode === 'perObject'}
                     icon={<Clock className="w-4 h-4" />}
-                    label="Time per object"
+                    label={t('autoPlanModal.timePerObject')}
                     onClick={() => setSplitMode('perObject')}
                     isDark={isDark}
                   />
                   <SplitButton
                     active={splitMode === 'count'}
                     icon={<Hash className="w-4 h-4" />}
-                    label="Number of objects"
+                    label={t('autoPlanModal.numberOfObjects')}
                     onClick={() => setSplitMode('count')}
                     isDark={isDark}
                   />
@@ -335,7 +343,7 @@ export function AutoPlanModal({
                           minutesPerObject === m ? 'bg-accent-500 text-white' : chipIdle
                         }`}
                       >
-                        {m} min
+                        {t('autoPlanModal.minutesShort', { count: m })}
                       </button>
                     ))}
                   </div>
@@ -351,7 +359,7 @@ export function AutoPlanModal({
                       className="flex-1 accent-amber-500"
                     />
                     <span className="text-sm font-medium w-20 text-right">
-                      {objectCount} object{objectCount === 1 ? '' : 's'}
+                      {t('autoPlanModal.objectCount', { count: objectCount })}
                     </span>
                   </div>
                 )}
@@ -361,7 +369,7 @@ export function AutoPlanModal({
               <section className="space-y-2">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Telescope className="w-4 h-4 text-accent-500" />
-                  Anything you're in the mood for?
+                  {t('autoPlanModal.focusPrompt')}
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
                   {FOCUS_OPTIONS.map((o) => (
@@ -372,7 +380,7 @@ export function AutoPlanModal({
                         focus === o.value ? 'bg-accent-500 text-white' : chipIdle
                       }`}
                     >
-                      {o.label}
+                      {t(o.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -386,7 +394,7 @@ export function AutoPlanModal({
                   onChange={(e) => setUnimagedOnly(e.target.checked)}
                   className="accent-amber-500"
                 />
-                <span>Only include targets I haven't imaged yet</span>
+                <span>{t('autoPlanModal.unimagedOnly')}</span>
               </label>
               {buildError && <p className="text-xs text-red-500">{buildError}</p>}
             </>
@@ -396,9 +404,9 @@ export function AutoPlanModal({
                 <div className={`text-center py-10 ${subtle}`}>
                   <Moon className="w-8 h-8 mx-auto mb-3 opacity-50" />
                   <p className="text-sm">
-                    Couldn't find fresh targets that clear the moon and your sky tonight.
+                    {t('autoPlanModal.noFreshTargets')}
                   </p>
-                  <p className="text-xs mt-1">Try a different focus, fewer hours, or a future night.</p>
+                  <p className="text-xs mt-1">{t('autoPlanModal.tryDifferent')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -421,7 +429,6 @@ export function AutoPlanModal({
                         </div>
                         <div className={`text-xs truncate ${subtle}`}>
                           {b.target.type}
-                          {b.target.constellation ? ` · ${b.target.constellation}` : ''}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-[11px]">
                           <span className="inline-flex items-center gap-1 text-accent-500">
@@ -434,7 +441,7 @@ export function AutoPlanModal({
                             }`}
                           >
                             <Moon className="w-3 h-3" />
-                            {b.moonSeparation === Infinity ? 'moon down' : `${Math.round(b.moonSeparation)}° away`}
+                            {b.moonSeparation === Infinity ? t('autoPlanModal.moonDown') : t('autoPlanModal.awayDeg', { deg: Math.round(b.moonSeparation) })}
                           </span>
                         </div>
                       </div>
@@ -456,7 +463,7 @@ export function AutoPlanModal({
                     className="accent-amber-500"
                   />
                   <span className={subtle}>
-                    Replace the {existingPlanCount} {existingPlanCount === 1 ? 'block' : 'blocks'} already planned for {nightLabel}
+                    {t('autoPlanModal.replaceExisting', { count: existingPlanCount, nightLabel })}
                   </span>
                 </label>
               )}
@@ -476,7 +483,7 @@ export function AutoPlanModal({
                 onClick={onClose}
                 className={`px-4 py-2 rounded-lg text-sm font-medium ${chipIdle}`}
               >
-                Cancel
+                {t('autoPlanModal.cancel')}
               </button>
               <button
                 onClick={handleBuild}
@@ -484,7 +491,7 @@ export function AutoPlanModal({
                 className="ml-auto px-5 py-2 rounded-lg text-sm font-semibold bg-accent-500 hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed text-white inline-flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />
-                {building ? 'Building…' : 'Build my plan'}
+                {building ? t('autoPlanModal.building') : t('autoPlanModal.buildMyPlan')}
               </button>
             </>
           ) : (
@@ -493,7 +500,7 @@ export function AutoPlanModal({
                 onClick={() => setStep('setup')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium ${chipIdle}`}
               >
-                Back
+                {t('autoPlanModal.back')}
               </button>
               {blocks.length > 0 && (
                 <button
@@ -502,7 +509,7 @@ export function AutoPlanModal({
                   className={`px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${chipIdle}`}
                 >
                   <Shuffle className="w-4 h-4" />
-                  Shuffle
+                  {t('autoPlanModal.shuffle')}
                 </button>
               )}
               <button
@@ -510,7 +517,7 @@ export function AutoPlanModal({
                 disabled={blocks.length === 0 || applying || building}
                 className="ml-auto px-5 py-2 rounded-lg text-sm font-semibold bg-accent-500 hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed text-white inline-flex items-center gap-2"
               >
-                {applying ? 'Adding…' : `Add to ${nightLabel}`}
+                {applying ? t('autoPlanModal.adding') : t('autoPlanModal.addTo', { nightLabel })}
               </button>
             </>
           )}
@@ -519,9 +526,9 @@ export function AutoPlanModal({
 
       {confirmReplace && (
         <ConfirmModal
-          title={`Replace the plan for ${nightLabel}?`}
-          message={`This clears the ${existingPlanCount} ${existingPlanCount === 1 ? 'target' : 'targets'} already scheduled for ${nightLabel} and replaces ${existingPlanCount === 1 ? 'it' : 'them'} with these ${blocks.length}.`}
-          confirmLabel="Replace"
+          title={t('autoPlanModal.replaceTitle', { nightLabel })}
+          message={t('autoPlanModal.replaceMessage', { count: existingPlanCount, nightLabel, newCount: blocks.length })}
+          confirmLabel={t('autoPlanModal.replace')}
           pending={applying}
           onConfirm={() => { void runApply(); }}
           onCancel={() => setConfirmReplace(false)}

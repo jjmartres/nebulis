@@ -1,11 +1,12 @@
 import { useState, memo } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Sparkles, CalendarDays, Heart, FileArchive } from 'lucide-react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toggleFavorite, getLibraryObjectThumbnailUrl } from '../lib/api/library';
 import type { TelescopeProfile } from '../lib/api/telescopes';
 import type { AstroObject } from '../types';
-import { PROCESSING_STATUS_LABEL } from '../lib/processingStatus';
+import { processingStatusLabel } from '../lib/processingStatus';
 
 interface ObjectCardProps {
   object: AstroObject;
@@ -47,6 +48,7 @@ function getTypeColor(type: string, isDark: boolean) {
 }
 
 export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes }: ObjectCardProps) {
+  const { t } = useTranslation('library');
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const queryClient = useQueryClient();
@@ -171,13 +173,12 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
             className={`p-1.5 rounded-full bg-black/30 backdrop-blur-sm hover:bg-black/50 transition-all ${
               favorited ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
             }`}
-            aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+            aria-label={favorited ? t('objectCard.removeFromFavorites') : t('objectCard.addToFavorites')}
           >
             <Heart
               className={`w-4 h-4 transition-colors ${favorited ? 'text-rose-500 fill-rose-500' : 'text-white/70'}`}
             />
           </button>
-
           {/* Only shown once the object has left its default state — a
               permanent "Unprocessed" pill on every untouched card would be
               pure noise, same reasoning the session-count line already
@@ -191,7 +192,7 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
                   : 'bg-emerald-500/20 text-emerald-300 ring-emerald-400/30'
               }`}
             >
-              {PROCESSING_STATUS_LABEL[object.processingStatus]}
+              {processingStatusLabel(object.processingStatus, t)}
             </span>
           )}
         </div>
@@ -236,7 +237,7 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
                   isDark ? 'text-slate-500' : 'text-slate-400'
                 }`}>
                   <CalendarDays className="w-3 h-3" />
-                  {object.sessionCount} observation{object.sessionCount !== 1 ? 's' : ''}
+                  {t('objectCard.observationCount', { count: object.sessionCount })}
                 </span>
               )}
               {/* Only shown once a processing project (Siril/PixInsight .zip) has
@@ -247,7 +248,7 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
                   isDark ? 'text-slate-500' : 'text-slate-400'
                 }`}>
                   <FileArchive className="w-3 h-3" />
-                  {object.projectArchiveCount} project{object.projectArchiveCount !== 1 ? 's' : ''}
+                  {t('objectCard.projectArchiveCount', { count: object.projectArchiveCount })}
                 </span>
               )}
             </span>

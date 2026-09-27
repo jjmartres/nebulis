@@ -9,6 +9,7 @@
  * (the same disk the Forecast and Planner use) rather than named in a row, and
  * everything else follows as ordinary facts.
  */
+import { useTranslation } from 'react-i18next';
 import { Cloud, Moon } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { MoonDisk } from '../ui/MoonDisk';
@@ -28,11 +29,11 @@ export interface SkyConditions {
  * way to most bars: clear is the good end. The three steps are the same
  * traffic-light the planner uses for a scheduled block.
  */
-function cloudVerdict(pct: number): { label: string; hex: string } {
-  if (pct <= 15) return { label: 'Clear', hex: '#10b981' };
-  if (pct <= 40) return { label: 'Mostly clear', hex: '#34d399' };
-  if (pct <= 70) return { label: 'Broken cloud', hex: '#f59e0b' };
-  return { label: 'Overcast', hex: '#ef4444' };
+function cloudVerdict(pct: number, t: (key: string) => string): { label: string; hex: string } {
+  if (pct <= 15) return { label: t('observationDetail.conditionsPanel.cloudClear'), hex: '#10b981' };
+  if (pct <= 40) return { label: t('observationDetail.conditionsPanel.cloudMostlyClear'), hex: '#34d399' };
+  if (pct <= 70) return { label: t('observationDetail.conditionsPanel.cloudBroken'), hex: '#f59e0b' };
+  return { label: t('observationDetail.conditionsPanel.cloudOvercast'), hex: '#ef4444' };
 }
 
 export function ConditionsPanel({ weather, sky, tempUnit }: {
@@ -41,6 +42,7 @@ export function ConditionsPanel({ weather, sky, tempUnit }: {
   tempUnit: 'celsius' | 'fahrenheit';
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
 
   const temp = (c: number) =>
     tempUnit === 'fahrenheit' ? `${Math.round(c * 9 / 5 + 32)}°F` : `${Math.round(c)}°C`;
@@ -50,30 +52,29 @@ export function ConditionsPanel({ weather, sky, tempUnit }: {
     || sky.transparencyRating != null || !!sky.moonPhase
   );
   const cloud = weather?.cloudCover;
-  const verdict = cloud != null ? cloudVerdict(cloud) : null;
+  const verdict = cloud != null ? cloudVerdict(cloud, t) : null;
 
   const weatherFacts: { label: string; value: string }[] = [];
-  if (weather?.temperature != null) weatherFacts.push({ label: 'Air temp', value: temp(weather.temperature) });
-  if (weather?.humidity != null) weatherFacts.push({ label: 'Humidity', value: `${Math.round(weather.humidity)}%` });
-  if (weather?.windSpeed != null) weatherFacts.push({ label: 'Wind', value: `${Math.round(weather.windSpeed * 0.621371)} mph` });
-  if (weather?.dewPoint != null) weatherFacts.push({ label: 'Dew point', value: temp(weather.dewPoint) });
+  if (weather?.temperature != null) weatherFacts.push({ label: t('observationDetail.conditionsPanel.airTemp'), value: temp(weather.temperature) });
+  if (weather?.humidity != null) weatherFacts.push({ label: t('observationDetail.conditionsPanel.humidity'), value: `${Math.round(weather.humidity)}%` });
+  if (weather?.windSpeed != null) weatherFacts.push({ label: t('observationDetail.conditionsPanel.wind'), value: `${Math.round(weather.windSpeed * 0.621371)} mph` });
+  if (weather?.dewPoint != null) weatherFacts.push({ label: t('observationDetail.conditionsPanel.dewPoint'), value: temp(weather.dewPoint) });
   if (weather?.precipProb != null && weather.precipProb > 0) {
-    weatherFacts.push({ label: 'Precipitation', value: `${Math.round(weather.precipProb)}%` });
+    weatherFacts.push({ label: t('observationDetail.conditionsPanel.precipitation'), value: `${Math.round(weather.precipProb)}%` });
   }
 
   const skyFacts: { label: string; value: string }[] = [];
-  if (sky?.bortleClass != null) skyFacts.push({ label: 'Bortle', value: `Class ${sky.bortleClass}` });
-  if (sky?.seeingRating != null) skyFacts.push({ label: 'Seeing', value: `${sky.seeingRating} / 5` });
-  if (sky?.transparencyRating != null) skyFacts.push({ label: 'Transparency', value: `${sky.transparencyRating} / 5` });
+  if (sky?.bortleClass != null) skyFacts.push({ label: t('observationDetail.conditionsPanel.bortle'), value: t('observationDetail.conditionsPanel.bortleClass', { value: sky.bortleClass }) });
+  if (sky?.seeingRating != null) skyFacts.push({ label: t('observationDetail.conditionsPanel.seeing'), value: t('observationDetail.conditionsPanel.ratingOutOf5', { value: sky.seeingRating }) });
+  if (sky?.transparencyRating != null) skyFacts.push({ label: t('observationDetail.conditionsPanel.transparency'), value: t('observationDetail.conditionsPanel.ratingOutOf5', { value: sky.transparencyRating }) });
 
   const rule = isDark ? 'border-slate-800' : 'border-slate-100';
 
   return (
-    <SessionPanel title="Conditions" icon={Cloud}>
+    <SessionPanel title={t('observationDetail.conditionsPanel.title')} icon={Cloud}>
       {!weather && !hasSky && (
         <PanelEmpty>
-          No conditions were recorded for this night. Weather is fetched for the session's location
-          when it is imported.
+          {t('observationDetail.conditionsPanel.empty')}
         </PanelEmpty>
       )}
 
@@ -93,7 +94,7 @@ export function ConditionsPanel({ weather, sky, tempUnit }: {
               <div className={`text-[10.5px] font-medium uppercase tracking-[0.12em] ${
                 isDark ? 'text-slate-500' : 'text-slate-400'
               }`}>
-                Cloud cover
+                {t('observationDetail.conditionsPanel.cloudCover')}
               </div>
             </div>
           )}
@@ -118,14 +119,14 @@ export function ConditionsPanel({ weather, sky, tempUnit }: {
                   isDark ? 'text-slate-500' : 'text-slate-400'
                 }`}>
                   <Moon className="h-3 w-3" />
-                  Moon
+                  {t('observationDetail.conditionsPanel.moon')}
                 </div>
                 <div className={`mt-1 text-[13px] font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
                   {sky.moonPhase}
                 </div>
                 {sky.moonIllumination != null && (
                   <div className={`text-[11.5px] tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                    {Math.round(sky.moonIllumination)}% lit
+                    {t('observationDetail.conditionsPanel.moonLit', { percent: Math.round(sky.moonIllumination) })}
                   </div>
                 )}
               </div>

@@ -34,18 +34,18 @@ export interface FovProfile {
  */
 export const FOV_PROFILES: FovProfile[] = [
   { id: 'seestar-s50', label: 'ZWO SeeStar S50', widthDeg: 1.28, heightDeg: 0.73, vendor: 'ZWO' },
-  { id: 'seestar-s50-pro', label: 'ZWO SeeStar S50 Pro', widthDeg: 1.23, heightDeg: 0.70, vendor: 'ZWO' },
+  { id: 'seestar-s50-pro', label: 'ZWO SeeStar S50 Pro', widthDeg: 2.45, heightDeg: 1.38, vendor: 'ZWO' },
   { id: 'seestar-s30', label: 'ZWO SeeStar S30', widthDeg: 2.14, heightDeg: 1.22, vendor: 'ZWO' },
   { id: 'seestar-s30-pro', label: 'ZWO SeeStar S30 Pro', widthDeg: 3.99, heightDeg: 2.24, vendor: 'ZWO' },
   { id: 'dwarf-3', label: 'DwarfLab Dwarf 3', widthDeg: 2.94, heightDeg: 1.65, vendor: 'DwarfLab' },
   { id: 'dwarf-2', label: 'DwarfLab Dwarf II', widthDeg: 3.20, heightDeg: 1.80, vendor: 'DwarfLab' },
-  { id: 'dwarf-mini', label: 'DwarfLab Dwarf Mini', widthDeg: 2.90, heightDeg: 1.63, vendor: 'DwarfLab' },
+  { id: 'dwarf-mini', label: 'DwarfLab Dwarf Mini', widthDeg: 2.13, heightDeg: 1.20, vendor: 'DwarfLab' },
   { id: 'vespera', label: 'Vaonis Vespera', widthDeg: 1.60, heightDeg: 0.90, vendor: 'Vaonis' },
   { id: 'vespera-2', label: 'Vaonis Vespera II', widthDeg: 2.50, heightDeg: 1.40, vendor: 'Vaonis' },
-  { id: 'vespera-pro', label: 'Vaonis Vespera Pro', widthDeg: 1.60, heightDeg: 0.90, vendor: 'Vaonis' },
+  { id: 'vespera-pro', label: 'Vaonis Vespera Pro', widthDeg: 1.60, heightDeg: 1.60, vendor: 'Vaonis' },
   { id: 'stellina', label: 'Vaonis Stellina', widthDeg: 1.00, heightDeg: 0.70, vendor: 'Vaonis' },
   { id: 'evscope-2', label: 'Unistellar eVscope 2', widthDeg: 0.75, heightDeg: 0.56, vendor: 'Unistellar' },
-  { id: 'equinox-2', label: 'Unistellar eQuinox 2', widthDeg: 0.68, heightDeg: 0.51, vendor: 'Unistellar' },
+  { id: 'equinox-2', label: 'Unistellar eQuinox 2', widthDeg: 0.76, heightDeg: 0.57, vendor: 'Unistellar' },
 ];
 
 export const DEFAULT_FOV_PROFILE_ID = 'seestar-s50';
@@ -153,6 +153,8 @@ export function autoMosaicForObject(
   return { cols: need(objWDeg, fov.widthDeg), rows: need(objHDeg, fov.heightDeg) };
 }
 
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
 /** Format a degree value as degrees or arcminutes, whichever reads cleaner. */
 export function formatFovDeg(deg: number): string {
   if (deg < 1) return `${Math.round(deg * 60)}′`;
@@ -175,15 +177,16 @@ export type FitTag = 'tiny' | 'fits' | 'tight' | 'mosaic';
 
 export interface FitAssessment {
   tag: FitTag;
-  /** Short chip text, e.g. "Fits", "Tight crop". */
-  short: string;
-  /** One-line explanation, used as a tooltip or the modal's verdict line. */
-  label: string;
   /** Fraction of the frame's limiting axis the object's bounding box fills
    *  (see `frameFillRatio`'s doc comment — same rotation-agnostic caveat).
    *  Exposed mainly so callers can secondary-sort within one `tag` (e.g. the
    *  Catalogs board's "Best frame fit" sort) without recomputing it. */
   fillRatio: number;
+  /** Set only when `tag === 'mosaic'`: the grid a `classifyFit` caller would
+   *  need to cover the object, so a translated verdict can say "needs a 3 × 2
+   *  mosaic" without recomputing `autoMosaicForObject` itself. */
+  mosaicCols?: number;
+  mosaicRows?: number;
 }
 
 /** Fraction of the frame's limiting axis the object's bounding box fills,
@@ -204,7 +207,10 @@ function frameFillRatio(fov: { widthDeg: number; heightDeg: number }, object: Ob
  * a colored badge instead of parsing a sentence.
  *
  * Returns `null` when the object's angular size isn't known — callers should
- * omit the badge entirely rather than guess.
+ * omit the badge entirely rather than guess. Pure/untranslated by design (it
+ * feeds sorting as well as display, e.g. the Catalogs board's "Best frame
+ * fit" sort in CatalogBoard.tsx) — pass the result through `fitDisplayStrings`
+ * to get user-facing text.
  */
 export function classifyFit(
   fov: { widthDeg: number; heightDeg: number },
@@ -214,11 +220,11 @@ export function classifyFit(
   const fillRatio = frameFillRatio(fov, object);
   const { cols, rows } = autoMosaicForObject(fov, object, 0.1);
   if (cols > 1 || rows > 1) {
-    return { tag: 'mosaic', short: 'Mosaic', label: `Too large for one frame — needs a ${cols} × ${rows} mosaic`, fillRatio };
+    return { tag: 'mosaic', fillRatio, mosaicCols: cols, mosaicRows: rows };
   }
-  if (fillRatio >= 0.75) return { tag: 'tight', short: 'Tight crop', label: 'Fits, but fills most of the frame — little room to rotate or crop', fillRatio };
-  if (fillRatio < 0.15) return { tag: 'tiny', short: 'Tiny', label: 'Fits with plenty to spare — will look small in the frame', fillRatio };
-  return { tag: 'fits', short: 'Fits', label: 'Fits comfortably in a single frame', fillRatio };
+  if (fillRatio >= 0.75) return { tag: 'tight', fillRatio };
+  if (fillRatio < 0.15) return { tag: 'tiny', fillRatio };
+  return { tag: 'fits', fillRatio };
 }
 
 /** Best-to-worst ranking of `FitTag` for sorting a list of objects by "does
@@ -233,6 +239,29 @@ export const FRAME_FIT_RANK: Record<FitTag, number> = {
   tiny: 2,
   mosaic: 3,
 };
+
+/** Translates a `FitAssessment` into the short chip text and longer tooltip
+ *  `FitBadge` displays. Kept separate from `classifyFit` per the `lib/`
+ *  translation convention (a plain lib function takes `t` explicitly):
+ *  `classifyFit` is a pure classifier reused for sorting, while this is the
+ *  one place that turns a tag into user-facing copy. */
+export function fitDisplayStrings(fit: FitAssessment, t: TFunc): { short: string; label: string } {
+  switch (fit.tag) {
+    case 'fits':
+      return { short: t('framingModal.fitFits'), label: t('framingModal.fitFitsLabel') };
+    case 'tight':
+      return { short: t('framingModal.fitTight'), label: t('framingModal.fitTightLabel') };
+    case 'tiny':
+      return { short: t('framingModal.fitTiny'), label: t('framingModal.fitTinyLabel') };
+    case 'mosaic':
+      // Reuses the existing "Mosaic" section label and needsMosaic sentence
+      // rather than introducing near-duplicate copy for the same concept.
+      return {
+        short: t('framingModal.mosaic'),
+        label: t('framingModal.needsMosaic', { cols: fit.mosaicCols, rows: fit.mosaicRows }),
+      };
+  }
+}
 
 // ─── Persisted framing setup (Settings → Telescopes default + override) ──
 
@@ -303,6 +332,81 @@ export function writeFovSetup(setup: FovSetup): void {
   } catch {
     /* ignore — a private/full storage just means the pick won't stick */
   }
+}
+
+// ─── Saved custom-optics presets ("name it and reuse it") ────────────────
+//
+// A lighter-weight alternative to registering a full telescope under
+// Settings → Telescopes: a named preset is just a label over a `CustomOptics`
+// value, stored client-side, with no transport/connection/import config to
+// fill in. Useful for a bare camera+lens combo the user reaches for
+// occasionally but doesn't want to manage as a "telescope".
+
+export interface SavedCustomRig {
+  id: string;
+  name: string;
+  optics: CustomOptics;
+}
+
+const SAVED_CUSTOM_RIGS_KEY = 'nebulis-saved-custom-rigs';
+
+export function readSavedCustomRigs(): SavedCustomRig[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SAVED_CUSTOM_RIGS_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((r): r is SavedCustomRig => (
+      !!r && typeof r === 'object'
+      && typeof (r as SavedCustomRig).id === 'string'
+      && typeof (r as SavedCustomRig).name === 'string'
+      && !!(r as SavedCustomRig).optics
+      && typeof (r as SavedCustomRig).optics.focalMm === 'number'
+      && typeof (r as SavedCustomRig).optics.sensorWMm === 'number'
+      && typeof (r as SavedCustomRig).optics.sensorHMm === 'number'
+    ));
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedCustomRigs(rigs: SavedCustomRig[]): void {
+  try {
+    localStorage.setItem(SAVED_CUSTOM_RIGS_KEY, JSON.stringify(rigs));
+  } catch {
+    /* ignore — a private/full storage just means the preset won't stick */
+  }
+}
+
+function generateRigId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `rig-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Saves a new named custom-optics preset. Returns the created row so the
+ *  caller can select it immediately. */
+export function saveCustomRig(name: string, optics: CustomOptics): SavedCustomRig {
+  const rig: SavedCustomRig = { id: generateRigId(), name, optics };
+  writeSavedCustomRigs([...readSavedCustomRigs(), rig]);
+  return rig;
+}
+
+/** Overwrites an existing preset's optics in place (the name is unchanged). */
+export function updateCustomRig(id: string, optics: CustomOptics): void {
+  writeSavedCustomRigs(readSavedCustomRigs().map(r => (r.id === id ? { ...r, optics } : r)));
+}
+
+export function deleteCustomRig(id: string): void {
+  writeSavedCustomRigs(readSavedCustomRigs().filter(r => r.id !== id));
+}
+
+/** Dropdown-option-id prefix for a saved custom-optics preset, parallel to
+ *  `TELESCOPE_PROFILE_PREFIX`: `customRig:<id>`. */
+export const CUSTOM_RIG_PREFIX = 'customRig:';
+
+export function customRigOptionId(id: string): string {
+  return `${CUSTOM_RIG_PREFIX}${id}`;
 }
 
 export interface ResolvedFov {
@@ -402,14 +506,23 @@ export function resolveFov(setup: FovSetup, telescopes: TelescopeProfileLike[] |
   const list = telescopes ?? [];
 
   if (setup.profileId) {
-    if (setup.profileId === CUSTOM_FOV_PROFILE_ID) {
+    // A saved named preset resolves through the SAME live `setup.custom`
+    // values as the generic ad-hoc Custom entry (so an in-progress edit shows
+    // up immediately) — the prefix only changes which label is shown. See
+    // `saveCustomRig`/`readSavedCustomRigs`.
+    if (setup.profileId === CUSTOM_FOV_PROFILE_ID || setup.profileId.startsWith(CUSTOM_RIG_PREFIX)) {
       const { widthDeg, heightDeg } = fovFromOptics(
         setup.custom.focalMm || 1,
         setup.custom.sensorWMm || 0.1,
         setup.custom.sensorHMm || 0.1,
       );
       const arcsecPx = setup.custom.pixelSizeUm ? arcsecPerPixel(setup.custom.focalMm, setup.custom.pixelSizeUm) : null;
-      return { widthDeg, heightDeg, label: 'Custom', arcsecPerPixel: arcsecPx, profileId: setup.profileId };
+      let label = 'Custom';
+      if (setup.profileId.startsWith(CUSTOM_RIG_PREFIX)) {
+        const rig = readSavedCustomRigs().find(r => r.id === setup.profileId!.slice(CUSTOM_RIG_PREFIX.length));
+        if (rig) label = rig.name;
+      }
+      return { widthDeg, heightDeg, label, arcsecPerPixel: arcsecPx, profileId: setup.profileId };
     }
     if (setup.profileId.startsWith(TELESCOPE_PROFILE_PREFIX)) {
       const rest = setup.profileId.slice(TELESCOPE_PROFILE_PREFIX.length);

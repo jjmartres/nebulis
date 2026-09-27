@@ -1,3 +1,5 @@
+import i18n from '../../i18n';
+
 export const BASE = '/api';
 
 const TOKEN_KEY = 'nebulis_auth_token';
@@ -25,13 +27,35 @@ function isEnvelope(v: unknown): v is ApiEnvelope<unknown> {
   return typeof v === 'object' && v !== null && 'ok' in v && 'data' in v;
 }
 
+/**
+ * Resolves a server error to display text.
+ *
+ * The server's `{ error: { code, message } }` envelope (see
+ * `server/middleware/apiEnvelope.ts`) always carries an English `message` —
+ * the server has no notion of the client's language. `code` is a stable
+ * identifier (e.g. `NOT_FOUND`, `LIBRARY_BUSY`) that's meant to survive
+ * wording changes, so it doubles as a translation key: `errors.json`'s
+ * `serverCodes.<code>` group carries a real translation for codes that are
+ * unambiguous (one code, one message, everywhere it's used). A code with no
+ * entry there — most of them, for now — falls straight through to the
+ * server's English `message`, which is exactly the safe placeholder
+ * behavior: nothing shows a raw key or breaks while codes are translated
+ * incrementally over time.
+ */
 export function errorMessage(v: unknown, fallback: string): string {
   if (typeof v !== 'object' || v === null || !('error' in v)) return fallback;
   const { error } = v;
   if (typeof error === 'string') return error;
   if (typeof error === 'object' && error !== null && 'message' in error) {
     const { message } = error;
-    if (typeof message === 'string') return message;
+    if (typeof message !== 'string') return fallback;
+    if ('code' in error && typeof error.code === 'string') {
+      const key = `serverCodes.${error.code}`;
+      if (i18n.exists(key, { ns: 'errors' })) {
+        return i18n.t(key, { ns: 'errors' });
+      }
+    }
+    return message;
   }
   return fallback;
 }
@@ -68,8 +92,16 @@ export async function fetchJSON<T>(url: string, options?: RequestInit): Promise<
   return payload as T;
 }
 
-export async function fetchBinary(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+export async function fetchBinary(url: string, signal?: AbortSignal, t?: TFunc): Promise<ArrayBuffer> {
   const res = await fetch(url, { headers: authHeaders(), signal });
-  if (!res.ok) throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    throw new Error(
+      t
+        ? t('errors:requestFailed', { status: res.status, statusText: res.statusText })
+        : `Request failed: ${res.status} ${res.statusText}`
+    );
+  }
   return res.arrayBuffer();
 }

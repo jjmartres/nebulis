@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Satellite, Download, Trash2, ArrowRight } from 'lucide-react';
 import { FitsThumbnail } from '../FitsThumbnail';
 import { useTheme } from '../../hooks/useTheme';
@@ -53,6 +54,7 @@ export function SubframesPanel({
   onOpenGallery: (index: number, source?: 'files' | 'subframes') => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
   const hasSubFrames = subFrames.length > 0;
 
   // Measured on the grid itself, which carries no padding of its own, so
@@ -83,7 +85,7 @@ export function SubframesPanel({
           {isAdmin && hasSubFrames && subFrames.some(f => f.type === 'fits') && (
             <button
               onClick={onScanTrails}
-              title="Scan all FITS subframes for satellite trails"
+              title={t('observationDetail.subframesPanel.scanTrailsTitle')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                 isDark
                   ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10'
@@ -91,12 +93,12 @@ export function SubframesPanel({
               }`}
             >
               <Satellite className="w-3.5 h-3.5" />
-              Scan Trails
+              {t('observationDetail.subframesPanel.scanTrails')}
             </button>
           )}
           {isAdmin && (
             <span
-              title={!telescopeOnline ? 'Telescope is offline - connect to download subs' : 'Download all raw subframes for this session from the telescope to your library'}
+              title={!telescopeOnline ? t('observationDetail.subframesPanel.telescopeOfflineTitle') : t('observationDetail.subframesPanel.downloadFromTelescopeTitle')}
               className={!telescopeOnline ? 'cursor-not-allowed' : undefined}
             >
               <button
@@ -113,7 +115,7 @@ export function SubframesPanel({
                 }`}
               >
                 <Download className="w-3.5 h-3.5" />
-                Sync Subs
+                {t('observationDetail.subframesPanel.syncSubs')}
               </button>
             </span>
           )}
@@ -123,8 +125,8 @@ export function SubframesPanel({
               disabled={archiveState !== 'idle'}
               title={
                 archiveState === 'error'
-                  ? 'Failed. Try again.'
-                  : 'Zip the locally-stored subframes for this session and download to your computer'
+                  ? t('observationDetail.subframesPanel.retryTitle')
+                  : t('observationDetail.subframesPanel.zipToComputerTitle')
               }
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:cursor-wait ${
                 archiveState === 'error'
@@ -138,16 +140,16 @@ export function SubframesPanel({
             >
               <Download className="w-3.5 h-3.5" />
               {archiveState === 'idle'
-                ? 'Download to Computer'
+                ? t('observationDetail.subframesPanel.downloadToComputer')
                 : archiveState === 'error'
-                  ? 'Download failed'
-                  : `Zipping ${archiveState.done}/${archiveState.total}…`}
+                  ? t('observationDetail.subframesPanel.downloadFailed')
+                  : t('observationDetail.subframesPanel.zipping', { done: archiveState.done, total: archiveState.total })}
             </button>
           )}
           {isAdmin && hasSubFrames && (
             <button
               onClick={onDeleteAllSubframes}
-              title="Delete all subframes for this session"
+              title={t('observationDetail.subframesPanel.deleteAllTitle')}
               className={`p-1.5 rounded-lg transition ${isDark ? 'text-slate-600 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`}
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -174,7 +176,7 @@ export function SubframesPanel({
                   <button
                     key={file.path}
                     onClick={() => onOpenGallery(idx, 'subframes')}
-                    title={`${file.name} (frame ${idx + 1} of ${subFrames.length})`}
+                    title={t('observationDetail.subframesPanel.frameTitle', { name: file.name, index: idx + 1, total: subFrames.length })}
                     className={`aspect-square rounded-lg overflow-hidden border-2 ${
                       isDark ? 'border-slate-700 hover:border-slate-500 bg-slate-800' : 'border-slate-200 hover:border-slate-400 bg-slate-100'
                     }`}
@@ -200,8 +202,8 @@ export function SubframesPanel({
           }`}>
             <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
               {hiddenCount > 0
-                ? `Showing ${shownIndices.length} of ${subFrames.length}, sampled across the session`
-                : `Showing all ${subFrames.length}`}
+                ? t('observationDetail.subframesPanel.showingSampled', { shown: shownIndices.length, total: subFrames.length })
+                : t('observationDetail.subframesPanel.showingAll', { total: subFrames.length })}
             </span>
             <button
               onClick={() => onOpenGallery(0, 'subframes')}
@@ -209,14 +211,14 @@ export function SubframesPanel({
                 isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              {hiddenCount > 0 ? `View all ${subFrames.length}` : 'Open viewer'}
+              {hiddenCount > 0 ? t('observationDetail.subframesPanel.viewAll', { total: subFrames.length }) : t('observationDetail.subframesPanel.openViewer')}
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </>
       ) : (
         <div className={`p-8 text-center ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-          No subframes downloaded yet - connect your telescope and use Download Subs to sync them.
+          {t('observationDetail.subframesPanel.empty')}
         </div>
       )}
     </div>

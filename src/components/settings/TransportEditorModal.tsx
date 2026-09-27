@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { X, Usb, Network, Wifi, Trash2, Pencil, Plus, Pin, PinOff, RotateCw, Check } from 'lucide-react';
 import {
   updateTelescope,
@@ -21,7 +22,9 @@ import { Modal } from '../ui/Modal';
 // Medium first, protocol as the parenthetical, matching AddTelescopeModal.
 // This is a config screen, so the protocol stays visible here even though the
 // status pills elsewhere show only "Wi-Fi" / "USB".
-const KIND_LABEL: Record<ConnectionType, string> = { smb: 'Wi-Fi (SMB share)', ftp: 'Wi-Fi (FTP)', local: 'USB / local path' };
+function kindLabel(t: (key: string) => string, kind: ConnectionType): string {
+  return t(`transportEditor.kindLabel.${kind}`);
+}
 const KIND_ICON: Record<ConnectionType, typeof Usb> = { smb: Network, ftp: Wifi, local: Usb };
 
 interface FormState {
@@ -37,14 +40,14 @@ function blankForm(kind: ConnectionType): FormState {
   return { kind, hostname: '', shareName: '', username: '', password: '', localPath: '' };
 }
 
-function formFromTransport(t: TelescopeTransport): FormState {
+function formFromTransport(transport: TelescopeTransport): FormState {
   return {
-    kind: t.kind,
-    hostname: t.hostname,
-    shareName: t.shareName,
-    username: t.username,
-    password: t.password,
-    localPath: t.localPath,
+    kind: transport.kind,
+    hostname: transport.hostname,
+    shareName: transport.shareName,
+    username: transport.username,
+    password: transport.password,
+    localPath: transport.localPath,
   };
 }
 
@@ -59,6 +62,7 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
   isDark: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const inputClass = getInputClass(isDark);
   const labelClass = getLabelClass(isDark);
@@ -116,12 +120,12 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
     setAdding(true);
   }
 
-  function startEdit(t: TelescopeTransport) {
-    setForm(formFromTransport(t));
+  function startEdit(transport: TelescopeTransport) {
+    setForm(formFromTransport(transport));
     setFormError('');
     setTestStatus('idle');
     setAdding(false);
-    setEditingId(t.id);
+    setEditingId(transport.id);
   }
 
   function cancelForm() {
@@ -147,14 +151,17 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
       });
       if (result.connected) {
         setTestStatus('success');
-        setTestMessage(`Connected. Found ${result.objectCount ?? 0} folder${result.objectCount === 1 ? '' : 's'}.`);
+        setTestMessage(t(
+          (result.objectCount ?? 0) === 1 ? 'transportEditor.connectedFound_one' : 'transportEditor.connectedFound_other',
+          { count: result.objectCount ?? 0 },
+        ));
       } else {
         setTestStatus('error');
-        setTestMessage(result.error || 'Connection failed');
+        setTestMessage(result.error || t('addTelescopeModal.connectionFailed'));
       }
     } catch (err) {
       setTestStatus('error');
-      setTestMessage(err instanceof Error ? err.message : 'Connection failed');
+      setTestMessage(err instanceof Error ? err.message : t('addTelescopeModal.connectionFailed'));
     }
   }
 
@@ -180,14 +187,14 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
     <Modal
       isOpen
       onClose={onClose}
-      title={`Manage connections for ${profile.name}`}
+      title={t('transportEditor.title', { name: profile.name })}
       className={`relative w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[85vh] ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white shadow-xl'
       }`}
     >
       <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
         <h2 className={`font-display font-semibold text-base ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-          Manage connections
+          {t('transportEditor.heading')}
         </h2>
         <button
           onClick={onClose}
@@ -199,9 +206,7 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
         <p className={helperClass}>
-          {profile.name} can be reached several ways. Nebulis picks the best one
-          automatically (a plugged-in USB drive wins, then FTP, then SMB) unless you pin
-          one below.
+          {t('transportEditor.reachableExplanation', { name: profile.name })}
         </p>
 
         {profile.pinnedTransportId && (
@@ -213,19 +218,19 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
             }`}
           >
             <PinOff className="w-3.5 h-3.5" />
-            Using a manual pin. Switch back to automatic selection
+            {t('transportEditor.usingManualPin')}
           </button>
         )}
 
         <div className="space-y-2">
-          {transports.map(t => {
-            const Icon = KIND_ICON[t.kind];
-            const isActive = t.id === profile.activeTransportId;
-            const isPinned = t.id === profile.pinnedTransportId;
-            const isEditingThis = editingId === t.id;
+          {transports.map(transport => {
+            const Icon = KIND_ICON[transport.kind];
+            const isActive = transport.id === profile.activeTransportId;
+            const isPinned = transport.id === profile.pinnedTransportId;
+            const isEditingThis = editingId === transport.id;
             return (
               <div
-                key={t.id}
+                key={transport.id}
                 className={`rounded-xl border overflow-hidden ${
                   isDark ? 'border-slate-800' : 'border-slate-200'
                 }`}
@@ -234,36 +239,38 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-accent-500' : isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {KIND_LABEL[t.kind]}
-                      {isPinned && <span className="ml-1.5 text-[10px] font-semibold text-accent-500">PINNED</span>}
-                      {isActive && !isPinned && <span className={`ml-1.5 text-[10px] font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>ACTIVE</span>}
+                      {kindLabel(t, transport.kind)}
+                      {isPinned && <span className="ml-1.5 text-[10px] font-semibold text-accent-500">{t('transportEditor.pinnedBadge')}</span>}
+                      {isActive && !isPinned && <span className={`ml-1.5 text-[10px] font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{t('addTelescopeModal.activeLabel')}</span>}
                     </div>
                     <div className={`text-xs font-mono truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {t.kind === 'local' ? (t.localPath || '(no path set)') : (t.shareName ? `${t.hostname} / ${t.shareName}` : t.hostname || '(no host set)')}
+                      {transport.kind === 'local'
+                        ? (transport.localPath || t('transportEditor.noPathSet'))
+                        : (transport.shareName ? `${transport.hostname} / ${transport.shareName}` : transport.hostname || t('transportEditor.noHostSet'))}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {!isPinned && (
                       <button
-                        onClick={() => pinMutation.mutate(t.id)}
+                        onClick={() => pinMutation.mutate(transport.id)}
                         disabled={pinMutation.isPending}
-                        title="Pin this transport"
+                        title={t('transportEditor.pinTransportTitle')}
                         className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
                       >
                         <Pin className="w-3.5 h-3.5" />
                       </button>
                     )}
                     <button
-                      onClick={() => (isEditingThis ? cancelForm() : startEdit(t))}
-                      title="Edit"
+                      onClick={() => (isEditingThis ? cancelForm() : startEdit(transport))}
+                      title={t('transportEditor.editTitle')}
                       className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => deleteMutation.mutate(t.id)}
+                      onClick={() => deleteMutation.mutate(transport.id)}
                       disabled={transports.length <= 1 || deleteMutation.isPending}
-                      title={transports.length <= 1 ? "Can't delete the last transport" : 'Delete'}
+                      title={transports.length <= 1 ? t('transportEditor.cannotDeleteLastTitle') : t('transportEditor.deleteTitle')}
                       className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
                         isDark ? 'hover:bg-red-500/10 text-slate-400 hover:text-red-400' : 'hover:bg-red-50 text-slate-500 hover:text-red-600'
                       }`}
@@ -291,7 +298,7 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
                     onSubmit={submitForm}
                     canSubmit={canSubmit}
                     submitting={updateMutation.isPending}
-                    submitLabel="Save"
+                    submitLabel={t('transportEditor.saveLabel')}
                   />
                 )}
               </div>
@@ -318,7 +325,7 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
               onSubmit={submitForm}
               canSubmit={canSubmit}
               submitting={addMutation.isPending}
-              submitLabel="Add transport"
+              submitLabel={t('transportEditor.addTransport')}
             />
           </div>
         ) : (
@@ -329,7 +336,7 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
             }`}
           >
             <Plus className="w-4 h-4" />
-            Add transport
+            {t('transportEditor.addTransport')}
           </button>
         )}
       </div>
@@ -341,7 +348,7 @@ export function TransportEditorModal({ profile, isDark, onClose }: {
             isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
-          Done
+          {t('transportEditor.done')}
         </button>
       </div>
     </Modal>
@@ -370,6 +377,7 @@ function TransportForm({
   submitting: boolean;
   submitLabel: string;
 }) {
+  const { t } = useTranslation('settings');
   // Recomputed here rather than passed down: the parent needs it for its
   // submit/test guards, this component needs it to annotate the field. Both
   // derive from the same `form`, so they cannot drift.
@@ -379,7 +387,7 @@ function TransportForm({
     <div className={`px-3 py-3 space-y-3 ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
       {!kindLocked && (
         <div>
-          <label className={labelClass}>Type</label>
+          <label className={labelClass}>{t('transportEditor.typeLabel')}</label>
           <select
             value={form.kind}
             onChange={e => {
@@ -391,26 +399,26 @@ function TransportForm({
             }}
             className={inputClass}
           >
-            {availableKinds.map(k => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+            {availableKinds.map(k => <option key={k} value={k}>{kindLabel(t, k)}</option>)}
           </select>
         </div>
       )}
 
       {form.kind === 'local' ? (
         <div>
-          <label className={labelClass}>Local path</label>
+          <label className={labelClass}>{t('transportEditor.localPathLabel')}</label>
           <input
             type="text"
             value={form.localPath}
             onChange={e => setForm({ ...form, localPath: e.target.value })}
-            placeholder="/Volumes/DWARF3"
+            placeholder={t('transportEditor.localPathPlaceholder')}
             className={`${inputClass} font-mono`}
           />
         </div>
       ) : (
         <>
           <div>
-            <label className={labelClass}>Host or IP</label>
+            <label className={labelClass}>{t('transportEditor.hostLabel')}</label>
             <input
               type="text"
               value={form.hostname}
@@ -425,12 +433,12 @@ function TransportForm({
           </div>
           {form.kind === 'smb' && (
             <div>
-              <label className={labelClass}>Share name</label>
+              <label className={labelClass}>{t('transportEditor.shareNameLabel')}</label>
               <input
                 type="text"
                 value={form.shareName}
                 onChange={e => setForm({ ...form, shareName: e.target.value })}
-                placeholder="EMMC Images"
+                placeholder={t('transportEditor.sharePlaceholder')}
                 className={inputClass}
                 aria-invalid={!!shareError}
               />
@@ -441,7 +449,7 @@ function TransportForm({
           )}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className={labelClass}>Username</label>
+              <label className={labelClass}>{t('transportEditor.usernameLabel')}</label>
               <input
                 type="text"
                 value={form.username}
@@ -450,7 +458,7 @@ function TransportForm({
               />
             </div>
             <div>
-              <label className={labelClass}>Password</label>
+              <label className={labelClass}>{t('transportEditor.passwordLabel')}</label>
               <input
                 type="password"
                 value={form.password}
@@ -459,7 +467,7 @@ function TransportForm({
               />
               {isEditing && form.password === MASKED_PASSWORD && (
                 <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Leave as is to keep the saved password. Test connection uses it too.
+                  {t('transportEditor.passwordKeepNote')}
                 </p>
               )}
             </div>
@@ -477,7 +485,7 @@ function TransportForm({
             }`}
           >
             {testStatus === 'testing' ? <RotateCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-            Test connection
+            {t('transportEditor.testConnection')}
           </button>
           {testMessage && (
             <span className={`text-xs ${testStatus === 'success' ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : 'text-red-500'}`}>
@@ -496,7 +504,7 @@ function TransportForm({
             isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
           }`}
         >
-          Cancel
+          {t('transportEditor.cancel')}
         </button>
         <button
           onClick={onSubmit}

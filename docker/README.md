@@ -119,7 +119,7 @@ The container includes a built-in PixInsight update repository accessible direct
 http://<host>:<port>/plugins/pixinsight/
 ```
 
-- **Automated Updates**: Add this URL under **Resources → Updates → Manage Repositories** in PixInsight ($\ge$ 1.8.9 or 1.9.x) to receive automatic updates for the **Nebulis Connector** PJSR script (synchronized with app version `v2.0.2`).
+- **Automated Updates**: Add this URL under **Resources → Updates → Manage Repositories** in PixInsight ($\ge$ 1.8.9 or 1.9.x) to receive automatic updates for the **Nebulis Connector** PJSR script (synchronized with app version `v2.1.0`).
 - **Web Portal**: Visiting the `/plugins/pixinsight/` URL in any web browser displays an interactive landing page with copyable repository URLs and direct package downloads (`updates.xri`, `NebulisConnector.tar.gz`, `NebulisConnector.zip`, and `NebulisConnector.js`).
 - **User Authentication**: Authenticate using user-linked API keys (`Settings → Account → API Keys`, prefixed with `neb-`).
 - **Observatory Integration**:

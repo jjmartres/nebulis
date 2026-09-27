@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Search, CalendarDays, ImagePlus, StickyNote, Loader2, X, Upload, CheckCircle2, Telescope as TelescopeIcon } from 'lucide-react';
 import { searchDsoCatalog, type DsoEntry } from '../../lib/api/planner';
@@ -31,6 +32,7 @@ export function NewObservationForm({
   onCancel?: () => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
 
   const [objectQuery, setObjectQuery] = useState(prefilledObjectName || prefilledObjectId);
   const [selectedObject, setSelectedObject] = useState<DsoEntry | null>(null);
@@ -51,7 +53,7 @@ export function NewObservationForm({
     queryFn: listTelescopes,
     staleTime: 30_000,
   });
-  const activeTelescopes = (telescopes ?? []).filter(t => !t.archivedAt);
+  const activeTelescopes = (telescopes ?? []).filter(scope => !scope.archivedAt);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,12 +157,12 @@ export function NewObservationForm({
       <div className="space-y-2">
         <label className={`flex items-center gap-2 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           <Search className="w-4 h-4 text-accent-500" />
-          Object
+          {t('newObservationForm.objectLabel')}
         </label>
         <div className="relative">
           <input
             type="text"
-            placeholder="Search - try 'M42', 'Andromeda', 'Crab Nebula'…"
+            placeholder={t('newObservationForm.objectSearchPlaceholder')}
             value={objectQuery}
             onChange={e => handleObjectSearch(e.target.value)}
             onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
@@ -194,7 +196,7 @@ export function NewObservationForm({
                       )}
                     </div>
                     <div className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {entry.type}{entry.constellation ? ` · ${entry.constellation}` : ''}{entry.magnitude != null ? ` · Mag ${entry.magnitude}` : ''}
+                      {entry.type}{entry.constellation ? ` · ${entry.constellation}` : ''}{entry.magnitude != null ? ` · ${t('newObservationForm.magnitude', { value: entry.magnitude })}` : ''}
                     </div>
                   </div>
                 </button>
@@ -204,7 +206,7 @@ export function NewObservationForm({
         </div>
         {isObjectLocked && (
           <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            Object inherited from existing entry - changing it will create a new entry.
+            {t('newObservationForm.objectLockedHint')}
           </p>
         )}
       </div>
@@ -213,7 +215,7 @@ export function NewObservationForm({
       <div className="space-y-2">
         <label className={`flex items-center gap-2 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           <CalendarDays className="w-4 h-4 text-teal-500" />
-          Observation Date
+          {t('newObservationForm.dateLabel')}
         </label>
         <input
           type="date"
@@ -228,21 +230,21 @@ export function NewObservationForm({
       <div className="space-y-2">
         <label className={`flex items-center gap-2 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           <ImagePlus className="w-4 h-4 text-violet-500" />
-          Image
-          <span className={`ml-1 font-normal text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>(optional)</span>
+          {t('newObservationForm.imageLabel')}
+          <span className={`ml-1 font-normal text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('newObservationForm.optional')}</span>
         </label>
 
         {imagePreview ? (
           <div className="relative group">
             <img
               src={imagePreview}
-              alt="Preview"
+              alt={t('newObservationForm.imagePreviewAlt')}
               className="w-full max-h-72 object-contain rounded-xl border border-slate-700"
             />
             <button
               onClick={() => { setImage(null); setImagePreview(null); }}
               className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white max-md:opacity-100 opacity-0 group-hover:opacity-100 transition"
-              title="Remove image"
+              title={t('newObservationForm.removeImage')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -261,9 +263,9 @@ export function NewObservationForm({
           >
             <Upload className={`w-8 h-8 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
             <p className={`text-sm text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Drop an image here, or <span className="text-accent-500 font-medium">browse</span>
+              {t('newObservationForm.dropImageHere')} <span className="text-accent-500 font-medium">{t('newObservationForm.browse')}</span>
               <br />
-              <span className="text-xs">JPG, PNG supported</span>
+              <span className="text-xs">{t('newObservationForm.imageFormatsHint')}</span>
             </p>
           </div>
         )}
@@ -281,17 +283,17 @@ export function NewObservationForm({
         <div className="space-y-2">
           <label className={`flex items-center gap-2 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
             <TelescopeIcon className="w-4 h-4 text-teal-500" />
-            Telescope
-            <span className={`ml-1 font-normal text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>(optional)</span>
+            {t('newObservationForm.telescopeLabel')}
+            <span className={`ml-1 font-normal text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('newObservationForm.optional')}</span>
           </label>
           <select
             value={telescopeId}
             onChange={e => setTelescopeId(e.target.value)}
             className={inputBase}
           >
-            <option value="">Not sure / no telescope used</option>
-            {activeTelescopes.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+            <option value="">{t('newObservationForm.noTelescopeOption')}</option>
+            {activeTelescopes.map(scope => (
+              <option key={scope.id} value={scope.id}>{scope.name}</option>
             ))}
           </select>
         </div>
@@ -301,13 +303,13 @@ export function NewObservationForm({
       <div className="space-y-2">
         <label className={`flex items-center gap-2 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           <StickyNote className="w-4 h-4 text-amber-500" />
-          Notes
-          <span className={`ml-1 font-normal text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>(optional)</span>
+          {t('newObservationForm.notesLabel')}
+          <span className={`ml-1 font-normal text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('newObservationForm.optional')}</span>
         </label>
         <textarea
           value={notes}
           onChange={e => setNotes(e.target.value)}
-          placeholder="Conditions, equipment, impressions…"
+          placeholder={t('newObservationForm.notesPlaceholder')}
           rows={4}
           className={`${inputBase} resize-y`}
         />
@@ -316,7 +318,7 @@ export function NewObservationForm({
       {/* Error */}
       {submitMutation.isError && (
         <div className="px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
-          {submitMutation.error instanceof Error ? submitMutation.error.message : 'Failed to create observation'}
+          {submitMutation.error instanceof Error ? submitMutation.error.message : t('newObservationForm.createFailed')}
         </div>
       )}
 
@@ -330,7 +332,7 @@ export function NewObservationForm({
               isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Cancel
+            {t('newObservationForm.cancel')}
           </button>
         )}
         <button
@@ -343,9 +345,9 @@ export function NewObservationForm({
           }`}
         >
           {submitMutation.isPending ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
+            <><Loader2 className="w-4 h-4 animate-spin" /> {t('newObservationForm.saving')}</>
           ) : (
-            <><CheckCircle2 className="w-4 h-4" /> Save Observation</>
+            <><CheckCircle2 className="w-4 h-4" /> {t('newObservationForm.saveObservation')}</>
           )}
         </button>
       </div>

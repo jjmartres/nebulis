@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Columns, Crown, Download, Heart, ChevronLeft, ChevronRight, FileImage } from 'lucide-react';
 import { FitsThumbnail } from '../FitsThumbnail';
 import { useTheme } from '../../hooks/useTheme';
@@ -6,6 +7,7 @@ import type { CompareItem } from './types';
 import type { CompareFile } from '../ImageCompareModal';
 import { thumbSrcFor, canPreviewImage } from '../../lib/sessionImageSrc';
 import { processedFormatLabel as formatLabel } from '../../lib/processedFormats';
+import { formatDate } from '../../lib/formatLocale';
 
 const GALLERY_PAGE_SIZE = 12; // 3 rows × 4 columns (md breakpoint)
 
@@ -52,6 +54,12 @@ export function SessionFileGrid({
   isAdmin: boolean;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
+  const viewModeLabels: Record<'all' | 'image' | 'fits', string> = {
+    all: t('observationDetail.sessionFileGrid.viewModeAll'),
+    image: t('observationDetail.sessionFileGrid.viewModeImage'),
+    fits: t('observationDetail.sessionFileGrid.viewModeFits'),
+  };
 
   return (
     <div className={`rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
@@ -66,23 +74,23 @@ export function SessionFileGrid({
                 ? isDark ? 'bg-accent-500/10 text-accent-400 border border-accent-500/30' : 'bg-accent-300 text-accent-700 border border-accent-400'
                 : isDark ? 'text-slate-500 hover:text-accent-400 hover:bg-accent-500/10 border border-transparent' : 'text-slate-400 hover:text-accent-500 hover:bg-accent-50 border border-transparent'
             }`}
-            title={compareMode ? 'Exit compare mode' : 'Compare images side by side'}
+            title={compareMode ? t('observationDetail.sessionFileGrid.exitCompareTitle') : t('observationDetail.sessionFileGrid.compareTitle')}
           >
             <Columns className="w-3.5 h-3.5" />
-            {compareMode ? 'Exit Compare' : 'Compare'}
+            {compareMode ? t('observationDetail.sessionFileGrid.exitCompare') : t('observationDetail.sessionFileGrid.compare')}
           </button>
           <div className={`flex rounded-xl overflow-hidden border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
             {(['all', 'image', 'fits'] as const).map(mode => (
               <button
                 key={mode}
                 onClick={() => onViewModeChange(mode)}
-                className={`px-3 py-1.5 text-xs font-medium capitalize transition ${
+                className={`px-3 py-1.5 text-xs font-medium transition ${
                   viewMode === mode
                     ? isDark ? 'bg-accent-500/15 text-accent-400' : 'bg-accent-300 text-accent-700'
                     : isDark ? 'bg-slate-900 text-slate-400 hover:bg-slate-800' : 'bg-white text-slate-500 hover:bg-slate-50'
                 }`}
               >
-                {mode}
+                {viewModeLabels[mode]}
               </button>
             ))}
           </div>
@@ -133,7 +141,7 @@ export function SessionFileGrid({
                           <span className="text-[10px] font-medium tracking-wide">
                             {formatLabel(file.name)}
                           </span>
-                          <span className="text-[10px] opacity-70">No preview</span>
+                          <span className="text-[10px] opacity-70">{t('observationDetail.sessionFileGrid.noPreview')}</span>
                         </div>
                       ) : (
                         <img
@@ -158,7 +166,7 @@ export function SessionFileGrid({
                         onClick={e => { e.stopPropagation(); handleSetSessionImage(file.path); }}
                         disabled={settingSessionImage}
                         className="absolute top-1 left-1 p-1 rounded-md bg-black/60 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 hover:text-amber-400"
-                        title="Set as session image"
+                        title={t('observationDetail.sessionFileGrid.setAsSessionImage')}
                       >
                         <Crown className="w-3 h-3" />
                       </button>
@@ -171,7 +179,7 @@ export function SessionFileGrid({
                         download={file.name}
                         onClick={e => e.stopPropagation()}
                         className="absolute top-1 right-1 p-1.5 rounded-lg bg-white/20 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/30"
-                        title="Download"
+                        title={t('observationDetail.sessionFileGrid.download')}
                       >
                         <Download className="w-3.5 h-3.5" />
                       </a>
@@ -184,7 +192,7 @@ export function SessionFileGrid({
                           e.stopPropagation();
                           onToggleFavorite(file.path, !imageFavoriteSet.has(file.path));
                         }}
-                        title={imageFavoriteSet.has(file.path) ? 'Remove from favorites' : 'Add to favorites'}
+                        title={imageFavoriteSet.has(file.path) ? t('observationDetail.sessionFileGrid.removeFromFavorites') : t('observationDetail.sessionFileGrid.addToFavorites')}
                         className={`absolute bottom-1 left-1 p-1.5 rounded-lg transition-all ${
                           imageFavoriteSet.has(file.path)
                             ? 'opacity-100 bg-rose-500/90 text-white hover:bg-rose-600'
@@ -228,7 +236,7 @@ export function SessionFileGrid({
                     </p>
                     <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
                       {date && date !== 'unknown'
-                        ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        ? formatDate(new Date(date + 'T12:00:00'), { month: 'short', day: 'numeric', year: 'numeric' })
                         : ''}
                     </p>
                   </div>
@@ -241,7 +249,11 @@ export function SessionFileGrid({
           {files.length > GALLERY_PAGE_SIZE && (
             <div className={`flex items-center justify-between px-4 pb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               <span className="text-xs">
-                Showing {galleryPage * GALLERY_PAGE_SIZE + 1}–{Math.min((galleryPage + 1) * GALLERY_PAGE_SIZE, files.length)} of {files.length}
+                {t('observationDetail.sessionFileGrid.showingRange', {
+                  from: galleryPage * GALLERY_PAGE_SIZE + 1,
+                  to: Math.min((galleryPage + 1) * GALLERY_PAGE_SIZE, files.length),
+                  total: files.length,
+                })}
               </span>
               <div className="flex items-center gap-1">
                 <button
@@ -280,7 +292,7 @@ export function SessionFileGrid({
         </>
       ) : (
         <div className={`p-8 text-center ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-          No files found
+          {t('observationDetail.sessionFileGrid.empty')}
         </div>
       )}
     </div>

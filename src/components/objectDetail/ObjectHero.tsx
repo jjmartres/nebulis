@@ -15,24 +15,35 @@
  * it takes the bright `accent` hex rather than `accent-*` utilities.
  */
 import { Link } from 'react-router-dom';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import {
-  CalendarDays, Check, ChevronDown, Columns, Download, FolderOpen, Image as ImageIcon, Layers, Loader2,
-  MoreHorizontal, Pencil, PlusCircle, Star, Telescope, Trash2,
+  CalendarDays, Columns, Download, FolderOpen, Frame, Image as ImageIcon, Layers, Loader2, MoreHorizontal,
+  Pencil, PlusCircle, RefreshCw, Shuffle, Star, Telescope, Trash2,
 } from 'lucide-react';
 import { useClickOutside } from '../../hooks/useClickOutside';
+import { useImageFocalPoint } from '../../hooks/useImageFocalPoint';
 import { FileLocationModal } from '../library/FileLocationModal';
+import { DownloadConfirmModal } from './DownloadConfirmModal';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { HERO_IMAGES } from '../../lib/heroImagery';
 import { CaptureRail } from '../ui/CaptureRail';
-import { PROCESSING_STATUS_LABEL, PROCESSING_STATUS_ORDER } from '../../lib/processingStatus';
 import type { CaptureMetric } from '../../lib/captureMetrics';
+import { PROCESSING_STATUS_ORDER, processingStatusLabel } from '../../lib/processingStatus';
+import { FilterRecommendationPanel } from '../catalogs/FilterRecommendationPanel';
+import type { FilterRecommendation } from '../../lib/filterRecommendations';
+import type { ConnectionType } from '../../lib/api/telescopes';
 import type { ProcessingStatus } from '../../types';
 
 export interface HeroTelescope {
   id: string;
   name: string;
   color: string;
+  /** Drives the "over Wi-Fi" vs "via USB" wording on Sync all sub-frames — a
+   *  telescope configured local-only (a USB-mounted drive, no SMB/FTP
+   *  transport at all) never reaches out over the network. */
+  connectionType: ConnectionType;
 }
 
 interface Props {
@@ -57,6 +68,11 @@ interface Props {
   metrics: CaptureMetric[];
   accent: string;
 
+  /** Filter guidance for this object's catalog type. Null or absent renders
+   *  nothing, which is the case for an object with no known type and for the
+   *  synthetic Star Trails target. */
+  filterRecommendations?: FilterRecommendation | null;
+
   isFavorite: boolean;
   onToggleFavorite: () => void;
 
@@ -72,6 +88,9 @@ interface Props {
    *  `hideTargetActions` for the case where it should disappear entirely. */
   onCompare: (() => void) | null;
   onCombine: () => void;
+  /** Opens the Framing & Mosaic planner. Null when the feature flag is off,
+   *  in which case the button is omitted rather than shown disabled. */
+  onFraming: (() => void) | null;
   /** Starts the whole-object ZIP download. Async under the hood (mints a signed
    *  URL, then triggers the browser download), so the page owns the pending and
    *  error state — see `downloadPending`. */
@@ -85,6 +104,10 @@ interface Props {
   onPlan: (() => void) | null;
   onEditDetails: (() => void) | null;
   onDelete: (() => void) | null;
+  /** Opens the Reclassify modal: move everything under this object to a
+   *  different catalog identity when the designation was wrong or ambiguous.
+   *  Null for a viewer, same gating as onEditDetails/onDelete. */
+  onReclassify: (() => void) | null;
   /** Library object id, for the "Show file location" panel. */
   objectId: string;
   /** True for the synthetic Star Trails object: it isn't a celestial target,
@@ -114,13 +137,16 @@ const FRAME_PLACEHOLDER = `${FRAME_HEIGHT} aspect-square`;
 export function ObjectHero({
   displayName, eyebrow, imageSrc, imageFailed, onImageError, onEditImage,
   telescopes, metrics, accent,
+  filterRecommendations = null,
   isFavorite, onToggleFavorite,
   processingStatus, onChangeProcessingStatus,
-  onAddObservation, onCompare, onCombine, onDownloadAll, downloadPending = false, onSyncAllSubframes,
-  onPlan, onEditDetails, onDelete,
+  onAddObservation, onCompare, onCombine, onFraming, onDownloadAll, downloadPending = false, onSyncAllSubframes,
+  onPlan, onEditDetails, onDelete, onReclassify,
   objectId, hideTargetActions = false,
 }: Props) {
+  const { t } = useTranslation('library');
   const [showLocation, setShowLocation] = useState(false);
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   // Changing the object's picture swaps the src on the same element, which
   // starts a fresh load while `imgLoaded` still describes the previous one.
@@ -135,6 +161,7 @@ export function ObjectHero({
   const noteLoaded = () => { setImgLoaded(true); setLoadedSrc(imageSrc); };
 
   const showImage = imageSrc !== null && !imageFailed;
+  const focalPoint = useImageFocalPoint(showImage ? imageSrc : null);
 
   return (
     <section
@@ -144,16 +171,29 @@ export function ObjectHero({
           does have is its own sky and always beats a stand-in. */}
       {!showImage && <HeroBackdrop image={HERO_IMAGES.westerlund} intensity={0.5} />}
 
-      {/* Ambient: the picture itself, thrown far out of focus, so the panel
-          takes its colour from the target and a narrow frame leaves no dead
-          slab beside it. */}
+      {/* Ambient: the picture itself, thrown out of focus, so the panel takes
+          its colour from the target and a narrow frame leaves no dead slab
+          beside it. Cropped to the image's own brightest region
+          (useImageFocalPoint) rather than its geometric center: most library
+          pictures are a small bright subject in a mostly-black frame, and a
+          center crop often lands on empty sky. Blur is deliberately lighter
+          than a first pass at this used (64px): at that radius a starfield's
+          own stars, which is most of what a raw/unprocessed frame actually
+          is, get smeared into one flat grey wash with nothing left to look
+          at. 28px keeps individual stars as soft points and a nebula's real
+          structure as a gradient, so the panel still reads as "a photo" and
+          not just a tinted rectangle; saturate/contrast/brightness then lift
+          that dimmer, more detailed result back up to something visible
+          against the panel's own dark scrims. */}
       {showImage && (
         <img
           src={imageSrc}
           alt=""
           aria-hidden="true"
-          className={`absolute inset-0 h-full w-full scale-[1.6] object-cover blur-[64px] saturate-150
+          className={`absolute inset-0 h-full w-full scale-[2] object-cover blur-[28px]
+            saturate-[180%] contrast-[120%] brightness-[130%]
             transition-opacity duration-700 ${imgLoaded ? 'opacity-55' : 'opacity-0'}`}
+          style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
         />
       )}
       <div className="pointer-events-none absolute inset-0 bg-slate-950/60" />
@@ -172,8 +212,8 @@ export function ObjectHero({
             the true upper-left of the panel rather than starting wherever
             the text column happens to start (which, beside a wide picture,
             was well right of the panel's own left edge). */}
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
-          <Link to="/" className="text-white/45 transition hover:text-white">Library</Link>
+        <nav aria-label={t('objectDetail.hero.breadcrumb')} className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+          <Link to="/" className="text-white/45 transition hover:text-white">{t('objectDetail.hero.library')}</Link>
           <span className="text-white/20">/</span>
           <span className="truncate text-white/70">{displayName}</span>
         </nav>
@@ -244,14 +284,14 @@ export function ObjectHero({
                   {onEditImage && (
                     <button
                       onClick={onEditImage}
-                      title="Choose the image that represents this object"
+                      title={t('objectDetail.hero.chooseImageTitle')}
                       className="absolute right-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-lg bg-black/45 px-2.5 py-1.5
                         text-[11px] font-medium text-white opacity-0 backdrop-blur-md transition hover:bg-black/70
                         group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none
                         focus-visible:ring-2 focus-visible:ring-white/70"
                     >
                       <Pencil className="h-3 w-3" />
-                      Change image
+                      {t('objectDetail.hero.changeImage')}
                     </button>
                   )}
                 </div>
@@ -267,7 +307,7 @@ export function ObjectHero({
               <div className={`flex ${FRAME_PLACEHOLDER} flex-col items-center justify-center gap-2.5
                 rounded-2xl bg-white/[0.03] ring-1 ring-inset ring-white/10`}>
                 <ImageIcon className="h-8 w-8 text-white/20" />
-                <p className="text-sm font-medium text-white/50">No image yet</p>
+                <p className="text-sm font-medium text-white/50">{t('objectDetail.hero.noImageYet')}</p>
                 {onEditImage && (
                   <button
                     onClick={onEditImage}
@@ -277,7 +317,7 @@ export function ObjectHero({
                       focus-visible:ring-white/70"
                   >
                     <Pencil className="h-3 w-3" />
-                    Choose an image
+                    {t('objectDetail.hero.chooseImage')}
                   </button>
                 )}
               </div>
@@ -305,7 +345,7 @@ export function ObjectHero({
                 <button
                   onClick={onToggleFavorite}
                   aria-pressed={isFavorite}
-                  title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                  title={isFavorite ? t('objectDetail.hero.removeFromFavorites') : t('objectDetail.hero.addToFavorites')}
                   className="mt-1 shrink-0 rounded-full p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 >
@@ -313,12 +353,13 @@ export function ObjectHero({
                     className={`h-5 w-5 ${isFavorite ? 'fill-amber-400 text-amber-400' : ''}`}
                   />
                 </button>
-                <ProcessingStatusPill
-                  status={processingStatus}
-                  onChange={onChangeProcessingStatus}
-                  className="mt-1.5"
-                />
               </div>
+
+              <ProcessingStatusPill
+                status={processingStatus}
+                onChange={onChangeProcessingStatus}
+                className="mt-1.5"
+              />
 
               {telescopes.length > 0 && (
                 <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-white/65">
@@ -327,10 +368,10 @@ export function ObjectHero({
                     {/* Which telescopes have been on this target. A target shot on
                         two rigs is worth knowing about before comparing nights. */}
                     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-                      {telescopes.map(t => (
-                        <span key={t.id} className="inline-flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />
-                          {t.name}
+                      {telescopes.map(tel => (
+                        <span key={tel.id} className="inline-flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: tel.color }} />
+                          {tel.name}
                         </span>
                       ))}
                     </span>
@@ -348,40 +389,49 @@ export function ObjectHero({
                 style={{ background: accent, boxShadow: `0 8px 24px -12px ${accent}` }}
               >
                 <PlusCircle className="h-4 w-4" />
-                Add observation
+                {t('objectDetail.hero.addObservation')}
               </button>
             )}
-            {!hideTargetActions && onPlan && (
-              <HeroAction onClick={onPlan} icon={CalendarDays} label="Plan a night"
-                title="Open the planner with this object" />
-            )}
-            {!hideTargetActions && (
-              <HeroAction
-                onClick={onCompare ?? undefined}
-                icon={Columns}
-                label="Compare"
-                title={onCompare ? 'Compare two observations of this object' : 'Needs two or more observations'}
-              />
-            )}
-            {!hideTargetActions && (
-              <HeroAction onClick={onCombine} icon={Layers} label="Combine subs"
-                title="Combine sub-frames from several nights and download the set" />
-            )}
-            <HeroAction onClick={downloadPending ? undefined : onDownloadAll} icon={Download}
-              label={downloadPending ? 'Preparing…' : 'Download'}
-              title="Download every file for this object" />
+            <HeroAction onClick={downloadPending ? undefined : () => setShowDownloadConfirm(true)} icon={Download}
+              label={downloadPending ? t('objectDetail.hero.preparing') : t('objectDetail.hero.download')}
+              title={t('objectDetail.hero.downloadTitle')} />
 
-            {/* Editing the catalog entry and deleting the object are neither
-                frequent nor reversible, so they do not sit at the same weight as
-                Download. Behind one button, and only for someone who may use
-                them. "Show file location" rides along in the same menu. */}
+            {/* Everything else here is either occasional (Plan a night, Compare,
+                sub-frames, Framing & Mosaic) or neither frequent nor reversible
+                (edit, delete) — none of it earns a permanent slot next to Add
+                observation and Download, so it all lives behind one button. */}
             <OverflowMenu
+              onPlan={hideTargetActions ? null : onPlan}
+              onCompare={hideTargetActions ? null : onCompare}
+              onCombine={hideTargetActions ? null : onCombine}
+              onFraming={onFraming}
+              onSyncAllSubframes={hideTargetActions ? null : onSyncAllSubframes}
+              // Explains what the action actually does (reach out to the
+              // device) rather than repeating the label as a tooltip — this is
+              // the one item here that depends on a device still being
+              // reachable, unlike everything else in the menu. Wi-Fi vs USB
+              // wording follows the telescope's actual transport rather than
+              // assuming Wi-Fi: a USB-only profile never touches the network.
+              syncAllSubframesTitle={telescopes.length === 1
+                ? t(telescopes[0].connectionType === 'local'
+                    ? 'objectDetail.hero.syncAllSubframesTitleForUsb'
+                    : 'objectDetail.hero.syncAllSubframesTitleForWifi', { name: telescopes[0].name })
+                : t('objectDetail.hero.syncAllSubframesTitle')}
               onEditDetails={onEditDetails}
+              onReclassify={onReclassify}
               onDelete={onDelete}
               onShowLocation={() => setShowLocation(true)}
-              onSyncAllSubframes={hideTargetActions ? null : onSyncAllSubframes}
+              showCompareDisabled={!hideTargetActions}
             />
           </div>
+
+          {/* Filter guidance for this object's type. It sits with the identity
+              rather than in a section of its own, and the hero is dark in every
+              theme, so the panel takes the dark chip palette and drops its own
+              surface instead of punching a lighter box into the artwork. */}
+          {filterRecommendations && (
+            <FilterRecommendationPanel recommendations={filterRecommendations} isDark bare />
+          )}
         </div>
         </div>
       </div>
@@ -395,21 +445,72 @@ export function ObjectHero({
           onClose={() => setShowLocation(false)}
         />
       )}
+
+      {showDownloadConfirm && (
+        <DownloadConfirmModal
+          objectId={objectId}
+          displayName={displayName}
+          onClose={() => setShowDownloadConfirm(false)}
+          onConfirm={() => { setShowDownloadConfirm(false); onDownloadAll(); }}
+        />
+      )}
     </section>
   );
 }
 
-/** The rarely-used, hard-to-undo actions. Drops back onto a solid surface once
- *  open: a translucent menu over a photograph is unreadable. */
-function OverflowMenu({ onEditDetails, onDelete, onShowLocation, onSyncAllSubframes }: {
+/** Every action that isn't Add observation or Download: the occasional target
+ *  actions (Plan a night, Compare, sub-frames, Framing & Mosaic) grouped above
+ *  a divider from the rare, hard-to-undo ones (edit, delete). Drops back onto
+ *  a solid surface once open: a translucent menu over a photograph is
+ *  unreadable. */
+function OverflowMenu({
+  onPlan, onCompare, onCombine, onFraming, onSyncAllSubframes, syncAllSubframesTitle,
+  onEditDetails, onReclassify, onDelete, onShowLocation, showCompareDisabled,
+}: {
+  onPlan: (() => void) | null;
+  onCompare: (() => void) | null;
+  onCombine: (() => void) | null;
+  onFraming: (() => void) | null;
+  onSyncAllSubframes: (() => void) | null;
+  syncAllSubframesTitle: string;
   onEditDetails: (() => void) | null;
+  onReclassify: (() => void) | null;
   onDelete: (() => void) | null;
   onShowLocation: () => void;
-  onSyncAllSubframes: (() => void) | null;
+  /** Compare has fewer than two observations to work with, but stays visible
+   *  (disabled, with an explanatory title) rather than disappearing, so a
+   *  single-observation object still shows the action exists. */
+  showCompareDisabled: boolean;
 }) {
+  const { t } = useTranslation('library');
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  useClickOutside(wrapRef, () => setOpen(false), { enabled: open, closeOnEscape: true });
+  const menuRef = useRef<HTMLDivElement>(null);
+  useClickOutside([wrapRef, menuRef], () => setOpen(false), { enabled: open, closeOnEscape: true });
+
+  // Grown from four items to as many as nine, this now routinely runs taller
+  // than the hero panel has room for below the trigger. The panel clips its
+  // own overflow (for the blurred backdrop), so a menu left inside it gets
+  // cut off rather than scrolling into view. Portaled to <body>, same fix and
+  // same reason as SitePicker's menu.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open]);
+
+  const hasTargetActions = onPlan || onCompare || showCompareDisabled || onCombine || onFraming || onSyncAllSubframes;
 
   return (
     <div ref={wrapRef} className="relative">
@@ -417,38 +518,98 @@ function OverflowMenu({ onEditDetails, onDelete, onShowLocation, onSyncAllSubfra
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="More actions"
+        title={t('objectDetail.hero.moreActions')}
         className="inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-3 py-2 text-[13px] font-medium
           text-white/85 ring-1 ring-inset ring-white/15 backdrop-blur-md transition-colors hover:bg-white/15
           hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       >
         <MoreHorizontal className="h-4 w-4" />
-        <span className="sr-only">More actions</span>
+        <span className="sr-only">{t('objectDetail.hero.moreActions')}</span>
       </button>
 
-      {open && (
+      {open && menuPos && createPortal(
         <div
+          ref={menuRef}
           role="menu"
-          className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-2xl"
+          style={{ position: 'fixed', top: menuPos.top, right: menuPos.right }}
+          className="z-20 w-56 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-2xl"
         >
+          {onPlan && (
+            <button
+              role="menuitem"
+              onClick={() => { setOpen(false); onPlan(); }}
+              title={t('objectDetail.hero.planANightTitle')}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
+            >
+              <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+              {t('objectDetail.hero.planANight')}
+            </button>
+          )}
+          {showCompareDisabled && (
+            <button
+              role="menuitem"
+              onClick={onCompare ? () => { setOpen(false); onCompare(); } : undefined}
+              aria-disabled={!onCompare}
+              title={onCompare ? t('objectDetail.hero.compareTitle') : t('objectDetail.hero.compareDisabledTitle')}
+              className={`flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] transition ${
+                onCompare ? 'text-slate-200 hover:bg-slate-800' : 'cursor-not-allowed text-slate-500'
+              }`}
+            >
+              <Columns className={`h-3.5 w-3.5 ${onCompare ? 'text-slate-400' : 'text-slate-600'}`} />
+              {t('objectDetail.hero.compare')}
+            </button>
+          )}
+          {onSyncAllSubframes && (
+            <button
+              role="menuitem"
+              onClick={() => { setOpen(false); onSyncAllSubframes(); }}
+              title={syncAllSubframesTitle}
+              className="flex w-full items-start gap-2.5 px-3.5 py-2 text-left transition hover:bg-slate-800"
+            >
+              <RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <span className="flex flex-col">
+                <span className="text-[13px] text-slate-200">{t('objectDetail.hero.syncAllSubframes')}</span>
+                {/* A visible caption, not just a hover title: this is the one
+                    item in the menu that depends on a network device still
+                    being reachable, and that's easy to miss on a touch device
+                    where nothing ever hovers. */}
+                <span className="text-[11px] text-slate-500">{syncAllSubframesTitle}</span>
+              </span>
+            </button>
+          )}
+          {onCombine && (
+            <button
+              role="menuitem"
+              onClick={() => { setOpen(false); onCombine(); }}
+              title={t('objectDetail.hero.combineSubsTitle')}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
+            >
+              <Layers className="h-3.5 w-3.5 text-slate-400" />
+              {t('objectDetail.hero.combineSubs')}
+            </button>
+          )}
+          {onFraming && (
+            <button
+              role="menuitem"
+              onClick={() => { setOpen(false); onFraming(); }}
+              title={t('objectDetail.framingMosaicTitle')}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
+            >
+              <Frame className="h-3.5 w-3.5 text-slate-400" />
+              {t('objectDetail.framingMosaic')}
+            </button>
+          )}
+
+          {hasTargetActions && <div role="separator" className="my-1 border-t border-slate-800" />}
+
           <button
             role="menuitem"
             onClick={() => { setOpen(false); onShowLocation(); }}
             className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
           >
             <FolderOpen className="h-3.5 w-3.5 text-slate-400" />
-            Show file location
+            {t('objectDetail.hero.showFileLocation')}
           </button>
-          {onSyncAllSubframes && (
-            <button
-              role="menuitem"
-              onClick={() => { setOpen(false); onSyncAllSubframes(); }}
-              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
-            >
-              <Layers className="h-3.5 w-3.5 text-slate-400" />
-              Sync all sub-frames
-            </button>
-          )}
           {onEditDetails && (
             <button
               role="menuitem"
@@ -456,55 +617,72 @@ function OverflowMenu({ onEditDetails, onDelete, onShowLocation, onSyncAllSubfra
               className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
             >
               <Pencil className="h-3.5 w-3.5 text-slate-400" />
-              Edit object details
+              {t('objectDetail.hero.editObjectDetails')}
+            </button>
+          )}
+          {onReclassify && (
+            <button
+              role="menuitem"
+              onClick={() => { setOpen(false); onReclassify(); }}
+              title={t('objectDetail.hero.reclassifyObjectTitle')}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
+            >
+              <Shuffle className="h-3.5 w-3.5 text-slate-400" />
+              {t('objectDetail.hero.reclassifyObject')}
             </button>
           )}
           {onDelete && (
-            <button
-              role="menuitem"
-              onClick={() => { setOpen(false); onDelete(); }}
-              className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-red-300 transition hover:bg-red-500/10"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete object
-            </button>
+            <>
+              <div role="separator" className="my-1 border-t border-slate-800" />
+              <button
+                role="menuitem"
+                onClick={() => { setOpen(false); onDelete(); }}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-red-300 transition hover:bg-red-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {t('objectDetail.hero.deleteObject')}
+              </button>
+            </>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
 }
 
-/** Translucent-on-dark palette for each `ProcessingStatus`, matching the
- *  hero's own glass idiom (`HeroAction`'s default/danger split) rather than
- *  an ordinary light/dark app-background pair, which this always-dark hero
- *  never has occasion to use. `ObjectCard.tsx`'s own overlay pill follows the
- *  same reasoning, styled directly for its own (different) glass surface. */
-const PROCESSING_STATUS_HERO_STYLE: Record<ProcessingStatus, string> = {
-  unprocessed: 'bg-white/[0.07] text-white/70 ring-white/15 hover:bg-white/15 hover:text-white',
-  processing: 'bg-amber-500/15 text-amber-300 ring-amber-400/30 hover:bg-amber-500/25',
-  processed: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/30 hover:bg-emerald-500/25',
-};
-
 /**
- * Where this object sits in the user's own processing pipeline. A dropdown
- * for an admin (`onChange` set); a plain, non-interactive pill for a viewer
- * (`onChange` null) — same read-only convention as every other hero action.
+ * Small colored dropdown pill next to the favorite star. Admin (onChange
+ * non-null) gets a menu to change status; a viewer sees the same pill,
+ * read-only, mirroring OverflowMenu's own dropdown structure above.
  */
 function ProcessingStatusPill({ status, onChange, className = '' }: {
   status: ProcessingStatus;
   onChange: ((status: ProcessingStatus) => void) | null;
   className?: string;
 }) {
+  const { t } = useTranslation('library');
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   useClickOutside(wrapRef, () => setOpen(false), { enabled: open, closeOnEscape: true });
 
-  const pillClass = `inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium
-    ring-1 ring-inset backdrop-blur-md transition-colors ${PROCESSING_STATUS_HERO_STYLE[status]}`;
+  const TONE_CLASSES: Record<ProcessingStatus, string> = {
+    unprocessed: 'bg-white/[0.07] text-white/60 ring-white/15',
+    processing: 'bg-amber-500/15 text-amber-300 ring-amber-400/30',
+    processed: 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/30',
+  };
+
+  const pill = (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium
+        leading-none ring-1 ring-inset backdrop-blur-sm ${TONE_CLASSES[status]}`}
+    >
+      {processingStatusLabel(status, t)}
+    </span>
+  );
 
   if (!onChange) {
-    return <span className={`${pillClass} ${className}`}>{PROCESSING_STATUS_LABEL[status]}</span>;
+    return <div className={className}>{pill}</div>;
   }
 
   return (
@@ -513,27 +691,26 @@ function ProcessingStatusPill({ status, onChange, className = '' }: {
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Set processing status"
-        className={`${pillClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60`}
+        title={t('processingStatus.changeStatus')}
+        className="rounded-full transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       >
-        {PROCESSING_STATUS_LABEL[status]}
-        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        {pill}
       </button>
-
       {open && (
         <div
           role="menu"
-          className="absolute left-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-2xl"
+          className="absolute left-0 z-20 mt-1.5 w-40 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-2xl"
         >
           {PROCESSING_STATUS_ORDER.map(s => (
             <button
               key={s}
               role="menuitem"
               onClick={() => { setOpen(false); onChange(s); }}
-              className="flex w-full items-center justify-between gap-2.5 px-3.5 py-2 text-left text-[13px] text-slate-200 transition hover:bg-slate-800"
+              className={`flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] transition hover:bg-slate-800 ${
+                s === status ? 'text-white' : 'text-slate-300'
+              }`}
             >
-              {PROCESSING_STATUS_LABEL[s]}
-              {s === status && <Check className="h-3.5 w-3.5 text-slate-400" />}
+              {processingStatusLabel(s, t)}
             </button>
           ))}
         </div>

@@ -28,7 +28,15 @@ const COLS: Record<number, string> = {
   8: 'sm:grid-cols-4 lg:grid-cols-8',
 };
 
-export function CaptureRail({ metrics, accent }: { metrics: CaptureMetric[]; accent: string }) {
+export function CaptureRail({ metrics, accent, barAriaLabel }: {
+  metrics: CaptureMetric[];
+  accent: string;
+  /** Aria-label template for the "kept" progress bar, with `{{percent}}`
+   *  substituted for the bar's value. Callers own it since this component is
+   *  shared across namespaces (library and observations) and has no
+   *  `useTranslation()` of its own. */
+  barAriaLabel?: (percent: number) => string;
+}) {
   if (metrics.length === 0) return null;
 
   return (
@@ -57,7 +65,7 @@ export function CaptureRail({ metrics, accent }: { metrics: CaptureMetric[]; acc
               aria-valuenow={bar}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label={`${bar}% of attempted frames stacked`}
+              aria-label={barAriaLabel ? barAriaLabel(bar) : `${bar}%`}
             >
               <div
                 className="h-full rounded-full transition-all duration-700 ease-out"

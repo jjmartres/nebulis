@@ -301,7 +301,7 @@ When no user account exists yet, Nebulis runs in open mode and lets you get star
 
 ### PixInsight Integration
 
-**What it does:** Integrates PixInsight ($\ge$ 1.8.9 and 1.9.x) natively with your Nebulis server through an official embedded update repository and a standalone PJSR connector script (`NebulisConnector.js`). Features a streamlined 3-tab architecture (Library Download, Calibration Library, and Project Sync), real-time DSO screenshot previews, flat-to-target object linkage visibility, and two-way process icon synchronization. The plugin version is always synchronized with the Nebulis application version (currently `v2.0.2`).
+**What it does:** Integrates PixInsight ($\ge$ 1.8.9 and 1.9.x) natively with your Nebulis server through an official embedded update repository and a standalone PJSR connector script (`NebulisConnector.js`). Features a streamlined 3-tab architecture (Library Download, Calibration Library, and Project Sync), real-time DSO screenshot previews, flat-to-target object linkage visibility, and two-way process icon synchronization. The plugin version is always synchronized with the Nebulis application version (currently `v2.1.0`).
 
 **When to use it:** Whenever you process your raw subframes in PixInsight and want to automate data transfer, calibration acquisition, and workflow archiving without manual file copying.
 
@@ -315,7 +315,7 @@ When no user account exists yet, Nebulis runs in open mode and lets you get star
      ```
      *(For example: `http://localhost:3002/plugins/pixinsight/` or `http://192.168.1.50:8080/plugins/pixinsight/`)*
    - Click **OK**, then navigate to **Resources → Updates → Check for Updates**.
-   - PixInsight will detect **Nebulis Connector for PixInsight (v2.0.2)**. Click **Apply updates** and restart PixInsight.
+   - PixInsight will detect **Nebulis Connector for PixInsight (v2.1.0)**. Click **Apply updates** and restart PixInsight.
    - *(Note: You can also visit `http://<nebulis-host>:<port>/plugins/pixinsight/` in your web browser for a live landing page with a one-click copy button and direct download options).*
 2. **Launch the Connector**:
    - In PixInsight, go to **Script → Nebulis → Nebulis Connector**.
@@ -440,7 +440,7 @@ You can configure both Wi-Fi and USB for the same telescope. Nebulis then uses w
    http://<nebulis-host>:<port>/plugins/pixinsight/
    ```
 4. Click **OK**, then navigate to **Resources → Updates → Check for Updates**.
-5. Select **Nebulis Connector for PixInsight (v2.0.2)**, click **Apply updates**, and restart PixInsight.
+5. Select **Nebulis Connector for PixInsight (v2.1.0)**, click **Apply updates**, and restart PixInsight.
 6. Launch the script from **Script → Nebulis → Nebulis Connector**.
 7. Click the **⚙ Settings** button, enter your server URL and API Key (prefixed with `neb-`), set your download root directory, and click **Test Connection** followed by **Save Settings**.
 

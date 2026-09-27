@@ -34,7 +34,7 @@ var DT_Double = (typeof DataType_Double !== "undefined") ? DataType_Double : 10;
 var DT_String = (typeof DataType_String !== "undefined") ? DataType_String : 13;
 var DT_ByteArray = (typeof DataType_ByteArray !== "undefined") ? DataType_ByteArray : 14;
 
-var NEBULIS_VERSION = "2.0.2";
+var NEBULIS_VERSION = "2.1.0";
 var SETTINGS_MODULE = "Nebulis";
 
 function processUIMessages() {

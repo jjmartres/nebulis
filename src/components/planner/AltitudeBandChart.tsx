@@ -10,6 +10,7 @@
  * what was actually planned, not what could be observed.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { computeAltitudeCurve } from '../../lib/altaz';
 import { twilightGradientCss, type TwilightMarks } from '../../lib/plannerNight';
 import { formatHm, hourTicks } from './scheduleGeometry';
@@ -81,6 +82,7 @@ export function AltitudeBandChart({
   observerTimezone,
   twilight,
 }: AltitudeBandChartProps) {
+  const { t } = useTranslation('planner');
   // The chart sits directly under the schedule on the same night canvas, so its
   // palette is night-side in every theme rather than following the app theme.
   const background = useMemo(
@@ -189,7 +191,7 @@ export function AltitudeBandChart({
           preserveAspectRatio="none"
           className="block h-full w-full"
           role="img"
-          aria-label="Altitude chart, no targets scheduled"
+          aria-label={t('altitudeBandChart.noTargetsAriaLabel')}
         >
           {yTicks.map(a => {
             const y = altToY(a);
@@ -241,7 +243,7 @@ export function AltitudeBandChart({
         </svg>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4" style={{ paddingBottom: PAD_BOTTOM + LABEL_BAND_HEIGHT }}>
           <span className="rounded-full bg-slate-950/70 px-3 py-1.5 text-xs text-white/50 ring-1 ring-inset ring-white/10">
-            Add targets to the schedule to see their altitude curves here.
+            {t('altitudeBandChart.emptyHint')}
           </span>
         </div>
       </div>
@@ -260,7 +262,7 @@ export function AltitudeBandChart({
         preserveAspectRatio="none"
         className="block w-full h-full"
         role="img"
-        aria-label="Altitude of each scheduled object over time"
+        aria-label={t('altitudeBandChart.ariaLabel')}
         onMouseMove={(e) => {
           const svg = svgRef.current;
           if (!svg) return;
@@ -459,6 +461,7 @@ function HoverOverlay({
   axisColor,
   timeZone,
 }: HoverOverlayProps) {
+  const { t } = useTranslation('planner');
   // Tooltip box: pick a side that keeps the box inside the plot. Width is a
   // generous estimate so single-line copy ("M 81 · 02:35 · 47°") never overflows.
   const tooltipWidth = 150;
@@ -490,7 +493,7 @@ function HoverOverlay({
         {objectName}
       </text>
       <text x={tooltipX + 8} y={tooltipY + 28} fontSize={11} fill={subColor}>
-        {timeLabel} · {Math.round(alt)}° altitude
+        {t('altitudeBandChart.timeAltitude', { time: timeLabel, alt: Math.round(alt) })}
       </text>
     </g>
   );

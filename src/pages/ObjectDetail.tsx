@@ -21,6 +21,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { AlertTriangle, ArrowLeft, RotateCcw, RotateCw } from 'lucide-react';
 import {
   getLibrarySessions, requestObjectDownloadUrl, deleteLibraryObject, deleteLibrarySession,
@@ -35,6 +36,7 @@ import { getActiveSite } from '../lib/api/sites';
 import { getSettings } from '../lib/api/settings';
 import { getCatalogThumbnailUrl, getCatalogSourceThumbnailUrl, parseSourceSentinel } from '../lib/catalogImage';
 import { parseRaHours, parseDecDegrees } from '../lib/observationDisplay';
+import { formatDate } from '../lib/formatLocale';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../contexts/AuthContext';
 import { useSyncSubframes } from '../contexts/SyncSubframesContext';
@@ -42,7 +44,9 @@ import { GalleryImageModal } from '../components/GalleryImageModal';
 import { CompareSessionsModal } from '../components/CompareSessionsModal';
 import { CombineSubframesModal } from '../components/CombineSubframesModal';
 import { EditObjectModal } from '../components/EditObjectModal';
+import { ReclassifyModal } from '../components/objectDetail/ReclassifyModal';
 import { FramingModal, FRAMING_MOSAIC_ENABLED } from '../components/catalogs/FramingModal';
+import { filterRecommendations } from '../lib/filterRecommendations';
 import { NewObservationModal } from '../components/NewObservationModal';
 import { ObjectPanel } from '../components/observationDetail/ObjectPanel';
 import { ObjectHero } from '../components/objectDetail/ObjectHero';
@@ -55,6 +59,7 @@ import { ObjectProcessedSection } from '../components/objectDetail/ObjectProcess
 import { ObjectProjectArchivesSection } from '../components/objectDetail/ObjectProjectArchivesSection';
 import { TourAnchor } from '../components/tour/TourAnchor';
 import { DWARF_STARTRAILS_OBJECT_TYPE, DWARF_STARTRAILS_PLACEHOLDER_IMAGE } from '../lib/dwarfStartrails';
+import { DWARF_VIDEOS_OBJECT_TYPE } from '../lib/dwarfVideos';
 import type { ObservationCardModel } from '../components/objectDetail/ObservationCard';
 import type { AstroObject, ProcessingStatus } from '../types';
 
@@ -76,6 +81,7 @@ const HERO_IMAGE_SIZE = 960;
 
 export function ObjectDetail() {
   const { objectId } = useParams<{ objectId: string }>();
+  const { t } = useTranslation('library');
   const { isDark, isNight, isSpace } = useTheme();
   const { isAdmin } = useAuth();
   const { openObjectSync } = useSyncSubframes();
@@ -93,6 +99,7 @@ export function ObjectDetail() {
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [combineSubframesOpen, setCombineSubframesOpen] = useState(false);
   const [editObjectOpen, setEditObjectOpen] = useState(false);
+  const [reclassifyOpen, setReclassifyOpen] = useState(false);
   const [framingOpen, setFramingOpen] = useState(false);
   const [trashModalOpen, setTrashModalOpen] = useState(false);
   const [trashError, setTrashError] = useState<string | null>(null);
@@ -122,12 +129,15 @@ export function ObjectDetail() {
   const baseObjectId = baseObject?.id ?? objectId ?? '';
   const activeObjectId = baseObjectId;
 
-  // The synthetic "DWARF Star Trails" object (see server/lib/library/dwarfStartrails.ts):
-  // not a real celestial target, so it gets a distinct presentation below —
-  // no Tonight visibility panel, a curated description/type instead of a
-  // (nonexistent) catalog lookup, and a bundled cover until a real capture
-  // sets one.
+  // The synthetic "DWARF Star Trails" and "DWARF Videos" objects (see
+  // server/lib/library/dwarfStartrails.ts / dwarfVideos.ts): neither is a
+  // real celestial target, so both get a distinct presentation below — no
+  // Tonight visibility panel, a curated description/type instead of a
+  // (nonexistent) catalog lookup, and (Star Trails only) a bundled cover
+  // until a real capture sets one.
   const isStartrails = baseObject?.type === DWARF_STARTRAILS_OBJECT_TYPE;
+  const isVideos = baseObject?.type === DWARF_VIDEOS_OBJECT_TYPE;
+  const isSyntheticDwarfObject = isStartrails || isVideos;
 
   // Redirect variant URLs (e.g. /object/IC434_Mosaic) to the base, so every
   // variant is visible under one page.
@@ -245,16 +255,16 @@ export function ObjectDetail() {
     ? (favoriteMutation.variables ?? false)
     : (baseObject?.isFavorite ?? false);
 
-  // Same optimistic-via-mutation-variables shape as favoriteMutation above.
+  // Same optimistic shape as favoriteMutation above.
   const processingStatusMutation = useMutation({
-    mutationFn: (next: ProcessingStatus) => setProcessingStatus(activeObjectId, next),
-    onSuccess: (_data, next) => {
+    mutationFn: (status: ProcessingStatus) => setProcessingStatus(activeObjectId, status),
+    onSuccess: (_data, status) => {
       queryClient.setQueryData<AstroObject[]>(['library-objects'], old =>
-        old?.map(o => (o.id === activeObjectId ? { ...o, processingStatus: next } : o)));
+        old?.map(o => (o.id === activeObjectId ? { ...o, processingStatus: status } : o)));
       queryClient.invalidateQueries({ queryKey: ['library-objects'] });
     },
   });
-  const processingStatus: ProcessingStatus = processingStatusMutation.isPending
+  const processingStatus = processingStatusMutation.isPending
     ? (processingStatusMutation.variables ?? 'unprocessed')
     : (baseObject?.processingStatus ?? 'unprocessed');
 
@@ -414,25 +424,35 @@ export function ObjectDetail() {
       a.click();
       a.remove();
     } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Could not start the download. Try again.');
+      setDownloadError(err instanceof Error ? err.message : t('objectDetail.downloadFailed'));
     } finally {
       setDownloadPending(false);
     }
-  }, [activeObjectId]);
+  }, [activeObjectId, t]);
 
   const displayName = catalogEntry?.name || baseObject?.name || objectId || baseObjectId;
 
   const totals = useMemo(() => summarizeObject(allSessions, captureByDate), [allSessions, captureByDate]);
-  const metrics = useMemo(() => buildObjectMetrics(totals), [totals]);
+  const metrics = useMemo(() => buildObjectMetrics(totals, t), [totals, t]);
+
+  // Filter guidance for the catalog type, shown inside the hero. Star Trails
+  // and Videos are synthetic targets rather than celestial ones, so guidance
+  // would be meaningless for either even though each carries a type of its
+  // own.
+  const filterRec = useMemo(() => {
+    if (isSyntheticDwarfObject) return null;
+    const type = catalogEntry?.type || baseObject?.type;
+    return type?.trim() ? filterRecommendations(type) : null;
+  }, [catalogEntry?.type, isSyntheticDwarfObject, baseObject?.type]);
 
   // Telescopes that have actually been on this target, in the library's own
   // recency order, resolved to names and colours.
   const heroTelescopes = useMemo(() => {
     const ids = baseObject?.telescopeIds ?? [];
     return ids
-      .map(id => telescopes.find(t => t.id === id))
-      .filter((t): t is NonNullable<typeof t> => !!t)
-      .map(t => ({ id: t.id, name: t.name, color: t.color }));
+      .map(id => telescopes.find(tel => tel.id === id))
+      .filter((tel): tel is NonNullable<typeof tel> => !!tel)
+      .map(tel => ({ id: tel.id, name: tel.name, color: tel.color, connectionType: tel.connectionType }));
   }, [baseObject?.telescopeIds, telescopes]);
 
   const observationCards = useMemo<ObservationCardModel[]>(() => {
@@ -495,7 +515,7 @@ export function ObjectDetail() {
           }`}
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Library
+          {t('objectDetail.backToLibrary')}
         </Link>
         <div className={`rounded-2xl border p-12 text-center ${
           isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white shadow-sm'
@@ -504,11 +524,10 @@ export function ObjectDetail() {
             <>
               <RotateCcw className={`mx-auto mb-4 h-10 w-10 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
               <p className={`text-lg font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                {deletedEntry.objectName || deletedEntry.objectId} was deleted
+                {t('objectDetail.wasDeleted', { name: deletedEntry.objectName || deletedEntry.objectId })}
               </p>
               <p className={`mt-1 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                Its local files are gone, and it is blocked from re-syncing. Restoring only lifts
-                the block, so the telescope can send it back next time it images this target.
+                {t('objectDetail.deletedHint')}
               </p>
               <button
                 type="button"
@@ -521,7 +540,7 @@ export function ObjectDetail() {
                 {restoreObjectMutation.isPending
                   ? <RotateCw className="h-3.5 w-3.5 animate-spin" />
                   : <RotateCcw className="h-3.5 w-3.5" />}
-                Restore
+                {t('objectDetail.restore')}
               </button>
               {trashError && (
                 <p className={`mt-3 text-sm ${isDark ? 'text-red-300' : 'text-red-600'}`}>{trashError}</p>
@@ -531,10 +550,15 @@ export function ObjectDetail() {
             <>
               <AlertTriangle className={`mx-auto mb-4 h-10 w-10 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
               <p className={`text-lg font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                Object not found
+                {t('objectDetail.notFound')}
               </p>
               <p className={`mt-1 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                <span className="font-mono">{objectId}</span> does not exist in your library or the catalog.
+                <Trans
+                  i18nKey="objectDetail.notFoundHint"
+                  ns="library"
+                  values={{ id: objectId }}
+                  components={{ 1: <span className="font-mono" /> }}
+                />
               </p>
             </>
           )}
@@ -559,13 +583,19 @@ export function ObjectDetail() {
         isFavorite={isFavorite}
         onToggleFavorite={() => favoriteMutation.mutate(!isFavorite)}
         processingStatus={processingStatus}
-        onChangeProcessingStatus={isAdmin ? (next) => processingStatusMutation.mutate(next) : null}
+        onChangeProcessingStatus={isAdmin ? (status) => processingStatusMutation.mutate(status) : null}
         onAddObservation={isAdmin ? () => setNewObservationOpen(true) : null}
         onCompare={allSessions.length >= 2 ? () => setCompareModalOpen(true) : null}
         onCombine={() => setCombineSubframesOpen(true)}
+        onFraming={FRAMING_MOSAIC_ENABLED ? () => setFramingOpen(true) : null}
         onDownloadAll={handleDownloadAll}
         downloadPending={downloadPending}
-        onSyncAllSubframes={isAdmin && !isStartrails && allSessions.length > 0
+        // Pulling sub-frames means reaching back out to the device that shot
+        // them (SMB/FTP/USB), so this only makes sense when at least one
+        // session actually recorded which telescope captured it. An object
+        // built entirely from manually uploaded or shared images has no
+        // device to sync from.
+        onSyncAllSubframes={isAdmin && !isSyntheticDwarfObject && allSessions.length > 0 && heroTelescopes.length > 0
           ? () => openObjectSync(activeObjectId)
           : null}
         // The planner searches by catalog id, so an object the catalog does not
@@ -574,9 +604,11 @@ export function ObjectDetail() {
           ? () => navigate('/planner', { state: { searchQuery: catalogEntry.id } })
           : null}
         onEditDetails={isAdmin ? () => setEditObjectOpen(true) : null}
+        onReclassify={isAdmin ? () => setReclassifyOpen(true) : null}
         onDelete={isAdmin ? () => setDeleteObjectConfirm(true) : null}
         objectId={activeObjectId}
-        hideTargetActions={isStartrails}
+        hideTargetActions={isSyntheticDwarfObject}
+        filterRecommendations={filterRec}
       />
       </TourAnchor>
 
@@ -584,35 +616,21 @@ export function ObjectDetail() {
         <p className={`text-sm ${isDark ? 'text-red-300' : 'text-red-600'}`} role="alert">{downloadError}</p>
       )}
 
-      {FRAMING_MOSAIC_ENABLED && (
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => setFramingOpen(true)}
-            className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-              isDark ? 'border-slate-800 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-            title="Preview how this object frames in your telescope, and plan a mosaic"
-          >
-            Framing &amp; Mosaic
-          </button>
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 items-start">
         <ObjectPanel
           displayName={displayName}
           info={{
-            type: catalogEntry?.type || (isStartrails ? baseObject?.type : undefined),
+            type: catalogEntry?.type || (isSyntheticDwarfObject ? baseObject?.type : undefined),
             constellation: catalogEntry?.constellation && catalogEntry.constellation !== 'Unknown'
               ? catalogEntry.constellation
               : null,
             size: catalogEntry?.size,
             ra: catalogEntry?.ra != null ? String(catalogEntry.ra) : null,
             dec: catalogEntry?.dec != null ? String(catalogEntry.dec) : null,
-            // Star Trails has no catalog entry (getCatalogEntry 404s), so its
-            // curated description — already sitting on the library row itself
-            // — is the only source of one.
-            description: catalogEntry?.description || (isStartrails ? baseObject?.description : undefined),
+            // Star Trails and Videos have no catalog entry (getCatalogEntry
+            // 404s), so their curated description — already sitting on the
+            // library row itself — is the only source of one.
+            description: catalogEntry?.description || (isSyntheticDwarfObject ? baseObject?.description : undefined),
             wikiUrl: catalogEntry?.wikiUrl,
           }}
           magnitude={typeof catalogEntry?.magnitude === 'number' ? catalogEntry.magnitude : null}
@@ -622,12 +640,18 @@ export function ObjectDetail() {
 
         {/* Visibility-tonight math doesn't apply to a non-celestial synthetic
             target, so the row collapses to one column instead. */}
-        {!isStartrails && <TonightPanel raHours={raHours} decDegrees={decDegrees} site={site} />}
+        {!isSyntheticDwarfObject && <TonightPanel raHours={raHours} decDegrees={decDegrees} site={site} />}
       </div>
 
-      <ObjectProcessedSection objectId={activeObjectId} isAdmin={isAdmin} />
+      {/* items-start: without it, grid's default align-items:stretch forces
+          a collapsed section to match the height of its expanded sibling,
+          leaving a tall dead area below the collapsed header that reads as
+          a broken/empty panel rather than simply "closed". */}
+      <div className="grid gap-4 md:grid-cols-2 items-start">
+        <ObjectProcessedSection objectId={activeObjectId} isAdmin={isAdmin} />
 
-      <ObjectProjectArchivesSection objectId={activeObjectId} isAdmin={isAdmin} />
+        <ObjectProjectArchivesSection objectId={activeObjectId} isAdmin={isAdmin} />
+      </div>
 
       <ObservationsSection
         observations={observationCards}
@@ -681,6 +705,14 @@ export function ObjectDetail() {
         />
       )}
 
+      {reclassifyOpen && (
+        <ReclassifyModal
+          objectId={activeObjectId}
+          displayName={displayName}
+          onClose={() => setReclassifyOpen(false)}
+        />
+      )}
+
       {framingOpen && (
         <FramingModal
           catalogId={catalogEntry?.id || baseObjectId}
@@ -714,41 +746,41 @@ export function ObjectDetail() {
 
       {deleteObjectConfirm && (
         <DangerConfirm
-          title="Delete object"
+          title={t('objectDetail.deleteObjectTitle')}
           pending={deleteObjectMutation.isPending}
           error={deleteObjectMutation.error}
           onCancel={() => setDeleteObjectConfirm(false)}
           onConfirm={() => deleteObjectMutation.mutate()}
           body={
-            <>
-              This permanently deletes every local image file for <strong>{baseObjectId}</strong>.
-              That part cannot be undone. It also blocks {baseObjectId} from being re-synced from
-              the telescope, but that part can: come back to this object's page and restore it.
-              Observation notes are kept.
-            </>
+            <Trans
+              i18nKey="objectDetail.deleteObjectBody"
+              ns="library"
+              values={{ name: baseObjectId }}
+              components={{ 1: <strong /> }}
+            />
           }
         />
       )}
 
       {deleteSession && (
         <DangerConfirm
-          title="Delete observation"
+          title={t('objectDetail.deleteObservationTitle')}
           pending={deleteSessionMutation.isPending}
           error={deleteSessionMutation.error}
           onCancel={() => setDeleteSession(null)}
           onConfirm={() => deleteSessionMutation.mutate(deleteSession)}
           body={
-            <>
-              This permanently deletes every local file for the{' '}
-              <strong>{deleteSession.objectId}</strong> observation on{' '}
-              <strong>
-                {new Date(deleteSession.date + 'T12:00:00').toLocaleDateString(undefined, {
+            <Trans
+              i18nKey="objectDetail.deleteObservationBody"
+              ns="library"
+              values={{
+                objectId: deleteSession.objectId,
+                date: formatDate(new Date(deleteSession.date + 'T12:00:00'), {
                   year: 'numeric', month: 'long', day: 'numeric',
-                })}
-              </strong>. That part cannot be undone. It also blocks this observation from being
-              re-synced from the telescope, but that part can: restore it from the Observations
-              section on this page.
-            </>
+                }),
+              }}
+              components={{ 1: <strong />, 3: <strong /> }}
+            />
           }
         />
       )}

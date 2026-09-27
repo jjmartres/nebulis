@@ -5,17 +5,18 @@
  * validated against real captured frames (IC 5146 session, 2026-09-04) and
  * against the device's own "Customize File Name" settings screen — see the
  * ASIAIR block in telescopeFiles.ts. The folder layout below (Autorun/Plan
- * split, Live/ output, calibration folders) was built from ZWO's own
- * image-transfer guide, the `poto-siril` ASIAIR toolchain, and Cloudy Nights
- * / ZWO forum reports.
+ * split, Live/ output, calibration folders) was originally built from ZWO's own
+ * image-transfer guide, the `poto-siril` ASIAIR toolchain, and Cloudy Nights /
+ * ZWO forum reports, and has since been confirmed against a real ASIAIR, which
+ * is why the telescope kind no longer carries a beta marker.
  *
  *   <root>/
  *     Autorun/                     unattended capture runs
  *       Light/<Target>/*.fit       the frames
- *       Dark/ Flat/ Bias/          calibration, no target folder
+ *       Dark/ Flat/ Bias/ FlatDark/  calibration, no target folder
  *     Plan/                        same shape, for planned sequences
  *       Light/<Target>/*.fit
- *       Dark/ Flat/ Bias/
+ *       Dark/ Flat/ Bias/ FlatDark/
  *     Live/<Target>/               live-stacked output, when the user ran Live mode
  *     Preview/ Video/ log/         ignored
  *
@@ -69,9 +70,14 @@ export const ASIAIR_LIGHT_FOLDER = 'Light';
  * CALI_FRAME/DWARF_DARK get. Exported as mode-qualified relative paths because
  * that is the shape `collectRemoteArchiveCandidates` wants, and because the
  * `Autorun/`-vs-`Plan/` prefix is worth preserving in the archive.
+ *
+ * `FlatDark` is included alongside `Dark`, `Flat`, and `Bias`: the ASIAIR
+ * writes flat-dark frames into a `FlatDark/` sibling folder under each
+ * capture-mode folder, using the same folder-first layout as the other types.
+ * Omitting it silently dropped every flat-dark frame from live syncs.
  */
 export const ASIAIR_CALIBRATION_PATHS: readonly string[] = ASIAIR_MODE_FOLDERS.flatMap(
-  mode => ['Dark', 'Flat', 'Bias'].map(type => `${mode}/${type}`),
+  mode => ['Dark', 'Flat', 'Bias', 'FlatDark'].map(type => `${mode}/${type}`),
 );
 
 /** Folder the ASIAIR writes at the root of removable storage. ZWO's docs note

@@ -9,9 +9,14 @@ const WishlistPostBodySchema = z.object({
   objectId: z.string().min(1),
   name: z.string().min(1),
   type: z.string().optional(),
-  constellation: z.string().optional(),
-  magnitude: z.number().optional(),
-  majorAxisArcmin: z.number().optional(),
+  // The client sends an explicit `null` (not just an absent key) for any
+  // catalog entry missing these fields — a lot of clusters/nebulae have no
+  // recorded magnitude, for instance. `.optional()` alone only tolerates
+  // `undefined` and rejects a literal `null` with a 422, which made adding
+  // those objects to the wishlist silently fail.
+  constellation: z.string().nullable().optional(),
+  magnitude: z.number().nullable().optional(),
+  majorAxisArcmin: z.number().nullable().optional(),
   priority: z.enum(Wishlist.WISHLIST_PRIORITIES).default('medium'),
   notes: z.string().default(''),
 });
@@ -77,6 +82,15 @@ router.delete('/:id', requireAdmin, (req: Request, res: Response) => {
 
 // DELETE /api/v1/wishlist/object/:objectId  (remove by catalog ID)
 router.delete('/object/:objectId', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const deleted = Wishlist.removeByObjectId(objectId);
+  res.apiSuccess({ deleted });
+});
+
+// The iOS and Android clients delete by catalog ID via /wishlist/by-object/:id.
+// Keep that spelling working alongside /object/:id; the two are the same
+// operation and the clients cannot be updated in lockstep with the server.
+router.delete('/by-object/:objectId', requireAdmin, (req: Request, res: Response) => {
   const objectId = String(req.params.objectId);
   const deleted = Wishlist.removeByObjectId(objectId);
   res.apiSuccess({ deleted });

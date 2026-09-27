@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Sparkles, RotateCw, ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TOTAL_STEPS, type StepNumber } from './stepReducer';
 import { Modal } from '../ui/Modal';
 
@@ -34,6 +35,7 @@ export function OnboardingChrome({
   onSubmitStep1,
   children,
 }: OnboardingChromeProps) {
+  const { t } = useTranslation('onboarding');
   const card = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
   const ghostBtn = isDark
     ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -45,7 +47,7 @@ export function OnboardingChrome({
     <Modal
       isOpen
       onClose={onSkip}
-      title="Telescope Setup"
+      title={t('chrome.title')}
       className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${card}`}
     >
 
@@ -57,9 +59,9 @@ export function OnboardingChrome({
             </div>
             <div>
               <h2 className={`font-display font-semibold text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Set up your library in 4 steps
+                {t('chrome.heading')}
               </h2>
-              <p className={`text-xs ${subText}`}>Step {step} of {TOTAL_STEPS}</p>
+              <p className={`text-xs ${subText}`}>{t('chrome.stepOf', { step, total: TOTAL_STEPS })}</p>
             </div>
           </div>
           <button
@@ -68,7 +70,7 @@ export function OnboardingChrome({
               isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Set up later
+            {t('chrome.setUpLater')}
           </button>
         </div>
 
@@ -94,7 +96,7 @@ export function OnboardingChrome({
             {step > 1 && step < 4 && (
               <button onClick={onBack} className={backBtn}>
                 <ChevronLeft className="w-4 h-4" />
-                Back
+                {t('chrome.back')}
               </button>
             )}
           </div>
@@ -102,9 +104,9 @@ export function OnboardingChrome({
             {step === 1 && (
               <button onClick={onSubmitStep1} disabled={isCreatingUser} className={primaryBtn}>
                 {isCreatingUser ? (
-                  <><RotateCw className="w-4 h-4 animate-spin" /> Creating...</>
+                  <><RotateCw className="w-4 h-4 animate-spin" /> {t('chrome.creating')}</>
                 ) : (
-                  <>Continue <ChevronRight className="w-4 h-4" /></>
+                  <>{t('chrome.continue')} <ChevronRight className="w-4 h-4" /></>
                 )}
               </button>
             )}
@@ -114,25 +116,25 @@ export function OnboardingChrome({
                 disabled={step2Disabled}
                 className={`${primaryBtn} disabled:cursor-not-allowed`}
               >
-                Continue <ChevronRight className="w-4 h-4" />
+                {t('chrome.continue')} <ChevronRight className="w-4 h-4" />
               </button>
             )}
             {step === 3 && (
               <button onClick={onContinue} className={primaryBtn}>
-                Continue <ChevronRight className="w-4 h-4" />
+                {t('chrome.continue')} <ChevronRight className="w-4 h-4" />
               </button>
             )}
             {step === 4 && (
               <div className="flex items-center gap-3">
                 <button onClick={onBack} className={backBtn}>
                   <ChevronLeft className="w-4 h-4" />
-                  Back
+                  {t('chrome.back')}
                 </button>
                 <button onClick={onFinish} disabled={isFinishing} className={primaryBtn}>
                   {isFinishing ? (
-                    <><RotateCw className="w-4 h-4 animate-spin" /> Saving...</>
+                    <><RotateCw className="w-4 h-4 animate-spin" /> {t('chrome.saving')}</>
                   ) : (
-                    <><CheckCircle2 className="w-4 h-4" /> Finish Setup</>
+                    <><CheckCircle2 className="w-4 h-4" /> {t('chrome.finishSetup')}</>
                   )}
                 </button>
               </div>

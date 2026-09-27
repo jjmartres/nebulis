@@ -32,7 +32,7 @@ It enables browsing catalog objects, selecting imaging sessions, automatically d
 
 - **Cross-Platform & Native PJSR**:
   - Compatible with PixInsight $\ge$ 1.8.9 and PixInsight 1.9.x on macOS (ARM64/Apple Silicon and Intel), Linux, and Windows.
-  - Version strictly aligned with the Nebulis application version (currently `v2.0.2`).
+  - Version strictly aligned with the Nebulis application version (currently `v2.1.0`).
   - High-performance transfer mode with automatic system `curl` accelerator via `ExternalProcess`.
 
 ---
