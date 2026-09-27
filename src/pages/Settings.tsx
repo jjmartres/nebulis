@@ -13,6 +13,7 @@ import { LibrarySection } from '../components/settings/LibrarySection';
 import { SoftwareUpdateCard } from '../components/settings/SoftwareUpdateCard';
 import { UsersSection } from '../components/settings/UsersSection';
 import { ConnectedDevicesSection } from '../components/settings/ConnectedDevicesSection';
+import { ApiKeySection } from '../components/settings/ApiKeySection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
 import { SkySection } from '../components/settings/SkySection';
 import { StorageLocationSection } from '../components/settings/StorageLocationSection';
@@ -138,6 +139,7 @@ export function SettingsPage() {
       case 'updates':
         return <SoftwareUpdateCard isDark={isDark} form={form} setForm={setForm} />;
       case 'account':
+        if (resolvedSection === 'api-key') return <ApiKeySection isDark={isDark} />;
         return resolvedSection === 'devices'
           ? <ConnectedDevicesSection isDark={isDark} />
           : <UsersSection isDark={isDark} />;
@@ -262,6 +264,7 @@ function subtitleFor(groupId: string, sectionId: string | null): string {
     case 'library':  return 'How object cards, naming, and the slideshow behave.';
     case 'updates':  return 'Version, release notes, and update settings.';
     case 'account':
+      if (sectionId === 'api-key') return 'API keys for external tools like PixInsight.';
       return sectionId === 'devices'
         ? 'Phones and Apple TVs linked to your account.'
         : 'The people who can sign in to this library.';

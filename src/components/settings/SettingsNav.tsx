@@ -47,6 +47,7 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
     items: [
       { id: 'users', label: 'Users' },
       { id: 'devices', label: 'Devices' },
+      { id: 'api-key', label: 'API keys' },
     ],
   },
   { id: 'hardware', label: 'Telescopes', icon: Telescope, adminOnly: true },
