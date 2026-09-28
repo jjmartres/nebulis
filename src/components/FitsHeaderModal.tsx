@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { X, Search, Copy, CheckCircle2, FileCode, RotateCw } from 'lucide-react';
 import { getLibraryFitsHeaders } from '../lib/api/library';
 import { useTheme } from '../hooks/useTheme';
@@ -11,18 +12,11 @@ interface FitsHeaderModalProps {
   onClose: () => void;
 }
 
-const categoryLabels: Record<string, string> = {
-  essential: 'File Structure',
-  observation: 'Observation',
-  coordinates: 'Coordinates',
-  sensor: 'Sensor',
-  quality: 'Quality Metrics',
-  other: 'Other',
-  comments: 'Comments',
-};
+const CATEGORY_KEYS = new Set(['essential', 'observation', 'coordinates', 'sensor', 'quality', 'other', 'comments']);
 
 export function FitsHeaderModal({ filePath, fileName, onClose }: FitsHeaderModalProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
   const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -53,7 +47,7 @@ export function FitsHeaderModal({ filePath, fileName, onClose }: FitsHeaderModal
     <Modal
       isOpen
       onClose={onClose}
-      title={`FITS Header for ${fileName}`}
+      title={t('observationDetail.fitsHeaderModal.title', { fileName })}
       className={`w-full max-w-3xl max-h-[85vh] flex flex-col rounded-2xl ${
         isDark ? 'bg-slate-900' : 'bg-white'
       }`}
@@ -66,7 +60,7 @@ export function FitsHeaderModal({ filePath, fileName, onClose }: FitsHeaderModal
             <FileCode className="w-5 h-5 text-teal-500" />
             <div>
               <h3 className={`font-display font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                FITS Header
+                {t('observationDetail.fitsHeaderModal.heading')}
               </h3>
               <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{fileName}</p>
             </div>
@@ -77,7 +71,7 @@ export function FitsHeaderModal({ filePath, fileName, onClose }: FitsHeaderModal
               className={`p-2 rounded-lg text-sm transition ${
                 copied ? 'text-emerald-500' : isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
               }`}
-              title="Copy all header cards"
+              title={t('observationDetail.fitsHeaderModal.copyAllTitle')}
             >
               {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             </button>
@@ -96,7 +90,7 @@ export function FitsHeaderModal({ filePath, fileName, onClose }: FitsHeaderModal
             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-600' : 'text-slate-400'}`} />
             <input
               type="text"
-              placeholder="Search header keys or values..."
+              placeholder={t('observationDetail.fitsHeaderModal.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className={`w-full pl-9 pr-4 py-2 rounded-lg border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 ${
@@ -114,8 +108,8 @@ export function FitsHeaderModal({ filePath, fileName, onClose }: FitsHeaderModal
             </div>
           ) : error ? (
             <div className={`text-center py-12 space-y-1 ${isDark ? 'text-danger-500' : 'text-red-600'}`}>
-              <p>Failed to load FITS header.</p>
-              <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Close and reopen to try again.</p>
+              <p>{t('observationDetail.fitsHeaderModal.loadFailed')}</p>
+              <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('observationDetail.fitsHeaderModal.loadFailedHint')}</p>
             </div>
           ) : (
             <>
@@ -134,7 +128,9 @@ export function FitsHeaderModal({ filePath, fileName, onClose }: FitsHeaderModal
                     <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${
                       isDark ? 'text-slate-500' : 'text-slate-400'
                     }`}>
-                      {categoryLabels[category] || category}
+                      {CATEGORY_KEYS.has(category)
+                        ? t(`observationDetail.fitsHeaderModal.categories.${category}`)
+                        : category}
                     </h4>
                     <div className={`rounded-xl border overflow-hidden ${
                       isDark ? 'border-slate-800' : 'border-slate-200'

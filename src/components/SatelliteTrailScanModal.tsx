@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   X, Minus, Satellite, Loader2, Trash2, AlertTriangle,
   CheckCircle2, ChevronLeft, ChevronRight, RotateCw,
@@ -32,11 +33,13 @@ interface TrailCard {
 // extra work that is harder to cancel and makes the app feel frozen longer.
 const CONCURRENCY = 1;
 
-function formatDuration(ms: number): string {
-  if (ms < 5000) return '< 5 s';
-  if (ms < 60000) return `~${Math.round(ms / 1000)} s`;
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+function formatDuration(ms: number, t: TFunc): string {
+  if (ms < 5000) return t('observationDetail.satelliteTrailScanModal.etaUnderFive');
+  if (ms < 60000) return t('observationDetail.satelliteTrailScanModal.etaSeconds', { count: Math.round(ms / 1000) });
   const m = Math.round(ms / 60000);
-  return `~${m} min`;
+  return t('observationDetail.satelliteTrailScanModal.etaMinutes', { count: m });
 }
 
 function isAbortError(err: unknown): boolean {
@@ -44,6 +47,7 @@ function isAbortError(err: unknown): boolean {
 }
 
 export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted, isDark }: Props) {
+  const { t } = useTranslation('observations');
   const [phase, setPhase] = useState<Phase>('ready');
   const [trailCards, setTrailCards] = useState<TrailCard[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
@@ -205,10 +209,10 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
         }
         <div className="flex flex-col gap-1 min-w-[130px]">
           <span className="text-sm font-medium leading-tight">
-            {phase === 'scanning' && `Scanning ${completedCount} / ${fitsFiles.length}`}
-            {phase === 'done' && visibleCards.length > 0 && `${visibleCards.length} trail${visibleCards.length !== 1 ? 's' : ''} detected`}
-            {phase === 'done' && visibleCards.length === 0 && 'Scan complete. All clear.'}
-            {phase === 'ready' && 'Trail scan ready'}
+            {phase === 'scanning' && t('observationDetail.satelliteTrailScanModal.scanningProgress', { completed: completedCount, total: fitsFiles.length })}
+            {phase === 'done' && visibleCards.length > 0 && t('observationDetail.satelliteTrailScanModal.trailsDetected', { count: visibleCards.length })}
+            {phase === 'done' && visibleCards.length === 0 && t('observationDetail.satelliteTrailScanModal.scanCompleteClean')}
+            {phase === 'ready' && t('observationDetail.satelliteTrailScanModal.scanReady')}
           </span>
           {phase === 'scanning' && (
             <div className={`h-1 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
@@ -216,7 +220,7 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
             </div>
           )}
         </div>
-        <span className="text-xs opacity-50 ml-1">tap to expand</span>
+        <span className="text-xs opacity-50 ml-1">{t('observationDetail.satelliteTrailScanModal.tapToExpand')}</span>
       </button>
     );
   }
@@ -242,7 +246,7 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
     <Modal
       isOpen={isOpen}
       onClose={requestClose}
-      title="Satellite Trail Detection"
+      title={t('observationDetail.satelliteTrailScanModal.title')}
       className={`relative w-full max-w-6xl h-[min(85vh,900px)] flex flex-col rounded-2xl overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}
     >
 
@@ -260,20 +264,22 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
                     {currentCard.file.name}
                   </span>
                   <span className={`text-xs truncate block ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                    {currentCard.result.confidence != null && `${Math.round(currentCard.result.confidence * 100)}% confidence`}
-                    {currentCard.result.angleDegrees != null && ` · ${currentCard.result.angleDegrees}° angle`}
-                    {currentCard.result.lengthPixels != null && ` · ${currentCard.result.lengthPixels}px`}
+                    {currentCard.result.confidence != null && t('observationDetail.satelliteTrailScanModal.confidencePercent', { percent: Math.round(currentCard.result.confidence * 100) })}
+                    {currentCard.result.angleDegrees != null && ` · ${t('observationDetail.satelliteTrailScanModal.angleDegrees', { angle: currentCard.result.angleDegrees })}`}
+                    {currentCard.result.lengthPixels != null && ` · ${t('observationDetail.satelliteTrailScanModal.lengthPixels', { length: currentCard.result.lengthPixels })}`}
                   </span>
                 </>
               ) : (
                 <>
                   <span className={`font-medium text-sm block ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    Satellite Trail Detection
+                    {t('observationDetail.satelliteTrailScanModal.title')}
                   </span>
                   <span className={`text-xs block ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                    {phase === 'ready'    && `${fitsFiles.length} FITS frame${fitsFiles.length !== 1 ? 's' : ''} ready to scan`}
-                    {phase === 'scanning' && (activeFileName ? `Scanning ${activeFileName}` : `Scanning ${fitsFiles.length} frames…`)}
-                    {phase === 'done'     && `${fitsFiles.length} frames analyzed. No trails detected.`}
+                    {phase === 'ready'    && t('observationDetail.satelliteTrailScanModal.framesReady', { count: fitsFiles.length })}
+                    {phase === 'scanning' && (activeFileName
+                      ? t('observationDetail.satelliteTrailScanModal.scanningFile', { fileName: activeFileName })
+                      : t('observationDetail.satelliteTrailScanModal.scanningFrames', { count: fitsFiles.length }))}
+                    {phase === 'done'     && t('observationDetail.satelliteTrailScanModal.framesAnalyzedClean', { count: fitsFiles.length })}
                   </span>
                 </>
               )}
@@ -295,7 +301,7 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
                   {currentIndex + 1} / {visibleCards.length}
                   {phase === 'scanning' && (
                     <span className={`text-xs ml-1 ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>
-                      (scanning…)
+                      {t('observationDetail.satelliteTrailScanModal.scanningParenthetical')}
                     </span>
                   )}
                 </span>
@@ -315,7 +321,7 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
               <button
                 onClick={() => handleDelete(currentCard.file.path)}
                 disabled={deletingPath === currentCard.file.path}
-                title="Delete this frame"
+                title={t('observationDetail.satelliteTrailScanModal.deleteFrameTitle')}
                 className={`p-2 rounded-lg transition disabled:opacity-40 ${isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-500 hover:bg-red-50'}`}
               >
                 {deletingPath === currentCard.file.path
@@ -329,7 +335,7 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
             {phase === 'scanning' && (
               <button
                 onClick={() => setMinimized(true)}
-                title="Minimize"
+                title={t('observationDetail.satelliteTrailScanModal.minimizeTitle')}
                 className={`p-2 rounded-lg transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
               >
                 <Minus className="w-4 h-4" />
@@ -360,14 +366,18 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
             </div>
             <span className={`text-xs tabular-nums flex-shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
               {completedCount} / {fitsFiles.length}
-              {etaMs !== null && <span className="ml-1">· {formatDuration(etaMs)}</span>}
-              {errorCount > 0 && <span className={`ml-1 ${isDark ? 'text-red-400' : 'text-red-500'}`}>· {errorCount} err</span>}
+              {etaMs !== null && <span className="ml-1">· {formatDuration(etaMs, t)}</span>}
+              {errorCount > 0 && (
+                <span className={`ml-1 ${isDark ? 'text-red-400' : 'text-red-500'}`}>
+                  · {t('observationDetail.satelliteTrailScanModal.errorsAbbrev', { count: errorCount })}
+                </span>
+              )}
             </span>
             <button
               onClick={cancelScan}
               className={`text-xs flex-shrink-0 transition ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              Cancel
+              {t('confirmModal.cancel', { ns: 'common' })}
             </button>
           </div>
         )}
@@ -393,10 +403,10 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
                   <Satellite className={`w-16 h-16 ${isDark ? 'text-amber-500/20' : 'text-amber-400/30'}`} />
                   <div className="text-center space-y-1.5">
                     <p className={`text-base font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                      Scan {fitsFiles.length} subframe{fitsFiles.length !== 1 ? 's' : ''} for satellite trails
+                      {t('observationDetail.satelliteTrailScanModal.scanSubframes', { count: fitsFiles.length })}
                     </p>
                     <p className="text-sm">
-                      Detected frames appear here. Use ← → or click thumbnails to navigate.
+                      {t('observationDetail.satelliteTrailScanModal.navigateHint')}
                     </p>
                   </div>
                   <button
@@ -404,7 +414,7 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
                     disabled={fitsFiles.length === 0}
                     className="mt-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition disabled:opacity-40"
                   >
-                    Start Scan
+                    {t('observationDetail.satelliteTrailScanModal.startScan')}
                   </button>
                 </>
               )}
@@ -412,7 +422,7 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
               {phase === 'scanning' && (
                 <>
                   <Loader2 className="w-10 h-10 text-amber-500/40 animate-spin" />
-                  <p className="text-sm">Scanning. Detected trails will appear here as they are found.</p>
+                  <p className="text-sm">{t('observationDetail.satelliteTrailScanModal.scanningHint')}</p>
                 </>
               )}
 
@@ -420,14 +430,14 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
                 <>
                   <CheckCircle2 className={`w-14 h-14 ${isDark ? 'text-green-500/30' : 'text-green-400/40'}`} />
                   <p className={`text-base font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                    All frames are clean
+                    {t('observationDetail.satelliteTrailScanModal.allClean')}
                   </p>
-                  <p className="text-sm">No satellite trails detected in {fitsFiles.length} subframe{fitsFiles.length !== 1 ? 's' : ''}</p>
+                  <p className="text-sm">{t('observationDetail.satelliteTrailScanModal.noTrailsDetected', { count: fitsFiles.length })}</p>
                   <button
                     onClick={() => startScan(true)}
                     className={`mt-1 px-4 py-1.5 rounded-lg text-xs font-medium transition ${isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
                   >
-                    Re-scan
+                    {t('observationDetail.satelliteTrailScanModal.rescan')}
                   </button>
                 </>
               )}
@@ -469,22 +479,22 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
         <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 text-xs pointer-events-none select-none ${
           isDark ? 'text-white/20' : 'text-slate-300'
         }`}>
-          {phase !== 'ready' && visibleCards.length > 1 && 'Use arrow keys to navigate'}
+          {phase !== 'ready' && visibleCards.length > 1 && t('observationDetail.satelliteTrailScanModal.arrowKeysHint')}
           {phase === 'done' && visibleCards.length > 0 && (
             <span className="ml-3 pointer-events-auto">
               <button
                 onClick={() => startScan(true)}
                 className={`transition underline-offset-2 hover:underline ${isDark ? 'text-slate-600 hover:text-slate-400' : 'text-slate-300 hover:text-slate-500'}`}
               >
-                Re-scan
+                {t('observationDetail.satelliteTrailScanModal.rescan')}
               </button>
             </span>
           )}
         </div>
         {confirmingClose && (
           <CloseConfirm
-            message="Stop the scan and close?"
-            cancelLabel="Keep scanning"
+            message={t('observationDetail.satelliteTrailScanModal.closeConfirmMessage')}
+            cancelLabel={t('observationDetail.satelliteTrailScanModal.keepScanning')}
             onCancel={() => setConfirmingClose(false)}
             onDiscard={() => { setConfirmingClose(false); cancelScan(); onClose(); }}
             isDark={isDark}

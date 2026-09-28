@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
+import { useCallback, useState, useMemo, useRef, useEffect, Suspense } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Map as MapIcon, MapPin, Clock, Calendar } from 'lucide-react';
 import { getObservations, getObservationLocations, type ObservationSummary } from '../lib/api/observations';
+import { lazyRoute } from '../lib/chunkReload';
 import { CalendarShareModal } from '../components/calendar/CalendarShareModal';
 import { MonthGrid, type CalendarDay } from '../components/calendar/MonthGrid';
 import { ListShareModal } from '../components/observations/ListShareModal';
@@ -26,13 +28,16 @@ import type { CalendarShareData } from '../lib/calendarShare';
 import type { ListShareData } from '../lib/listShare';
 
 // Leaflet is heavy; only pull it in when the user opens the map view.
-const ObservationsWorldMap = lazy(() =>
+// lazyRoute, not plain lazy, so a stale chunk reloads instead of erroring — the
+// same stale-build recovery every route in App.tsx gets (lib/chunkReload.ts).
+const ObservationsWorldMap = lazyRoute(() =>
   import('../components/ObservationsWorldMap').then(m => ({ default: m.ObservationsWorldMap })),
 );
 import type { ObservationsWorldMapHandle } from '../components/ObservationsWorldMap';
 import { listTelescopes, type TelescopeProfile } from '../lib/api/telescopes';
 import { useTheme } from '../hooks/useTheme';
 import { cleanCatalogId, formatObjectName } from '../lib/utils';
+import { formatDate, formatTime24, weekStartsOn } from '../lib/formatLocale';
 
 function obsName(obs: ObservationSummary): string {
   const id = cleanCatalogId(obs.objectId);
@@ -41,6 +46,7 @@ function obsName(obs: ObservationSummary): string {
 }
 
 export function ObservationsCalendar() {
+  const { t } = useTranslation('observations');
   const { isDark, isNight, isSpace } = useTheme();
   /** Null until the user picks a month, so the landing month can follow the
    *  data (see `currentMonth` below) without an effect racing the query. */
@@ -60,7 +66,7 @@ export function ObservationsCalendar() {
   // not a separately-recomputed default order.
   const [listShareState, setListShareState] = useState<{ rows: ObservationSummary[]; sortLabel: string }>({
     rows: [],
-    sortLabel: 'Sorted by date, newest first',
+    sortLabel: t('list.sortedByDateNewest'),
   });
   const handleListSortedRowsChange = useCallback((rows: ObservationSummary[], sortLabel: string) => {
     setListShareState({ rows, sortLabel });
@@ -135,7 +141,7 @@ export function ObservationsCalendar() {
   });
   const telescopeById = useMemo(() => {
     const map = new Map<string, TelescopeProfile>();
-    for (const t of telescopes) map.set(t.id, t);
+    for (const scope of telescopes) map.set(scope.id, scope);
     return map;
   }, [telescopes]);
   // If the selected telescope was removed, fall back to "All" during render
@@ -249,7 +255,10 @@ export function ObservationsCalendar() {
     const { year, month } = currentMonth;
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const startOffset = firstDay.getDay(); // 0=Sunday
+    // getDay() is always 0=Sunday; rebase it onto the active locale's first
+    // day of the week (MonthGrid.tsx's header row rotates by the same
+    // weekStartsOn() so the two never disagree on which column is which).
+    const startOffset = (firstDay.getDay() - weekStartsOn() + 7) % 7;
     const daysInMonth = lastDay.getDate();
 
     const days: CalendarDay[] = [];
@@ -282,7 +291,7 @@ export function ObservationsCalendar() {
     return days;
   }, [currentMonth]);
 
-  const monthLabel = new Date(currentMonth.year, currentMonth.month).toLocaleDateString('en-US', {
+  const monthLabel = formatDate(new Date(currentMonth.year, currentMonth.month), {
     month: 'long',
     year: 'numeric',
   });
@@ -355,7 +364,7 @@ export function ObservationsCalendar() {
       weeks.pop();
     }
     const telescopeColorById: Record<string, string> = {};
-    for (const t of telescopes) telescopeColorById[t.id] = t.color;
+    for (const scope of telescopes) telescopeColorById[scope.id] = scope.color;
     return {
       monthLabel,
       weeks,
@@ -395,10 +404,10 @@ export function ObservationsCalendar() {
     : totalObservations > 0;
 
   const shareTitle = view === 'map'
-    ? 'Save or share this map'
+    ? t('calendarPage.shareMapTitle')
     : view === 'list'
-      ? 'Print, share, or save this list'
-      : 'Print, share, or save this month as a calendar';
+      ? t('calendarPage.shareListTitle')
+      : t('calendarPage.shareCalendarTitle');
 
   const handleCaptureMap = useCallback(() => {
     if (!mapHandleRef.current) return Promise.reject(new Error('Map is not ready'));
@@ -454,8 +463,8 @@ export function ObservationsCalendar() {
         isCurrentMonth={viewingCurrentMonth}
         onNavigateMonth={navigateMonth}
         onGoToToday={() => {
-          const t = new Date();
-          setCurrentMonth({ year: t.getFullYear(), month: t.getMonth() });
+          const now = new Date();
+          setCurrentMonth({ year: now.getFullYear(), month: now.getMonth() });
         }}
       />
 
@@ -473,14 +482,14 @@ export function ObservationsCalendar() {
             {locationsLoading ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <MapIcon className={`w-8 h-8 animate-pulse ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
-                <p className={isDark ? 'text-slate-600' : 'text-slate-400'}>Loading observation locations...</p>
+                <p className={isDark ? 'text-slate-600' : 'text-slate-400'}>{t('calendarPage.loadingLocations')}</p>
               </div>
             ) : filteredLocations.length === 0 ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <MapPin className={`w-8 h-8 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
-                <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>No location data yet</p>
+                <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{t('calendarPage.noLocationData')}</p>
                 <p className={`text-sm ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                  Observations show here once their images include GPS coordinates, or once you set your location in Settings.
+                  {t('calendarPage.noLocationDataHint')}
                 </p>
               </div>
             ) : (
@@ -506,7 +515,7 @@ export function ObservationsCalendar() {
         <div className="p-10 text-center">
           <div className="flex animate-pulse flex-col items-center gap-3">
             <Calendar className={`h-8 w-8 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
-            <p className={isDark ? 'text-slate-600' : 'text-slate-400'}>Loading observations...</p>
+            <p className={isDark ? 'text-slate-600' : 'text-slate-400'}>{t('calendarPage.loadingObservations')}</p>
           </div>
         </div>
       ) : (
@@ -572,7 +581,7 @@ export function ObservationsCalendar() {
         if (popupTop + 260 > window.innerHeight - 8) popupTop = Math.max(8, expandedDayRect.top - 260 - 4);
 
         const overflowObs = (observationsByDate.get(expandedDay) ?? []).slice(3);
-        const dateLabel = new Date(expandedDay + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const dateLabel = formatDate(new Date(expandedDay + 'T12:00:00'), { month: 'short', day: 'numeric' });
 
         return (
           <div
@@ -583,7 +592,7 @@ export function ObservationsCalendar() {
             style={{ position: 'fixed', top: popupTop, left: popupLeft, width: POPUP_W, zIndex: 50 }}
           >
             <div className={`text-[11px] font-medium px-2 py-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              {overflowObs.length} more · {dateLabel}
+              {t('calendarPage.moreAtDate', { count: overflowObs.length, date: dateLabel })}
             </div>
             {overflowObs.map(obs => {
               const scope = obs.telescopeId ? telescopeById.get(obs.telescopeId) : null;
@@ -650,6 +659,7 @@ function ObservationHoverPreview({
   rect: DOMRect;
   isDark: boolean;
 }) {
+  const { t } = useTranslation('observations');
   const PREVIEW_W = 220;
   const PREVIEW_H = 220;
   const GAP = 10;
@@ -701,7 +711,7 @@ function ObservationHoverPreview({
           <div className={`w-full h-full flex items-center justify-center text-xs ${
             isDark ? 'text-slate-600' : 'text-slate-400'
           }`}>
-            No preview
+            {t('calendarPage.noPreview')}
           </div>
         )}
       </div>
@@ -712,7 +722,7 @@ function ObservationHoverPreview({
         <div className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
           {cleanCatalogId(obs.catalogId)}
           {obs.startTime && <> · {formatTime(obs.startTime)}</>}
-          {obs.fileCount > 0 && <> · {obs.fileCount} file{obs.fileCount === 1 ? '' : 's'}</>}
+          {obs.fileCount > 0 && <> · {t('calendarPage.fileCount', { count: obs.fileCount })}</>}
         </div>
       </div>
     </div>
@@ -725,7 +735,7 @@ function formatTime(timestamp: string): string {
     const m = timestamp.match(/^\d{8}-(\d{2})(\d{2})/);
     if (m) return `${m[1]}:${m[2]}`;
     const d = new Date(timestamp);
-    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    return formatTime24(d);
   } catch {
     return timestamp;
   }

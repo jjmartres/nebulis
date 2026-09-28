@@ -1,4 +1,8 @@
 import type { SessionCaptureSummary, SessionFile } from '../types';
+import { formatNumber } from './formatLocale';
+
+/** The subset of react-i18next's `t` this plain (non-hook) function needs. */
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 
 /**
  * The headline numbers for one observing night, rolled up from the two places
@@ -34,17 +38,18 @@ export function formatDuration(seconds: number): string {
   return `${s}s`;
 }
 
-function filterDisplay(f: string): string {
+function filterDisplay(f: string, t: TFunc): string {
   const upper = f.toUpperCase();
   if (upper === 'LP') return 'LP';
-  if (upper === 'IRCUT') return 'IR Cut';
+  if (upper === 'IRCUT') return t('observationDetail.captureMetrics.irCut');
   return f;
 }
 
-export function buildCaptureMetrics({ capture, files, tempUnit }: {
+export function buildCaptureMetrics({ capture, files, tempUnit, t }: {
   capture: SessionCaptureSummary | null | undefined;
   files: SessionFile[];
   tempUnit: 'celsius' | 'fahrenheit';
+  t: TFunc;
 }): CaptureMetric[] {
   const stackedFile = files.find(f => f.fileType === 'stacked');
   const subCount = files.filter(f => f.fileType === 'sub').length;
@@ -72,8 +77,8 @@ export function buildCaptureMetrics({ capture, files, tempUnit }: {
   // count and is not derivable from the files on disk.
   const attempted = capture?.framesTaken ?? capture?.framesPlanned ?? null;
   const attemptedLabel = capture?.framesTaken != null
-    ? `of ${capture.framesTaken} taken`
-    : capture?.framesPlanned != null ? `of ${capture.framesPlanned} planned` : undefined;
+    ? t('observationDetail.captureMetrics.ofTaken', { count: capture.framesTaken })
+    : capture?.framesPlanned != null ? t('observationDetail.captureMetrics.ofPlanned', { count: capture.framesPlanned }) : undefined;
   const keptPct = frames != null && attempted
     ? Math.min(100, Math.round((frames / attempted) * 100))
     : undefined;
@@ -83,26 +88,26 @@ export function buildCaptureMetrics({ capture, files, tempUnit }: {
     metrics.push({
       key: 'integration',
       value: formatDuration(integrationSec),
-      label: 'Integration',
-      hint: hasRuns ? `${capture?.runs} runs` : undefined,
+      label: t('observationDetail.captureMetrics.integration'),
+      hint: hasRuns ? t('observationDetail.captureMetrics.runsHint', { count: capture?.runs ?? 0 }) : undefined,
     });
   }
   if (frames != null) {
     metrics.push({
       key: 'frames',
-      value: frames.toLocaleString(),
-      label: 'Frames stacked',
+      value: formatNumber(frames),
+      label: t('observationDetail.captureMetrics.framesStacked'),
       hint: attemptedLabel,
       bar: keptPct,
     });
   }
-  if (exposureSec != null) metrics.push({ key: 'exposure', value: `${exposureSec}s`, label: 'Exposure' });
-  else if (hasRuns) metrics.push({ key: 'exposure', value: 'Mixed', label: 'Exposure' });
-  if (capture?.gain != null) metrics.push({ key: 'gain', value: String(capture.gain), label: 'Gain' });
-  else if (hasRuns) metrics.push({ key: 'gain', value: 'Mixed', label: 'Gain' });
-  if (filter) metrics.push({ key: 'filter', value: filterDisplay(filter), label: 'Filter' });
-  if (tempRange) metrics.push({ key: 'sensor', value: tempRange, label: 'Sensor' });
-  if (subCount > 0) metrics.push({ key: 'subs', value: subCount.toLocaleString(), label: 'Subframes' });
+  if (exposureSec != null) metrics.push({ key: 'exposure', value: `${exposureSec}s`, label: t('observationDetail.captureMetrics.exposure') });
+  else if (hasRuns) metrics.push({ key: 'exposure', value: t('observationDetail.captureMetrics.mixed'), label: t('observationDetail.captureMetrics.exposure') });
+  if (capture?.gain != null) metrics.push({ key: 'gain', value: String(capture.gain), label: t('observationDetail.captureMetrics.gain') });
+  else if (hasRuns) metrics.push({ key: 'gain', value: t('observationDetail.captureMetrics.mixed'), label: t('observationDetail.captureMetrics.gain') });
+  if (filter) metrics.push({ key: 'filter', value: filterDisplay(filter, t), label: t('observationDetail.captureMetrics.filter') });
+  if (tempRange) metrics.push({ key: 'sensor', value: tempRange, label: t('observationDetail.captureMetrics.sensor') });
+  if (subCount > 0) metrics.push({ key: 'subs', value: formatNumber(subCount), label: t('observationDetail.captureMetrics.subframes') });
 
   return metrics;
 }

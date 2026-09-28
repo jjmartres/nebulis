@@ -1,7 +1,16 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import SunCalc from 'suncalc';
+import { useTranslation } from 'react-i18next';
 import { computeAltitudeCurve, buildTonightWindow } from '../lib/altaz';
+import { computeMoonInterferenceCurve, type MoonVerdict } from '../lib/moonProximity';
 import { formatHm } from '../lib/timeFormat';
+
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+/** Astronomical twilight, in radians: the sun 18° below the horizon, the same
+ *  mark lib/nightWindow.ts uses to call a window "dark". */
+const SUN_DARK_ALT_RAD = (-18 * Math.PI) / 180;
 
 interface AltitudeChartProps {
   /** RA in decimal hours */
@@ -14,6 +23,11 @@ interface AltitudeChartProps {
   lon: number;
   /** Minimum altitude line (degrees). Pulled from user settings. */
   minAlt?: number;
+  /** Tonight's moon illumination (0-100). When given, a thin strip above the
+   *  curve shows where in the night the moon comes close enough to matter,
+   *  so a wide bright gibbous doesn't have to be inferred from the altitude
+   *  shape alone. Omitted entirely when this isn't provided. */
+  moonIllumination?: number;
   /** IANA timezone for the noon-anchored window and time labels. Defaults to
    *  the viewing device's clock. */
   timeZone?: string;
@@ -24,6 +38,14 @@ interface AltitudeChartProps {
    * — e.g. rotate a sky preview to the scrubbed moment — to the chart.
    */
   onScrub?: (point: { time: Date; alt: number; az: number } | null) => void;
+  /**
+   * Fill the height the parent flex column leaves over, instead of hugging the
+   * natural strip height. The extra room goes into the plot, so a chart sitting
+   * in a row with taller content lines up with it rather than leaving dead
+   * space between or around the cards. Off by default: standalone charts keep
+   * their compact size.
+   */
+  fill?: boolean;
 }
 
 /**
@@ -34,12 +56,66 @@ interface AltitudeChartProps {
  * with fixed 4-hour tick labels (12, 16, 20, 00, 04, 08, 12) and a marker
  * showing the object's current position.
  */
-export function AltitudeChart({ ra, dec, lat, lon, minAlt, timeZone, isDark, onScrub }: AltitudeChartProps) {
+export function AltitudeChart({ ra, dec, lat, lon, minAlt, moonIllumination, timeZone, isDark, onScrub, fill = false }: AltitudeChartProps) {
+  const { t } = useTranslation('common');
   const { samples, start, end } = useMemo(() => {
     const { start, end } = buildTonightWindow(new Date(), timeZone);
     const samples = computeAltitudeCurve(ra, dec, lat, lon, start, end, 15);
     return { samples, start, end };
   }, [ra, dec, lat, lon, timeZone]);
+
+  // Moon interference strip — same 15-min cadence as the altitude samples so
+  // each band lines up with the curve directly below it. Undefined
+  // moonIllumination (caller doesn't have tonight's phase) just means no bar.
+  const moonBands = useMemo(() => {
+    if (moonIllumination == null) return null;
+    return computeMoonInterferenceCurve(ra, dec, lat, lon, start, end, moonIllumination, 15);
+  }, [ra, dec, lat, lon, start, end, moonIllumination]);
+
+  // Where the sun is still up, sampled on the strip's own cadence. The moon
+  // being above the horizon at midday says nothing about tonight's imaging,
+  // and drawing it made the row look busy on nights the moon never mattered:
+  // a new moon drew a band across the afternoon. The threshold is the same
+  // -18° (astronomical twilight) the rest of the app treats as dark — see
+  // lib/nightWindow.ts. High-latitude summer has no such darkness, so the
+  // whole row drops out, which is correct: there are no dark hours to spoil.
+  const sunUpAt = useMemo(
+    () => (moonBands ?? []).map(b => SunCalc.getPosition(b.time, lat, lon).altitude > SUN_DARK_ALT_RAD),
+    [moonBands, lat, lon],
+  );
+
+  // Collapse consecutive same-state samples into one segment each, rather
+  // than drawing 96 individual 15-minute rects — at the chart's actual pixel
+  // width those read as a solid band with visible seams between every one
+  // (a "barcode"), which for a nearly-uniform night looked like noise
+  // instead of one continuous span.
+  type MoonCategory = 'down' | 'daylight' | MoonVerdict;
+  const moonSegments = useMemo(() => {
+    if (!moonBands || moonBands.length === 0) return null;
+    const segments: { startMs: number; endMs: number; category: MoonCategory }[] = [];
+    for (let i = 0; i < moonBands.length; i++) {
+      const band = moonBands[i];
+      const category: MoonCategory = band.separation == null
+        ? 'down'
+        : sunUpAt[i]
+          ? 'daylight'
+          : band.verdict;
+      const startMs = band.time.getTime();
+      const endMs = moonBands[i + 1]?.time.getTime() ?? end.getTime();
+      const last = segments[segments.length - 1];
+      if (last && last.category === category) last.endMs = endMs;
+      else segments.push({ startMs, endMs, category });
+    }
+    return segments;
+  }, [moonBands, sunUpAt, end]);
+
+  // Only runs where the moon is up AND the sky is dark get drawn. The row is
+  // skipped entirely when there are none, rather than reserving height for an
+  // empty strip.
+  const moonVisibleSegments = useMemo(
+    () => (moonSegments ?? []).filter(seg => seg.category !== 'down' && seg.category !== 'daylight'),
+    [moonSegments],
+  );
 
   const { pathD, currentPoint } = useMemo(() => {
     const startMs = start.getTime();
@@ -84,10 +160,38 @@ export function AltitudeChart({ ra, dec, lat, lon, minAlt, timeZone, isDark, onS
 
   // Fixed chart geometry — not stretched across full width
   const W = 560;
-  const H = 160;
+  // Moon band sits in its own row above the plot, not overlaid on it —
+  // reserving separate vertical space keeps it readable against the curve
+  // instead of fighting for the same pixels near 90°.
+  const moonBarH = 6;
+  const moonBarGap = 5;
+  const moonBarY = 2;
+  // Whether the row exists at all — the moon is up during tonight's dark
+  // hours. Otherwise the chart renders exactly as it did before this feature.
+  const showMoonRow = moonVisibleSegments.length > 0;
+  const naturalH = 160 + (showMoonRow ? moonBarH + moonBarGap : 0);
+  // In fill mode the SVG's box is sized by the flex parent, so measure it and
+  // hand the viewBox the height that matches that box exactly. Meeting the box
+  // with a matching aspect ratio means the drawing scales uniformly (no
+  // squashed text) and the leftover height becomes real plot, not letterbox.
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [fillBox, setFillBox] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!fill || !el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width <= 0 || height <= 0) return;
+      setFillBox(prev =>
+        prev && Math.abs(prev.w - width) < 1 && Math.abs(prev.h - height) < 1 ? prev : { w: width, h: height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fill]);
+  const H = fill && fillBox ? Math.max(naturalH, (fillBox.h / fillBox.w) * W) : naturalH;
   const padL = 10;
   const padR = 30;
-  const padT = 10;
+  const padT = 10 + (showMoonRow ? moonBarH + moonBarGap : 0);
   const padB = 22;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
@@ -176,11 +280,11 @@ export function AltitudeChart({ ra, dec, lat, lon, minAlt, timeZone, isDark, onS
   // Hover takes precedence over the real-time "now" position.
   const activePoint = hover ?? currentPoint;
   const headerAlt = activePoint ? Math.round(activePoint.alt) : 0;
-  const headerDir = activePoint ? azToCompass(activePoint.az) : '';
+  const headerDir = activePoint ? azToCompass(activePoint.az, t) : '';
   const headerLabel = hover
     ? formatHm(hover.time, timeZone)
     : currentPoint
-      ? 'Current Altitude'
+      ? t('altitudeChart.currentAltitude')
       : '';
 
   if (samples.length === 0) return null;
@@ -188,37 +292,92 @@ export function AltitudeChart({ ra, dec, lat, lon, minAlt, timeZone, isDark, onS
   return (
     <div
       className={`rounded-xl border max-w-xl ${
+        fill ? 'flex min-h-0 flex-1 flex-col' : ''
+      } ${
         isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50/80 border-slate-200'
       }`}
     >
-      {/* Header — shows hovered point when scrubbing, otherwise live "now" */}
-      <div className="flex items-start justify-between px-4 pt-3 pb-2">
-        <div>
-          <div className={`text-2xl font-bold leading-none tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>
+      {/* Header — shows hovered point when scrubbing, otherwise live "now".
+          The reading and its caption share one line: a second line of label
+          cost vertical space the plot can use, and the number reads the same
+          either way ("47°  04:42" while scrubbing). */}
+      <div className="flex items-baseline justify-between gap-2 px-4 pt-2.5 pb-1.5">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className={`text-2xl font-bold leading-none tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>
             {headerAlt}°
-          </div>
-          <div className={`text-[11px] mt-1 tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {headerLabel}
-          </div>
+          </span>
+          {headerLabel && (
+            <span className={`truncate text-[11px] tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              {headerLabel}
+            </span>
+          )}
         </div>
         {headerDir && (
-          <div className={`text-sm font-semibold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+          <div className={`shrink-0 text-sm font-semibold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
             {headerDir}
           </div>
         )}
       </div>
 
-      {/* Chart */}
+      {/* Chart. In fill mode the SVG carries the natural strip height as its
+          CSS aspect ratio: that is the floor it grows from, and it stops the
+          measured box from feeding back into the intrinsic size the card
+          contributes, which would inflate the chart on every measure. */}
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="xMidYMid meet"
-        className="w-full cursor-crosshair touch-none overflow-hidden"
-        style={{ display: 'block' }}
+        className={`w-full cursor-crosshair touch-none overflow-hidden ${fill ? 'min-h-0 grow' : ''}`}
+        style={{ display: 'block', ...(fill ? { aspectRatio: `${W} / ${naturalH}` } : {}) }}
         onPointerMove={handlePointer}
         onPointerDown={handlePointer}
         onPointerLeave={handleLeave}
         onPointerCancel={handleLeave}
       >
+        {/* Moon band — always moon-colored (pale gold when it's just up,
+            saturating to amber then red as it gets close enough to matter),
+            and only ever drawn across tonight's dark hours. No legend: an
+            icon beside it either had to hold a gutter open for the case where
+            the band starts at dusk, or sit somewhere it didn't line up. The
+            band names itself on hover instead, and the surfaces this chart
+            appears on all carry a Moon-labelled line next to it. One rect per
+            merged run, not per sample, so a long uniform stretch reads as one
+            solid band. */}
+        {showMoonRow && (
+          <g role="img" aria-label={t('altitudeChart.moonLabel')}>
+            <title>{t('altitudeChart.moonLabel')}</title>
+            {moonVisibleSegments.map((seg, i) => {
+              const spanMs = end.getTime() - start.getTime();
+              const x0 = xToPx((seg.startMs - start.getTime()) / spanMs);
+              const x1 = xToPx((seg.endMs - start.getTime()) / spanMs);
+              const bandFill = seg.category === 'warning'
+                ? (isDark ? '#fb7185' : '#e11d48')
+                : seg.category === 'caution'
+                  ? (isDark ? '#fbbf24' : '#d97706')
+                  : (isDark ? 'rgba(251,191,36,0.38)' : 'rgba(217,119,6,0.3)');
+              return (
+                <rect
+                  key={i}
+                  x={x0}
+                  y={moonBarY}
+                  width={Math.max(0, x1 - x0)}
+                  height={moonBarH}
+                  fill={bandFill}
+                >
+                  {/* Per-span tooltip: names the band and gives the hours it
+                      covers, since only the color carries how bad it is. */}
+                  <title>
+                    {t('altitudeChart.moonStripSpan', {
+                      start: formatHm(new Date(seg.startMs), timeZone),
+                      end: formatHm(new Date(seg.endMs), timeZone),
+                    })}
+                  </title>
+                </rect>
+              );
+            })}
+          </g>
+        )}
+
         {/* Horizontal grid at 0°, 30°, 60°, 90° */}
         {[0, 30, 60, 90].map(deg => {
           const y = yToPx(deg / 90);
@@ -364,8 +523,8 @@ function transformPath(
   });
 }
 
-function azToCompass(az: number): string {
-  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+function azToCompass(az: number, t: TFunc): string {
+  const keys = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
   const idx = Math.round((az % 360) / 45) % 8;
-  return dirs[idx];
+  return t(`compass8.${keys[idx]}`, { ns: 'common' });
 }

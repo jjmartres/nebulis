@@ -32,6 +32,7 @@ const UpdateBodySchema = z.object({
   startTime: z.string().datetime().optional(),
   endTime: z.string().datetime().optional(),
   notes: z.string().optional(),
+  framingSetup: z.string().optional(),
 });
 
 router.get('/', (req: Request, res: Response) => {

@@ -13,6 +13,7 @@
  */
 import type { PlannedSession } from './api/plannedSessions';
 import { formatHm } from './timeFormat';
+import { formatDate as formatLocaleDate } from './formatLocale';
 import { computeAltitudeCurve } from './altaz';
 import { formatObjectName } from './utils';
 
@@ -26,6 +27,24 @@ export interface PlanShareData {
   observerLat: number | null;
   observerLon: number | null;
   timezone?: string;
+}
+
+/** Every piece of drawn/copied text this module needs, built by the caller
+ *  (which has a real translator) so this module stays i18n-agnostic — same
+ *  pattern as listShare.ts/calendarShare.ts. `moonPhase` is pre-translated
+ *  (see translateMoonPhase in moonPhaseLabel.ts) since the raw value on
+ *  PlanShareData is still the canonical English enum from the server. */
+export interface PlanShareStrings {
+  title: string;
+  /** "Dark window: {{start}} – {{end}} ({{hours}}h)" — plain-text export only;
+   *  the canvas card conveys the same info with a moon emoji instead of a
+   *  label, so it never needs this wrapper. */
+  darkWindowLine: (start: string, end: string, hours: string) => string;
+  /** "Moon: {{percent}}% {{phase}}" — plain-text export only, same reason. */
+  moonLine: (percent: number, phase: string) => string;
+  plannedWith: string;
+  timelineLabel: string;
+  elevationLabel: string;
 }
 
 // ── Palette (shared with mobile) ────────────────────────────────────────────
@@ -80,7 +99,7 @@ function formatDate(date: Date, timeZone: string | undefined, long: boolean): st
     ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }
     : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
   if (timeZone) opts.timeZone = timeZone;
-  return date.toLocaleDateString('en-US', opts);
+  return formatLocaleDate(date, opts);
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -93,17 +112,17 @@ function hexToRgba(hex: string, alpha: number): string {
 
 // ── Plain text ──────────────────────────────────────────────────────────────
 
-export function buildPlanShareText(data: PlanShareData): string {
+export function buildPlanShareText(data: PlanShareData, strings: PlanShareStrings): string {
   const { nightStart, nightEnd, date, moonIllumination, moonPhase, timezone } = data;
   const sorted = sortedSessions(data.sessions);
   const dateStr = formatDate(date, timezone, true);
   const dur = ((nightEnd.getTime() - nightStart.getTime()) / 3_600_000).toFixed(1);
 
   const lines = [
-    `Observation Plan · ${dateStr}`,
-    `Dark window: ${formatHm(nightStart, timezone)} – ${formatHm(nightEnd, timezone)} (${dur}h)`,
+    `${strings.title} · ${dateStr}`,
+    strings.darkWindowLine(formatHm(nightStart, timezone), formatHm(nightEnd, timezone), dur),
   ];
-  if (moonIllumination != null && moonPhase) lines.push(`Moon: ${moonIllumination}% ${moonPhase}`);
+  if (moonIllumination != null && moonPhase) lines.push(strings.moonLine(moonIllumination, moonPhase));
   lines.push('');
 
   sorted.forEach((s, idx) => {
@@ -115,7 +134,7 @@ export function buildPlanShareText(data: PlanShareData): string {
     lines.push(line);
   });
 
-  lines.push('', 'Planned with Nebulis');
+  lines.push('', strings.plannedWith);
   return lines.join('\n');
 }
 
@@ -159,6 +178,7 @@ function cardHeight(n: number, hasElev: boolean): number {
 export function drawPlanShareCard(
   canvas: HTMLCanvasElement,
   data: PlanShareData,
+  strings: PlanShareStrings,
   scale = 2,
 ): { width: number; height: number } {
   const { nightStart, nightEnd, observerLat, observerLon, timezone } = data;
@@ -227,18 +247,22 @@ export function drawPlanShareCard(
     ctx.textAlign = 'left';
     ctx.font = font(24, 700);
     ctx.fillStyle = TEXT_PRI;
-    ctx.fillText('Observation Plan', PAD, 42);
+    ctx.fillText(strings.title, PAD, 42);
 
     // Meta row
     const dur = ((nightEnd.getTime() - nightStart.getTime()) / 3_600_000).toFixed(1);
     const metaY = 80;
     ctx.font = font(12, 400);
     ctx.fillStyle = TEXT_SEC;
+    // No "Dark window:" label here (unlike the plain-text export): the moon
+    // emoji carries that meaning in the compact card, so this stays a bare
+    // time range + duration — no words to translate, just digits and units.
     const windowText = `🌙 ${formatHm(nightStart, timezone)} – ${formatHm(nightEnd, timezone)}  (${dur}h)`;
     ctx.fillText(windowText, PAD, metaY);
     if (data.moonIllumination != null && data.moonPhase) {
       const w = ctx.measureText(windowText).width;
       ctx.fillStyle = hexToRgba(TEXT_SEC, 0.65);
+      // Compact form, no "Moon:" label — same reasoning as windowText above.
       ctx.fillText(`${data.moonIllumination}% ${data.moonPhase}`, PAD + w + 16, metaY);
     }
 
@@ -253,7 +277,7 @@ export function drawPlanShareCard(
     ctx.textAlign = 'left';
     ctx.font = font(9, 700, true);
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.4);
-    ctx.fillText('TIMELINE', PAD, top + 14);
+    ctx.fillText(strings.timelineLabel.toUpperCase(), PAD, top + 14);
 
     const barY = top + 14 + 11 + 6;
     const barW = W - PAD * 2;
@@ -362,7 +386,7 @@ export function drawPlanShareCard(
     ctx.textBaseline = 'top';
     ctx.font = font(9, 700, true);
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.4);
-    ctx.fillText('ELEVATION', PAD, top + 14);
+    ctx.fillText(strings.elevationLabel.toUpperCase(), PAD, top + 14);
 
     const boxX = PAD;
     const boxY = top + 14 + 11 + 6;

@@ -22,6 +22,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Settings as SettingsIcon, FileText } from 'lucide-react';
 import { getUsers } from '../../lib/api/auth';
 import { getAllTelescopeStatus } from '../../lib/api/telescopes';
@@ -29,6 +30,7 @@ import { getSystemStorage } from '../../lib/api/storage';
 import { getImportStatus } from '../../lib/api/library';
 import { fetchJSON } from '../../lib/api/client';
 import { formatRelativeShort } from '../../lib/timeFormat';
+import { formatNumber } from '../../lib/formatLocale';
 import { formatBytesCompact } from '../../lib/utils';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
@@ -47,6 +49,7 @@ interface VersionInfo {
 }
 
 export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
+  const { t } = useTranslation('settings');
   const [showChangelog, setShowChangelog] = useState(false);
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: getUsers, enabled: isAdmin });
   const { data: telescopes } = useQuery({
@@ -79,11 +82,11 @@ export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
   // as LibraryHero/BackupHero.
   const stats: { value: string; label: string; prose?: boolean }[] = [];
   if (isAdmin && users) {
-    stats.push({ value: users.length.toLocaleString(), label: users.length === 1 ? 'User' : 'Users' });
+    stats.push({ value: formatNumber(users.length), label: t('hero.users', { count: users.length }) });
   }
   if (isAdmin && telescopes) {
-    const online = telescopes.filter(t => t.online).length;
-    stats.push({ value: `${online} / ${telescopes.length}`, label: 'Telescopes online' });
+    const online = telescopes.filter(scope => scope.online).length;
+    stats.push({ value: `${online} / ${telescopes.length}`, label: t('hero.telescopesOnline') });
   }
   if (isAdmin && systemStorage) {
     // `disk.used` is the whole system drive, most of which has nothing to do
@@ -92,13 +95,13 @@ export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
     // StorageDashboard's "App Data" tile shows. `disk.free` stays disk-level
     // on purpose: "how much room is left to grow" is a different, still
     // useful question from "how much have I used so far".
-    stats.push({ value: formatBytesCompact(systemStorage.dataDir.size), label: 'Library Size' });
+    stats.push({ value: formatBytesCompact(systemStorage.dataDir.size), label: t('hero.librarySize') });
     if (systemStorage.disk) {
-      stats.push({ value: formatBytesCompact(systemStorage.disk.free), label: 'Disk Free' });
+      stats.push({ value: formatBytesCompact(systemStorage.disk.free), label: t('hero.diskFree') });
     }
   }
   if (isAdmin && importStatus?.lastRun) {
-    stats.push({ value: formatRelativeShort(importStatus.lastRun), label: 'Last sync' });
+    stats.push({ value: formatRelativeShort(importStatus.lastRun), label: t('hero.lastSync') });
   }
 
   return (
@@ -120,7 +123,7 @@ export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
         style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }}
       />
 
-      <div className="relative flex min-h-[9.5rem] flex-col justify-center gap-6 p-5 sm:min-h-[11.5rem] sm:p-7">
+      <div className="relative flex hero-min-h flex-col justify-center gap-6 p-4 sm:p-6">
         {/* Release notes rides in the title row, same spot Backup's Sync
             button and Gallery's Planetarium button live: it's the one action
             that belongs to the whole hero, not another stat. Keeping it out
@@ -130,7 +133,7 @@ export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
           <div className="min-w-0">
             <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
               <SettingsIcon className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
-              Settings
+              {t('hero.title')}
             </h1>
             <p className="mt-2 text-[13px] text-white/55">{subtitle}</p>
           </div>
@@ -142,7 +145,7 @@ export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
               className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-white/60 transition hover:border-white/20 hover:text-white/80 hover:bg-white/5"
             >
               <FileText className="h-3.5 w-3.5" />
-              Release notes
+              {t('hero.releaseNotes')}
             </button>
           )}
         </div>
@@ -177,7 +180,7 @@ export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
                   v{versionInfo.version}
                 </div>
                 <div className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-white/45">
-                  Build {versionInfo.build}
+                  {t('hero.build', { number: versionInfo.build })}
                 </div>
               </div>
             )}

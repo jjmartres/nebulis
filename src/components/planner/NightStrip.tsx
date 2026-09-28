@@ -10,9 +10,12 @@
  */
 import { useEffect, useRef } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { scoreHex } from '../../lib/forecastScore';
 import { useTheme } from '../../hooks/useTheme';
 import { MoonDisk } from '../ui/MoonDisk';
+import { translateMoonPhase } from '../../lib/moonPhaseLabel';
+import { formatDate } from '../../lib/formatLocale';
 
 export interface StripNight {
   /** Noon-anchored Date for the evening this night begins on. */
@@ -36,6 +39,7 @@ interface Props {
 }
 
 export function NightStrip({ nights, selectedKey, onSelect, onStep, onOpenCalendar }: Props) {
+  const { t } = useTranslation('planner');
   const { isDark } = useTheme();
   const selectedRef = useRef<HTMLButtonElement | null>(null);
 
@@ -51,7 +55,7 @@ export function NightStrip({ nights, selectedKey, onSelect, onStep, onOpenCalend
 
   return (
     <div className="flex items-center gap-2">
-      <StepButton label="Previous night" onClick={() => onStep(-1)} className={stepClass}>
+      <StepButton label={t('nightStrip.previousNight')} onClick={() => onStep(-1)} className={stepClass}>
         <ChevronLeft className="h-4 w-4" />
       </StepButton>
 
@@ -81,15 +85,13 @@ export function NightStrip({ nights, selectedKey, onSelect, onStep, onOpenCalend
                     : 'bg-white ring-slate-200 hover:bg-slate-50'
               }`}
               title={[
-                `${night.moonPhase}, ${Math.round(night.moonIllumination)}% lit`,
-                night.score != null ? `forecast ${night.score}` : 'past the forecast range',
-                night.plannedCount > 0
-                  ? `${night.plannedCount} block${night.plannedCount === 1 ? '' : 's'} planned`
-                  : null,
+                t('nightStrip.moonLit', { phase: translateMoonPhase(t, night.moonPhase), percent: Math.round(night.moonIllumination) }),
+                night.score != null ? t('nightStrip.forecastScore', { score: night.score }) : t('nightStrip.pastForecastRange'),
+                night.plannedCount > 0 ? t('nightStrip.blocksPlanned', { count: night.plannedCount }) : null,
               ].filter(Boolean).join(' · ')}
             >
               <div className={`text-[9.5px] font-medium uppercase tracking-[0.06em] ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-                {night.isToday ? 'Tonight' : night.date.toLocaleDateString(undefined, { weekday: 'short' })}
+                {night.isToday ? t('nightStrip.tonight') : formatDate(night.date, { weekday: 'short' })}
               </div>
               <div className="mt-0.5 flex items-center justify-center gap-1">
                 <span className={`font-display text-base font-semibold leading-none tabular-nums ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -120,10 +122,10 @@ export function NightStrip({ nights, selectedKey, onSelect, onStep, onOpenCalend
         })}
       </div>
 
-      <StepButton label="Next night" onClick={() => onStep(1)} className={stepClass}>
+      <StepButton label={t('nightStrip.nextNight')} onClick={() => onStep(1)} className={stepClass}>
         <ChevronRight className="h-4 w-4" />
       </StepButton>
-      <StepButton label="Pick a date" onClick={onOpenCalendar} className={`${stepClass} w-[58px]`}>
+      <StepButton label={t('nightStrip.pickADate')} onClick={onOpenCalendar} className={`${stepClass} w-[58px]`}>
         <Calendar className="h-4 w-4" />
       </StepButton>
     </div>

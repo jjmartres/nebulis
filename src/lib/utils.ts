@@ -1,8 +1,21 @@
+// Decimal (SI, /1000) rather than binary (/1024): this is what macOS Finder
+// and Disk Utility use for both disk capacity and file sizes, and has been
+// since Snow Leopard. A binary divisor with a decimal-looking "GB"/"MB"
+// label reads as a real number but doesn't match what the OS reports for
+// the same bytes (e.g. a 245,107,195,904-byte disk shows as "245.11 GB" in
+// Disk Utility and would show as "228.27 GB" here under binary math, a
+// gap that grows with disk size and looks like a bug even when the byte
+// count itself is correct).
+const KB = 1000;
+const MB = KB * 1000;
+const GB = MB * 1000;
+const TB = GB * 1000;
+
 export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes < KB) return `${bytes} B`;
+  if (bytes < MB) return `${(bytes / KB).toFixed(1)} KB`;
+  if (bytes < GB) return `${(bytes / MB).toFixed(1)} MB`;
+  return `${(bytes / GB).toFixed(2)} GB`;
 }
 
 /** Whole-number variant for headline stat tiles, where "222 GB" reads as a
@@ -10,11 +23,9 @@ export function formatBytes(bytes: number): string {
  *  the TB tier, since "1 TB" vs "4 TB" throws away real information that
  *  "222" vs "223" GB does not. */
 export function formatBytesCompact(bytes: number): string {
-  const GB = 1024 * 1024 * 1024;
-  const TB = GB * 1024;
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  if (bytes < GB) return `${Math.round(bytes / (1024 * 1024))} MB`;
+  if (bytes < KB) return `${bytes} B`;
+  if (bytes < MB) return `${Math.round(bytes / KB)} KB`;
+  if (bytes < GB) return `${Math.round(bytes / MB)} MB`;
   if (bytes < TB) return `${Math.round(bytes / GB)} GB`;
   return `${(bytes / TB).toFixed(1)} TB`;
 }

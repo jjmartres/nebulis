@@ -1,5 +1,63 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { mockAllRoutes, MOCK } from './fixtures/mocks';
+
+/**
+ * The shared `MOCK.telescopes` fixture carries no `archivedAt` field, so the
+ * row renders inside the "Archived" list, which has only Restore/Delete and no
+ * Edit, Sync, or auto-import controls. Connection and import settings moved to
+ * the per-telescope edit modal, so the tests that exercise them need a
+ * complete, non-archived profile. Overridden here rather than in the shared
+ * fixture.
+ */
+const ACTIVE_TELESCOPE = {
+  ...MOCK.telescopes[0],
+  model: 'SeeStar S50',
+  kind: 'seestar-s50',
+  shareName: 'Seestar',
+  username: 'seestar',
+  password: '',
+  hasPassword: false,
+  connectionType: 'smb',
+  autoImportEnabled: true,
+  autoImportInterval: 60,
+  archivedAt: null,
+  activeTransportId: null,
+  pinnedTransportId: null,
+  sessionCount: 0,
+  transports: [],
+};
+
+function json(data: unknown) {
+  return { status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data }) };
+}
+
+/** Serve one live (non-archived) Seestar profile and re-render Settings. */
+async function mockActiveTelescope(page: Page) {
+  await page.route('**/api/telescopes', r => r.fulfill(json([ACTIVE_TELESCOPE])));
+  await page.reload();
+}
+
+/** Open the per-telescope connection/import editor. */
+async function openTelescopeEditor(page: Page) {
+  await page.getByRole('button', { name: 'Telescopes' }).click();
+  await page.getByRole('button', { name: 'Edit telescope' }).click();
+}
+
+/** Settings groups are a sidebar of tabs, not one long page. */
+async function openUsersTab(page: Page) {
+  await page.getByRole('button', { name: 'Account' }).click();
+  await page.getByRole('button', { name: 'Users' }).click();
+}
+
+/**
+ * The document-level save bar is dirty-state driven: neither Save nor Discard
+ * renders until a form field differs from the loaded settings. Switch the
+ * temperature unit to make the general form dirty.
+ */
+async function makeSettingsDirty(page: Page) {
+  await page.getByRole('button', { name: 'General' }).click();
+  await page.getByRole('button', { name: '°C' }).click();
+}
 
 test.describe('Settings Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -11,43 +69,51 @@ test.describe('Settings Page', () => {
     await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
   });
 
-  // ─── SMB / Connection section ─────────────────────────────────────────────
+  // ─── Per-telescope connection ─────────────────────────────────────────────
+  // The global SMB form (hostname/share/username) and its "Test connection"
+  // button were removed from Settings. Connection details are now configured
+  // per telescope in the Add/Edit telescope modal (AddTelescopeModal), reached
+  // from Settings → Telescopes.
 
   test('shows SMB hostname field pre-filled', async ({ page }) => {
-    await expect(page.getByDisplayValue('192.168.1.100')
-      .or(page.locator('input[value="192.168.1.100"]'))
-    ).toBeVisible();
+    await mockActiveTelescope(page);
+    await openTelescopeEditor(page);
+    await expect(page.locator('input[value="192.168.1.100"]')).toBeVisible();
   });
 
   test('shows share name field', async ({ page }) => {
-    await expect(page.getByDisplayValue('Seestar')
-      .or(page.getByLabel(/share/i))
-    ).toBeVisible();
+    await mockActiveTelescope(page);
+    await openTelescopeEditor(page);
+    await expect(page.locator('input[value="Seestar"]')).toBeVisible();
   });
 
   test('shows username field', async ({ page }) => {
-    await expect(page.getByDisplayValue('seestar')
-      .or(page.getByLabel(/username/i))
-    ).toBeVisible();
+    await mockActiveTelescope(page);
+    await openTelescopeEditor(page);
+    await expect(page.locator('input[value="seestar"]')).toBeVisible();
   });
 
   test('test connection button is present', async ({ page }) => {
+    await mockActiveTelescope(page);
+    await openTelescopeEditor(page);
     await expect(page.getByRole('button', { name: /test connection/i })).toBeVisible();
   });
 
   test('test connection success shows success message', async ({ page }) => {
+    await mockActiveTelescope(page);
+    // The endpoint moved from POST /api/telescope/test to
+    // POST /api/telescopes/test-connection.
+    await page.route('**/api/telescopes/test-connection', r => r.fulfill(json(MOCK.connectionTest)));
+    await openTelescopeEditor(page);
+
     await page.getByRole('button', { name: /test connection/i }).click();
     await expect(page.getByText(/connected|success|found/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('test connection failure shows error message', async ({ page }) => {
-    await page.route('**/api/telescope/test', r =>
-      r.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, data: MOCK.connectionTestFailed }),
-      }));
-    await page.reload();
+    await mockActiveTelescope(page);
+    await page.route('**/api/telescopes/test-connection', r => r.fulfill(json(MOCK.connectionTestFailed)));
+    await openTelescopeEditor(page);
 
     await page.getByRole('button', { name: /test connection/i }).click();
     await expect(page.getByText(/error|failed|refused/i)).toBeVisible({ timeout: 5000 });
@@ -56,201 +122,155 @@ test.describe('Settings Page', () => {
   // ─── Save settings ────────────────────────────────────────────────────────
 
   test('save button is present', async ({ page }) => {
+    await makeSettingsDirty(page);
     await expect(page.getByRole('button', { name: /save/i })).toBeVisible();
   });
 
   test('saving settings calls PUT API', async ({ page }) => {
     let putCalled = false;
     await page.route('**/api/settings', async r => {
-      if (r.request().method() === 'PUT') {
-        putCalled = true;
-        r.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ ok: true, data: MOCK.settings }),
-        });
-      } else {
-        r.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ ok: true, data: MOCK.settings }),
-        });
-      }
+      if (r.request().method() === 'PUT') putCalled = true;
+      r.fulfill(json(MOCK.settings));
     });
 
-    // Change a field and save
-    const hostnameInput = page.getByDisplayValue('192.168.1.100')
-      .or(page.locator('input[value="192.168.1.100"]'));
-    if (await hostnameInput.isVisible()) {
-      await hostnameInput.clear();
-      await hostnameInput.fill('192.168.1.200');
-    }
-
+    await makeSettingsDirty(page);
     await page.getByRole('button', { name: /save/i }).click();
-    expect(putCalled).toBe(true);
+    await expect.poll(() => putCalled).toBe(true);
   });
 
   // ─── Observer location ────────────────────────────────────────────────────
+  // Latitude/longitude left the top level of Settings and now belong to an
+  // observing site, edited from Settings → Sky → Observing sites.
 
   test('shows latitude field', async ({ page }) => {
-    await expect(page.getByLabel(/latitude/i)
-      .or(page.getByDisplayValue('37.77'))
-    ).toBeVisible();
+    // `exact` matters: the General tab's "Nebula backdrop" help button has an
+    // aria-label containing "deep-sky", which a substring match also hits.
+    await page.getByRole('button', { name: 'Sky', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.getByPlaceholder(/40\.7128/)).toHaveValue('37.77');
   });
 
   test('shows longitude field', async ({ page }) => {
-    await expect(page.getByLabel(/longitude/i)
-      .or(page.getByDisplayValue('-122.42'))
-    ).toBeVisible();
+    // `exact` matters: the General tab's "Nebula backdrop" help button has an
+    // aria-label containing "deep-sky", which a substring match also hits.
+    await page.getByRole('button', { name: 'Sky', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.getByPlaceholder(/74\.0060/)).toHaveValue('-122.42');
   });
 
   // ─── API key management ───────────────────────────────────────────────────
-
-  test('API key section is present', async ({ page }) => {
-    await expect(page.getByText(/api key/i)).toBeVisible();
-  });
-
-  test('generate API key button works', async ({ page }) => {
-    let generateCalled = false;
-    await page.route('**/api/settings/generate-api-key', r => {
-      generateCalled = true;
-      r.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          ok: true,
-          data: { ...MOCK.settings, apiKey: 'new-api-key-123', hasApiKey: true },
-        }),
-      });
-    });
-
-    const generateBtn = page.getByRole('button', { name: /generate|create.*key/i });
-    if (await generateBtn.isVisible()) {
-      await generateBtn.click();
-      expect(generateCalled).toBe(true);
-    }
-  });
-
-  test('revoke API key button works when key exists', async ({ page }) => {
-    // First override to show a configured API key
-    await page.route('**/api/settings', r =>
-      r.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, data: { ...MOCK.settings, hasApiKey: true } }),
-      }));
-    await page.reload();
-
-    let deleteCalled = false;
-    await page.route('**/api/settings/api-key', r => {
-      deleteCalled = true;
-      r.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, data: { ...MOCK.settings, apiKey: '', hasApiKey: false } }),
-      });
-    });
-
-    const revokeBtn = page.getByRole('button', { name: /revoke|delete.*key|remove.*key/i });
-    if (await revokeBtn.isVisible()) {
-      await revokeBtn.click();
-      expect(deleteCalled).toBe(true);
-    }
-  });
+  // Removed. The Settings API-key card (generate/revoke against
+  // /api/settings/generate-api-key and /api/settings/api-key) is gone from the
+  // app: `apiKey` is still on the Settings type and the client still sends the
+  // stored secret, but nothing in src/ renders a control for it any more.
+  // Client access is now granted per device by the QR/pairing flow in
+  // ConnectedDevicesSection instead of a shared API key, so the three tests
+  // that covered that card (section present, generate, revoke) were deleted
+  // rather than pointed at a control that no longer exists.
 
   // ─── User management ──────────────────────────────────────────────────────
+  // Users moved from the top level into Settings → Account → Users.
 
   test('shows user management section', async ({ page }) => {
-    await expect(page.getByText(/user/i)).toBeVisible();
+    await openUsersTab(page);
+    await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
   });
 
   test('shows existing users', async ({ page }) => {
-    await expect(page.getByText('testuser').or(page.getByText('Test User'))).toBeVisible();
-    await expect(page.getByText('admin').or(page.getByText('Admin User'))).toBeVisible();
+    await openUsersTab(page);
+    await expect(page.getByText('Test User', { exact: true })).toBeVisible();
+    await expect(page.getByText('Admin User', { exact: true })).toBeVisible();
   });
 
   test('create user button is present', async ({ page }) => {
-    await expect(
-      page.getByRole('button', { name: /add user|create user|new user/i })
-        .or(page.getByText(/add user/i))
-    ).toBeVisible();
+    await openUsersTab(page);
+    await expect(page.getByRole('button', { name: 'Add user' })).toBeVisible();
   });
 
   test('create user form appears on click', async ({ page }) => {
-    const createBtn = page.getByRole('button', { name: /add user|create user|new user/i });
-    if (await createBtn.isVisible()) {
-      await createBtn.click();
-      await expect(page.getByLabel(/username/i)).toBeVisible();
-      await expect(page.getByLabel(/password/i)).toBeVisible();
-    }
+    await openUsersTab(page);
+    await page.getByRole('button', { name: 'Add user' }).click();
+
+    // The create form's labels are not associated with their inputs, so the
+    // fields are located by their placeholders.
+    await expect(page.getByPlaceholder('jane', { exact: true })).toBeVisible();
+    await expect(page.locator('input[type="password"]')).toBeVisible();
   });
 
   test('creating a user calls POST API', async ({ page }) => {
     let postCalled = false;
     await page.route('**/api/auth/users', async r => {
-      if (r.request().method() === 'POST') {
-        postCalled = true;
-        r.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ ok: true, data: [...MOCK.users] }),
-        });
-      } else {
-        r.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ ok: true, data: MOCK.users }),
-        });
-      }
+      if (r.request().method() === 'POST') postCalled = true;
+      r.fulfill(json(MOCK.users));
     });
 
-    const createBtn = page.getByRole('button', { name: /add user|create user|new user/i });
-    if (await createBtn.isVisible()) {
-      await createBtn.click();
+    await openUsersTab(page);
+    await page.getByRole('button', { name: 'Add user' }).click();
+    await page.getByPlaceholder('Jane Doe').fill('New User');
+    await page.getByPlaceholder('jane', { exact: true }).fill('newuser');
+    await page.getByPlaceholder('jane@example.com').fill('new@example.com');
+    await page.locator('input[type="password"]').fill('password123');
+    await page.getByRole('button', { name: 'Create user' }).click();
 
-      await page.getByLabel(/username/i).fill('newuser');
-      await page.getByLabel(/password/i).fill('password123');
-      const emailField = page.getByLabel(/email/i);
-      if (await emailField.isVisible()) {
-        await emailField.fill('new@example.com');
-      }
-
-      await page.getByRole('button', { name: /create|save|submit/i }).last().click();
-      expect(postCalled).toBe(true);
-    }
+    await expect.poll(() => postCalled).toBe(true);
   });
 
   test('delete user button is present', async ({ page }) => {
-    await expect(
-      page.getByRole('button', { name: /delete|remove/i }).first()
-    ).toBeVisible();
+    await openUsersTab(page);
+    await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(MOCK.users.length);
   });
 
   // ─── Import/Sync settings ─────────────────────────────────────────────────
+  // The global sync/import toggles (syncEnabled, syncJpg, autoImport, ...) were
+  // removed from Settings. Each telescope now carries its own auto-import
+  // switch and file-type filters, in the edit modal's "Import behavior"
+  // section.
 
   test('import settings section is present', async ({ page }) => {
-    await expect(page.getByText(/import|sync/i)).toBeVisible();
+    await mockActiveTelescope(page);
+    await openTelescopeEditor(page);
+
+    await expect(page.getByText('Import behavior', { exact: true })).toBeVisible();
+    await expect(page.getByText('Auto-import from this telescope')).toBeVisible();
   });
 
   test('sync toggle checkboxes are present', async ({ page }) => {
-    await expect(page.locator('input[type="checkbox"]').first()).toBeVisible();
+    await mockActiveTelescope(page);
+    await page.getByRole('button', { name: 'Telescopes' }).click();
+
+    // The per-telescope auto-import control is a switch, not a checkbox.
+    await expect(page.getByRole('switch', { name: /auto-import/i })).toBeVisible();
   });
 
   // ─── Horizon editor ───────────────────────────────────────────────────────
+  // The 36-point horizon profile editor was replaced by the per-site
+  // visible-sky mask editor (bands measured up from the horizon), reached from
+  // Settings → Sky → Observing sites → "Set visible sky".
 
   test('horizon editor section is present', async ({ page }) => {
-    await expect(page.getByText(/horizon/i)).toBeVisible();
+    // `exact` matters: the General tab's "Nebula backdrop" help button has an
+    // aria-label containing "deep-sky", which a substring match also hits.
+    await page.getByRole('button', { name: 'Sky', exact: true }).click();
+    await page.getByRole('button', { name: /set visible sky/i }).click();
+
+    await expect(page.getByRole('heading', { name: 'Set Visible Sky' })).toBeVisible();
+    await expect(page.getByText(/from the horizon/i)).toBeVisible();
   });
 
   // ─── Import status ────────────────────────────────────────────────────────
 
   test('import status section shows last run', async ({ page }) => {
-    await expect(page.getByText(/last run|import status/i)).toBeVisible();
+    // The dedicated import-status card is gone; the Settings hero stat row now
+    // reports the last import run from GET /api/library/import/status.
+    await expect(page.getByText(/last sync/i)).toBeVisible();
   });
 
   test('manual import trigger button is present', async ({ page }) => {
-    await expect(
-      page.getByRole('button', { name: /import now|trigger import|sync/i })
-    ).toBeVisible();
+    await mockActiveTelescope(page);
+    await page.getByRole('button', { name: 'Telescopes' }).click();
+
+    // Triggering an import is now per telescope, from its row in Settings →
+    // Telescopes.
+    await expect(page.getByRole('button', { name: /sync now/i })).toBeVisible();
   });
 });

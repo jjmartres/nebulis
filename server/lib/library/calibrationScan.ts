@@ -19,8 +19,11 @@ import fs from 'fs';
 import path from 'path';
 import { getArchiveDir, listArchiveScopes } from './archiveFolders.js';
 import {
+  calibrationFrameTypeFromFolderName,
   calibrationTypeForFolderName,
   calibrationTypeLabel,
+  dwarfCameraFromRelPath,
+  dwarfDarkSessionFolderInfo,
   parseCalibrationFilename,
   type CalibrationFrameInfo,
   type CalibrationFrameType,
@@ -76,6 +79,25 @@ export interface CalibrationSettingsGroup {
   exposureSec: number | null;
   binning: number | null;
   gain: number | null;
+  /** Which of a Dwarf 3's two optical paths this bundle was captured on
+   *  (`cam_0`/`cam_1`) — see `CalibrationFrameInfo.camera`. `null` for every
+   *  non-Dwarf bundle and for a single-camera Dwarf. Included in the bucket
+   *  key precisely because a wide and a tele dark can otherwise share every
+   *  other setting (same exposure/gain/bin, and TEC clustering would happily
+   *  merge close-enough ambient temperatures) while coming from physically
+   *  different sensors. */
+  camera: string | null;
+  /** This bundle's real bias/dark/flat/flat-dark type, resolved from its
+   *  files' subfolder names — only ever non-null within a `mixed`
+   *  (`CALI_FRAME`) group, where it disambiguates bundles a non-`mixed`
+   *  group's own `type` already would. `null` when the group isn't `mixed`
+   *  (redundant with the group's own type there) or when a `mixed` group's
+   *  files didn't parse cleanly enough to resolve one. Governs `isExpired`
+   *  and attachability for a `mixed` group's own rows — see
+   *  `resolveFrameType` in calibrationScan.ts and `isAttachableType`/
+   *  `isDeletableType` in CalibrationLibrary.tsx, both of which fall back to
+   *  the group's own type when this is null. */
+  frameType: CalibrationFrameType | null;
   /** The mean of every frame in this bundle's own reading, rounded to one
    *  decimal — not necessarily any single frame's exact value. Frames whose
    *  readings are within TEC_TOLERANCE_C of their neighbors are clustered
@@ -96,14 +118,17 @@ export interface CalibrationSettingsGroup {
   capturedAt: string | null;
   /** True once this bundle is older than the configured calibration expiry
    *  (Settings → Library → "Dark/bias validity", 180 days by default) —
-   *  bias/dark only, and only when `capturedAt` is known (an unknown capture
-   *  date is never assumed expired; that would be guessing, not measuring). A
+   *  bias/dark only (resolved via `frameType ?? group.type`, so a `mixed`
+   *  group's own dark/bias rows are checked same as a standalone Darks/Bias
+   *  group's), and only when `capturedAt` is known (an unknown capture date
+   *  is never assumed expired; that would be guessing, not measuring). A
    *  sensor's dark current and read noise drift as it ages (dust settling,
    *  gradual degradation), so a bias/dark set captured long ago is worth
    *  re-shooting rather than trusted indefinitely — unlike the "reusable
    *  across sessions" framing bias/darks otherwise get. Always `false` for
-   *  flat/flat-dark/mixed groups, which are governed by session attachment
-   *  instead (calibrationAttachments.ts), not age. */
+   *  flat/flat-dark rows (and for a `mixed` row whose frameType didn't
+   *  resolve), which are governed by session attachment instead
+   *  (calibrationAttachments.ts), not age. */
   isExpired: boolean;
   /** Where this bundle is attached (calibrationAttachments.ts), for flat/
    *  flat-dark bundles only. Left `undefined` by this module — it stays a
@@ -232,13 +257,37 @@ function buildSubfolder(dir: string, name: string, relativeFileNames: string[]):
     // A nested relative name (e.g. `2026-08-15/frame.fit`) keeps its full
     // path in `name` so a namesake in a different sub-subfolder never
     // collides in the UI; recognized filenames are still parsed on the
-    // basename alone since that's where the encoded metadata lives.
+    // basename alone since that's where the encoded metadata lives. Three
+    // fields never live in the filename itself, only merged in when the
+    // filename itself parsed (matching this module's "no info at all" rule
+    // for anything unrecognized, rather than fabricating a partial row):
+    //  - CALI_FRAME's `cam_0`/`cam_1` split is a subfolder one level below
+    //    the type folder, read off the relative path (`dwarfCameraFromRelPath`).
+    //  - DWARF_DARK's camera AND binning live in the session folder's own
+    //    name (`this subfolder's `name`, e.g. `tele_exp_60_gain_60_bin_1_...`)
+    //    — its per-file `raw_*.fits` name repeats neither.
+    //  - A `mixed` (CALI_FRAME) group's real per-file bias/dark/flat type is
+    //    this subfolder's own name too (`dark`/`bias`/`flat`), since that is
+    //    literally what it is called one level below CALI_FRAME.
+    const parsedInfo = parseCalibrationFilename(path.basename(relName));
+    const caliFrameCamera = dwarfCameraFromRelPath(relName);
+    const darkSession = dwarfDarkSessionFolderInfo(name);
+    const frameType = calibrationFrameTypeFromFolderName(name);
+    let info = parsedInfo;
+    if (info) {
+      const camera = caliFrameCamera ?? darkSession?.camera;
+      if (camera !== undefined) info = { ...info, camera };
+      if (info.binning === undefined && darkSession?.binning !== undefined) {
+        info = { ...info, binning: darkSession.binning };
+      }
+      if (frameType !== undefined) info = { ...info, frameType };
+    }
     files.push({
       name: relName,
       size: stat.size,
       modifiedAt: new Date(mtimeMs).toISOString(),
       path: abs,
-      info: parseCalibrationFilename(path.basename(relName)),
+      info,
     });
   }
 
@@ -312,14 +361,36 @@ function latestCapturedAt(files: readonly CalibrationFile[]): string | null {
  *  drifts. */
 const TEC_TOLERANCE_C = 1;
 
+/** Resolves a bundle's effective type for expiry/attach purposes: a
+ *  non-`mixed` group's own type (its files are already all one type), or a
+ *  `mixed` group's own resolved `frameType` when its files parsed cleanly
+ *  enough to have one. Falls back to `'mixed'` itself only when a `mixed`
+ *  group's files didn't resolve a type — `isExpiredCalibration` already
+ *  treats that as "never expired", the same safe default as before this
+ *  distinction existed. */
+export function resolveFrameType(groupType: CalibrationFrameType | 'mixed', bundleFrameType: CalibrationFrameType | null): CalibrationFrameType | 'mixed' {
+  return groupType === 'mixed' ? (bundleFrameType ?? 'mixed') : groupType;
+}
+
 /** Grouping key for the settings that never need tolerance — everything
- *  except temperature, which is clustered separately below. */
-function coarseSettingsKey(info: CalibrationFrameInfo | null): string {
+ *  except temperature, which is clustered separately below. Camera is
+ *  included here (not just in the final key) so a wide and a tele Dwarf dark
+ *  sharing every other setting never even reach temperature clustering
+ *  together — see `CalibrationSettingsGroup.camera`. `frameType` is included
+ *  ONLY for a `mixed` group (the caller passes `undefined` otherwise): a
+ *  bias and a flat frame sharing every other setting (Dwarf's
+ *  `bias_gain_2_bin_1.fits` / `flat_gain_2_bin_1.fits` — neither carries an
+ *  exposure or temperature) would otherwise silently bucket together. */
+function coarseSettingsKey(info: CalibrationFrameInfo | null, includeFrameType: boolean): string {
   const part = (v: number | undefined) => (v === undefined ? UNKNOWN_KEY_TOKEN : String(v));
-  return [part(info?.exposureSec), part(info?.binning), part(info?.gain)].join('|');
+  const parts = [info?.camera ?? UNKNOWN_KEY_TOKEN, part(info?.exposureSec), part(info?.binning), part(info?.gain)];
+  if (includeFrameType) parts.unshift(info?.frameType ?? UNKNOWN_KEY_TOKEN);
+  return parts.join('|');
 }
 
 interface CoarseBucket {
+  camera: string | null;
+  frameType: CalibrationFrameType | null;
   exposureSec: number | null;
   binning: number | null;
   gain: number | null;
@@ -330,15 +401,16 @@ interface CoarseBucket {
  *  sharing exposure/binning/gain and a (possibly clustered) temperature.
  *  `sensorTempC` is the cluster's own representative — see
  *  `buildSettingsGroups` — not necessarily any single file's exact reading.
- *  `type` is only used to decide whether `isExpired` can ever be true. */
+ *  `groupType` is only used (via `resolveFrameType`) to decide whether
+ *  `isExpired` can ever be true. */
 function finishSettingsGroup(
   bucket: CoarseBucket,
   files: readonly CalibrationFile[],
   sensorTempC: number | null,
-  type: CalibrationFrameType | 'mixed',
+  groupType: CalibrationFrameType | 'mixed',
 ): CalibrationSettingsGroup {
   const part = (v: number | null) => (v === null ? UNKNOWN_KEY_TOKEN : String(v));
-  const key = [part(bucket.exposureSec), part(bucket.binning), part(bucket.gain), part(sensorTempC)].join('|');
+  const key = [bucket.frameType ?? UNKNOWN_KEY_TOKEN, bucket.camera ?? UNKNOWN_KEY_TOKEN, part(bucket.exposureSec), part(bucket.binning), part(bucket.gain), part(sensorTempC)].join('|');
 
   let bytes = 0;
   let latestMs: number | null = null;
@@ -352,6 +424,8 @@ function finishSettingsGroup(
 
   return {
     key,
+    camera: bucket.camera,
+    frameType: bucket.frameType,
     exposureSec: bucket.exposureSec,
     binning: bucket.binning,
     gain: bucket.gain,
@@ -360,7 +434,7 @@ function finishSettingsGroup(
     bytes,
     modifiedAt: isoOrNull(latestMs),
     capturedAt,
-    isExpired: isExpiredCalibration(type, capturedAt),
+    isExpired: isExpiredCalibration(resolveFrameType(groupType, bucket.frameType), capturedAt),
     files: [...files],
   };
 }
@@ -397,13 +471,16 @@ function clusterByTemperature(files: readonly CalibrationFile[]): Array<{ files:
  *  capture settings instead of by the folder it happened to be archived
  *  under. See `CalibrationSettingsGroup`. */
 function buildSettingsGroups(subfolders: readonly CalibrationSubfolder[], type: CalibrationFrameType | 'mixed'): CalibrationSettingsGroup[] {
+  const isMixed = type === 'mixed';
   const coarseBuckets = new Map<string, CoarseBucket>();
   for (const sub of subfolders) {
     for (const file of sub.files) {
-      const key = coarseSettingsKey(file.info);
+      const key = coarseSettingsKey(file.info, isMixed);
       let bucket = coarseBuckets.get(key);
       if (!bucket) {
         bucket = {
+          camera: file.info?.camera ?? null,
+          frameType: isMixed ? (file.info?.frameType ?? null) : null,
           exposureSec: orNull(file.info?.exposureSec),
           binning: orNull(file.info?.binning),
           gain: orNull(file.info?.gain),
@@ -428,13 +505,20 @@ function buildSettingsGroups(subfolders: readonly CalibrationSubfolder[], type: 
     }
   }
 
-  // Ascending exposure → binning → gain → temperature; `null` (unknown) sorts
-  // after every real value within its own tier rather than interleaving with
-  // them, so "unrecognized settings" reads as one deliberate catch-all bucket
-  // at the end instead of scattered NaN-like ordering.
+  // Frame type → camera → exposure → binning → gain → temperature,
+  // ascending; `null` (unknown) sorts after every real value within its own
+  // tier rather than interleaving with them, so "unrecognized settings"
+  // reads as one deliberate catch-all bucket at the end instead of
+  // scattered NaN-like ordering. Frame type sorts first (only ever set for a
+  // `mixed` group) so a Dwarf CALI_FRAME's bias/dark/flat rows group
+  // together instead of interleaving by exposure; camera sorts next so a
+  // Dwarf 3's two cameras' bundles group together within that.
   const rank = (v: number | null) => (v === null ? Number.POSITIVE_INFINITY : v);
+  const stringRank = (v: string | null) => v ?? '￿';
   return groups.sort((a, b) =>
-    rank(a.exposureSec) - rank(b.exposureSec)
+    stringRank(a.frameType).localeCompare(stringRank(b.frameType))
+    || stringRank(a.camera).localeCompare(stringRank(b.camera))
+    || rank(a.exposureSec) - rank(b.exposureSec)
     || rank(a.binning) - rank(b.binning)
     || rank(a.gain) - rank(b.gain)
     || rank(a.sensorTempC) - rank(b.sensorTempC),
@@ -578,11 +662,16 @@ function settingsToken(value: number | null, suffix: string): string {
   return value === null ? 'unk' : `${value}${suffix}`;
 }
 
-/** Human-facing base name for a bundle ZIP, e.g.
- *  `Darks_60s_Bin1_gain100_-8C` — no extension, caller appends `.zip`. */
+/** Human-facing base name for a bundle ZIP, e.g. `Darks_60s_Bin1_gain100_-8C`
+ *  (or, for one bundle inside a Dwarf 3's mixed CALI_FRAME, `Bias_cam1_..._unk`
+ *  — using the bundle's own resolved frame type, not the group's generic
+ *  "Calibration (mixed)" label, once it has one) — no extension, caller
+ *  appends `.zip`. */
 export function calibrationBundleName(group: CalibrationGroup, set: CalibrationSettingsGroup): string {
+  const label = set.frameType ? calibrationTypeLabel(set.frameType) : group.typeLabel;
   const parts = [
-    group.typeLabel.replace(/\s+/g, ''),
+    label.replace(/\s+/g, ''),
+    ...(set.camera ? [set.camera.replace(/_/g, '')] : []),
     settingsToken(set.exposureSec, 's'),
     `Bin${set.binning ?? 'unk'}`,
     set.gain === null ? 'unk' : `gain${set.gain}`,

@@ -24,9 +24,17 @@ test.describe('Image Gallery', () => {
     await expect(page.getByText('Andromeda Galaxy')).toBeVisible();
   });
 
-  test('shows object types on cards', async ({ page }) => {
-    await expect(page.getByText('Emission Nebula')).toBeVisible();
-    await expect(page.getByText('Galaxy')).toBeVisible();
+  test('shows object types in the filter chips', async ({ page }) => {
+    // Cards now carry only the object name and date. The gallery surfaces object
+    // types as filter chips instead: curated groups (Galaxy) are pinned by
+    // default, while the exact type derived from the images (Emission Nebula) is
+    // pinned from the Customize filters menu.
+    await expect(page.getByRole('button', { name: 'Galaxy', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Customize filters' }).click();
+    await page.getByRole('menuitemcheckbox', { name: /Emission Nebula/ }).click();
+
+    await expect(page.getByRole('button', { name: 'Emission Nebula', exact: true })).toBeVisible();
   });
 
   test('shows loading state while fetching', async ({ page }) => {
@@ -46,11 +54,9 @@ test.describe('Image Gallery', () => {
   // ─── Favorites ────────────────────────────────────────────────────────────
 
   test('favorites toggle button is present', async ({ page }) => {
-    await expect(
-      page.getByRole('button', { name: /favorites?/i })
-        .or(page.locator('[aria-label*="favorite"]'))
-        .or(page.locator('button').filter({ has: page.locator('svg') }).filter({ hasText: /fav/i }))
-    ).toBeVisible();
+    // Exact chip name: every card also carries an "Add/Remove from favorites"
+    // button, so a loose /favorite/i role match resolves to several elements.
+    await expect(page.getByRole('button', { name: 'Favorites', exact: true })).toBeVisible();
   });
 
   test('filtering by favorites shows only favorited images', async ({ page }) => {
@@ -66,8 +72,7 @@ test.describe('Image Gallery', () => {
       }));
     await page.goto('/image-gallery');
 
-    const favBtn = page.getByRole('button', { name: /favorites?/i })
-      .or(page.locator('[aria-label*="favorite"]'));
+    const favBtn = page.getByRole('button', { name: 'Favorites', exact: true });
     if (await favBtn.isVisible()) {
       await favBtn.click();
       // Only M31 (isFavorite: true) should remain
@@ -77,8 +82,7 @@ test.describe('Image Gallery', () => {
   });
 
   test('clearing favorites filter restores all images', async ({ page }) => {
-    const favBtn = page.getByRole('button', { name: /favorites?/i })
-      .or(page.locator('[aria-label*="favorite"]'));
+    const favBtn = page.getByRole('button', { name: 'Favorites', exact: true });
     if (await favBtn.isVisible()) {
       await favBtn.click(); // enable filter
       await favBtn.click(); // disable filter

@@ -12,6 +12,7 @@
  */
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ByTypeStats, ObjectClass } from '../../lib/api/catalogs';
 import type { CatalogMeta } from '../../lib/catalogMeta';
 import { CatalogHeroImage } from './CatalogHeroImage';
@@ -30,11 +31,11 @@ interface Props {
   onPlan: (() => void) | null;
 }
 
-const TYPE_META: Record<ObjectClass, { label: string; dot: string }> = {
-  galaxy:  { label: 'Galaxies', dot: '#a78bfa' },
-  nebula:  { label: 'Nebulae',  dot: '#22d3ee' },
-  cluster: { label: 'Clusters', dot: '#fbbf24' },
-  other:   { label: 'Other',    dot: '#94a3b8' },
+const TYPE_META: Record<ObjectClass, { labelKey: string; dot: string }> = {
+  galaxy:  { labelKey: 'objectClass.galaxy',  dot: '#a78bfa' },
+  nebula:  { labelKey: 'objectClass.nebula',  dot: '#22d3ee' },
+  cluster: { labelKey: 'objectClass.cluster', dot: '#fbbf24' },
+  other:   { labelKey: 'objectClass.other',   dot: '#94a3b8' },
 };
 
 const TYPE_ORDER: ObjectClass[] = ['galaxy', 'nebula', 'cluster', 'other'];
@@ -77,6 +78,7 @@ export function CatalogHero({
   meta, label, total, imagedCount, byType,
   accent, typeFilter, onTypeFilterChange, onPlan,
 }: Props) {
+  const { t } = useTranslation('catalogs');
   const pct = total > 0 ? Math.round((imagedCount / total) * 100) : 0;
   const remaining = total - imagedCount;
   const ringOffset = RING_CIRCUMFERENCE - (pct / 100) * RING_CIRCUMFERENCE;
@@ -124,7 +126,7 @@ export function CatalogHero({
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
-            All catalogs
+            {t('catalogHero.allCatalogs')}
           </Link>
 
           {meta && (
@@ -137,7 +139,7 @@ export function CatalogHero({
           </h1>
           {meta && (
             <p className="mt-3 text-[13px] sm:text-sm leading-relaxed text-white/70">
-              {meta.tagline}
+              {t(meta.taglineKey)}
             </p>
           )}
         </div>
@@ -170,7 +172,7 @@ export function CatalogHero({
                 {pct}%
               </span>
               <span className="mt-1 text-[10px] uppercase tracking-[0.14em] text-white/50">
-                imaged
+                {t('catalogHero.imaged')}
               </span>
             </div>
           </div>
@@ -181,7 +183,7 @@ export function CatalogHero({
               <span className="text-xl sm:text-2xl font-medium text-white/40"> / {total}</span>
             </div>
             <div className="mt-2 text-[13px] text-white/65">
-              {remaining === 0 ? 'Program complete' : `${remaining} still to image`}
+              {remaining === 0 ? t('catalogHero.programComplete') : t('catalogHero.stillToImage', { count: remaining })}
             </div>
 
             {onPlan && (
@@ -191,10 +193,10 @@ export function CatalogHero({
                   text-[13px] font-semibold text-white ring-1 ring-inset ring-white/15 backdrop-blur-md
                   transition-colors hover:bg-white/15
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                title={`Plan tonight from un-imaged ${label} objects`}
+                title={t('catalogHero.planTonightTitle', { label })}
               >
                 <Sparkles className="w-4 h-4" style={{ color: accent }} />
-                Plan tonight
+                {t('catalogHero.planTonight')}
               </button>
             )}
           </div>
@@ -205,7 +207,8 @@ export function CatalogHero({
       <div className={`relative grid grid-cols-2 ${SM_COLS[visibleTypes.length] ?? 'sm:grid-cols-4'} border-t border-white/10`}>
         {visibleTypes.map((cls, idx) => {
           const stats = byType[cls];
-          const { label: typeLabel, dot } = TYPE_META[cls];
+          const { labelKey: typeLabelKey, dot } = TYPE_META[cls];
+          const typeLabel = t(typeLabelKey);
           const barPct = stats.total > 0 ? (stats.imaged / stats.total) * 100 : 0;
           const active = typeFilter === cls;
 

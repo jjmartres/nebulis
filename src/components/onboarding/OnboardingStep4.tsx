@@ -7,6 +7,7 @@ import {
   Info,
   Image,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TELESCOPE_PRESETS, type TelescopeKind } from '../../lib/telescopePresets';
 import { INTERVAL_OPTIONS } from './OnboardingStep3';
 import type { TestStatus } from './OnboardingStep2';
@@ -37,6 +38,7 @@ interface SummaryRowProps {
 }
 
 function SummaryRow({ icon, label, value, status, isDark }: SummaryRowProps) {
+  const { t } = useTranslation('onboarding');
   return (
     <div className={`flex items-center gap-3 px-4 py-3 ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
       <div className="shrink-0">{icon}</div>
@@ -46,11 +48,11 @@ function SummaryRow({ icon, label, value, status, isDark }: SummaryRowProps) {
       </div>
       {status === 'connected' && (
         <span className="flex items-center gap-1 text-xs text-emerald-500">
-          <CheckCircle2 className="w-3 h-3" /> Connected
+          <CheckCircle2 className="w-3 h-3" /> {t('step4.connected')}
         </span>
       )}
       {status === 'untested' && (
-        <span className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>Not tested</span>
+        <span className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{t('step4.notTested')}</span>
       )}
     </div>
   );
@@ -72,12 +74,14 @@ export function OnboardingStep4({
   isDark,
   subText,
 }: OnboardingStep4Props) {
+  const { t } = useTranslation('onboarding');
   const preset = kind ? TELESCOPE_PRESETS[kind] : null;
-  const intervalLabel = INTERVAL_OPTIONS.find(o => o.value === autoImportInterval)?.label || `${autoImportInterval} min`;
+  const intervalOption = INTERVAL_OPTIONS.find(o => o.value === autoImportInterval);
+  const intervalLabel = intervalOption ? t(intervalOption.labelKey) : t('step4.minutesFallback', { count: autoImportInterval });
   const backupItems = [
-    importJpg && 'Stacked Images',
-    importFits && 'FITS Files',
-    importSubFrames && 'Subframes',
+    importJpg && t('step3.stackedImagesLabel'),
+    importFits && t('step3.fitsFilesLabel'),
+    importSubFrames && t('step3.subframesLabel'),
   ].filter(Boolean) as string[];
 
   return (
@@ -88,9 +92,9 @@ export function OnboardingStep4({
         </div>
         <div>
           <h3 className={`font-display font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-            Review Setup
+            {t('step4.heading')}
           </h3>
-          <p className={`text-xs ${subText}`}>Confirm your configuration</p>
+          <p className={`text-xs ${subText}`}>{t('step4.subheading')}</p>
         </div>
       </div>
 
@@ -99,31 +103,31 @@ export function OnboardingStep4({
       }`}>
         <SummaryRow
           icon={<User className="w-4 h-4 text-emerald-500" />}
-          label="Admin Account"
+          label={t('step4.adminAccountLabel')}
           value={username}
           isDark={isDark}
         />
         <SummaryRow
           icon={<Telescope className="w-4 h-4 text-teal-500" />}
-          label="Telescope"
+          label={t('step4.telescopeLabel')}
           value={
             isLocalKind
-              ? (localPath && preset ? `${telescopeName.trim() || preset.label} (${localPath})` : '(not configured)')
-              : (hostname && preset ? `${telescopeName.trim() || preset.label} (${hostname})` : '(not configured)')
+              ? (localPath && preset ? `${telescopeName.trim() || preset.label} (${localPath})` : t('step4.notConfigured'))
+              : (hostname && preset ? `${telescopeName.trim() || preset.label} (${hostname})` : t('step4.notConfigured'))
           }
           status={!isLocalKind && testStatus === 'success' ? 'connected' : (!isLocalKind && hostname) ? 'untested' : undefined}
           isDark={isDark}
         />
         <SummaryRow
           icon={<Clock className="w-4 h-4 text-accent-500" />}
-          label="Import Frequency"
+          label={t('step4.importFrequencyLabel')}
           value={intervalLabel}
           isDark={isDark}
         />
         <SummaryRow
           icon={<Image className="w-4 h-4 text-accent-500" />}
-          label="Backup"
-          value={backupItems.length > 0 ? backupItems.join(', ') : 'None selected'}
+          label={t('step4.backupLabel')}
+          value={backupItems.length > 0 ? backupItems.join(', ') : t('step4.noneSelected')}
           isDark={isDark}
         />
       </div>
@@ -133,7 +137,7 @@ export function OnboardingStep4({
           isDark ? 'bg-amber-500/5 text-amber-400/80 border border-amber-500/10' : 'bg-amber-50 text-amber-700 border border-amber-100'
         }`}>
           <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>Connection has not been verified. You can test it later from Settings.</span>
+          <span>{t('step4.connectionNotVerified')}</span>
         </div>
       )}
 

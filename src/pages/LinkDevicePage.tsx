@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import { Tv, Check, ArrowRight, Loader2 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +20,7 @@ function display(raw: string): string {
 
 export default function LinkDevicePage() {
   const { isDark } = useTheme();
+  const { t } = useTranslation('settings');
   const { isLoaded, role } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -74,7 +76,7 @@ export default function LinkDevicePage() {
     return (
       <div className="max-w-lg mx-auto pt-16 text-center">
         <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
-          Sign in to your Nebulis account, then return here to link your TV.
+          {t('linkDevicePage.signInFirst')}
         </p>
       </div>
     );
@@ -88,17 +90,20 @@ export default function LinkDevicePage() {
           <Check className={`w-10 h-10 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
         </div>
         <h1 className={`mt-6 font-display font-bold text-3xl tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-          {linked.tvName} linked
+          {t('linkDevicePage.linkedTitle', { name: linked.tvName })}
         </h1>
         <p className={`mt-3 text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-          Look at your TV. It should sign in within a few seconds. You can
-          disconnect this device anytime from <span className="font-medium">Settings → Devices</span>.
+          <Trans
+            i18nKey="linkDevicePage.linkedBody"
+            ns="settings"
+            components={{ 1: <span className="font-medium" /> }}
+          />
         </p>
         <Link
           to="/"
           className="mt-8 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold bg-accent-500 text-white hover:bg-accent-600 active:scale-[0.99] transition-all"
         >
-          Back to library <ArrowRight className="w-4 h-4" />
+          {t('linkDevicePage.backToLibrary')} <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
     );
@@ -120,10 +125,10 @@ export default function LinkDevicePage() {
           <Tv className={`w-8 h-8 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
         </div>
         <h1 className={`mt-6 font-display font-bold text-3xl tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-          Link an Apple TV
+          {t('linkDevicePage.title')}
         </h1>
         <p className={`mt-3 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-          Enter the code shown on your TV.
+          {t('linkDevicePage.subtitle')}
         </p>
       </div>
 
@@ -138,7 +143,7 @@ export default function LinkDevicePage() {
           value={display(raw)}
           onChange={onChange}
           placeholder="XXXX"
-          aria-label="Pairing code"
+          aria-label={t('linkDevicePage.codeInputAriaLabel')}
           className={`w-full bg-transparent text-center font-mono tracking-[0.4em] text-3xl sm:text-4xl font-bold uppercase outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 rounded-lg ${
             isDark ? 'text-white placeholder-slate-700' : 'text-slate-900 placeholder-slate-300'
           }`}
@@ -150,12 +155,17 @@ export default function LinkDevicePage() {
         {codeReady && lookup.isFetching && (
           <p className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Looking up code…
+            {t('linkDevicePage.lookingUpCode')}
           </p>
         )}
         {codeReady && tvName && !errorMessage && (
           <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-            Link <span className="font-semibold">{tvName}</span> to your account?
+            <Trans
+              i18nKey="linkDevicePage.confirmLink"
+              ns="settings"
+              values={{ name: tvName }}
+              components={{ 1: <span className="font-semibold" /> }}
+            />
           </p>
         )}
         {codeReady && errorMessage && (
@@ -177,7 +187,7 @@ export default function LinkDevicePage() {
       >
         {approve.isPending
           ? <Loader2 className="w-4 h-4 animate-spin" />
-          : <>Link <ArrowRight className="w-4 h-4" /></>
+          : <>{t('linkDevicePage.linkButton')} <ArrowRight className="w-4 h-4" /></>
         }
       </button>
     </div>

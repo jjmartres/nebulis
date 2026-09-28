@@ -113,6 +113,8 @@ export function localDateKey(d: Date): string {
 /** Format as YYYY-MM-DD in a specific IANA timezone. */
 function localDateKeyInTimeZone(d: Date, timeZone: string): string {
   try {
+    // 'en-US' here is locale-invariant PARSING (formatToParts pulls a
+    // YYYY-MM-DD sort key), not display — see formatLocale.ts's header comment.
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone,
       year: 'numeric',
@@ -143,6 +145,7 @@ export function dateFromKey(key: string): Date {
 
 function localHourInTimeZone(d: Date, timeZone: string): number {
   try {
+    // 'en-US' here is locale-invariant PARSING — see formatLocale.ts's header comment.
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone,
       hour: '2-digit',

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { SiteManagerList } from './SiteManagerList';
 import { Sec } from './SettingsUI';
 
@@ -17,10 +18,11 @@ import { Sec } from './SettingsUI';
  * marked default.
  */
 export function SitesSection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   return (
     <Sec
-      title="Observing sites"
-      description="Every place you observe from. Planner and Forecast let you switch between them."
+      title={t('sitesSection.title')}
+      description={t('sitesSection.description')}
       isDark={isDark}
     >
       <div className="p-4 sm:p-5">

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   arcsecPerPixel,
   classifyFit,
+  fitDisplayStrings,
   fovFromOptics,
   resolveFov,
   readFovSetup,
@@ -9,10 +10,32 @@ import {
   telescopeProfileOptionId,
   CUSTOM_FOV_PROFILE_ID,
   DEFAULT_CUSTOM_OPTICS,
+  readSavedCustomRigs,
+  saveCustomRig,
+  updateCustomRig,
+  deleteCustomRig,
+  customRigOptionId,
   type FovSetup,
   type TelescopeProfileLike,
   type OpticalConfigLike,
 } from '../../src/lib/telescopeFov';
+import catalogsEn from '../../src/locales/en/catalogs.json';
+
+/** Minimal stand-in for react-i18next's `t`, resolving real keys out of the
+ *  English `catalogs.json` (the source of truth) with `{{var}}` interpolation
+ *  so `fitDisplayStrings`' output is checked against real copy rather than a
+ *  fabricated string. Not a full i18next reimplementation, just enough for
+ *  the flat/one-level-nested keys this module reads. */
+function makeCatalogsT() {
+  return (key: string, opts?: Record<string, unknown>): string => {
+    const value = key.split('.').reduce<unknown>((node, part) => (
+      node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined
+    ), catalogsEn);
+    if (typeof value !== 'string') return key;
+    if (!opts) return value;
+    return value.replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(opts[k] ?? ''));
+  };
+}
 
 let configCounter = 0;
 function makeConfig(overrides: Partial<OpticalConfigLike> & Pick<OpticalConfigLike, 'name' | 'focalLengthMm' | 'sensorWidthMm' | 'sensorHeightMm'>): OpticalConfigLike {
@@ -73,10 +96,38 @@ describe('classifyFit', () => {
     expect(result?.tag).toBe('tight');
   });
 
-  it('tags an object larger than the frame as needing a mosaic', () => {
+  it('tags an object larger than the frame as needing a mosaic, with the grid size to cover it', () => {
     const result = classifyFit(fov, { widthArcmin: 200, heightArcmin: 100 });
     expect(result?.tag).toBe('mosaic');
-    expect(result?.label).toMatch(/mosaic/i);
+    expect(result?.mosaicCols).toBeGreaterThan(1);
+    expect(result?.mosaicRows).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('fitDisplayStrings', () => {
+  const fov = { widthDeg: 1.28, heightDeg: 0.73 };
+  const t = makeCatalogsT();
+
+  it('interpolates the mosaic grid size into the label', () => {
+    const fit = classifyFit(fov, { widthArcmin: 200, heightArcmin: 100 })!;
+    const strings = fitDisplayStrings(fit, t);
+    expect(strings.label).toMatch(/mosaic/i);
+    expect(strings.label).toContain(String(fit.mosaicCols));
+    expect(strings.label).toContain(String(fit.mosaicRows));
+  });
+
+  it('gives every tag a non-empty short label and description', () => {
+    const cases = [
+      classifyFit(fov, { widthArcmin: 2, heightArcmin: 2 }),
+      classifyFit(fov, { widthArcmin: 20, heightArcmin: 15 }),
+      classifyFit(fov, { widthArcmin: 30, heightArcmin: 40 }),
+      classifyFit(fov, { widthArcmin: 200, heightArcmin: 100 }),
+    ];
+    for (const fit of cases) {
+      const strings = fitDisplayStrings(fit!, t);
+      expect(strings.short.length).toBeGreaterThan(0);
+      expect(strings.label.length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -129,6 +180,68 @@ describe('FOV setup persistence', () => {
   it('ignores corrupted storage and falls back to defaults', () => {
     localStorage.setItem('nebulis-fov-setup', '{not json');
     expect(readFovSetup()).toEqual({ profileId: null, custom: DEFAULT_CUSTOM_OPTICS });
+  });
+});
+
+describe('saved custom rigs', () => {
+  beforeEach(() => {
+    const storage = makeMemoryStorage();
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('localStorage', storage);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const dslrRig = { focalMm: 400, sensorWMm: 23.5, sensorHMm: 15.7, pixelSizeUm: 3.76 };
+
+  it('starts empty', () => {
+    expect(readSavedCustomRigs()).toEqual([]);
+  });
+
+  it('saves a named preset and reads it back', () => {
+    const rig = saveCustomRig('DSLR + Askar', dslrRig);
+    expect(rig.name).toBe('DSLR + Askar');
+    expect(rig.optics).toEqual(dslrRig);
+    const all = readSavedCustomRigs();
+    expect(all).toHaveLength(1);
+    expect(all[0]).toEqual(rig);
+  });
+
+  it('updateCustomRig overwrites optics in place without changing the name', () => {
+    const rig = saveCustomRig('DSLR + Askar', dslrRig);
+    updateCustomRig(rig.id, { ...dslrRig, focalMm: 500 });
+    const all = readSavedCustomRigs();
+    expect(all).toHaveLength(1);
+    expect(all[0]?.name).toBe('DSLR + Askar');
+    expect(all[0]?.optics.focalMm).toBe(500);
+  });
+
+  it('deleteCustomRig removes only the targeted preset', () => {
+    const a = saveCustomRig('Rig A', dslrRig);
+    const b = saveCustomRig('Rig B', { ...dslrRig, focalMm: 800 });
+    deleteCustomRig(a.id);
+    const all = readSavedCustomRigs();
+    expect(all).toHaveLength(1);
+    expect(all[0]?.id).toBe(b.id);
+  });
+
+  it('resolveFov labels a customRig: pick with the preset name but computes FOV from the live setup.custom (not the stored optics)', () => {
+    const rig = saveCustomRig('DSLR + Askar', dslrRig);
+    // Deliberately different from the saved optics, simulating an in-progress
+    // edit that hasn't been saved yet — the preview must track the edit.
+    const liveOptics = { focalMm: 250, sensorWMm: 5.6, sensorHMm: 3.2, pixelSizeUm: 3.76 };
+    const setup: FovSetup = { profileId: customRigOptionId(rig.id), custom: liveOptics };
+    const resolved = resolveFov(setup, null);
+    expect(resolved.label).toBe('DSLR + Askar');
+    expect(resolved.widthDeg).toBeCloseTo(fovFromOptics(250, 5.6, 3.2).widthDeg, 5);
+  });
+
+  it('resolveFov falls back to the generic "Custom" label when the picked preset id no longer exists', () => {
+    const setup: FovSetup = { profileId: customRigOptionId('deleted-rig-id'), custom: DEFAULT_CUSTOM_OPTICS };
+    const resolved = resolveFov(setup, null);
+    expect(resolved.label).toBe('Custom');
   });
 });
 

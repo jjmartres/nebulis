@@ -10,6 +10,15 @@
  *
  * Every write is best-effort: logEvent() never throws, so a logging failure
  * can never break the request or background job it's describing.
+ *
+ * `message` is a fixed English sentence baked in at write time, and a row's
+ * `message` can never be edited after the fact. Every value interpolated
+ * into it MUST also be duplicated into `metadata` (or already be one of the
+ * top-level `username`/`ip` columns) — that structured copy is what lets the
+ * display layer reconstruct the sentence in another language later without
+ * touching the database. See src/lib/systemLogRender.ts, which renders from
+ * `event` + `metadata` and only falls back to `message` when it doesn't
+ * recognize the event or the metadata it expects is missing.
  */
 import db from './db.js';
 import { parseJsonRecord } from './typeGuards.js';

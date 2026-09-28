@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ImageOff, Loader2 } from 'lucide-react';
 import type { ZoomPan } from './useZoomPan';
 
@@ -19,6 +20,7 @@ interface Props {
  * in over it. The result reads as the image sharpening rather than appearing.
  */
 export function LightboxImage({ src, thumbSrc, alt, zp }: Props) {
+  const { t } = useTranslation('library');
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -35,7 +37,7 @@ export function LightboxImage({ src, thumbSrc, alt, zp }: Props) {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
         <ImageOff className="h-10 w-10 text-white/25" />
-        <p className="text-sm text-white/55">This image could not be loaded.</p>
+        <p className="text-sm text-white/55">{t('lightboxImage.loadFailed')}</p>
       </div>
     );
   }

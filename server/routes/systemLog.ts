@@ -42,7 +42,7 @@ router.delete('/', (req: Request, res: Response) => {
   logEvent({
     category: 'system',
     event: 'log_cleared',
-    message: `Cleared the system log${req.username ? ` (${req.username})` : ''}.`,
+    message: 'Cleared the system log.',
     userId: req.userId,
     username: req.username,
     ip: clientIp(req),

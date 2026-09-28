@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import { X, Check, ArrowRight, Loader2 } from 'lucide-react';
 import { lookupPairingCode, approvePairingCode } from '../../lib/api/devices';
 import { Modal } from '../ui/Modal';
@@ -19,6 +20,7 @@ function normalize(input: string): string {
  * about to link before confirming, then approve and close on success.
  */
 export function EnterCodeModal({ isDark, onClose }: { isDark: boolean; onClose: () => void }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -95,18 +97,18 @@ export function EnterCodeModal({ isDark, onClose }: { isDark: boolean; onClose: 
     <Modal
       isOpen
       onClose={onClose}
-      title="Link an Apple TV"
+      title={t('enterCodeModal.title')}
       className={`w-full max-w-md rounded-2xl border shadow-xl ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}
     >
       <div className={`flex items-center justify-between px-5 py-4 border-b ${headerBorder}`}>
         <h3 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-          Link an Apple TV
+          {t('enterCodeModal.title')}
         </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('enterCodeModal.close')}
           className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
         >
           <X className="w-4 h-4" />
@@ -118,16 +120,16 @@ export function EnterCodeModal({ isDark, onClose }: { isDark: boolean; onClose: 
           <div className="flex flex-col items-center text-center py-6">
             <Check className="w-14 h-14 text-emerald-500 mb-3" />
             <p className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              {linked.tvName} linked
+              {t('enterCodeModal.linked', { name: linked.tvName })}
             </p>
             <p className={`mt-1 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Look at your TV. It should sign in within a few seconds.
+              {t('enterCodeModal.linkedHelp')}
             </p>
           </div>
         ) : (
           <>
             <p className={`text-sm text-center mb-5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              Enter the code shown on your TV.
+              {t('enterCodeModal.enterCodePrompt')}
             </p>
 
             <div className={`rounded-2xl border px-6 py-6 transition-all ${ringColor} ${isDark ? 'bg-slate-950/40' : 'bg-slate-50/60'}`}>
@@ -142,7 +144,7 @@ export function EnterCodeModal({ isDark, onClose }: { isDark: boolean; onClose: 
                 value={raw}
                 onChange={onChange}
                 placeholder="XXXX"
-                aria-label="Pairing code"
+                aria-label={t('enterCodeModal.pairingCodeAriaLabel')}
                 className={`w-full bg-transparent text-center font-mono tracking-[0.4em] text-3xl font-bold uppercase outline-none ${
                   isDark ? 'text-white placeholder-slate-700' : 'text-slate-900 placeholder-slate-300'
                 }`}
@@ -154,12 +156,12 @@ export function EnterCodeModal({ isDark, onClose }: { isDark: boolean; onClose: 
               {codeReady && lookup.isFetching && (
                 <p className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Looking up code…
+                  {t('enterCodeModal.lookingUpCode')}
                 </p>
               )}
               {codeReady && tvName && !errorMessage && (
                 <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                  Link <span className="font-semibold">{tvName}</span> to your account?
+                  <Trans i18nKey="enterCodeModal.linkConfirm" ns="settings" values={{ name: tvName }} components={{ 1: <span className="font-semibold" /> }} />
                 </p>
               )}
               {codeReady && errorMessage && (
@@ -181,7 +183,7 @@ export function EnterCodeModal({ isDark, onClose }: { isDark: boolean; onClose: 
             >
               {approve.isPending
                 ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <>Link <ArrowRight className="w-4 h-4" /></>
+                : <>{t('enterCodeModal.link')} <ArrowRight className="w-4 h-4" /></>
               }
             </button>
           </>

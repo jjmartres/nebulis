@@ -130,6 +130,7 @@ export function buildTonightWindow(now: Date = new Date(), timeZone?: string): {
 /** Calendar Y/M/D parts of an instant evaluated in `timeZone`. */
 function zonedParts(d: Date, timeZone: string): { year: number; month: number; day: number; hour: number } {
   try {
+    // 'en-US' here is locale-invariant PARSING — see formatLocale.ts's header comment.
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone,
       year: 'numeric',
@@ -160,6 +161,7 @@ function wallTimeToUtc(year: number, month: number, day: number, hour: number, t
   for (let i = 0; i < 4; i++) {
     let actualWall: number;
     try {
+      // 'en-US' here is locale-invariant PARSING — see formatLocale.ts's header comment.
       const parts = new Intl.DateTimeFormat('en-US', {
         timeZone,
         year: 'numeric', month: '2-digit', day: '2-digit',

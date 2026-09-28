@@ -6,6 +6,7 @@
  * week, and an undivided grid of near-identical thumbnails hides which it is.
  * A single year gets no heading, because a heading that never varies is noise.
  */
+import { useTranslation } from 'react-i18next';
 import { Calendar, FolderOpen, RotateCcw } from 'lucide-react';
 import { ObservationCard, type ObservationCardModel } from './ObservationCard';
 
@@ -23,13 +24,11 @@ interface Props {
   onOpenTrash?: (() => void) | null;
 }
 
-function yearOf(date: string): string {
-  return date.slice(0, 4) || 'Unknown';
-}
-
 export function ObservationsSection({
   observations, isDark, loading, tempUnit, onDelete, trashCount = 0, onOpenTrash,
 }: Props) {
+  const { t } = useTranslation('library');
+  const yearOf = (date: string): string => date.slice(0, 4) || t('objectDetail.observationsSection.unknownYear');
   const years = [...new Set(observations.map(o => yearOf(o.date)))];
   const grouped = years.length > 1;
 
@@ -40,7 +39,7 @@ export function ObservationsSection({
           isDark ? 'text-slate-100' : 'text-slate-900'
         }`}>
           <Calendar className="h-4 w-4 text-accent-500" />
-          Observations
+          {t('objectDetail.observationsSection.heading')}
         </h2>
         <div className="flex items-center gap-3">
           {trashCount > 0 && onOpenTrash && (
@@ -50,17 +49,17 @@ export function ObservationsSection({
               className={`inline-flex items-center gap-1.5 text-[12px] font-medium transition-colors ${
                 isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'
               }`}
-              title="See deleted items you can restore to allow re-syncing"
+              title={t('objectDetail.observationsSection.deletedTooltip')}
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              {trashCount} deleted
+              {t('objectDetail.observationsSection.deletedCount', { count: trashCount })}
             </button>
           )}
           {observations.length > 0 && (
             // Observations, not nights: a variant shot alongside its base on one
             // night is two cards here, and calling that two nights would be wrong.
             <span className={`text-sm tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              {observations.length} observation{observations.length !== 1 ? 's' : ''}
+              {t('objectDetail.observationsSection.count', { count: observations.length })}
             </span>
           )}
         </div>
@@ -84,7 +83,7 @@ export function ObservationsSection({
           isDark ? 'border-slate-800 bg-slate-900 text-slate-500' : 'border-slate-200 bg-white text-slate-400 shadow-sm'
         }`}>
           <FolderOpen className="mx-auto mb-3 h-10 w-10 opacity-40" />
-          <p className="text-sm">Nothing captured for this object yet.</p>
+          <p className="text-sm">{t('objectDetail.observationsSection.empty')}</p>
         </div>
       ) : grouped ? (
         years.map(year => (

@@ -10,11 +10,12 @@
  * consistent with "Plan My Night" on the planner page, and with every other
  * client.
  */
-import { useCallback, useDeferredValue, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import SunCalc from 'suncalc';
 import { Sparkles, Moon, ArrowUp, X, Telescope } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatObjectName } from '../../lib/utils';
 import { getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import { generateNightPlan } from '../../lib/api/planner';
@@ -61,6 +62,7 @@ export function CatalogPlanModal({
   isDark,
   onClose,
 }: CatalogPlanModalProps) {
+  const { t } = useTranslation('catalogs');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [count, setCount] = useState(5);
@@ -151,7 +153,7 @@ export function CatalogPlanModal({
   // duplicating that try/catch here.
   const fmtTime = (d: Date) => formatHm(d, observerTimezone);
 
-  const nightLabel = night ? formatPlannerDate(night.start) : 'tonight';
+  const nightLabel = night ? formatPlannerDate(night.start) : t('catalogPlanModal.tonight');
 
   // Create the blocks (optionally wiping the night first), then open the planner
   // on that night so the result is visible right away.
@@ -200,6 +202,12 @@ export function CatalogPlanModal({
     }
   }, [blocks, night, commitPlan]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const surface = isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900';
   const subtle = isDark ? 'text-slate-400' : 'text-slate-600';
   const chipIdle = isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200';
@@ -218,18 +226,16 @@ export function CatalogPlanModal({
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 rounded-lg hover:bg-white/10 transition"
-            aria-label="Close"
+            aria-label={t('catalogPlanModal.close')}
           >
             <X className="w-5 h-5" />
           </button>
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-accent-500" />
-            Plan Tonight · {catalogLabel}
+            {t('catalogPlanModal.title', { catalogLabel })}
           </h2>
           <p className={`text-sm mt-1 ${subtle}`}>
-            The {catalogLabel} objects you haven't imaged yet that climb highest on the night of{' '}
-            {nightLabel}, picked to stay clear of the moon ({moonPct}% lit). Choose how many to
-            include and we'll lay them out across the dark window.
+            {t('catalogPlanModal.subtitle', { catalogLabel, nightLabel, moonPct })}
           </p>
         </div>
 
@@ -238,15 +244,15 @@ export function CatalogPlanModal({
           {!planWindow ? (
             <div className={`text-center py-10 ${subtle}`}>
               <Telescope className="w-8 h-8 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">No dark window is available for your location right now.</p>
+              <p className="text-sm">{t('catalogPlanModal.noDarkWindow')}</p>
             </div>
           ) : candidates.length === 0 ? (
             <div className={`text-center py-10 ${subtle}`}>
               <Telescope className="w-8 h-8 mx-auto mb-3 opacity-50" />
               <p className="text-sm">
                 {objects.every(o => o.isImaged)
-                  ? "You've already imaged every object in this catalog. Nice work."
-                  : "None of the remaining objects in this catalog have coordinates we can plan with."}
+                  ? t('catalogPlanModal.allImagedNiceWork')
+                  : t('catalogPlanModal.noPlannableCoords')}
               </p>
             </div>
           ) : (
@@ -254,8 +260,8 @@ export function CatalogPlanModal({
               {/* Count slider */}
               <section className="space-y-2">
                 <div className="flex items-center justify-between text-sm font-medium">
-                  <span>How many objects?</span>
-                  <span className={subtle}>{Math.min(count, maxCount)} of {candidates.length} left</span>
+                  <span>{t('catalogPlanModal.howManyObjects')}</span>
+                  <span className={subtle}>{t('catalogPlanModal.leftCount', { count: Math.min(count, maxCount), total: candidates.length })}</span>
                 </div>
                 <input
                   type="range"
@@ -270,15 +276,15 @@ export function CatalogPlanModal({
 
               {/* Picked objects */}
               {blocksLoading ? (
-                <div className={`text-center py-6 text-sm ${subtle}`}>Building plan…</div>
+                <div className={`text-center py-6 text-sm ${subtle}`}>{t('catalogPlanModal.buildingPlan')}</div>
               ) : blocksError ? (
                 <div className="text-center py-6 text-sm text-red-500">
-                  Couldn't build a plan. Check your connection and try reopening this.
+                  {t('catalogPlanModal.buildFailed')}
                 </div>
               ) : blocks.length === 0 ? (
                 <div className={`text-center py-6 text-sm ${subtle}`}>
                   <Moon className="w-7 h-7 mx-auto mb-2 opacity-50" />
-                  Nothing in this catalog clears the moon and gets high enough on this night.
+                  {t('catalogPlanModal.nothingClears')}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -314,7 +320,7 @@ export function CatalogPlanModal({
                             }`}
                           >
                             <Moon className="w-3 h-3" />
-                            {b.moonSeparation === Infinity ? 'moon down' : `${Math.round(b.moonSeparation)}° away`}
+                            {b.moonSeparation === Infinity ? t('catalogPlanModal.moonDown') : t('catalogPlanModal.awayDeg', { deg: Math.round(b.moonSeparation) })}
                           </span>
                         </div>
                       </div>
@@ -333,14 +339,14 @@ export function CatalogPlanModal({
         {/* Footer */}
         <div className={`px-6 py-4 border-t flex items-center gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
           <button onClick={onClose} className={`px-4 py-2 rounded-lg text-sm font-medium ${chipIdle}`}>
-            Cancel
+            {t('catalogPlanModal.cancel')}
           </button>
           <button
             onClick={handleCreate}
             disabled={blocks.length === 0 || creating || blocksLoading}
             className="ml-auto px-5 py-2 rounded-lg text-sm font-semibold bg-accent-500 hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed text-white inline-flex items-center gap-2"
           >
-            {creating ? 'Creating…' : `Create plan (${blocks.length})`}
+            {creating ? t('catalogPlanModal.creating') : t('catalogPlanModal.createPlan', { count: blocks.length })}
           </button>
         </div>
       </div>

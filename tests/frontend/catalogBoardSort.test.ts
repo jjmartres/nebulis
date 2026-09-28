@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compareBy } from '../../src/pages/CatalogBoard';
+import { compareBy } from '../../src/lib/catalogSort';
 import type { CatalogProgressObject } from '../../src/lib/api/catalogs';
 import type { FitAssessment, FitTag } from '../../src/lib/telescopeFov';
 

@@ -8,9 +8,11 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { X, Search, Loader2, AlertCircle, Check } from 'lucide-react';
 import { getLibraryObjects, getLibrarySessions, attachCalibrationBundle, type CalibrationAttachmentSummary } from '../lib/api/library';
 import { getInputClass } from './settings/SettingsUI';
+import { Modal } from './ui/Modal';
 
 /** "Whole object" is stored server-side as the empty string (see
  *  calibrationAttachments.ts's WHOLE_OBJECT_DATE) — mirrored here so the
@@ -36,6 +38,7 @@ export function AttachCalibrationModal({
   onClose: () => void;
   onAttached: (attachment: CalibrationAttachmentSummary) => void;
 }) {
+  const { t } = useTranslation('library');
   const [search, setSearch] = useState('');
   const [objectId, setObjectId] = useState<string | null>(null);
   const [date, setDate] = useState<string>(WHOLE_OBJECT_DATE);
@@ -75,32 +78,25 @@ export function AttachCalibrationModal({
       onAttached(attachment);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not attach this bundle. Try again.');
+      setError(err instanceof Error ? err.message : t('calibrations.attachModal.error'));
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Attach calibration bundle to an object"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-      onClick={onClose}
-    >
+    <Modal isOpen onClose={onClose} title={t('calibrations.attachModal.dialogLabel')}>
       <div
-        onClick={e => e.stopPropagation()}
         className={`w-full max-w-md rounded-2xl border shadow-xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
       >
         <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
           <div className="min-w-0">
-            <h3 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Attach to an object</h3>
+            <h3 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('calibrations.attachModal.title')}</h3>
             <p className={`text-xs mt-0.5 truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{bundleLabel}</p>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('calibrations.attachModal.close')}
             className={`p-1.5 rounded-lg transition shrink-0 ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
           >
             <X className="w-4 h-4" />
@@ -116,7 +112,7 @@ export function AttachCalibrationModal({
                   autoFocus
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Search objects…"
+                  placeholder={t('calibrations.attachModal.searchPlaceholder')}
                   className={`${getInputClass(isDark)} pl-9`}
                 />
               </div>
@@ -127,7 +123,7 @@ export function AttachCalibrationModal({
                   </div>
                 )}
                 {!objectsLoading && filtered.length === 0 && (
-                  <p className={`text-sm text-center py-6 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>No matching objects.</p>
+                  <p className={`text-sm text-center py-6 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('calibrations.attachModal.noMatches')}</p>
                 )}
                 {filtered.map(o => (
                   <button
@@ -141,7 +137,7 @@ export function AttachCalibrationModal({
                     <span className={`text-sm font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{o.name}</span>
                     {o.sessionCount !== undefined && (
                       <span className={`text-xs shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                        {o.sessionCount} session{o.sessionCount === 1 ? '' : 's'}
+                        {t('calibrations.attachModal.sessionCount', { count: o.sessionCount })}
                       </span>
                     )}
                   </button>
@@ -160,13 +156,13 @@ export function AttachCalibrationModal({
                   onClick={() => setObjectId(null)}
                   className={`text-xs font-medium shrink-0 ${isDark ? 'text-accent-400 hover:text-accent-300' : 'text-accent-600 hover:text-accent-500'}`}
                 >
-                  Change
+                  {t('calibrations.attachModal.change')}
                 </button>
               </div>
 
               <div>
                 <label className={`block text-[13px] font-medium mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                  Applies to
+                  {t('calibrations.attachModal.appliesTo')}
                 </label>
                 <select
                   value={date}
@@ -174,15 +170,13 @@ export function AttachCalibrationModal({
                   disabled={sessionsLoading}
                   className={getInputClass(isDark)}
                 >
-                  <option value={WHOLE_OBJECT_DATE}>Every session (whole object)</option>
+                  <option value={WHOLE_OBJECT_DATE}>{t('calibrations.attachModal.everySession')}</option>
                   {(sessions ?? []).map(s => (
                     <option key={s.date} value={s.date}>{s.date}</option>
                   ))}
                 </select>
                 <p className={`text-xs mt-1.5 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Flats drift session to session (dust, focus, rotation) — pick the exact night this bundle
-                  was shot for if you have more than one, or leave it applying to every session if this object
-                  only has one.
+                  {t('calibrations.attachModal.hint')}
                 </p>
               </div>
             </>
@@ -204,7 +198,7 @@ export function AttachCalibrationModal({
               isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Cancel
+            {t('calibrations.attachModal.cancel')}
           </button>
           <button
             type="button"
@@ -213,10 +207,10 @@ export function AttachCalibrationModal({
             className="px-4 py-2 rounded-lg bg-accent-500 text-white text-sm font-medium hover:bg-accent-600 transition disabled:opacity-50 inline-flex items-center gap-1.5"
           >
             {pending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Attach
+            {t('calibrations.attachModal.attach')}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

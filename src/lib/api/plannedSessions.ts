@@ -12,6 +12,9 @@ export interface PlannedSession {
   startTime: string;
   endTime: string;
   notes: string;
+  /** JSON-serialized mosaic framing saved from the Framing & Mosaic planner
+   *  for this scheduled block, or null if none was saved. See FramingModal.tsx. */
+  framingSetup: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +33,7 @@ interface PlannedSessionPatch {
   startTime?: string;
   endTime?: string;
   notes?: string;
+  framingSetup?: string;
 }
 
 export const listPlannedSessions = (range?: { from: string; to: string }) => {

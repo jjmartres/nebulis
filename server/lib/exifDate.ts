@@ -116,6 +116,25 @@ function ifdAsciiValue(
     const raw = buf.toString('ascii', dataStart, dataStart + len - 1); // strip null terminator
     const m = raw.match(/^(\d{4}):(\d{2}):(\d{2})/);
     if (!m || m[1] === '0000') return null;
+    // DateTimeOriginal is written by the camera, so the components are only
+    // shape-checked by the regex above: "2024:02:30" would otherwise leave this
+    // module as a real-looking session date and be baked into the canonical
+    // filename by importNaming.ts. Re-derive through Date and reject anything it
+    // has to roll over. Kept local (rather than sharing telescopeFiles'
+    // helper) because this module must stay a dependency-free leaf: importing
+    // telescopeFiles would pull the settings/DB layer in behind it.
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const probe = new Date(Date.UTC(year, month - 1, day));
+    if (
+      probe.getUTCFullYear() !== year ||
+      probe.getUTCMonth() !== month - 1 ||
+      probe.getUTCDate() !== day
+    ) {
+      return null;
+    }
     return `${m[1]}-${m[2]}-${m[3]}`;
   }
   return null;

@@ -34,10 +34,9 @@
 import fs from 'fs';
 import path from 'path';
 import db from '../db.js';
-import { getLibraryDir } from '../libraryPath.js';
 import { parseFilename } from '../telescopeFiles.js';
 import { parseFitsHeader } from '../fitsParser.js';
-import { getFolderName } from './objects.js';
+import { resolveContainedObjectDir } from './objects.js';
 import { listObjectFiles, getObjectLayout } from './libraryLayout.js';
 import { resolverFor } from './libraryFiles.js';
 import { getSite, getDefaultSite, type ObservingSite } from '../observingSites.js';
@@ -132,7 +131,11 @@ export function fitsCoordsForSession(
     return null;
   }
 
-  const objDir = path.join(getLibraryDir(), getFolderName(objectId));
+  // Contained resolution: this reads a FITS header off disk, so a traversal id
+  // must resolve to nothing rather than to an arbitrary file elsewhere on the
+  // host (and write a sessionLocation row built from it).
+  const objDir = resolveContainedObjectDir(objectId);
+  if (!objDir) return null;
   const identity = resolverFor(objectId);
   let firstFits: string | null = null;
   for (const entry of listObjectFiles(objDir, getObjectLayout(objectId))) {

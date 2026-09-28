@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { RotateCw, CheckCircle2 } from 'lucide-react';
 import { getSettings, updateSettings } from '../lib/api/settings';
 import { useTheme } from '../hooks/useTheme';
@@ -24,6 +25,7 @@ import { DangerSection } from '../components/settings/DangerSection';
 import { AboutSection } from '../components/settings/AboutSection';
 
 export function SettingsPage() {
+  const { t } = useTranslation('settings');
   const { isDark } = useTheme();
   const { isAdmin, isViewer } = useAuth();
   const queryClient = useQueryClient();
@@ -128,6 +130,7 @@ export function SettingsPage() {
 
   const showSaveBar = isDirty || justSaved;
   const accent = isDark ? '#fbbf24' : '#b45309';
+  const subtitleKey = subtitleKeyFor(resolvedGroup, resolvedSection);
 
   function renderActive() {
     switch (resolvedGroup) {
@@ -164,7 +167,7 @@ export function SettingsPage() {
   return (
     <div className={`-mt-8 ${showSaveBar ? 'pb-24' : ''}`} data-screen-label="Settings">
       <div className="max-w-[1800px] mx-auto px-1 pt-8">
-        <SettingsHero accent={accent} subtitle={subtitleFor(resolvedGroup, resolvedSection)} isAdmin={isAdmin} />
+        <SettingsHero accent={accent} subtitle={subtitleKey ? t(subtitleKey) : ''} isAdmin={isAdmin} />
       </div>
 
       {isViewer && (
@@ -172,7 +175,7 @@ export function SettingsPage() {
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
             isDark ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-50 text-amber-700 border border-amber-200'
           }`}>
-            View-only mode. Contact an admin to make changes.
+            {t('page.viewOnlyBanner')}
           </div>
         </div>
       )}
@@ -208,11 +211,13 @@ export function SettingsPage() {
           {justSaved && !isDirty ? (
             <div className="flex items-center gap-2 text-emerald-500">
               <CheckCircle2 className="w-4 h-4" />
-              <span className="text-sm font-medium">Changes saved</span>
+              <span className="text-sm font-medium">{t('page.changesSaved')}</span>
             </div>
           ) : saveMutation.isError ? (
             <span className="text-sm text-red-500">
-              Save failed: {saveMutation.error instanceof Error ? saveMutation.error.message : 'Unknown error'}
+              {t('page.saveFailed', {
+                error: saveMutation.error instanceof Error ? saveMutation.error.message : t('page.unknownError'),
+              })}
             </span>
           ) : (
             <div className="flex items-center gap-3">
@@ -221,7 +226,7 @@ export function SettingsPage() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-500" />
               </span>
               <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                Unsaved changes
+                {t('page.unsavedChanges')}
               </span>
             </div>
           )}
@@ -237,7 +242,7 @@ export function SettingsPage() {
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  Discard
+                  {t('page.discard')}
                 </button>
                 <button
                   onClick={handleSave}
@@ -245,7 +250,7 @@ export function SettingsPage() {
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold bg-accent-500 text-white hover:bg-accent-600 transition-all duration-150 disabled:opacity-50 shadow-sm shadow-accent-500/20"
                 >
                   {saveMutation.isPending && <RotateCw className="w-3.5 h-3.5 animate-spin" />}
-                  Save changes
+                  {t('page.saveChanges')}
                 </button>
               </>
             )}
@@ -256,24 +261,27 @@ export function SettingsPage() {
   );
 }
 
-function subtitleFor(groupId: string, sectionId: string | null): string {
+// Builds a settings.json key rather than returning English directly: this
+// function is called from SettingsPage's render body, not a component of its
+// own, so it cannot call useTranslation() itself (see the file header
+// comment on labelKey in SettingsNav.tsx for the same constraint). The
+// caller resolves the key via t(subtitleKeyFor(...), { ns: 'settings' }).
+function subtitleKeyFor(groupId: string, sectionId: string | null): string {
   switch (groupId) {
-    case 'general':  return 'Appearance and units.';
-    case 'library':  return 'How object cards, naming, and the slideshow behave.';
-    case 'updates':  return 'Version, release notes, and update settings.';
+    case 'general':  return 'subtitle.general';
+    case 'library':  return 'subtitle.library';
+    case 'updates':  return 'subtitle.updates';
     case 'account':
-      return sectionId === 'devices'
-        ? 'Phones and Apple TVs linked to your account.'
-        : 'The people who can sign in to this library.';
-    case 'hardware': return 'Telescopes and camera connections.';
-    case 'sky':      return 'Observing site, catalogs, and external data sources.';
+      return sectionId === 'devices' ? 'subtitle.accountDevices' : 'subtitle.accountUsers';
+    case 'hardware': return 'subtitle.hardware';
+    case 'sky':      return 'subtitle.sky';
     case 'storage':
-      if (sectionId === 'organize') return 'How this library stores each object\'s files on disk.';
-      if (sectionId === 'cleanup') return 'Temporary import files.';
-      return 'Where library data lives and how it stays in sync.';
-    case 'log':      return 'Sign-ins, user and telescope changes, syncs, and other admin activity.';
-    case 'danger':   return 'Diagnostics, cleanup tools, and destructive actions.';
-    case 'about':    return 'Why Nebulis exists, and who built it.';
+      if (sectionId === 'organize') return 'subtitle.storageOrganize';
+      if (sectionId === 'cleanup') return 'subtitle.storageCleanup';
+      return 'subtitle.storage';
+    case 'log':      return 'subtitle.log';
+    case 'danger':   return 'subtitle.danger';
+    case 'about':    return 'subtitle.about';
     default:         return '';
   }
 }

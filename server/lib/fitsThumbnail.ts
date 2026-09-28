@@ -143,8 +143,27 @@ function parseFitsPixels(buffer: ArrayBuffer): FitsPixels {
     if (rem !== 0) offset += 2880 - rem;
   }
 
+  // Sanity-check the header BEFORE allocating anything. `count` comes straight
+  // from two header cards, so a truncated download or a header that simply lies
+  // about NAXIS1/NAXIS2 used to allocate `count` floats (a 30000x30000 claim is
+  // a 3.6 GB Float32Array) and then fill the missing tail with zeros via the
+  // `break` in readPlane, producing a plausible-looking half-black thumbnail
+  // instead of an error. trailDetector.ts applies the same guard to its decode.
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new Error(`Invalid FITS: no usable image dimensions (NAXIS1=${width}, NAXIS2=${height})`);
+  }
   const count = width * height;
   const bpp   = Math.abs(bitpix) / 8;
+  if (!Number.isFinite(bpp) || bpp <= 0) {
+    throw new Error(`Invalid FITS: unsupported BITPIX ${bitpix}`);
+  }
+  // Only the planes this parser actually decodes have to be present.
+  const planesToRead = naxis3 === 3 ? 3 : 1;
+  const requiredBytes = count * bpp * planesToRead;
+  const availableBytes = buffer.byteLength - offset;
+  if (requiredBytes > availableBytes) {
+    throw new Error(`Invalid FITS: pixel data truncated (${availableBytes} of ${requiredBytes} bytes)`);
+  }
 
   const readPlane = (planeIndex: number): Float32Array => {
     const plane = new Float32Array(count);

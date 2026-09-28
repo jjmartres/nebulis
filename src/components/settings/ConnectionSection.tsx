@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Telescope as TelescopeIcon,
@@ -12,7 +14,8 @@ import {
   Network,
   RefreshCw,
   Pin,
-  Boxes,
+  Aperture,
+  ChevronRight,
 } from 'lucide-react';
 import {
   listTelescopes,
@@ -29,7 +32,6 @@ import { deviceNoun, isDwarfKind } from '../../lib/telescopePresets';
 import { AddTelescopeModal } from './AddTelescopeModal';
 import { ReassignTelescopeModal } from './ReassignTelescopeModal';
 import { TransportEditorModal } from './TransportEditorModal';
-import { ArchiveBrowserModal } from './ArchiveBrowserModal';
 import { Sec } from './SettingsUI';
 import { ConfirmModal } from '../ConfirmModal';
 
@@ -51,6 +53,7 @@ import { ConfirmModal } from '../ConfirmModal';
  * `telescopeId`, but users no longer pick it.
  */
 export function ConnectionSection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editing, setEditing] = useState<TelescopeProfile | null>(null);
@@ -58,7 +61,6 @@ export function ConnectionSection({ isDark }: { isDark: boolean }) {
   // Held as an id (not a snapshot) so the modal re-renders with fresh
   // pin/active state after every mutation-triggered ['telescopes'] refetch.
   const [managingTransportsId, setManagingTransportsId] = useState<string | null>(null);
-  const [archiveBrowserId, setArchiveBrowserId] = useState<string | null>(null);
   // One shared confirm dialog for both destructive actions below (archive,
   // permanent delete) rather than two near-identical pieces of state.
   const [pendingConfirm, setPendingConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null);
@@ -87,7 +89,6 @@ export function ConnectionSection({ isDark }: { isDark: boolean }) {
   const active = telescopes.filter(t => t.archivedAt === null);
   const archived = telescopes.filter(t => t.archivedAt !== null);
   const managingTransports = telescopes.find(t => t.id === managingTransportsId) ?? null;
-  const archiveBrowserTelescope = telescopes.find(t => t.id === archiveBrowserId) ?? null;
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['telescopes'] });
@@ -143,18 +144,18 @@ export function ConnectionSection({ isDark }: { isDark: boolean }) {
     || archiveMutation.isPending
     || unarchiveMutation.isPending;
 
-  function handleArchive(t: TelescopeProfile) {
-    const sessionCount = t.sessionCount ?? 0;
+  function handleArchive(profile: TelescopeProfile) {
+    const sessionCount = profile.sessionCount ?? 0;
     const message = sessionCount > 0
-      ? `Archive "${t.name}"? It will stop auto-importing but its ${sessionCount} session${sessionCount === 1 ? '' : 's'} stay attributed to it. You can restore or move sessions later.`
-      : `Archive "${t.name}"? It will stop auto-importing.`;
-    setPendingConfirm({ message, onConfirm: () => archiveMutation.mutate(t.id) });
+      ? t('connectionSection.archiveConfirmWithSessions', { name: profile.name, count: sessionCount })
+      : t('connectionSection.archiveConfirmNoSessions', { name: profile.name });
+    setPendingConfirm({ message, onConfirm: () => archiveMutation.mutate(profile.id) });
   }
 
   return (
     <Sec
-      title="Telescopes"
-      description="Each telescope imports independently. Click a card to edit its connection, color, or auto-import setting."
+      title={t('connectionSection.title')}
+      description={t('connectionSection.description')}
       isDark={isDark}
     >
       {showAddModal && (
@@ -183,18 +184,11 @@ export function ConnectionSection({ isDark }: { isDark: boolean }) {
           onClose={() => setManagingTransportsId(null)}
         />
       )}
-      {archiveBrowserTelescope && (
-        <ArchiveBrowserModal
-          telescope={archiveBrowserTelescope}
-          isDark={isDark}
-          onClose={() => setArchiveBrowserId(null)}
-        />
-      )}
       {pendingConfirm && (
         <ConfirmModal
-          title="Confirm"
+          title={t('connectionSection.confirmTitle')}
           message={pendingConfirm.message}
-          confirmLabel="Confirm"
+          confirmLabel={t('connectionSection.confirmLabel')}
           onConfirm={pendingConfirm.onConfirm}
           onCancel={() => setPendingConfirm(null)}
           pending={deleteMutation.isPending || archiveMutation.isPending}
@@ -210,31 +204,30 @@ export function ConnectionSection({ isDark }: { isDark: boolean }) {
         <p className="mb-3 text-sm text-red-400">
           {(() => {
             const err = deleteMutation.error ?? toggleAutoImportMutation.error ?? archiveMutation.error ?? unarchiveMutation.error ?? syncMutation.error;
-            return err instanceof Error ? err.message : 'Failed to update telescope. Try again.';
+            return err instanceof Error ? err.message : t('connectionSection.updateFailed');
           })()}
         </p>
       )}
 
       <div className="space-y-2 mb-3">
-        {active.map(t => (
+        {active.map(scope => (
           <TelescopeRow
-            key={t.id}
-            telescope={t}
+            key={scope.id}
+            telescope={scope}
             isDark={isDark}
             // Undefined until the first probe lands: assume online so the
             // pills don't flash dim on initial paint.
-            online={onlineById.get(t.id) ?? true}
-            onEdit={() => setEditing(t)}
-            onArchive={() => handleArchive(t)}
-            onReassign={() => setReassigning(t)}
-            onManageTransports={() => setManagingTransportsId(t.id)}
-            onToggleAutoImport={() => toggleAutoImportMutation.mutate({ id: t.id, autoImportEnabled: !t.autoImportEnabled })}
-            onSync={() => syncMutation.mutate(t.id)}
-            onBrowseArchive={() => setArchiveBrowserId(t.id)}
+            online={onlineById.get(scope.id) ?? true}
+            onEdit={() => setEditing(scope)}
+            onArchive={() => handleArchive(scope)}
+            onReassign={() => setReassigning(scope)}
+            onManageTransports={() => setManagingTransportsId(scope.id)}
+            onToggleAutoImport={() => toggleAutoImportMutation.mutate({ id: scope.id, autoImportEnabled: !scope.autoImportEnabled })}
+            onSync={() => syncMutation.mutate(scope.id)}
             // Disable sync when this telescope (or any other) is already
             // syncing — runImport holds a global lock, so a second click
             // would just fail server-side.
-            isSyncingThis={!!importStatus?.running && importStatus.telescopeId === t.id}
+            isSyncingThis={!!importStatus?.running && importStatus.telescopeId === scope.id}
             isAnyImportRunning={!!importStatus?.running}
             canReassign={active.length > 1}
             isPending={isAnyPending}
@@ -251,8 +244,43 @@ export function ConnectionSection({ isDark }: { isDark: boolean }) {
         }`}
       >
         <Plus className="w-4 h-4" />
-        Add smart telescope
+        {t('connectionSection.addTelescope')}
       </button>
+
+      {/* Calibration frames are archived by the telescopes listed above and
+          live on their own page, so give them a visible destination here
+          rather than leaving the top nav as the only way in. The title and
+          subtitle are the Calibration page's own strings, so the link can
+          never drift out of step with where it lands. */}
+      <Link
+        to="/calibrations"
+        className={`mt-3 flex items-center gap-3 px-4 py-3 rounded-xl border group transition-colors ${
+          isDark
+            ? 'bg-slate-900 border-slate-700 hover:border-accent-500/40 hover:bg-slate-800/50'
+            : 'bg-white border-slate-200 hover:border-accent-400 hover:bg-accent-50/40'
+        }`}
+      >
+        <span
+          className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${
+            isDark ? 'bg-accent-500/10 text-accent-400' : 'bg-accent-50 text-accent-700'
+          }`}
+        >
+          <Aperture className="w-4 h-4" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className={`block text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+            {t('calibrations.pageTitle', { ns: 'library' })}
+          </span>
+          <span className={`block text-xs leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+            {t('calibrations.pageSubtitle', { ns: 'library' })}
+          </span>
+        </span>
+        <ChevronRight
+          className={`w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+            isDark ? 'text-slate-500' : 'text-slate-400'
+          }`}
+        />
+      </Link>
 
       {archived.length > 0 && (
         <div className="mt-7">
@@ -260,22 +288,22 @@ export function ConnectionSection({ isDark }: { isDark: boolean }) {
               strip used inside Sec elsewhere), for a consistent look even
               though this section isn't part of that bordered-row flow. */}
           <h3 className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            Archived
+            {t('connectionSection.archivedHeading')}
           </h3>
           <p className={`text-[12px] leading-relaxed mb-3 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-            Retired telescopes; sessions stay attributed, auto-import is paused.
+            {t('connectionSection.archivedDescription')}
           </p>
           <div className="space-y-2">
-            {archived.map(t => (
+            {archived.map(scope => (
               <ArchivedTelescopeRow
-                key={t.id}
-                telescope={t}
+                key={scope.id}
+                telescope={scope}
                 isDark={isDark}
-                onUnarchive={() => unarchiveMutation.mutate(t.id)}
-                onReassign={() => setReassigning(t)}
+                onUnarchive={() => unarchiveMutation.mutate(scope.id)}
+                onReassign={() => setReassigning(scope)}
                 onDelete={() => setPendingConfirm({
-                  message: `Delete "${t.name}" permanently? This removes the connection record. Imported observations remain on disk.`,
-                  onConfirm: () => deleteMutation.mutate(t.id),
+                  message: t('connectionSection.deleteConfirm', { name: scope.name }),
+                  onConfirm: () => deleteMutation.mutate(scope.id),
                 })}
                 canReassign={active.length > 0}
                 isPending={isAnyPending}
@@ -305,7 +333,6 @@ function TelescopeRow({
   onManageTransports,
   onToggleAutoImport,
   onSync,
-  onBrowseArchive,
   isSyncingThis,
   isAnyImportRunning,
   canReassign,
@@ -321,12 +348,12 @@ function TelescopeRow({
   onManageTransports: () => void;
   onToggleAutoImport: () => void;
   onSync: () => void;
-  onBrowseArchive: () => void;
   isSyncingThis: boolean;
   isAnyImportRunning: boolean;
   canReassign: boolean;
   isPending: boolean;
 }) {
+  const { t } = useTranslation('settings');
   const sessions = telescope.sessionCount ?? 0;
   const transports = telescope.transports ?? [];
 
@@ -354,14 +381,14 @@ function TelescopeRow({
   let transportLine: string;
   if (transports.length > 1) {
     const parts: string[] = [];
-    if (netCount > 0) parts.push(`${netCount} Wi-Fi`);
-    if (localCount > 0) parts.push(`${localCount} USB`);
+    if (netCount > 0) parts.push(`${netCount} ${t('connectionSection.wifi')}`);
+    if (localCount > 0) parts.push(`${localCount} ${t('connectionSection.usb')}`);
     transportLine = parts.join(' + ');
   } else if (transports.length === 1) {
-    const t = transports[0];
-    transportLine = t.kind === 'local' ? (t.localPath || 'USB drive not set') : (t.hostname || 'no host set');
+    const transport = transports[0];
+    transportLine = transport.kind === 'local' ? (transport.localPath || t('connectionSection.usbDriveNotSet')) : (transport.hostname || t('connectionSection.noHostSet'));
   } else {
-    transportLine = telescope.hostname || telescope.localPath || 'no transport set';
+    transportLine = telescope.hostname || telescope.localPath || t('connectionSection.noTransportSet');
   }
   return (
     <div
@@ -385,36 +412,37 @@ function TelescopeRow({
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onManageTransports(); }}
-            title="Manage connections"
+            title={t('connectionSection.manageConnections')}
             className={`shrink-0 ${isDark ? 'hover:opacity-80' : 'hover:opacity-80'}`}
           >
             <TransportPills telescope={telescope} isDark={isDark} online={online} />
           </button>
         </div>
         <div className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {telescope.model} · {transportLine} · {sessions} session{sessions === 1 ? '' : 's'}
-          {calFileCount > 0 && ` · ${calFileCount} calibration file${calFileCount === 1 ? '' : 's'}`}
+          {telescope.model} · {transportLine} · {t('connectionSection.sessionCount', { count: sessions })}
+          {calFileCount > 0 && ` · ${t('connectionSection.calibrationFileCount', { count: calFileCount })}`}
         </div>
       </div>
       {calFileCount > 0 && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onBrowseArchive(); }}
-          title="Browse calibration frames and darks"
+        <Link
+          to={`/calibrations?scope=${encodeURIComponent(telescope.id)}`}
+          onClick={(e) => e.stopPropagation()}
+          title={t('connectionSection.viewCalibration')}
           className={`p-1.5 rounded-lg transition ${
             isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-accent-400' : 'hover:bg-slate-100 text-slate-500 hover:text-accent-600'
           }`}
         >
-          <Boxes className="w-3.5 h-3.5" />
-        </button>
+          <Aperture className="w-3.5 h-3.5" />
+        </Link>
       )}
       <button
         onClick={(e) => { e.stopPropagation(); onSync(); }}
         disabled={isAnyImportRunning || isPending}
         title={isSyncingThis
-          ? 'Syncing this telescope now'
+          ? t('connectionSection.syncingNow')
           : isAnyImportRunning
-            ? 'Another import is in progress'
-            : 'Sync now (pull new files from this telescope)'}
+            ? t('connectionSection.anotherImportRunning')
+            : t('connectionSection.syncNow')}
         className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
           isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-emerald-400' : 'hover:bg-slate-100 text-slate-500 hover:text-emerald-600'
         }`}
@@ -427,7 +455,7 @@ function TelescopeRow({
         aria-checked={telescope.autoImportEnabled}
         onClick={(e) => { e.stopPropagation(); onToggleAutoImport(); }}
         disabled={isPending}
-        title={telescope.autoImportEnabled ? 'Auto-import on: click to disable' : 'Auto-import off: click to enable'}
+        title={telescope.autoImportEnabled ? t('connectionSection.autoImportOn') : t('connectionSection.autoImportOff')}
         className={`relative inline-flex h-4 w-7 items-center rounded-full transition shrink-0 ${
           telescope.autoImportEnabled
             ? 'bg-teal-500'
@@ -442,8 +470,8 @@ function TelescopeRow({
         onClick={(e) => { e.stopPropagation(); onReassign(); }}
         disabled={!canReassign || isPending}
         title={canReassign
-          ? 'Move all sessions to another telescope'
-          : 'Add another telescope to enable bulk reassignment'}
+          ? t('connectionSection.moveSessions')
+          : t('connectionSection.addAnotherToReassign')}
         className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
           isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-violet-400' : 'hover:bg-slate-100 text-slate-500 hover:text-violet-600'
         }`}
@@ -453,7 +481,7 @@ function TelescopeRow({
       <button
         onClick={(e) => { e.stopPropagation(); onEdit(); }}
         disabled={isPending}
-        title="Edit telescope"
+        title={t('connectionSection.editTelescope')}
         className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
           isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-teal-400' : 'hover:bg-slate-100 text-slate-500 hover:text-teal-600'
         }`}
@@ -463,7 +491,7 @@ function TelescopeRow({
       <button
         onClick={(e) => { e.stopPropagation(); onArchive(); }}
         disabled={isPending}
-        title="Archive telescope (keeps historical sessions attributed)"
+        title={t('connectionSection.archiveTelescope')}
         className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
           isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-amber-400' : 'hover:bg-slate-100 text-slate-500 hover:text-amber-600'
         }`}
@@ -496,6 +524,7 @@ function ArchivedTelescopeRow({
   canReassign: boolean;
   isPending: boolean;
 }) {
+  const { t } = useTranslation('settings');
   const sessions = telescope.sessionCount ?? 0;
   return (
     <div
@@ -514,16 +543,16 @@ function ArchivedTelescopeRow({
           {telescope.name}
         </div>
         <div className={`text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {telescope.model} · {sessions} session{sessions === 1 ? '' : 's'} · archived
+          {telescope.model} · {t('connectionSection.sessionCount', { count: sessions })} · {t('connectionSection.archivedRowInfo')}
         </div>
       </div>
       <button
         onClick={onReassign}
         disabled={!canReassign || isPending || sessions === 0}
         title={
-          sessions === 0 ? 'No sessions to move'
-            : canReassign ? 'Move sessions to another telescope'
-              : 'Add or restore a telescope to move sessions'}
+          sessions === 0 ? t('connectionSection.noSessionsToMove')
+            : canReassign ? t('connectionSection.moveSessionsToAnother')
+              : t('connectionSection.addOrRestoreToMove')}
         className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
           isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-violet-400' : 'hover:bg-slate-100 text-slate-500 hover:text-violet-600'
         }`}
@@ -533,7 +562,7 @@ function ArchivedTelescopeRow({
       <button
         onClick={onUnarchive}
         disabled={isPending}
-        title="Restore telescope"
+        title={t('connectionSection.restoreTelescope')}
         className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
           isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-teal-400' : 'hover:bg-slate-100 text-slate-500 hover:text-teal-600'
         }`}
@@ -543,7 +572,7 @@ function ArchivedTelescopeRow({
       <button
         onClick={onDelete}
         disabled={isPending}
-        title="Delete permanently"
+        title={t('connectionSection.deletePermanently')}
         className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
           isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-red-400' : 'hover:bg-slate-100 text-slate-500 hover:text-red-600'
         }`}
@@ -617,11 +646,12 @@ function TransportPills({ telescope, isDark, online }: { telescope: TelescopePro
 }
 
 function TransportPill({ kind, active, pinned, offline, isDark, noun }: { kind: ConnectionType; active: boolean; pinned: boolean; offline: boolean; isDark: boolean; noun: string }) {
+  const { t } = useTranslation('settings');
   const Icon = kind === 'local' ? Usb : Network;
-  const label = kind === 'local' ? 'USB' : 'Wi-Fi';
+  const label = kind === 'local' ? t('connectionSection.usb') : t('connectionSection.wifi');
   // Protocol is tooltip-only detail: it is not something the user picks, but
   // it is the first thing worth knowing when a connection misbehaves.
-  const detail = kind === 'ftp' ? 'Wi-Fi (FTP)' : kind === 'smb' ? 'Wi-Fi (SMB)' : 'USB';
+  const detail = kind === 'ftp' ? t('connectionSection.wifiFtp') : kind === 'smb' ? t('connectionSection.wifiSmb') : t('connectionSection.usb');
   // Bright tones for the active transport (sky-blue for the network ones,
   // amber for USB) and a muted slate tone for the inactive ones, so the eye
   // lands on the transport actually in use.
@@ -634,12 +664,12 @@ function TransportPill({ kind, active, pinned, offline, isDark, noun }: { kind: 
   // unreachable telescope is still configured, but saying it's "the transport
   // to use" reads as a live connection.
   const title = offline
-    ? `${detail}: configured, but this ${noun} is not reachable right now`
+    ? t('connectionSection.pillOffline', { detail, noun })
     : pinned
-      ? `${detail}: manually pinned as the transport to use`
+      ? t('connectionSection.pillPinned', { detail })
       : active
-        ? `${detail}: active transport for this ${noun} right now`
-        : `${detail}: configured but not the active transport right now`;
+        ? t('connectionSection.pillActive', { detail, noun })
+        : t('connectionSection.pillInactive', { detail });
   return (
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${tone}`} title={title}>
       {pinned && <Pin className="w-2.5 h-2.5" />}
