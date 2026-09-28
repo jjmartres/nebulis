@@ -132,7 +132,7 @@ The `server/lib/walkers/` directory abstracts folder layout per telescope kind. 
 |---|---|
 | [telescopeWalker.ts](../server/lib/walkers/telescopeWalker.ts) | SeeStar. Discovers `<base>/<Object>/...` and `<base>/<Object>_sub/...` folders. |
 | [dwarfWalker.ts](../server/lib/walkers/dwarfWalker.ts) | DWARFLAB. Session folders (`DWARF3_RAW_*` / `DWARF_RAW_*`) under `Astronomy/`, one folder per session rather than per object. |
-| [asiairWalker.ts](../server/lib/walkers/asiairWalker.ts) | ZWO ASIAIR (beta). Frame-type-first: `Autorun\|Plan/Light/<Target>/` plus `Live/<Target>/`, unioned into one object per target. |
+| [asiairWalker.ts](../server/lib/walkers/asiairWalker.ts) | ZWO ASIAIR. Frame-type-first: `Autorun\|Plan/Light/<Target>/` plus `Live/<Target>/`, unioned into one object per target. |
 | [genericWalker.ts](../server/lib/walkers/genericWalker.ts) | The documented Generic SMB Layout for kind `other`: `<Object>/<YYYY-MM-DD>_<HHMM>/lights\|subframes/`. |
 | [index.ts](../server/lib/walkers/index.ts) | `getWalkerConfig(kind)` returns `{ basePath }`. SeeStar uses `'MyWorks'`, Dwarf uses `'Astronomy'`, `asiair` and `other` use `''`. `isDwarfKind(kind)` / `isAsiairKind(kind)` distinguish the layout families. |
 
@@ -140,7 +140,7 @@ The `server/lib/walkers/` directory abstracts folder layout per telescope kind. 
 
 ASIAIR is the one exception to `basePath` carrying the whole layout: its targets sit two levels down under a capture-mode and frame-type pair, and the same target can appear under several of them at once, so `discoverAsiairObjects` does the descent itself. Its `ASIAir/`-on-removable-media probe lives in the walker rather than a transport, because it is a layout fact that holds over both SMB and USB.
 
-**Still speculative:** ASIAIR support is built from ZWO's published transfer guide and community tooling, not from a device on the bench, which is what its "(Beta)" label claims. Within that, the `Live/` output filenames and the `Video/` folder layout are specifically unconfirmed and nothing parses them.
+**Partly speculative:** the ASIAIR folder layout has been confirmed against a real device, so the telescope kind no longer carries a beta marker. Two pieces of it remain unconfirmed, and nothing parses either: the filenames ASIAIR gives `Live/` output, and the `Video/` folder layout.
 
 ---
 

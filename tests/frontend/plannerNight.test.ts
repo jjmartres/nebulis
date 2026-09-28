@@ -16,6 +16,7 @@ import {
   plannedMinutes,
   twilightMarksFor,
 } from '../../src/lib/plannerNight';
+import { checkMoonProximity } from '../../src/lib/moonProximity';
 import type { PlannedSession } from '../../src/lib/api/plannedSessions';
 
 const LAT = 40;
@@ -195,6 +196,43 @@ describe('bestSlotFor', () => {
     expect(
       bestSlotFor({ ...base, windowEnd: new Date(NIGHT_START.getTime() + 30 * 60_000) }),
     ).toBeNull();
+  });
+
+  describe('moon awareness', () => {
+    // Near-full moon: the widest threshold (see moonProximity.ts), so most
+    // likely of any illumination to produce a real mix of 'warning' and
+    // non-'warning' candidates across this 10-hour window and make the
+    // invariant below meaningful rather than vacuous.
+    const illum = 90;
+
+    it('never returns a warning-verdict slot when a safer one exists in the window', () => {
+      // Scan the window at the same cadence bestSlotFor uses, with the real
+      // (client-side) moon-proximity check, to find out independently
+      // whether a non-warning candidate exists at all for this target/night.
+      const step = 15 * 60_000;
+      const durationMs = base.durationMinutes * 60_000;
+      let anyNonWarning = false;
+      for (let t = NIGHT_START.getTime(); t <= NIGHT_END.getTime() - durationMs; t += step) {
+        const verdict = checkMoonProximity(
+          base.ra, base.dec, LAT, LON, new Date(t), new Date(t + durationMs), illum, 15,
+        ).verdict;
+        if (verdict !== 'warning') { anyNonWarning = true; break; }
+      }
+
+      const slot = bestSlotFor({ ...base, moonIllumination: illum })!;
+      if (anyNonWarning) {
+        expect(slot.moonVerdict).not.toBe('warning');
+      } else {
+        // Every candidate is moon-wrecked: quick-add must still land
+        // somewhere rather than failing outright.
+        expect(slot).not.toBeNull();
+      }
+    });
+
+    it('skips the moon check entirely when moonIllumination is omitted', () => {
+      const slot = bestSlotFor(base)!;
+      expect(slot.moonVerdict).toBe('ok');
+    });
   });
 });
 

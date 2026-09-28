@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ALL_TOUR_STEPS } from '../../src/components/tour/steps';
 import { SETTINGS_NAV } from '../../src/components/settings/SettingsNav';
+import { NAV_LINK_CONFIG } from '../../src/components/Layout';
 
 /**
  * Static guard for tour step / TourAnchor drift.
@@ -20,7 +21,10 @@ import { SETTINGS_NAV } from '../../src/components/settings/SettingsNav';
  *  - Static `<TourAnchor id="...">` usages, found by scanning src/.
  *  - `settings-nav-<group.id>` for every entry in SETTINGS_NAV, generated
  *    dynamically in SettingsNav.tsx rather than written as a literal.
- * If a future anchor host adds a THIRD kind of dynamic id, this test's
+ *  - `tourAnchorId` values in Layout.tsx's NAV_LINK_CONFIG, which drives the
+ *    top nav strip's per-item TourAnchor id dynamically (see that file's
+ *    comment on the export).
+ * If a future anchor host adds a FOURTH kind of dynamic id, this test's
  * `knownAnchorIds` needs a matching addition — same as any other constant
  * that intentionally isn't statically greppable.
  */
@@ -47,7 +51,12 @@ describe('tour anchors stay in sync with steps.ts', () => {
   it('every non-welcome step anchorKey resolves to a real TourAnchor', () => {
     const staticIds = findStaticAnchorIds(SRC_DIR);
     const settingsNavIds = new Set(SETTINGS_NAV.map(g => `settings-nav-${g.id}`));
-    const knownAnchorIds = new Set([...staticIds, ...settingsNavIds]);
+    const navLinkAnchorIds = new Set(
+      Object.values(NAV_LINK_CONFIG)
+        .map(cfg => cfg.tourAnchorId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const knownAnchorIds = new Set([...staticIds, ...settingsNavIds, ...navLinkAnchorIds]);
 
     // The welcome card is intentionally anchorless (TourOverlay special-cases
     // it, per steps.ts's own doc comment) — every other step must resolve.

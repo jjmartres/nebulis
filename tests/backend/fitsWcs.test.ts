@@ -49,6 +49,34 @@ describe('parseRaToDegs', () => {
     // header would silently pass filters instead of failing them.
     expect(parseRaToDegs('not a coordinate')).toBe(0);
   });
+
+  describe('decimal RA from an hours keyword (OBJCTRA)', () => {
+    // OBJCTRA is sexagesimal HOURS by the FITS standard, so a bare decimal there
+    // is hours too. Reading '18.5' as 18.5 degrees instead of 277.5 is the same
+    // 259-degree class of error the sexagesimal fix above exists to prevent; the
+    // caller has to say which keyword the value came from.
+    it('reads a decimal OBJCTRA as hours', () => {
+      expect(parseRaToDegs('18.5', { decimalIsHours: true })).toBeCloseTo(277.5, 6);
+      expect(parseRaToDegs('0.5', { decimalIsHours: true })).toBeCloseTo(7.5, 6);
+      // 00h42m44s (M31) written as decimal hours.
+      expect(parseRaToDegs('0.7122', { decimalIsHours: true })).toBeCloseTo(10.683, 3);
+    });
+
+    it('still reads a decimal CRVAL1 (or default) as degrees', () => {
+      expect(parseRaToDegs('274.700')).toBeCloseTo(274.7, 4);
+      expect(parseRaToDegs('18.5')).toBeCloseTo(18.5, 6);
+    });
+
+    it('falls back to degrees when an hours keyword clearly holds degrees', () => {
+      // A writer that put degrees into OBJCTRA still reads correctly: 274.7
+      // cannot be hours.
+      expect(parseRaToDegs('274.700', { decimalIsHours: true })).toBeCloseTo(274.7, 4);
+    });
+
+    it('keeps sexagesimal OBJCTRA at 15 degrees per hour', () => {
+      expect(parseRaToDegs('18 18 48.00', { decimalIsHours: true })).toBeCloseTo(274.7, 4);
+    });
+  });
 });
 
 describe('parseDecToDegs', () => {

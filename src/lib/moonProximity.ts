@@ -138,3 +138,49 @@ export function checkMoonProximity(
 
   return { verdict, minSeparation: minSep, threshold, worstAt, moonAltAtWorst, reason };
 }
+
+export interface MoonInterferenceSample {
+  time: Date;
+  /** Angular separation to the moon (degrees). Null while the moon is below
+   *  the horizon, when there is nothing to be close to. */
+  separation: number | null;
+  /** 'ok' also covers "moon is down" — there's no reason to flag a span
+   *  where it can't be interfering at all. */
+  verdict: MoonVerdict;
+}
+
+/**
+ * Per-sample moon-proximity trace across a window, for a continuous strip
+ * (e.g. drawn alongside an altitude curve) rather than the single worst-case
+ * verdict `checkMoonProximity` returns. Same threshold heuristic and verdict
+ * bands, just without collapsing the timeline down to one number.
+ */
+export function computeMoonInterferenceCurve(
+  ra: number,
+  dec: number,
+  lat: number,
+  lon: number,
+  start: Date,
+  end: Date,
+  illumPercent: number,
+  stepMinutes = 15,
+): MoonInterferenceSample[] {
+  const threshold = moonThresholdForIllumination(illumPercent);
+  const stepMs = Math.max(1, stepMinutes) * 60_000;
+  const out: MoonInterferenceSample[] = [];
+
+  for (let t = start.getTime(); t <= end.getTime(); t += stepMs) {
+    const when = new Date(t);
+    const moon = moonAltAz(when, lat, lon);
+    if (moon.alt < 0) {
+      out.push({ time: when, separation: null, verdict: 'ok' });
+      continue;
+    }
+    const target = altAz(ra, dec, lat, lon, when);
+    const sep = separationFromAltAz(target.alt, target.az, moon.alt, moon.az);
+    const verdict: MoonVerdict = sep >= threshold ? 'ok' : sep >= threshold - 15 ? 'caution' : 'warning';
+    out.push({ time: when, separation: sep, verdict });
+  }
+
+  return out;
+}

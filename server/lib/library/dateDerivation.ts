@@ -42,7 +42,7 @@
  */
 import fs from 'fs';
 import { parseFitsHeader } from '../fitsParser.js';
-import { parseFilename } from '../telescopeFiles.js';
+import { parseFilename, isPlausibleCalendarDate } from '../telescopeFiles.js';
 import { exifDateFromFile } from '../exifDate.js';
 
 /** Where a file's session date came from, in priority order. Drives the
@@ -101,6 +101,12 @@ export function deriveFromFits(absPath: string): DerivedDate | null {
     if (!isoMatch) return null;
     const [, y, mo, d, hh, mm, ss] = isoMatch;
     const date = `${y}-${mo}-${d}`;
+    // DATE-OBS is written by capture software, not by us, and the same
+    // round-trip guard the folder path uses has to apply here: without it an
+    // impossible DATE-OBS ("2024-02-30") became a live session key and was then
+    // baked into the canonical filename by importNaming.ts. Returning null lets
+    // the caller fall through to the folder/mtime signals instead.
+    if (!isPlausibleCalendarDate(date)) return null;
 
     let time: string | null = hh && mm && ss ? `${hh}${mm}${ss}` : null;
     if (!time) {
@@ -155,21 +161,13 @@ function matchDateInText(text: string): string | null {
   return null;
 }
 
+// Reject impossible calendar dates (2024-02-30, 2024-11-31) so a malformed
+// folder segment can't become a real session key and get baked into the
+// canonical filename by importNaming.ts. The rule itself lives in
+// telescopeFiles.ts (isPlausibleCalendarDate) so the filename, folder, and FITS
+// paths cannot drift apart.
 function isPlausibleDate(y: string, mo: string, d: string): boolean {
-  const year = Number(y);
-  const month = Number(mo);
-  const day = Number(d);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
-  // Reject impossible calendar dates (2024-02-30, 2024-11-31) so a malformed
-  // folder segment can't become a real session key and get baked into the
-  // canonical filename by importNaming.ts. Round-trip through Date: if the
-  // components don't survive, the date wasn't real.
-  const probe = new Date(Date.UTC(year, month - 1, day));
-  return (
-    probe.getUTCFullYear() === year &&
-    probe.getUTCMonth() === month - 1 &&
-    probe.getUTCDate() === day
-  );
+  return isPlausibleCalendarDate(`${y}-${mo}-${d}`);
 }
 
 /** Local-time date + time from a file's modified timestamp. Always succeeds. */

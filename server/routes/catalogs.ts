@@ -15,6 +15,7 @@ import { HERSCHEL400_IDS } from '../lib/herschel400Catalog.js';
 import { SHARPLESS_CATALOG } from '../lib/sharplessCatalog.js';
 import { raToHours, decToDegs } from '../lib/astroCalc.js';
 import { computeBestImagingWindow, isUpTonight } from '../lib/bestImagingWindow.js';
+import { classOfType } from '../lib/objectCategories.js';
 
 const router = Router();
 
@@ -62,18 +63,14 @@ const CATALOG_CONFIGS: Record<string, CatalogDef> = {
 
 type ObjectClass = 'galaxy' | 'nebula' | 'cluster' | 'other';
 
+/** The coarse family for a raw type, or 'other' for everything the shared table
+ *  does not claim (double stars, star clouds, an unresolved "Unknown").
+ *
+ *  This used to carry its own shorthand aliases (gal, neb, pn, snr, oc, cl...).
+ *  None of them appear in the catalog's 22 real type strings, and `cl` also
+ *  matched "Dark Cloud", so they are gone rather than ported. */
 function classifyType(type: string | undefined): ObjectClass {
-  const t = (type ?? '').toLowerCase();
-  if (t.includes('galaxy') || t.includes('gal') || t === 'g') return 'galaxy';
-  if (
-    t.includes('nebula') || t.includes('neb') || t.includes('planetary') ||
-    t.includes('supernova') || t.includes('remnant') || t === 'pn' || t === 'snr'
-  ) return 'nebula';
-  if (
-    t.includes('cluster') || t.includes('cl') || t.includes('asterism') ||
-    t === 'oc' || t === 'gc' || t === 'ocl' || t === 'gcl'
-  ) return 'cluster';
-  return 'other';
+  return classOfType(type) ?? 'other';
 }
 
 // ── Library map helper ───────────────────────────────────────────────────────

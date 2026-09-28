@@ -173,6 +173,17 @@ export const LIBRARY_IO_TIMEOUT_MS = NETWORK_STAT_TIMEOUT_MS;
  *  beats a 503 the client renders as a broken image. */
 export const LIBRARY_SERVE_IO_TIMEOUT_MS = 20_000;
 
+/** Longer bound still, for the periodic background walk that sums the whole
+ *  library tree (Settings -> Storage's "Library Size" tile). This never gates
+ *  a request: it runs off a setInterval and serves a cache. A library with
+ *  tens of thousands of sub-frames on a Docker bind-mount, a network share, or
+ *  a spun-down external drive can push individual stat() calls well past 5s
+ *  without anything being broken, and the 5s bound silently dropped those
+ *  files' bytes from the total (while still counting them into fileCount),
+ *  understating "Library Size" against the drive's real usage. Correctness
+ *  matters far more than latency for a background total, so give it room. */
+export const LIBRARY_STATS_IO_TIMEOUT_MS = 60_000;
+
 /**
  * `stat` a file under the library for a read-and-serve route.
  *
@@ -249,12 +260,13 @@ export function getDefaultLibraryDir(): string {
  *  builds the path string; call isLibraryAvailable() to know whether it's
  *  actually reachable right now.
  *
- *  For network-share configs, delegates to resolveNetworkLibraryPath() which
- *  is a pure string builder on all platforms (see its own doc comment — it no
- *  longer throws on Linux/Docker since chore: sync v2.0.2). A caller that
- *  only wants a human-readable description of the current location (e.g. to
- *  log it before resetting away from it) can use describeLibraryLocation()
- *  below, which also handles any future platform-guard changes gracefully. */
+ *  For a network-share config this delegates to resolveNetworkLibraryPath(),
+ *  which is a pure string builder on every platform: on Linux/Docker it returns
+ *  a UNC-style display string rather than throwing, so this function does not
+ *  throw either. A caller that only wants a human-readable description of the
+ *  current location (to log or display it before resetting away from it) should
+ *  still prefer describeLibraryLocation() below, so that a future change to the
+ *  platform guards there cannot turn a label into a failed request. */
 export function getLibraryDir(): string {
   if (LIBRARY_DIR_OVERRIDE) return LIBRARY_DIR_OVERRIDE;
   const cfg = load();
@@ -266,13 +278,15 @@ export function getLibraryDir(): string {
  * Same intent as getLibraryDir(), but guaranteed never to throw — for
  * display/logging only, never for an actual read or write.
  *
- * resolveNetworkLibraryPath() is currently a pure string builder on all
- * platforms (chore: sync v2.0.2), so the try/catch here is a safety net for
- * any future platform-guard reinstatement rather than an active code path.
- * Use this function (not getLibraryDir()) wherever the goal is describing the
- * current location for a human-readable response or log line, so a future
- * change to resolveNetworkLibraryPath() can never accidentally 500 a route
- * that only needed a label.
+ * The try/catch is a safety net rather than an active code path:
+ * resolveNetworkLibraryPath() is currently a pure string builder on every
+ * platform, so the fallback below only fires if a platform guard is ever
+ * reinstated there. Use this function (not getLibraryDir()) wherever the goal
+ * is describing the current location for a response or a log line. The case
+ * that matters is the reset route (POST /storage/library-location/reset): a
+ * library relocated to a network share from another machine and then run on
+ * Linux/Docker is exactly the "location is gone for good" situation it recovers
+ * from, and it must not fail while describing what it is about to clear.
  */
 export function describeLibraryLocation(): string {
   if (LIBRARY_DIR_OVERRIDE) return LIBRARY_DIR_OVERRIDE;

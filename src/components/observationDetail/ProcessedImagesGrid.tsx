@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { Upload, ImagePlus, Crown, Download, Star, Trash2, Loader2, FileDown, Layers } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { isRenderableProcessed, processedFormatLabel } from '../../lib/processedFormats';
+import { formatDate } from '../../lib/formatLocale';
 import type { ProcessedImage } from '../../types';
 import type { CompareFile } from '../ImageCompareModal';
 import type { CompareItem } from './types';
@@ -46,6 +48,7 @@ export function ProcessedImagesGrid({
   onDropFile: (file: File) => void;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
 
   return (
     <div className={`rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
@@ -63,7 +66,7 @@ export function ProcessedImagesGrid({
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
-            Upload
+            {t('observationDetail.processedImagesGrid.upload')}
           </button>
         )}
       </div>
@@ -92,11 +95,11 @@ export function ProcessedImagesGrid({
           </div>
           <div className="text-center">
             <p className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              {isAdmin ? 'Upload your processed images' : 'No processed images yet'}
+              {isAdmin ? t('observationDetail.processedImagesGrid.uploadPrompt') : t('observationDetail.processedImagesGrid.empty')}
             </p>
             {isAdmin && (
               <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                JPG, PNG, TIFF · up to 300 MB · drag & drop or click
+                {t('observationDetail.processedImagesGrid.uploadHint')}
               </p>
             )}
           </div>
@@ -164,7 +167,7 @@ export function ProcessedImagesGrid({
                     <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${isDark ? 'bg-slate-800/60' : 'bg-slate-100'}`}>
                       <FileDown className={`w-7 h-7 ${isDark ? 'text-slate-600' : 'text-slate-400'}`} />
                       <span className={`font-mono text-xs font-bold tracking-wide ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {processedFormatLabel(img.originalName) ?? 'FILE'}
+                        {processedFormatLabel(img.originalName) ?? t('observationDetail.processedImagesGrid.genericFile')}
                       </span>
                     </div>
                   )}
@@ -181,7 +184,7 @@ export function ProcessedImagesGrid({
                       onClick={e => { e.stopPropagation(); handleSetSessionImage(img.path); }}
                       disabled={settingSessionImage}
                       className="absolute top-1 left-1 z-10 p-1 rounded-md bg-black/60 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 hover:text-amber-400"
-                      title="Set as session image"
+                      title={t('observationDetail.processedImagesGrid.setAsSessionImage')}
                     >
                       <Crown className="w-3 h-3" />
                     </button>
@@ -195,7 +198,7 @@ export function ProcessedImagesGrid({
                       download={img.originalName}
                       onClick={e => e.stopPropagation()}
                       className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-white/30 transition"
-                      title="Download"
+                      title={t('observationDetail.processedImagesGrid.download')}
                     >
                       <Download className="w-3.5 h-3.5" />
                     </a>
@@ -207,7 +210,7 @@ export function ProcessedImagesGrid({
                         onClick={e => { e.stopPropagation(); handleSetProcessedAsGallery(img); }}
                         disabled={!!settingGalleryId}
                         className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-white/30 transition disabled:opacity-50"
-                        title="Set as gallery image"
+                        title={t('observationDetail.processedImagesGrid.setAsGalleryImage')}
                       >
                         {settingGalleryId === img.id
                           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -222,7 +225,7 @@ export function ProcessedImagesGrid({
                         onClick={e => { e.stopPropagation(); onRequestDelete(img.id); }}
                         disabled={!!deletingProcessedId}
                         className="p-1.5 rounded-lg bg-red-500/80 text-white hover:bg-red-500 transition disabled:opacity-50"
-                        title="Delete"
+                        title={t('observationDetail.processedImagesGrid.delete')}
                       >
                         {deletingProcessedId === img.id
                           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -265,11 +268,11 @@ export function ProcessedImagesGrid({
                   )}
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <p className={`text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                      {new Date(img.uploadedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {formatDate(new Date(img.uploadedAt), { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                     {img.runDates && img.runDates.length > 1 && (
                       <span
-                        title={`Combines ${img.runDates.length} nights: ${img.runDates.join(', ')}`}
+                        title={t('observationDetail.processedImagesGrid.combinesNights', { count: img.runDates.length, list: img.runDates.join(', ') })}
                         className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium ${
                           isDark ? 'bg-accent-500/10 text-accent-400' : 'bg-accent-50 text-accent-600'
                         }`}
@@ -292,7 +295,7 @@ export function ProcessedImagesGrid({
               }`}
             >
               <Upload className="w-5 h-5" />
-              <span className="text-[11px] font-medium">Add more</span>
+              <span className="text-[11px] font-medium">{t('observationDetail.processedImagesGrid.addMore')}</span>
             </button>
           </div>
         </div>

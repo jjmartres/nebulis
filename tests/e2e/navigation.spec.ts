@@ -9,7 +9,6 @@ const PAGES = [
   { path: '/', name: 'Gallery' },
   { path: '/observations', name: 'Observations' },
   { path: '/planner', name: 'Planner' },
-  { path: '/wishlist', name: 'Wishlist' },
   { path: '/storage', name: 'Storage' },
   { path: '/forecast', name: 'Forecast' },
   { path: '/settings', name: 'Settings' },
@@ -56,18 +55,13 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL('/planner');
   });
 
-  test('wishlist nav link goes to /wishlist', async ({ page }) => {
+  test('storage route is reachable directly', async ({ page }) => {
     await mockAllRoutes(page);
-    await page.goto('/');
-    await page.getByRole('link', { name: /wishlist/i }).click();
-    await expect(page).toHaveURL('/wishlist');
-  });
-
-  test('storage nav link goes to /storage', async ({ page }) => {
-    await mockAllRoutes(page);
-    await page.goto('/');
-    await page.getByRole('link', { name: /storage/i }).click();
+    // Storage's standalone nav link was removed; the page is reached by URL or
+    // from Settings, so assert the route itself still works.
+    await page.goto('/storage');
     await expect(page).toHaveURL('/storage');
+    await expect(page.getByRole('heading', { name: 'Storage', exact: true })).toBeVisible();
   });
 
   test('settings nav link goes to /settings', async ({ page }) => {
@@ -95,15 +89,14 @@ test.describe('Navigation', () => {
     await mockAllRoutes(page);
     await page.goto('/object/M42');
 
-    // Navigate into a session
-    await page.getByText('2024-03-15').first().click();
-    await expect(page).toHaveURL(/\/object\/M42\/session\/2024-03-15/);
+    // Navigate into a session. Session detail now lives at
+    // /observations/:objectId/:date, and the card is labelled with the
+    // formatted night ("Fri, Mar 15") rather than the raw date.
+    await page.getByRole('link', { name: /Mar 15/ }).click();
+    await expect(page).toHaveURL(/\/observations\/M42\/2024-03-15/);
 
-    // Navigate back
-    await page.getByRole('link', { name: /back|M42|Orion/i })
-      .or(page.locator(`a[href="/object/M42"]`))
-      .first()
-      .click();
+    // The session hero's breadcrumb links back to the object.
+    await page.getByRole('link', { name: /Orion Nebula/i }).click();
     await expect(page).toHaveURL('/object/M42');
   });
 

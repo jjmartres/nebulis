@@ -39,6 +39,20 @@ export function isStagedPath(p: string): boolean {
   return resolved === IMPORT_TMP_BASE || resolved.startsWith(IMPORT_TMP_BASE + path.sep);
 }
 
+/**
+ * True only for the staging base itself, not a session directory inside it.
+ *
+ * The base is Nebulis's own scratch space. It is never a legitimate import
+ * source: the folder picker can reach it, and treating it as "staged" would let
+ * the post-commit cleanup delete the whole area, taking every other in-flight
+ * upload session's files with it. Session directories (`base/<uuid>`) are the
+ * real staged sources and must stay deletable, so this is narrower than
+ * `isStagedPath` on purpose.
+ */
+export function isImportStagingBase(p: string): boolean {
+  return path.resolve(p) === IMPORT_TMP_BASE;
+}
+
 function dirSize(dir: string): { bytes: number; files: number } {
   let bytes = 0, files = 0;
   let entries: fs.Dirent[];

@@ -30,7 +30,10 @@ test.describe('Observations Calendar', () => {
   });
 
   test('shows the month it is displaying', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'March 2024' })).toBeVisible();
+    // The month label is now the MonthYearMenu trigger (a button that opens the
+    // month/year picker), not a heading. Exact name so the YearActivity month
+    // buttons ("March 2024, 1 night, 1 session") are not also matched.
+    await expect(page.getByRole('button', { name: 'March 2024', exact: true })).toBeVisible();
   });
 
   test('shows constellation labels', async ({ page }) => {
@@ -43,8 +46,16 @@ test.describe('Observations Calendar', () => {
   });
 
   test('new observation button navigates to creation form', async ({ page }) => {
-    await page.getByRole('link', { name: /new observation/i }).click();
-    await expect(page).toHaveURL('/observations/new');
+    // The calendar no longer links to /observations/new. Creating an observation
+    // now opens the Log Observation modal from the Library (the standalone
+    // /observations/new page still exists for deep links).
+    await page.goto('/');
+    await page.getByRole('button', { name: /new observation/i }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Log Observation' });
+    await expect(dialog).toBeVisible();
+    // Scoped to the dialog: the Library behind it has its own search box.
+    await expect(dialog.getByPlaceholder(/search/i)).toBeVisible();
   });
 
   test('calendar navigation buttons are present', async ({ page }) => {
@@ -131,11 +142,15 @@ test.describe('Observation Detail', () => {
   });
 
   test('shows object name in heading', async ({ page }) => {
-    await expect(page.getByText('Orion Nebula')).toBeVisible();
+    // The hero h1 prints the full title "M42 (Orion Nebula)", and the same text
+    // also appears in the breadcrumb, the About heading and its body copy.
+    await expect(page.getByRole('heading', { name: 'M42 (Orion Nebula)', exact: true })).toBeVisible();
   });
 
   test('shows observation date', async ({ page }) => {
-    await expect(page.getByText(/2024-03-15|march 15/i)).toBeVisible();
+    // Match the formatted hero date rather than the ISO fragment, which is also
+    // part of every filename in the file grid ("..._2024-03-15.fit").
+    await expect(page.getByText(/March 15, 2024/i)).toBeVisible();
   });
 
   test('shows file listing', async ({ page }) => {
@@ -167,8 +182,15 @@ test.describe('Observation Detail', () => {
   });
 
   test('notes form fields are present', async ({ page }) => {
-    // Look for seeing, transparency rating inputs or notes text area
-    await expect(page.getByRole('textbox').or(page.locator('textarea'))).toBeVisible();
+    // Notes are edited in a modal opened from the hero's "Session notes" action,
+    // not inline on the page.
+    await page.getByRole('button', { name: 'Session notes' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Session Notes' });
+    await expect(dialog).toBeVisible();
+    // The seeing rating row and the free-text notes area are the form fields.
+    await expect(dialog.getByText('Seeing', { exact: true })).toBeVisible();
+    await expect(dialog.getByPlaceholder(/observing conditions/i)).toBeVisible();
   });
 
   test('back navigation link is present', async ({ page }) => {

@@ -5,6 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import noUnguardedTimezone from './eslint-rules/no-unguarded-timezone.js'
+import noHardcodedJsxText from './eslint-rules/no-hardcoded-jsx-text.js'
 
 export default defineConfig([
   globalIgnores(['dist']),
@@ -21,10 +22,22 @@ export default defineConfig([
       globals: globals.browser,
     },
     plugins: {
-      local: { rules: { 'no-unguarded-timezone': noUnguardedTimezone } },
+      local: { rules: { 'no-unguarded-timezone': noUnguardedTimezone, 'no-hardcoded-jsx-text': noHardcodedJsxText } },
     },
     rules: {
       'local/no-unguarded-timezone': 'error',
+    },
+  },
+  {
+    // i18n regression guard (issue #6 migration). The rule only activates
+    // inside a file that already imports useTranslation/Trans from
+    // react-i18next, so it holds already-migrated files (chunks 0-5 so far)
+    // to the standard without flagging the still-English chunks 6-10 files —
+    // no directory allowlist to maintain as the migration progresses. See
+    // eslint-rules/no-hardcoded-jsx-text.js for exactly what it checks.
+    files: ['src/**/*.tsx'],
+    rules: {
+      'local/no-hardcoded-jsx-text': 'error',
     },
   },
   {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2, Download, Trash2, FileImage, Image, Pencil, Contrast, Star, Share2,
 } from 'lucide-react';
@@ -82,6 +83,7 @@ export function GalleryModal({
   objectName,
   hideEditButton,
 }: Props) {
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
 
   // Snapshot of `items` taken on open, so deletions can be reflected without
@@ -95,6 +97,10 @@ export function GalleryModal({
   const deletingRef = useRef(false);
   const [sharing, setSharing] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  // AstroBin-style fullscreen. Left on across navigation (paging through a
+  // session while fullscreen should stay fullscreen), reset only when the
+  // whole viewer closes, via the same open-transition snapshot below.
+  const [immersive, setImmersive] = useState(false);
 
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flash = useCallback((msg: string | null) => {
@@ -114,6 +120,7 @@ export function GalleryModal({
       setIndex(defaultIndex);
       setPendingDelete(null);
       setStatus(null);
+      setImmersive(false);
     }
   }
 
@@ -166,6 +173,10 @@ export function GalleryModal({
   }, [localItems.length]);
 
   const src = item ? displaySrc(item) : null;
+  // Fullscreen + the hover magnifier only make sense for the plain-image
+  // path (LightboxPane/LightboxImage/useZoomPan) — the FITS canvas viewer
+  // and the "no preview" fallback have no zoom engine to hand off to.
+  const canGoImmersive = !isFits && !noPreview && !!src;
   const fileName = item ? (item.kind === 'file' ? item.file.name : item.img.originalName) : '';
   const meta = item
     ? (item.kind === 'file' ? sessionFileMeta(item.file, objectName) : processedImageMeta(item.img))
@@ -179,11 +190,15 @@ export function GalleryModal({
     if (!src) return;
     setSharing(true);
     try {
-      flash(shareOutcomeMessage(await shareImage(src, fileName, meta.title)));
+      flash(shareOutcomeMessage(await shareImage(src, fileName, meta.title), {
+        copiedImage: t('imageViewer.copiedImage'),
+        copiedLink: t('imageViewer.copiedLink'),
+        failed: t('imageViewer.shareFailed'),
+      }));
     } finally {
       setSharing(false);
     }
-  }, [src, fileName, meta.title, flash]);
+  }, [src, fileName, meta.title, flash, t]);
 
   const handleDownload = useCallback(() => {
     if (!downloadUrl) return;
@@ -235,13 +250,13 @@ export function GalleryModal({
       setPendingDelete(null);
       removeCurrent();
     } catch (err) {
-      flash(err instanceof Error ? err.message : 'Delete failed');
+      flash(err instanceof Error ? err.message : t('galleryModal.deleteFailed'));
       setPendingDelete(null);
     } finally {
       deletingRef.current = false;
       setDeleting(false);
     }
-  }, [pendingDelete, queryClient, objectId, date, onDeleteProcessed, removeCurrent, flash]);
+  }, [pendingDelete, queryClient, objectId, date, onDeleteProcessed, removeCurrent, flash, t]);
 
   const canDelete = isAdmin && !!item;
   const busyDelete = deleting || (item?.kind === 'processed' && deletingProcessedId === item.img.id);
@@ -251,11 +266,18 @@ export function GalleryModal({
     onNext: () => navigate(1),
     onFirst: () => setIndex(0),
     onLast: () => setIndex(localItems.length - 1),
-    onClose,
+    // Escape backs out one level at a time: out of fullscreen first, then
+    // out of the viewer, matching what Modal's own Escape/backdrop handling
+    // does for the dialog itself (see LightboxFrame's effectiveOnClose).
+    onClose: immersive ? () => setImmersive(false) : onClose,
     onFit: isFits ? fits.controls.setFit : zp.setFit,
     onActualSize: isFits ? fits.controls.setActualSize : zp.setActualSize,
     onZoomIn: isFits ? fits.controls.zoomIn : imageZoom.zoomIn,
     onZoomOut: isFits ? fits.controls.zoomOut : imageZoom.zoomOut,
+    // No rotate for FITS — it's a separate canvas engine with its own
+    // (unrelated) sense of "up", and rotating a calibration frame view isn't
+    // a thing anyone needs here. Nor for a format with no preview to rotate.
+    onRotate: isFits || noPreview ? undefined : zp.rotate,
     onDownload: handleDownload,
     onDelete: canDelete ? () => setPendingDelete(item) : undefined,
     // Escape must reach the confirmation dialog, not tear down the viewer
@@ -321,7 +343,7 @@ export function GalleryModal({
           onClick={() => onHeaderFileClick(item.file)}
           className={`${LB_TEXT_BTN} text-teal-300 hover:text-teal-200`}
         >
-          FITS Header
+          {t('galleryModal.fitsHeader')}
         </button>
       )}
 
@@ -336,8 +358,8 @@ export function GalleryModal({
               ? (/\.jpe?g$/i.test(item.file.name) ? { kind: 'telescope', path: item.file.path } : undefined)
               : { kind: 'processed', id: item.img.id },
           )}
-          title="Edit image"
-          aria-label="Edit image"
+          title={t('galleryModal.editImage')}
+          aria-label={t('galleryModal.editImage')}
           className={LB_ICON_BTN}
         >
           <Pencil className="h-4 w-4" />
@@ -345,12 +367,12 @@ export function GalleryModal({
       )}
 
       {shareable && (
-        <button type="button" onClick={handleShare} disabled={sharing} title="Share" aria-label="Share" className={LB_ICON_BTN}>
+        <button type="button" onClick={handleShare} disabled={sharing} title={t('imageViewer.share')} aria-label={t('imageViewer.share')} className={LB_ICON_BTN}>
           {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
         </button>
       )}
 
-      <a href={downloadUrl} download={fileName} title="Download (D)" aria-label="Download" className={LB_ICON_BTN}>
+      <a href={downloadUrl} download={fileName} title={t('imageViewer.downloadKey')} aria-label={t('imageViewer.download')} className={LB_ICON_BTN}>
         <Download className="h-4 w-4" />
       </a>
 
@@ -359,8 +381,8 @@ export function GalleryModal({
           type="button"
           onClick={() => onSetAsGallery(item.img)}
           disabled={!!settingGalleryId}
-          title="Set as gallery image"
-          aria-label="Set as gallery image"
+          title={t('objectDetail.processedSection.setAsGallery')}
+          aria-label={t('objectDetail.processedSection.setAsGallery')}
           className={LB_ICON_BTN}
         >
           {settingGalleryId === item.img.id
@@ -374,8 +396,8 @@ export function GalleryModal({
           type="button"
           onClick={() => setPendingDelete(item)}
           disabled={busyDelete}
-          title="Delete"
-          aria-label="Delete"
+          title={t('objectDetail.processedSection.delete')}
+          aria-label={t('objectDetail.processedSection.delete')}
           className={LB_DANGER_BTN}
         >
           {busyDelete ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -394,8 +416,8 @@ export function GalleryModal({
         type="range" min="0" max="1" step="0.01" value={fits.stretch}
         onChange={e => fits.setStretch(parseFloat(e.target.value))}
         className="w-20 accent-accent-500"
-        title="Stretch"
-        aria-label="Stretch"
+        title={t('fitsViewer.stretch')}
+        aria-label={t('fitsViewer.stretch')}
       />
     </div>
   ) : null;
@@ -405,7 +427,7 @@ export function GalleryModal({
       <LightboxFrame
         isOpen
         onClose={onClose}
-        dialogTitle={`Image viewer: ${meta.title}`}
+        dialogTitle={t('imageViewer.dialogTitle', { name: meta.title })}
         titleIcon={isFits
           ? <FileImage className="h-4.5 w-4.5 flex-shrink-0 text-teal-300" />
           : <Image className="h-4.5 w-4.5 flex-shrink-0 text-accent-400" />}
@@ -419,6 +441,9 @@ export function GalleryModal({
         zoom={noPreview ? undefined : (isFits ? fits.controls : imageZoom)}
         extraControls={stretchControl}
         actions={actions}
+        onRotate={isFits || noPreview ? undefined : zp.rotate}
+        immersive={canGoImmersive && immersive}
+        onToggleImmersive={canGoImmersive ? () => setImmersive(v => !v) : undefined}
         thumbs={thumbs}
         swipeDisabled={isFits ? !fits.controls.isFit : !zp.isFit}
         status={status}
@@ -427,15 +452,21 @@ export function GalleryModal({
         ambientSrc={noPreview || isFits
           ? null
           : item.kind === 'file' ? thumbSrcFor(item.file) : (item.img.previewUrl ?? item.img.url)}
-        contentAspect={isFits ? fitsAspect : (zp.natural ? zp.natural.w / zp.natural.h : null)}
+        // Swapped when rotated a quarter turn, so the windowed panel's own
+        // width tracks what's actually on screen, not the file's own shape.
+        contentAspect={isFits
+          ? fitsAspect
+          : zp.natural
+            ? (zp.rotation % 180 === 90 ? zp.natural.h / zp.natural.w : zp.natural.w / zp.natural.h)
+            : null}
       >
         {noPreview ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <FileImage className="h-12 w-12 text-white/20" />
             <div className="space-y-1 text-center">
-              <p className="text-sm font-medium text-white/80">No preview for this format</p>
+              <p className="text-sm font-medium text-white/80">{t('galleryModal.noPreviewTitle')}</p>
               <p className="text-xs text-white/45">
-                {fileName} is stored in full and can be downloaded.
+                {t('galleryModal.storedInFull', { fileName })}
               </p>
             </div>
             <a
@@ -446,7 +477,7 @@ export function GalleryModal({
                 hover:bg-white/15 hover:text-white"
             >
               <Download className="h-4 w-4" />
-              Download
+              {t('imageViewer.download')}
             </a>
           </div>
         ) : isFits ? (
@@ -472,6 +503,7 @@ export function GalleryModal({
             isPanning={zp.isPanning}
             canPan={zp.overflows}
             handlers={zp.paneHandlers}
+            flush={canGoImmersive && immersive}
           >
             {src && (
               <LightboxImage
@@ -487,13 +519,13 @@ export function GalleryModal({
 
       {pendingDelete && (
         <ConfirmModal
-          title={pendingDelete.kind === 'file' ? 'Delete file?' : 'Delete image?'}
+          title={pendingDelete.kind === 'file' ? t('galleryModal.deleteFileTitle') : t('galleryModal.deleteImageTitle')}
           message={
             pendingDelete.kind === 'file'
-              ? `${pendingDelete.file.name} will be permanently deleted from your library. This cannot be undone.`
-              : 'This will permanently delete the processed image. This cannot be undone.'
+              ? t('galleryModal.deleteFileMessage', { name: pendingDelete.file.name })
+              : t('galleryModal.deleteImageMessage')
           }
-          confirmLabel={deleting ? 'Deleting...' : 'Delete'}
+          confirmLabel={deleting ? t('galleryModal.deleting') : t('objectDetail.processedSection.delete')}
           pending={deleting}
           onCancel={() => setPendingDelete(null)}
           onConfirm={confirmDelete}

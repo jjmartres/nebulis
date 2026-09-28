@@ -9,9 +9,10 @@
  *   - Share / Save image: the Web Share API with the PNG file when the
  *     browser supports it, otherwise a PNG download.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, Copy, Share2, Download, Printer } from 'lucide-react';
-import { buildListShareText, drawListShareCard, type ListShareData } from '../../lib/listShare';
+import { buildListShareText, drawListShareCard, type ListShareData, type ListShareStrings } from '../../lib/listShare';
 
 interface ListShareModalProps {
   data: ListShareData;
@@ -23,19 +24,39 @@ function canShareFiles(files: File[]): boolean {
 }
 
 export function ListShareModal({ data, onClose }: ListShareModalProps) {
+  const { t } = useTranslation('observations');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [didCopy, setDidCopy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [shareSupported, setShareSupported] = useState(false);
 
+  const shareStrings: ListShareStrings = useMemo(() => ({
+    title: t('listShare.title'),
+    totalLine: t('listShare.totalLine', { count: data.rows.length }),
+    statsAcross: t('listShare.statsAcross', {
+      observations: t('listShare.observationsCount', { count: data.rows.length }),
+      objects: t('listShare.objectsCount', { count: data.uniqueObjects }),
+    }),
+    statsDot: t('listShare.statsDot', {
+      observations: t('listShare.observationsCount', { count: data.rows.length }),
+      objects: t('listShare.objectsCount', { count: data.uniqueObjects }),
+    }),
+    moreNotShown: count => t('listShare.moreNotShown', { count }),
+    sharedFrom: t('listShare.sharedFrom'),
+    objectHeader: t('listShare.objectHeader'),
+    catalogHeader: t('listShare.catalogHeader'),
+    dateHeader: t('listShare.dateHeader'),
+    observationLog: t('listShare.observationLog'),
+  }), [t, data.rows.length, data.uniqueObjects]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dims = drawListShareCard(canvas, data, Math.min(3, Math.max(2, window.devicePixelRatio || 2)));
+    const dims = drawListShareCard(canvas, data, shareStrings, Math.min(3, Math.max(2, window.devicePixelRatio || 2)));
     canvas.style.width = `${dims.width}px`;
     canvas.style.height = `${dims.height}px`;
     setShareSupported(canShareFiles([new File([new Blob()], 'observations-list.png', { type: 'image/png' })]));
-  }, [data]);
+  }, [data, shareStrings]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -45,7 +66,7 @@ export function ListShareModal({ data, onClose }: ListShareModalProps) {
 
   const handleCopyText = async () => {
     try {
-      await navigator.clipboard.writeText(buildListShareText(data));
+      await navigator.clipboard.writeText(buildListShareText(data, shareStrings));
       setDidCopy(true);
       setTimeout(() => setDidCopy(false), 1800);
     } catch {
@@ -65,12 +86,12 @@ export function ListShareModal({ data, onClose }: ListShareModalProps) {
     const dataUrl = canvas.toDataURL('image/png');
     const win = window.open('', '_blank');
     if (!win) { void handleShareImage(); return; }
-    win.document.title = 'Observations list';
+    win.document.title = t('listShareModal.docTitle');
     const style = win.document.createElement('style');
     style.textContent = '@page{margin:12mm}html,body{margin:0;background:#0F1426}img{display:block;width:100%;height:auto}';
     win.document.head.appendChild(style);
     const img = win.document.createElement('img');
-    img.alt = 'Observations list';
+    img.alt = t('listShareModal.docTitle');
     img.onload = () => { win.focus(); win.print(); };
     img.src = dataUrl;
     win.document.body.appendChild(img);
@@ -86,7 +107,7 @@ export function ListShareModal({ data, onClose }: ListShareModalProps) {
       const file = new File([blob], 'observations-list.png', { type: 'image/png' });
       if (canShareFiles([file])) {
         try {
-          await navigator.share({ files: [file], title: 'Observations list' });
+          await navigator.share({ files: [file], title: t('listShareModal.docTitle') });
           return;
         } catch (err) {
           if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -115,9 +136,9 @@ export function ListShareModal({ data, onClose }: ListShareModalProps) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-5 border-b border-slate-700/40">
-          <h2 className="text-lg font-semibold">Share Observations List</h2>
+          <h2 className="text-lg font-semibold">{t('listShareModal.title')}</h2>
           <button onClick={onClose} className="text-sm px-3 py-1.5 rounded-lg hover:bg-white/10 transition">
-            Done
+            {t('listShareModal.done')}
           </button>
         </div>
 
@@ -125,7 +146,7 @@ export function ListShareModal({ data, onClose }: ListShareModalProps) {
           <canvas
             ref={canvasRef}
             className="rounded-xl shadow-2xl max-w-full h-auto"
-            aria-label="Observations list preview"
+            aria-label={t('listShareModal.canvasAriaLabel')}
           />
         </div>
 
@@ -135,14 +156,14 @@ export function ListShareModal({ data, onClose }: ListShareModalProps) {
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-slate-600 text-slate-100 hover:bg-white/10 transition"
           >
             <Printer className="w-4 h-4" />
-            Print
+            {t('listShareModal.print')}
           </button>
           <button
             onClick={handleCopyText}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-slate-600 text-slate-100 hover:bg-white/10 transition"
           >
             {didCopy ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {didCopy ? 'Copied!' : 'Copy as text'}
+            {didCopy ? t('listShareModal.copied') : t('listShareModal.copyAsText')}
           </button>
           <button
             onClick={handleShareImage}
@@ -150,7 +171,7 @@ export function ListShareModal({ data, onClose }: ListShareModalProps) {
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-accent-500 hover:bg-accent-600 transition disabled:opacity-60"
           >
             {shareSupported ? <Share2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
-            {busy ? 'Preparing…' : shareSupported ? 'Share image' : 'Save image'}
+            {busy ? t('listShareModal.preparing') : shareSupported ? t('listShareModal.shareImage') : t('listShareModal.saveImage')}
           </button>
         </div>
       </div>

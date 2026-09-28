@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { HardDrive, Pencil } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getLibraryLocation } from '../../lib/api/storage';
 import { ChangeLocationModal } from '../ui/ChangeLocationModal';
 
@@ -10,6 +11,7 @@ import { ChangeLocationModal } from '../ui/ChangeLocationModal';
  * Defaults to the built-in location; the user can change it later in Settings.
  */
 export function OnboardingStorageChoice({ isDark, subText }: { isDark: boolean; subText: string }) {
+  const { t } = useTranslation('onboarding');
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -24,9 +26,9 @@ export function OnboardingStorageChoice({ isDark, subText }: { isDark: boolean; 
         </div>
         <div>
           <h3 className={`font-display font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-            Storage location
+            {t('storageChoice.heading')}
           </h3>
-          <p className={`text-xs ${subText}`}>Where your imported images and sub-frames are stored</p>
+          <p className={`text-xs ${subText}`}>{t('storageChoice.subheading')}</p>
         </div>
       </div>
 
@@ -35,14 +37,14 @@ export function OnboardingStorageChoice({ isDark, subText }: { isDark: boolean; 
       }`}>
         <div className="min-w-0">
           <div className={`text-sm font-mono truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-            {location?.path ?? 'Default location'}
+            {location?.path ?? t('storageChoice.defaultLocation')}
           </div>
           <div className={`text-xs mt-0.5 ${subText}`}>
             {location?.pinned
-              ? 'Fixed by the LIBRARY_DIR environment variable.'
+              ? t('storageChoice.pinnedNote')
               : location?.isDefault === false
-                ? 'Custom drive. Change any time in Settings, Storage.'
-                : 'Default location. Change to a USB or external drive now or later in Settings, Storage.'}
+                ? t('storageChoice.customNote')
+                : t('storageChoice.defaultNote')}
           </div>
         </div>
         {!location?.pinned && (
@@ -53,7 +55,7 @@ export function OnboardingStorageChoice({ isDark, subText }: { isDark: boolean; 
               isDark ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
             }`}
           >
-            <Pencil className="w-3.5 h-3.5" /> Choose drive
+            <Pencil className="w-3.5 h-3.5" /> {t('storageChoice.chooseDrive')}
           </button>
         )}
       </div>

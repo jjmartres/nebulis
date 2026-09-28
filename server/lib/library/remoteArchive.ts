@@ -89,10 +89,21 @@ export async function downloadToArchive(
   const result: ArchiveCopyResult = { copied: 0, alreadyPresent: 0, failed: 0, bytesCopied: 0 };
   if (candidates.length === 0) return result;
 
+  // Only a 'local' transport's remotePath is a real filesystem path (see
+  // smb.local.ts); resolve it against profile.localPath so
+  // resolveArchiveDestination's isAlreadyInsideArchive guard can compare it
+  // against archiveDir. FTP/SMB remotePaths live on the device itself and
+  // can never overlap a local archiveDir, so the guard is a deliberate no-op
+  // for those transports.
+  const resolveSourceAbsPath = profile.connectionType === 'local' && profile.localPath
+    ? (remotePath: string) => path.resolve(profile.localPath, remotePath)
+    : undefined;
+
   for (const candidate of candidates) {
     if (opts.shouldCancel?.()) break;
     try {
-      const { destPath, alreadyPresent } = await resolveArchiveDestination(archiveDir, candidate.relPath, candidate.size);
+      const sourceAbsPath = resolveSourceAbsPath?.(candidate.remotePath);
+      const { destPath, alreadyPresent } = await resolveArchiveDestination(archiveDir, candidate.relPath, candidate.size, sourceAbsPath);
       if (alreadyPresent) {
         result.alreadyPresent++;
         opts.onFile?.(candidate.size);

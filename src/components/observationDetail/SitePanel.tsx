@@ -7,6 +7,7 @@
  * it confirms the answer the picker already gave, so it should not be the first
  * thing the eye lands on.
  */
+import { useTranslation } from 'react-i18next';
 import { MapPin } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { ObservationMap } from '../ObservationMap';
@@ -32,10 +33,11 @@ export function SitePanel({
   isAdmin: boolean;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
 
   return (
     <SessionPanel
-      title="Observed from"
+      title={t('observationDetail.sitePanel.title')}
       icon={MapPin}
       // Leaflet paints its panes at a z-index that will sit over anything later
       // in the document unless the card gets its own stacking context.
@@ -60,7 +62,7 @@ export function SitePanel({
             isDark ? 'text-slate-400' : 'text-slate-500'
           }`}>
             <span className={`truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              {locationName || 'Coordinates'}
+              {locationName || t('observationDetail.sitePanel.coordinates')}
             </span>
             <span className="shrink-0 font-medium tabular-nums">
               {coordinates.lat.toFixed(2)}°, {coordinates.lon.toFixed(2)}°
@@ -70,8 +72,7 @@ export function SitePanel({
       ) : (
         <div className="mt-3">
           <PanelEmpty>
-            No location recorded. The capture files carried no coordinates and this session is not
-            tagged to a site.
+            {t('observationDetail.sitePanel.noLocation')}
           </PanelEmpty>
         </div>
       )}

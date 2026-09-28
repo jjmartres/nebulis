@@ -1,10 +1,12 @@
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { NewObservationForm } from '../components/observations/NewObservationForm';
 
 export function NewObservationPage() {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -24,16 +26,16 @@ export function NewObservationPage() {
         }`}
       >
         <ArrowLeft className="w-4 h-4" />
-        {prefilledObjectId ? `Back to ${prefilledObjectName || prefilledObjectId}` : 'Back to Library'}
+        {prefilledObjectId ? t('newObservationPage.backToObject', { name: prefilledObjectName || prefilledObjectId }) : t('newObservationPage.backToLibrary')}
       </Link>
 
       {/* Page header */}
       <div>
         <h1 className={`font-display text-3xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-          Log Observation
+          {t('newObservationPage.title')}
         </h1>
         <p className={`mt-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Record a viewing session - optionally attach an image and notes.
+          {t('newObservationPage.subtitle')}
         </p>
       </div>
 

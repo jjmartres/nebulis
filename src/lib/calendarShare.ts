@@ -14,6 +14,7 @@
  */
 import type { ObservationSummary } from './api/observations';
 import { cleanCatalogId, formatObjectName } from './utils';
+import { formatDate, formatTime24, weekdayLabels } from './formatLocale';
 
 export interface CalendarShareDay {
   date: string; // YYYY-MM-DD
@@ -32,6 +33,21 @@ export interface CalendarShareData {
   showTelescopeDots: boolean;
 }
 
+/**
+ * Every translated fragment the card needs, precomputed by the caller (which
+ * has `useTranslation()`) so this module never imports i18next itself — same
+ * reasoning as `ListShareStrings` in `listShare.ts`.
+ */
+export interface CalendarShareStrings {
+  observationsLabel: string;
+  titleLine: string;
+  statsAcross: string;
+  statsDot: string;
+  empty: string;
+  sharedFrom: string;
+  observationLog: string;
+}
+
 // ── Palette (shared with planShare.ts) ──────────────────────────────────────
 const BG = '#0F1426';
 const SURFACE = '#1C243D';
@@ -44,8 +60,6 @@ const RULE = 'rgba(255,255,255,0.08)';
 
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -60,7 +74,7 @@ function formatTime(timestamp: string | null): string | null {
   if (m) return `${m[1]}:${m[2]}`;
   const d = new Date(timestamp);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  return formatTime24(d);
 }
 
 /** Time range for a single observation, e.g. "20:14 – 21:30" or "20:14". */
@@ -82,10 +96,10 @@ function hexToRgba(hex: string, alpha: number): string {
 
 // ── Plain text ──────────────────────────────────────────────────────────────
 
-export function buildCalendarShareText(data: CalendarShareData): string {
+export function buildCalendarShareText(data: CalendarShareData, strings: CalendarShareStrings): string {
   const lines = [
-    `Observations · ${data.monthLabel}`,
-    `${data.totalObservations} observation${data.totalObservations === 1 ? '' : 's'} across ${data.uniqueObjects} object${data.uniqueObjects === 1 ? '' : 's'}`,
+    strings.titleLine,
+    strings.statsAcross,
     '',
   ];
 
@@ -94,7 +108,7 @@ export function buildCalendarShareText(data: CalendarShareData): string {
     .filter(d => d.isCurrentMonth && d.observations.length > 0);
 
   for (const day of days) {
-    const label = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', {
+    const label = formatDate(new Date(day.date + 'T12:00:00'), {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -107,8 +121,8 @@ export function buildCalendarShareText(data: CalendarShareData): string {
     lines.push('');
   }
 
-  if (days.length === 0) lines.push('No observations this month.', '');
-  lines.push('Shared from Nebulis');
+  if (days.length === 0) lines.push(strings.empty, '');
+  lines.push(strings.sharedFrom);
   return lines.join('\n');
 }
 
@@ -154,6 +168,7 @@ interface EntryLayout {
 export function drawCalendarShareCard(
   canvas: HTMLCanvasElement,
   data: CalendarShareData,
+  strings: CalendarShareStrings,
   scale = 2,
 ): { width: number; height: number } {
   const { weeks } = data;
@@ -281,11 +296,10 @@ export function drawCalendarShareCard(
     ctx.textAlign = 'right';
     ctx.font = font(13, 500);
     ctx.fillStyle = TEXT_SEC;
-    const stats = `${data.totalObservations} observation${data.totalObservations === 1 ? '' : 's'} · ${data.uniqueObjects} object${data.uniqueObjects === 1 ? '' : 's'}`;
-    ctx.fillText('Observations', W - PAD, 26);
+    ctx.fillText(strings.observationsLabel, W - PAD, 26);
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.7);
     ctx.font = font(12, 400);
-    ctx.fillText(stats, W - PAD, 48);
+    ctx.fillText(strings.statsDot, W - PAD, 48);
 
     ctx.fillStyle = RULE;
     ctx.fillRect(PAD, HEADER_H - 1, W - PAD * 2, 1);
@@ -298,7 +312,7 @@ export function drawCalendarShareCard(
     ctx.textBaseline = 'middle';
     ctx.font = font(11, 700);
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.55);
-    WEEKDAYS.forEach((label, c) => {
+    weekdayLabels().forEach((label, c) => {
       ctx.fillText(label.toUpperCase(), colX(c) + colW / 2, top + WEEKDAY_H / 2 + 1);
     });
     ctx.textBaseline = 'top';
@@ -393,7 +407,7 @@ export function drawCalendarShareCard(
     ctx.fillStyle = hexToRgba(TEXT_SEC, 0.4);
     ctx.fillText('nebulis.app', PAD, H - FOOTER_H / 2);
     ctx.textAlign = 'right';
-    ctx.fillText('Observation log', W - PAD, H - FOOTER_H / 2);
+    ctx.fillText(strings.observationLog, W - PAD, H - FOOTER_H / 2);
     ctx.textBaseline = 'top';
   }
 

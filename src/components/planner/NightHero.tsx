@@ -12,13 +12,16 @@
  * stays theme-driven while this stays night-side.
  */
 import type { ReactNode } from 'react';
-import { ChevronRight, CloudSun, Crosshair, Sparkles } from 'lucide-react';
+import { ChevronRight, CloudSun, Crosshair, Droplets, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatTime, scoreHex, scoreLabel } from '../../lib/forecastScore';
 import type { NightConditions } from '../../lib/plannerNight';
 import { MoonDisk } from '../ui/MoonDisk';
 import { ScoreDial } from '../ui/ScoreDial';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
+import { translateMoonPhase } from '../../lib/moonPhaseLabel';
+import { formatDate } from '../../lib/formatLocale';
 
 interface Props {
   date: Date;
@@ -61,21 +64,19 @@ export function NightHero({
   status,
   siteControl,
 }: Props) {
+  const { t } = useTranslation('planner');
   const hex = conditions ? scoreHex(conditions.score) : '#64748b';
   const fmt = (d: Date | null) => (d ? formatTime(d.toISOString(), timeZone) : null);
 
-  const dateLabel = date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const dateLabel = formatDate(date, { weekday: 'long', month: 'long', day: 'numeric' });
   const moonTimes = [
-    fmt(moonRise) && `Rises ${fmt(moonRise)}`,
-    fmt(moonSet) && `Sets ${fmt(moonSet)}`,
+    fmt(moonRise) && t('nightHero.rises', { time: fmt(moonRise) }),
+    fmt(moonSet) && t('nightHero.sets', { time: fmt(moonSet) }),
   ].filter(Boolean).join(' · ');
 
   const advice = conditions
-    ? conditions.advice ?? `${conditions.cloudCover}% average cloud.`
-    : 'Past the weather forecast. Plan by Moon and altitude, then check back nearer the date.';
-  const aside = conditions
-    ? [`${conditions.cloudCover}% cloud`, conditions.dewRisk ? 'dew risk' : null].filter(Boolean).join(' · ')
-    : null;
+    ? conditions.advice ?? t('nightHero.averageCloud', { percent: conditions.cloudCover })
+    : t('nightHero.pastForecast');
 
   return (
     <section
@@ -106,7 +107,7 @@ export function NightHero({
         <div className="flex items-center justify-between gap-4">
           <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
             <Crosshair className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
-            Planner
+            {t('nightHero.title')}
           </h1>
           {siteControl}
         </div>
@@ -123,10 +124,10 @@ export function NightHero({
             onKeyDown={onOpenWeather
               ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenWeather(); } }
               : undefined}
-            title={onOpenWeather ? 'Open the hour-by-hour forecast for this night' : undefined}
+            title={onOpenWeather ? t('nightHero.openForecastTitle') : undefined}
             // Without this the computed name would be the whole verdict
             // paragraph, which is a mouthful to announce for a "show me more".
-            aria-label={onOpenWeather ? 'Open the hour-by-hour forecast for this night' : undefined}
+            aria-label={onOpenWeather ? t('nightHero.openForecastTitle') : undefined}
             className={`group flex min-w-0 items-center gap-4 rounded-xl sm:flex-1 ${
               onOpenWeather
                 ? 'cursor-pointer outline-none transition hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-white/30'
@@ -142,7 +143,7 @@ export function NightHero({
             )}
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.18em] text-white/40">
-                {isToday ? 'Tonight' : 'Planning'}
+                {isToday ? t('nightHero.tonight') : t('nightHero.planning')}
                 <span className="normal-case tracking-normal text-white/30">{dateLabel}</span>
                 {status}
               </div>
@@ -150,20 +151,31 @@ export function NightHero({
                 className="mt-1 flex items-center gap-1 font-display text-[28px] font-bold leading-none tracking-tight"
                 style={conditions ? { color: hex, textShadow: `0 0 28px ${hex}4d` } : { color: '#e2e8f0' }}
               >
-                {conditions ? scoreLabel(conditions.score) : 'No forecast yet'}
+                {conditions ? scoreLabel(conditions.score, t) : t('nightHero.noForecastYet')}
                 {onOpenWeather && (
                   <ChevronRight className="h-5 w-5 opacity-0 transition group-hover:opacity-60" />
                 )}
               </h2>
               <p className="mt-1.5 truncate text-[13px] text-white/60">
                 {advice}
-                {aside && <span className="text-white/35"> · {aside}</span>}
                 {onOpenWeather && (
                   <span className="ml-1.5 hidden text-white/35 underline decoration-white/20 underline-offset-2 group-hover:text-white/60 sm:inline">
-                    hour by hour
+                    {t('nightHero.hourByHour')}
                   </span>
                 )}
               </p>
+              {/* Cloud/dew were previously appended to the verdict sentence with
+                  " · ", which read as one run-on line and truncated the dew
+                  warning off-screen first on narrow panels. Broken out as their
+                  own scannable stats so each is visible on its own. */}
+              {conditions && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <StatChip icon={CloudSun}>{t('nightHero.cloudPercent', { percent: conditions.cloudCover })}</StatChip>
+                  {conditions.dewRisk && (
+                    <StatChip icon={Droplets} tone="warn">{t('nightHero.dewRisk')}</StatChip>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -181,10 +193,10 @@ export function NightHero({
           <div className="flex w-full shrink-0 items-center gap-3 sm:w-64">
             <MoonDisk illumination={moonIllumination} phase={moonPhase} size={50} />
             <div className="min-w-0 leading-tight">
-              <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-white/40">Moon</div>
-              <div className="mt-1 truncate text-sm font-semibold text-white">{moonPhase}</div>
+              <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-white/40">{t('nightHero.moon')}</div>
+              <div className="mt-1 truncate text-sm font-semibold text-white">{translateMoonPhase(t, moonPhase)}</div>
               <div className="mt-0.5 text-xs text-white/45 tabular-nums">
-                {Math.round(moonIllumination)}% lit
+                {t('nightHero.litPercent', { percent: Math.round(moonIllumination) })}
               </div>
               {moonTimes && (
                 <div className="mt-1 text-[11px] text-white/40 tabular-nums">{moonTimes}</div>
@@ -201,11 +213,31 @@ export function NightHero({
               style={{ background: accent, boxShadow: `0 8px 24px -12px ${accent}` }}
             >
               <Sparkles className="h-4 w-4" />
-              Plan my night
+              {t('nightHero.planMyNight')}
             </button>
           )}
         </div>
       </div>
     </section>
+  );
+}
+
+function StatChip({
+  icon: Icon,
+  tone = 'neutral',
+  children,
+}: {
+  icon: typeof CloudSun;
+  tone?: 'neutral' | 'warn';
+  children: ReactNode;
+}) {
+  const cls = tone === 'warn'
+    ? 'bg-amber-500/15 text-amber-300 ring-amber-400/25'
+    : 'bg-white/[0.06] text-white/60 ring-white/10';
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${cls}`}>
+      <Icon className="h-3 w-3" />
+      {children}
+    </span>
   );
 }

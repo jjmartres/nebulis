@@ -6,15 +6,18 @@ const VALID_THEMES: Theme[] = ['light', 'dark', 'space', 'night'];
 
 export interface ThemeOption {
   id: Theme;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
 }
 
+// labelKey/descriptionKey rather than literal text: this array is built at
+// module load, before any component (and its useTranslation() hook) exists.
+// Consumers resolve via t(labelKey, { ns: 'settings' }) — see GeneralSection.tsx.
 export const THEME_OPTIONS: ThemeOption[] = [
-  { id: 'light', label: 'Light', description: 'Bright, for daytime' },
-  { id: 'dark', label: 'Dark', description: 'Dim navy, for indoor use' },
-  { id: 'space', label: 'Space', description: 'Deep violet, for a dark room' },
-  { id: 'night', label: 'Night', description: 'Red light, protects night vision' },
+  { id: 'light', labelKey: 'appearance.light.label', descriptionKey: 'appearance.light.description' },
+  { id: 'dark', labelKey: 'appearance.dark.label', descriptionKey: 'appearance.dark.description' },
+  { id: 'space', labelKey: 'appearance.space.label', descriptionKey: 'appearance.space.description' },
+  { id: 'night', labelKey: 'appearance.night.label', descriptionKey: 'appearance.night.description' },
 ];
 
 function isTheme(s: string): s is Theme {

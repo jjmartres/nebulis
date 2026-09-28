@@ -174,14 +174,25 @@ export async function migrateRestackedToSharedRootOnce(): Promise<void> {
     const candidates = collectArchiveCandidates(scopeDir, [RESTACKED_ROOT_DIR_NAME]);
     if (candidates.length === 0) continue;
     try {
-      const result = await copyToArchive(candidates, getLibraryDir(), { deleteSourceAfterCopy: true });
+      // The destination is the library root (relPaths already read
+      // "RESTACKED/<object>/<file>"), but every SOURCE is also somewhere under
+      // that root — `_archive/<scope>/RESTACKED/...`. Leaving the self-nesting
+      // guard pointed at `archiveDir` therefore reported every file as "already
+      // present", copied nothing, and then deleted each source
+      // (deleteSourceAfterCopy) plus the tree below. Point the guard at the real
+      // target subtree instead: a source already inside `{library}/RESTACKED`
+      // is still refused, which is what the guard is for.
+      const result = await copyToArchive(candidates, getLibraryDir(), {
+        deleteSourceAfterCopy: true,
+        selfNestingGuardDir: getRestackArchiveDir(),
+      });
       // copyToArchive already deletes each source file once IT lands
       // (deleteSourceAfterCopy), so a failed file is simply left behind in
       // scopeDir. Removing the whole directory tree here regardless would
       // take that still-present file with it. Only safe to remove once
       // nothing failed — a partial run leaves the leftovers for the next
       // boot's migration pass to retry, same as the outer catch below.
-      if (result.failed === 0) {
+      if (result.failed === 0 && result.copied + result.alreadyPresent > 0) {
         fs.rmSync(path.join(scopeDir, RESTACKED_ROOT_DIR_NAME), { recursive: true, force: true });
       }
     } catch {
@@ -264,6 +275,28 @@ export interface ArchiveCopyResult {
 }
 
 /**
+ * True when `sourceAbsPath` already lives inside (or IS) `archiveDir`. Copying
+ * such a file back into the archive at a *different* relPath would nest the
+ * archive inside itself: a real incident (Sept 2026) had a Dwarf's "other
+ * device folders" archive pass discover the app's own relocated library
+ * sitting on the same USB volume as the telescope's local-mount root, archive
+ * it wholesale into `_archive/<telescopeId>/`, and then on every subsequent
+ * sync rediscover that nested copy (now itself sitting under the scan root)
+ * and archive it again one level deeper, filling the disk with exponentially
+ * duplicated data. The upstream scan now excludes the library dir by name,
+ * but a name-based exclusion only protects call sites someone remembered to
+ * add it to. This is the structural backstop: regardless of how a candidate
+ * was collected, a source path that is already inside the destination can
+ * never be a new file worth copying, so `resolveArchiveDestination` refuses
+ * it unconditionally rather than trusting every caller to have excluded it.
+ */
+export function isAlreadyInsideArchive(sourceAbsPath: string, archiveDir: string): boolean {
+  const src = path.resolve(sourceAbsPath);
+  const dest = path.resolve(archiveDir);
+  return src === dest || src.startsWith(dest + path.sep);
+}
+
+/**
  * Decide where one candidate file lands inside an archive directory,
  * applying the re-run-safe dedup rule: a destination that already exists at
  * the same size is treated as the same file (caller skips copying it), and a
@@ -272,13 +305,32 @@ export interface ArchiveCopyResult {
  * rather than being overwritten. Shared by the local-fs copy below and
  * remoteArchive.ts's transport-based equivalent, so a live sync and a
  * folder-import wizard run treat a repeat exactly the same way.
+ *
+ * `sourceAbsPath`, when the caller can resolve one (always for the local-fs
+ * wizard; only for a `local`-transport live sync, since FTP/SMB sources
+ * cannot physically overlap a local archiveDir), triggers the
+ * isAlreadyInsideArchive guard above and treats a match as a no-op dedup
+ * rather than a new file to copy.
+ *
+ * `guardDir` is the subtree that guard tests the source against, and defaults
+ * to `archiveDir`. They differ for exactly one caller: the RESTACKED migration
+ * writes into the LIBRARY ROOT (its candidates' relPaths already carry the
+ * `RESTACKED/` prefix), and every one of its sources lives somewhere under that
+ * same root, so testing against `archiveDir` reported "already present" for
+ * every file and the caller then deleted each source. The guard's premise is
+ * about the TARGET subtree, so that is what gets passed here.
  */
 export async function resolveArchiveDestination(
   archiveDir: string,
   relPath: string,
   size: number,
+  sourceAbsPath?: string,
+  guardDir: string = archiveDir,
 ): Promise<{ destPath: string; alreadyPresent: boolean }> {
   const destPath = path.join(archiveDir, ...relPath.split('/'));
+  if (sourceAbsPath && isAlreadyInsideArchive(sourceAbsPath, guardDir)) {
+    return { destPath, alreadyPresent: true };
+  }
   await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
   const existing = await statOrNull(destPath);
   if (existing?.isFile() && existing.size === size) {
@@ -311,6 +363,11 @@ export async function copyToArchive(
      *  import's free-space preflight reserve one file's headroom instead of
      *  the whole run. Never set this for an in-place import of a user folder. */
     deleteSourceAfterCopy?: boolean;
+    /** Subtree the self-nesting guard tests sources against. Defaults to
+     *  `archiveDir`; only the RESTACKED migration overrides it, because it
+     *  archives into the library root while its sources live under that root
+     *  (see resolveArchiveDestination). */
+    selfNestingGuardDir?: string;
   } = {},
 ): Promise<ArchiveCopyResult> {
   const result: ArchiveCopyResult = { copied: 0, alreadyPresent: 0, failed: 0, bytesCopied: 0 };
@@ -319,7 +376,9 @@ export async function copyToArchive(
   for (const candidate of candidates) {
     if (opts.shouldCancel?.()) break;
     try {
-      const { destPath, alreadyPresent } = await resolveArchiveDestination(archiveDir, candidate.relPath, candidate.size);
+      const { destPath, alreadyPresent } = await resolveArchiveDestination(
+        archiveDir, candidate.relPath, candidate.size, candidate.absPath, opts.selfNestingGuardDir,
+      );
       if (alreadyPresent) {
         result.alreadyPresent++;
         if (opts.deleteSourceAfterCopy) {

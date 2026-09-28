@@ -1,4 +1,5 @@
 import { User, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface OnboardingStep1Props {
   username: string;
@@ -29,6 +30,7 @@ export function OnboardingStep1({
   onConfirmPasswordChange,
   onSubmit,
 }: OnboardingStep1Props) {
+  const { t } = useTranslation('onboarding');
   return (
     <>
       <div className="flex items-center gap-3 mb-1">
@@ -37,17 +39,17 @@ export function OnboardingStep1({
         </div>
         <div>
           <h3 className={`font-display font-semibold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-            Create Admin Account
+            {t('step1.heading')}
           </h3>
-          <p className={`text-xs ${subText}`}>Set up your login credentials</p>
+          <p className={`text-xs ${subText}`}>{t('step1.subheading')}</p>
         </div>
       </div>
 
       <div>
-        <label className={labelClass}>Username</label>
+        <label className={labelClass}>{t('step1.usernameLabel')}</label>
         <input
           type="text"
-          placeholder="admin"
+          placeholder={t('step1.usernamePlaceholder')}
           value={username}
           onChange={e => onUsernameChange(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && onSubmit()}
@@ -57,10 +59,10 @@ export function OnboardingStep1({
       </div>
 
       <div>
-        <label className={labelClass}>Password</label>
+        <label className={labelClass}>{t('step1.passwordLabel')}</label>
         <input
           type="password"
-          placeholder="Enter a password"
+          placeholder={t('step1.passwordPlaceholder')}
           value={password}
           onChange={e => onPasswordChange(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && onSubmit()}
@@ -69,10 +71,10 @@ export function OnboardingStep1({
       </div>
 
       <div>
-        <label className={labelClass}>Confirm Password</label>
+        <label className={labelClass}>{t('step1.confirmPasswordLabel')}</label>
         <input
           type="password"
-          placeholder="Confirm your password"
+          placeholder={t('step1.confirmPasswordPlaceholder')}
           value={confirmPassword}
           onChange={e => onConfirmPasswordChange(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && onSubmit()}
@@ -85,7 +87,7 @@ export function OnboardingStep1({
         {confirmPassword && password !== confirmPassword && (
           <p className="text-xs mt-1.5 text-danger-500 flex items-center gap-1">
             <AlertCircle className="w-3 h-3" />
-            Passwords do not match
+            {t('step1.passwordMismatch')}
           </p>
         )}
       </div>

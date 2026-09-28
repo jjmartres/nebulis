@@ -5,6 +5,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   ArrowRight,
@@ -66,6 +67,7 @@ const ICONS: Record<TourIconName, LucideIcon> = {
 };
 
 export function TourOverlay() {
+  const { t } = useTranslation('common');
   const { active, step, stepIndex, stepCount, transitioning, next, back, stop } =
     useTour();  const { isDark, isNight, isSpace } = useTheme();
   const [spot, setSpot] = useState<SpotlightRect | null>(null);
@@ -406,7 +408,7 @@ export function TourOverlay() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: accent }}>
-                  Step {stepIndex + 1} of {stepCount}
+                  {t('tour.stepIndicator', { current: stepIndex + 1, total: stepCount })}
                 </p>
                 <h3 className={`mt-1 font-display text-lg font-bold tracking-tight ${bodyBubble}`}>
                   {step.title}
@@ -430,7 +432,7 @@ export function TourOverlay() {
                     : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                Skip tour
+                {t('tour.skipTour')}
               </button>
               <div className="flex items-center gap-2">
                 <button
@@ -443,14 +445,14 @@ export function TourOverlay() {
                   }`}
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
-                  Back
+                  {t('tour.back')}
                 </button>
                 <button
                   onClick={next}
                   className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-[1.02] active:scale-[0.99]"
                   style={{ backgroundColor: accent, boxShadow: `0 8px 24px -8px ${accent}aa` }}
                 >
-                  {stepIndex === stepCount - 1 ? 'Finish' : 'Next'}
+                  {stepIndex === stepCount - 1 ? t('tour.finish') : t('tour.next')}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -465,7 +467,7 @@ export function TourOverlay() {
       {/* Close affordance in the corner, above the dim. */}
       <button
         onClick={stop}
-        aria-label="Close tour"
+        aria-label={t('tour.closeTour')}
         className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white ${
           isWelcome ? 'hidden' : ''
         }`}
@@ -493,6 +495,7 @@ function WelcomeCard({
   total: number;
   step: TourStep;
 }) {
+  const { t } = useTranslation('common');
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
       <div
@@ -518,7 +521,7 @@ function WelcomeCard({
         </div>
         <div className="p-7">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: accent }}>
-            Welcome
+            {t('tour.welcome')}
           </p>
           <h2 className={`mt-1.5 font-display text-2xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
             {step.title}
@@ -540,19 +543,19 @@ function WelcomeCard({
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
               }`}
             >
-              Not now
+              {t('tour.notNow')}
             </button>
             <button
               onClick={onPrimary}
               className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:scale-[1.02] active:scale-[0.99]"
               style={{ backgroundColor: accent, boxShadow: `0 10px 30px -10px ${accent}cc` }}
             >
-              {step.id === 'welcome' ? 'Start the tour' : 'Next'}
+              {step.id === 'welcome' ? t('tour.startTheTour') : t('tour.next')}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
           <p className={`mt-4 text-center text-[10px] uppercase tracking-[0.14em] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-            {total} steps · under a minute
+            {t('tour.stepsUnderMinute', { count: total })}
           </p>
         </div>
       </div>
@@ -566,6 +569,7 @@ function WelcomeCard({
  *  never needs its own message for a "stuck" state or its own Skip/Next
  *  controls; there is always exactly one place those live. */
 function FallbackCard({ accent, isDark }: { accent: string; isDark: boolean }) {
+  const { t } = useTranslation('common');
   return (
     <div className="absolute inset-x-0 bottom-10 flex justify-center px-4">
       <div
@@ -580,8 +584,8 @@ function FallbackCard({ accent, isDark }: { accent: string; isDark: boolean }) {
           <Rocket className="h-4 w-4" />
         </div>
         <div className={isDark ? 'text-slate-300' : 'text-slate-600'}>
-          <p className="text-sm font-semibold">Taking you there</p>
-          <p className="text-xs opacity-70">One moment, we are opening that page.</p>
+          <p className="text-sm font-semibold">{t('tour.takingYouThere')}</p>
+          <p className="text-xs opacity-70">{t('tour.oneMoment')}</p>
         </div>
       </div>
     </div>

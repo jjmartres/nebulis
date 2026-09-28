@@ -6,9 +6,11 @@
  * live as one global list in Settings, which put "can this re-sync?" three
  * clicks away from the object it was actually about.
  */
+import { useTranslation } from 'react-i18next';
 import { RotateCcw, RotateCw, X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import type { DeletedObject, DeletedSession } from '../../lib/api/library';
+import { formatDate } from '../../lib/formatLocale';
 
 interface Props {
   isDark: boolean;
@@ -23,17 +25,17 @@ interface Props {
   onClose: () => void;
 }
 
-function formatDeletedAt(deletedAt: string | null): string {
-  if (!deletedAt) return 'Date unknown';
+function formatDeletedAt(deletedAt: string | null, dateUnknown: string): string {
+  if (!deletedAt) return dateUnknown;
   const ms = Date.parse(deletedAt);
-  if (Number.isNaN(ms)) return 'Date unknown';
-  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  if (Number.isNaN(ms)) return dateUnknown;
+  return formatDate(new Date(ms), { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function formatSessionDate(date: string): string {
   const ms = Date.parse(`${date}T12:00:00`);
   if (Number.isNaN(ms)) return date;
-  return new Date(ms).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return formatDate(new Date(ms), { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 export function ObjectTrashModal({
@@ -48,6 +50,7 @@ export function ObjectTrashModal({
   error,
   onClose,
 }: Props) {
+  const { t } = useTranslation('library');
   const rowBase = 'flex items-center justify-between gap-3 py-2.5';
   const nameClass = `text-[13px] font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`;
   const metaClass = `text-[12px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`;
@@ -59,7 +62,7 @@ export function ObjectTrashModal({
     <Modal
       isOpen
       onClose={onClose}
-      title={`Deleted from ${objectName}`}
+      title={t('objectDetail.trashModal.title', { name: objectName })}
       className={`relative w-full max-w-md rounded-2xl shadow-2xl flex flex-col ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white shadow-xl'
       }`}
@@ -68,7 +71,7 @@ export function ObjectTrashModal({
         <div className="flex items-center gap-2">
           <RotateCcw className="w-4 h-4 text-accent-500" />
           <h2 className={`font-display font-semibold text-base ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-            Deleted from {objectName}
+            {t('objectDetail.trashModal.title', { name: objectName })}
           </h2>
         </div>
         <button
@@ -81,21 +84,20 @@ export function ObjectTrashModal({
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 max-h-96">
         <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          Blocked from re-syncing until restored. Local files are already gone; restoring only lets
-          the telescope send this back next time it images the same target.
+          {t('objectDetail.trashModal.hint')}
         </p>
 
         {deletedObjects.length > 0 && (
           <div>
             <h4 className={`text-[11px] font-semibold uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Object
+              {t('objectDetail.trashModal.object')}
             </h4>
             <ul className={`divide-y ${isDark ? 'divide-slate-800' : 'divide-slate-100'}`}>
               {deletedObjects.map(obj => (
                 <li key={obj.objectId} className={rowBase}>
                   <div className="min-w-0">
                     <p className={nameClass}>{obj.objectName || obj.objectId}</p>
-                    <p className={metaClass}>Deleted {formatDeletedAt(obj.deletedAt)}</p>
+                    <p className={metaClass}>{t('objectDetail.trashModal.deletedAt', { date: formatDeletedAt(obj.deletedAt, t('objectDetail.trashModal.dateUnknown')) })}</p>
                   </div>
                   <button
                     type="button"
@@ -106,7 +108,7 @@ export function ObjectTrashModal({
                     {restoringObjectId === obj.objectId
                       ? <RotateCw className="w-3.5 h-3.5 animate-spin" />
                       : <RotateCcw className="w-3.5 h-3.5" />}
-                    Restore
+                    {t('objectDetail.trashModal.restore')}
                   </button>
                 </li>
               ))}
@@ -117,7 +119,7 @@ export function ObjectTrashModal({
         {deletedSessions.length > 0 && (
           <div>
             <h4 className={`text-[11px] font-semibold uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Observations
+              {t('objectDetail.trashModal.observations')}
             </h4>
             <ul className={`divide-y ${isDark ? 'divide-slate-800' : 'divide-slate-100'}`}>
               {deletedSessions.map(session => {
@@ -127,7 +129,7 @@ export function ObjectTrashModal({
                   <li key={key} className={rowBase}>
                     <div className="min-w-0">
                       <p className={nameClass}>{formatSessionDate(session.date)}</p>
-                      <p className={metaClass}>Deleted {formatDeletedAt(session.deletedAt)}</p>
+                      <p className={metaClass}>{t('objectDetail.trashModal.deletedAt', { date: formatDeletedAt(session.deletedAt, t('objectDetail.trashModal.dateUnknown')) })}</p>
                     </div>
                     <button
                       type="button"
@@ -136,7 +138,7 @@ export function ObjectTrashModal({
                       onClick={() => onRestoreSession({ objectId: session.objectId, date: session.date })}
                     >
                       {pending ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                      Restore
+                      {t('objectDetail.trashModal.restore')}
                     </button>
                   </li>
                 );

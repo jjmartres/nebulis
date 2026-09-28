@@ -13,10 +13,12 @@
  * (see ObservationsToolbar). This component just draws the month it is given.
  */
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { CalendarOff, Clock, NotebookPen } from 'lucide-react';
 import type { ObservationSummary } from '../../lib/api/observations';
 import type { TelescopeProfile } from '../../lib/api/telescopes';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { formatDate, weekdayLabels, weekStartsOn } from '../../lib/formatLocale';
 
 /** How many entries fit a cell before the rest go behind "+N more". */
 const VISIBLE_PER_DAY = 3;
@@ -53,7 +55,15 @@ interface Props {
   accentText: string;
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+/** Weekday header labels in Sunday-first order rotated to start on the
+ *  active locale's first day of the week, matching the day grid `days` is
+ *  built in (ObservationsCalendar.tsx computes its padding with the same
+ *  weekStartsOn() so the two never disagree on which column is which). */
+function localeWeekdayHeaders(): string[] {
+  const labels = weekdayLabels();
+  const start = weekStartsOn();
+  return [...labels.slice(start), ...labels.slice(0, start)];
+}
 
 export function MonthGrid({
   days, observationsByDate, monthLabel, today, nearestDate, onGoToNearest,
@@ -61,6 +71,7 @@ export function MonthGrid({
   onExpandDay, onEntryHoverEnter, onEntryHoverLeave, onEntryClick,
   isDark, isNight, isSpace, accentText,
 }: Props) {
+  const { t } = useTranslation('observations');
   // Six rows are generated so every month has the same maximum, but a month
   // that fits in five leaves the last one entirely outside itself. Rendering it
   // added a row of empty cells taller than most weeks' content.
@@ -78,6 +89,7 @@ export function MonthGrid({
   // twice: announced twice by a screen reader, and every thumbnail requested
   // twice. `md` matches the Tailwind breakpoint the grid used to appear at.
   const asAgenda = useMediaQuery('(max-width: 767px)');
+  const weekdayHeaders = localeWeekdayHeaders();
 
   return (
     // The page wraps this (and the toolbar above it) in one bordered card, so
@@ -93,8 +105,7 @@ export function MonthGrid({
           .filter(d => d.isCurrentMonth && (observationsByDate.get(d.date)?.length ?? 0) > 0)
           .map(day => {
             const dayObs = observationsByDate.get(day.date) ?? [];
-            const weekday = new Date(`${day.date}T12:00:00`)
-              .toLocaleDateString('en-US', { weekday: 'short' });
+            const weekday = formatDate(new Date(`${day.date}T12:00:00`), { weekday: 'short' });
             const isToday = day.date === today;
 
             return (
@@ -161,7 +172,7 @@ export function MonthGrid({
                             {obs.hasNotes && (
                               <NotebookPen
                                 className={`h-3 w-3 shrink-0 ${accentText}`}
-                                aria-label="Has session notes"
+                                aria-label={t('monthGrid.hasSessionNotes')}
                               />
                             )}
                           </span>
@@ -174,7 +185,7 @@ export function MonthGrid({
                                 {formatTime(obs.startTime)}
                               </span>
                             )}
-                            {obs.fileCount > 0 && <span>{obs.fileCount} files</span>}
+                            {obs.fileCount > 0 && <span>{t('monthGrid.fileCount', { count: obs.fileCount })}</span>}
                           </span>
                         </span>
                       </Link>
@@ -189,7 +200,7 @@ export function MonthGrid({
       <>
       {/* Weekday headers */}
       <div className="grid grid-cols-7">
-        {WEEKDAYS.map(day => (
+        {weekdayHeaders.map(day => (
           <div
             key={day}
             className={`border-b py-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.12em] ${
@@ -224,20 +235,30 @@ export function MonthGrid({
               }`}
             >
               <div className="mb-1 flex items-center justify-between px-0.5">
-                <span className={`text-xs font-medium tabular-nums ${
-                  isToday
-                    ? `${accentText} font-bold`
-                    : !day.isCurrentMonth
-                      ? isDark ? 'text-slate-700' : 'text-slate-400'
-                      : isDark ? 'text-slate-400' : 'text-slate-600'
-                }`}>
-                  {day.day}
+                <span className="inline-flex items-center gap-1">
+                  <span className={`text-xs font-medium tabular-nums ${
+                    isToday
+                      ? `${accentText} font-bold`
+                      : !day.isCurrentMonth
+                        ? isDark ? 'text-slate-700' : 'text-slate-400'
+                        : isDark ? 'text-slate-400' : 'text-slate-600'
+                  }`}>
+                    {day.day}
+                  </span>
+                  {/* Today's own badge already calls out the date, so the dot
+                      would be a second signal for the same cell. */}
+                  {hasObs && day.isCurrentMonth && !isToday && (
+                    <span
+                      className={`h-1 w-1 rounded-full ${isDark ? 'bg-accent-400' : 'bg-accent-500'}`}
+                      aria-hidden="true"
+                    />
+                  )}
                 </span>
                 {isToday && (
                   <span className={`rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider ${
                     isDark ? 'bg-accent-500/15 text-accent-400' : 'bg-accent-300 text-accent-700'
                   }`}>
-                    Today
+                    {t('monthGrid.today')}
                   </span>
                 )}
               </div>
@@ -298,7 +319,7 @@ export function MonthGrid({
                           {obs.hasNotes && (
                             <NotebookPen
                               className={`h-2.5 w-2.5 shrink-0 ${accentText}`}
-                              aria-label="Has session notes"
+                              aria-label={t('monthGrid.hasSessionNotes')}
                             />
                           )}
                         </span>
@@ -325,7 +346,7 @@ export function MonthGrid({
                       isDark ? 'text-slate-500 hover:bg-accent-500/10 hover:text-accent-400' : 'text-slate-400 hover:bg-accent-50 hover:text-accent-600'
                     }`}
                   >
-                    +{dayObs.length - VISIBLE_PER_DAY} more
+                    {t('monthGrid.moreCount', { count: dayObs.length - VISIBLE_PER_DAY })}
                   </button>
                 )}
               </div>
@@ -342,12 +363,12 @@ export function MonthGrid({
           isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'
         }`}>
           <CalendarOff className="h-3.5 w-3.5 shrink-0" />
-          <span>Nothing recorded in {monthLabel}.</span>
+          <span>{t('monthGrid.nothingRecordedIn', { month: monthLabel })}</span>
           <button
             onClick={onGoToNearest}
             className={`font-medium transition hover:underline ${accentText}`}
           >
-            Jump to the closest night
+            {t('monthGrid.jumpToClosest')}
           </button>
         </div>
       )}

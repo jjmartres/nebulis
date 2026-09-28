@@ -148,6 +148,28 @@ export const getPlannerTargets = (opts?: {
 export const searchDsoCatalog = (q: string, limit = 20) =>
   fetchJSON<{ results: DsoEntry[]; total: number }>(`/dso?q=${encodeURIComponent(q)}&limit=${limit}`);
 
+export type DsoSort = 'name' | 'magnitude';
+
+/** The `/dso` endpoint's fuller browse/search mode: optional free-text `q`
+ *  alongside a `type` filter, a `lat`/`minAlt` "ever visible from here"
+ *  filter, a `sort` override, and real offset/limit pagination with an
+ *  honest `total` — used by the "Find things to image" browser
+ *  (WishlistAddSearch), which needs to page through and filter hundreds of
+ *  results rather than a fixed top-N. `searchDsoCatalog` above stays as the
+ *  simple, unfiltered "top N for this query" call other (smaller) search
+ *  boxes in the app use. */
+export const browseDsoCatalog = (opts: { q?: string; type?: string; lat?: number; minAlt?: number; sort?: DsoSort; limit?: number; offset?: number }) => {
+  const params = new URLSearchParams();
+  if (opts.q) params.set('q', opts.q);
+  if (opts.type) params.set('type', opts.type);
+  if (opts.lat != null) params.set('lat', String(opts.lat));
+  if (opts.minAlt != null) params.set('minAlt', String(opts.minAlt));
+  if (opts.sort) params.set('sort', opts.sort);
+  params.set('limit', String(opts.limit ?? 60));
+  params.set('offset', String(opts.offset ?? 0));
+  return fetchJSON<{ results: DsoEntry[]; total: number }>(`/dso?${params.toString()}`);
+};
+
 // Auto-plan ("Plan My Night") — the scheduling algorithm runs server-side so
 // every client (web, iOS, and eventually Android) produces the same plan for
 // the same inputs. See server/lib/autoPlan.ts for the canonical algorithm.

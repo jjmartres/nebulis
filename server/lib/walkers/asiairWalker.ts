@@ -5,9 +5,10 @@
  * validated against real captured frames (IC 5146 session, 2026-09-04) and
  * against the device's own "Customize File Name" settings screen — see the
  * ASIAIR block in telescopeFiles.ts. The folder layout below (Autorun/Plan
- * split, Live/ output, calibration folders) was built from ZWO's own
- * image-transfer guide, the `poto-siril` ASIAIR toolchain, and Cloudy Nights
- * / ZWO forum reports.
+ * split, Live/ output, calibration folders) was originally built from ZWO's own
+ * image-transfer guide, the `poto-siril` ASIAIR toolchain, and Cloudy Nights /
+ * ZWO forum reports, and has since been confirmed against a real ASIAIR, which
+ * is why the telescope kind no longer carries a beta marker.
  *
  *   <root>/
  *     Autorun/                     unattended capture runs

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { Plug, Loader2, AlertTriangle } from 'lucide-react';
 import { getLibraryLocation, resetLibraryLocation } from '../lib/api/storage';
 import { useTheme } from '../hooks/useTheme';
@@ -17,6 +18,7 @@ import { useTheme } from '../hooks/useTheme';
  */
 export function LibraryUnavailableBanner() {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
 
@@ -55,16 +57,20 @@ export function LibraryUnavailableBanner() {
       <Plug className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
       <div className="min-w-0">
         <p className={`text-sm font-medium ${strong}`}>
-          {location.locationType === 'network' ? 'Reconnect your library share' : 'Reconnect your library drive'}
+          {location.locationType === 'network' ? t('libraryUnavailableBanner.reconnectShare') : t('libraryUnavailableBanner.reconnectDrive')}
         </p>
         <p className={`text-xs mt-0.5 leading-relaxed ${soft}`}>
-          Your images are stored at a location that is not connected, so they cannot be opened and imports are paused.
+          {t('libraryUnavailableBanner.notConnectedNote')}
           {' '}
           {location.locationType === 'network'
-            ? 'Check the server is online.'
-            : 'Plug the drive back in.'}
-          {' '}Nothing was lost. You can change the location in{' '}
-          <Link to="/settings" className="underline font-medium">Settings, Storage</Link>.
+            ? t('libraryUnavailableBanner.checkServerOnline')
+            : t('libraryUnavailableBanner.plugDriveBackIn')}
+          {' '}
+          <Trans
+            i18nKey="libraryUnavailableBanner.nothingLostNote"
+            ns="library"
+            components={{ 1: <Link to="/settings" className="underline font-medium" /> }}
+          />
         </p>
 
         {canReset && !confirming && (
@@ -73,23 +79,34 @@ export function LibraryUnavailableBanner() {
             onClick={() => setConfirming(true)}
             className={`mt-2 text-xs font-medium underline ${strong} hover:opacity-80`}
           >
-            {location.locationType === 'network' ? 'That share is gone' : 'That drive is gone'}. Reset to the default folder.
+            {location.locationType === 'network'
+              ? t('libraryUnavailableBanner.shareIsGoneReset')
+              : t('libraryUnavailableBanner.driveIsGoneReset')}
           </button>
         )}
 
         {canReset && confirming && (
           <div className={`mt-2 rounded-lg p-2.5 ${isDark ? 'bg-amber-500/10' : 'bg-amber-100/60'}`}>
             <p className={`text-xs leading-relaxed ${soft}`}>
-              This points Nebulis back at its built-in library folder
-              (<span className="font-mono break-all">{location.defaultPath}</span>).
-              Files at the old location are <span className="font-medium">not</span> copied.
-              Use this only if that {location.locationType === 'network' ? 'share' : 'drive'} is gone for
-              good and your images are already in the default folder (or you will re-import them).
+              <Trans
+                i18nKey="libraryUnavailableBanner.resetExplanation"
+                ns="library"
+                values={{
+                  path: location.defaultPath,
+                  shareOrDrive: location.locationType === 'network'
+                    ? t('libraryUnavailableBanner.shareWord')
+                    : t('libraryUnavailableBanner.driveWord'),
+                }}
+                components={{
+                  1: <span className="font-mono break-all" />,
+                  2: <span className="font-medium" />,
+                }}
+              />
             </p>
             {reset.isError && (
               <p className="text-xs mt-1.5 text-red-500 inline-flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                {reset.error instanceof Error ? reset.error.message : 'Could not reset the location'}
+                {reset.error instanceof Error ? reset.error.message : t('libraryUnavailableBanner.resetFailed')}
               </p>
             )}
             <div className="flex items-center gap-2 mt-2">
@@ -104,14 +121,14 @@ export function LibraryUnavailableBanner() {
                 }`}
               >
                 {reset.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Reset to default folder
+                {t('libraryUnavailableBanner.resetToDefaultFolder')}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
                 className={`text-xs font-medium px-2.5 py-1.5 rounded-md ${isDark ? 'text-amber-200/70 hover:bg-amber-500/10' : 'text-amber-700 hover:bg-amber-100'}`}
               >
-                Cancel
+                {t('confirmModal.cancel', { ns: 'common' })}
               </button>
             </div>
           </div>

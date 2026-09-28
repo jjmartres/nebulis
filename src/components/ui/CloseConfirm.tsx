@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 /**
  * Inline confirm bar shown when a modal with unsaved state is about to close.
  * Sits absolutely at the bottom of the parent modal panel and offers two
@@ -9,7 +11,7 @@
  */
 export function CloseConfirm({
   message,
-  cancelLabel = 'Keep editing',
+  cancelLabel,
   onCancel,
   onDiscard,
   isDark = true,
@@ -25,11 +27,12 @@ export function CloseConfirm({
    * dark styling that shipped originally in case a future caller forgets. */
   isDark?: boolean;
 }) {
+  const { t } = useTranslation('common');
   return (
     <div
       className="absolute inset-x-0 bottom-0 z-30"
       role="alertdialog"
-      aria-label="Confirm close"
+      aria-label={t('closeConfirm.ariaLabel')}
       onClick={e => e.stopPropagation()}
     >
       <div className={`border-t px-5 py-3 flex items-center justify-between gap-4 shadow-2xl ${
@@ -45,14 +48,14 @@ export function CloseConfirm({
               isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            {cancelLabel}
+            {cancelLabel ?? t('closeConfirm.keepEditing')}
           </button>
           <button
             type="button"
             onClick={onDiscard}
             className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition"
           >
-            Discard
+            {t('closeConfirm.discard')}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import type { ObservationSummary } from './api/observations';
 import { cleanCatalogId } from './utils';
+import { formatNumber } from './formatLocale';
 
 /**
  * What an observation's "Object" label should read: the common name, falling
@@ -100,5 +101,5 @@ export function formatDistanceLy(ly: number): string {
     const mly = ly / 1_000_000;
     return `${mly % 1 === 0 ? mly.toFixed(0) : mly.toFixed(2)} million ly`;
   }
-  return `${ly.toLocaleString('en-US')} ly`;
+  return `${formatNumber(ly)} ly`;
 }

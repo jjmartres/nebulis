@@ -14,6 +14,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Eye, EyeOff, MapPin, Telescope } from 'lucide-react';
 import { AltitudeChart } from '../AltitudeChart';
@@ -42,6 +43,7 @@ function formatHoursMinutes(minutes: number): string {
 }
 
 export function TonightPanel({ raHours, decDegrees, site: activeSite }: Props) {
+  const { t } = useTranslation('library');
   const { isDark, isNight, isSpace } = useTheme();
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-accent-500';
 
@@ -94,9 +96,9 @@ export function TonightPanel({ raHours, decDegrees, site: activeSite }: Props) {
 
   if (raHours == null || decDegrees == null) {
     return (
-      <SessionPanel title="Tonight" icon={Telescope}>
+      <SessionPanel title={t('objectDetail.tonightPanel.title')} icon={Telescope}>
         <PanelEmpty>
-          No coordinates for this object, so its position cannot be worked out.
+          {t('objectDetail.tonightPanel.noCoords')}
         </PanelEmpty>
       </SessionPanel>
     );
@@ -104,13 +106,17 @@ export function TonightPanel({ raHours, decDegrees, site: activeSite }: Props) {
 
   if (lat == null || lon == null) {
     return (
-      <SessionPanel title="Tonight" icon={Telescope}>
+      <SessionPanel title={t('objectDetail.tonightPanel.title')} icon={Telescope}>
         <PanelEmpty>
           <span className="inline-flex flex-wrap items-center gap-1">
             <MapPin className="h-3.5 w-3.5" />
-            Set an observing site in
-            <Link to="/settings?tab=sky" className="font-medium underline underline-offset-2">Settings</Link>
-            to see when this is up.
+            <Trans
+              i18nKey="objectDetail.tonightPanel.setSite"
+              ns="library"
+              components={{
+                1: <Link to="/settings?tab=sky" className="font-medium underline underline-offset-2" />,
+              }}
+            />
           </span>
         </PanelEmpty>
       </SessionPanel>
@@ -127,7 +133,7 @@ export function TonightPanel({ raHours, decDegrees, site: activeSite }: Props) {
 
   return (
     <SessionPanel
-      title="Tonight"
+      title={t('objectDetail.tonightPanel.title')}
       icon={Telescope}
       aside={
         sites.length > 1 ? (
@@ -136,7 +142,7 @@ export function TonightPanel({ raHours, decDegrees, site: activeSite }: Props) {
             accentText={accentText}
             sites={sites}
             currentSite={site ?? null}
-            fallbackLabel={site?.name ?? 'Choose a site'}
+            fallbackLabel={site?.name ?? t('objectDetail.tonightPanel.chooseSite')}
             onSelect={id => setPreviewSiteId(id)}
           />
         ) : (
@@ -156,17 +162,22 @@ export function TonightPanel({ raHours, decDegrees, site: activeSite }: Props) {
           : <EyeOff className={`mt-0.5 h-4 w-4 shrink-0 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />}
         <p>
           {noDarkness ? (
-            'No astronomical darkness tonight at this site.'
+            t('objectDetail.tonightPanel.noDarkness')
           ) : worthIt && peakAt ? (
-            <>
-              Climbs to <span className="font-semibold tabular-nums">{Math.round(peakAlt!)}°</span> around{' '}
-              {/* site's timezone, not the viewer's — a plan made for a remote site is read in that site's night */}
-              <span className="font-semibold tabular-nums">{formatHm(peakAt, site?.timezone)}</span>.
-            </>
+            // site's timezone, not the viewer's — a plan made for a remote site is read in that site's night
+            <Trans
+              i18nKey="objectDetail.tonightPanel.climbsTo"
+              ns="library"
+              values={{ deg: Math.round(peakAlt!), time: formatHm(peakAt, site?.timezone) }}
+              components={{
+                1: <span className="font-semibold tabular-nums" />,
+                3: <span className="font-semibold tabular-nums" />,
+              }}
+            />
           ) : up ? (
-            <>Rises tonight, but stays under your {minAlt}° minimum, so it is not worth setting up for.</>
+            t('objectDetail.tonightPanel.risesButLow', { minAlt })
           ) : (
-            <>Below the horizon all night from here.</>
+            t('objectDetail.tonightPanel.belowHorizon')
           )}
         </p>
       </div>
@@ -187,18 +198,18 @@ export function TonightPanel({ raHours, decDegrees, site: activeSite }: Props) {
 
       <FactGrid className={`mt-4 border-t pt-4 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
         <Fact
-          label={`Above ${minAlt}°`}
-          value={worthIt ? formatHoursMinutes(tonight!.minutesAbove) : 'None tonight'}
-          hint={`How long the object stays over your minimum altitude during tonight's astronomical darkness, at ${site?.name ?? 'this site'}.`}
+          label={t('objectDetail.tonightPanel.aboveLabel', { minAlt })}
+          value={worthIt ? formatHoursMinutes(tonight!.minutesAbove) : t('objectDetail.tonightPanel.noneTonight')}
+          hint={t('objectDetail.tonightPanel.aboveHint', { siteName: site?.name ?? t('objectDetail.tonightPanel.thisSite') })}
         />
         <Fact
-          label="Best months"
+          label={t('objectDetail.tonightPanel.bestMonths')}
           value={season?.windowStart
             ? (season.windowStart === season.windowEnd
                 ? season.windowStart
-                : `${season.windowStart} to ${season.windowEnd}`)
-            : season && !season.everVisible ? 'Never well placed' : 'Unknown'}
-          hint="The run of months where this object clears your minimum altitude during darkness."
+                : t('objectDetail.tonightPanel.monthsRange', { start: season.windowStart, end: season.windowEnd }))
+            : season && !season.everVisible ? t('objectDetail.tonightPanel.neverWellPlaced') : t('objectDetail.tonightPanel.unknown')}
+          hint={t('objectDetail.tonightPanel.bestMonthsHint')}
         />
       </FactGrid>
     </SessionPanel>

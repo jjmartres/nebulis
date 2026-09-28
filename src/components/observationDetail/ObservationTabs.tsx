@@ -1,4 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
+import { formatNumber } from '../../lib/formatLocale';
 
 export type ObservationTab = 'images' | 'subframes' | 'processed' | 'videos';
 
@@ -17,26 +19,27 @@ export function ObservationTabs({ active, onChange, counts }: {
   onChange: (tab: ObservationTab) => void;
   counts: { images: number; subframes: number; processed: number; videos: number };
 }) {
+  const { t } = useTranslation('observations');
   const { isDark, isNight, isSpace } = useTheme();
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-accent-500';
   const accentBorder = isNight ? 'border-red-400' : isSpace ? 'border-violet-400' : 'border-accent-500';
 
   const tabs: { id: ObservationTab; label: string; count?: number }[] = [
-    { id: 'images', label: 'Images', count: counts.images },
-    { id: 'subframes', label: 'Subframes', count: counts.subframes },
-    { id: 'processed', label: 'Processed', count: counts.processed },
+    { id: 'images', label: t('observationDetail.tabs.images'), count: counts.images },
+    { id: 'subframes', label: t('observationDetail.tabs.subframes'), count: counts.subframes },
+    { id: 'processed', label: t('observationDetail.tabs.processed'), count: counts.processed },
     // Only surfaces when the night has a video (lunar/planetary timelapse). A
     // DSO observation never has one, so the tab stays hidden rather than sitting
     // at zero on every page.
     ...(counts.videos > 0
-      ? [{ id: 'videos' as const, label: 'Videos', count: counts.videos }]
+      ? [{ id: 'videos' as const, label: t('observationDetail.tabs.videos'), count: counts.videos }]
       : []),
   ];
 
   return (
     <div
       role="tablist"
-      aria-label="Session files"
+      aria-label={t('observationDetail.tabs.sessionFiles')}
       className={`flex items-center gap-1 overflow-x-auto no-scrollbar border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}
     >
       {tabs.map(({ id, label, count }) => {
@@ -60,7 +63,7 @@ export function ObservationTabs({ active, onChange, counts }: {
                   ? isDark ? 'bg-accent-500/15 text-accent-400' : 'bg-accent-300 text-accent-700'
                   : isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-500'
               }`}>
-                {count}
+                {formatNumber(count)}
               </span>
             )}
           </button>

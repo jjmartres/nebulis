@@ -76,6 +76,33 @@ describe('dateDerivation', () => {
     });
   });
 
+  // The same rule has to hold for the FITS path: DATE-OBS is written by capture
+  // software, and an impossible value used to become a live session key that
+  // importNaming.ts then stamped onto the on-disk name.
+  it('rejects an impossible DATE-OBS instead of using it as a session date', () => {
+    const bad = path.join(tmpDir('fits-bad-'), 'light.fits');
+    fs.writeFileSync(bad, fitsBuffer({ 'DATE-OBS': '2024-02-30T22:30:45' }));
+    expect(deriveFromFits(bad)).toBeNull();
+    const badMonth = path.join(tmpDir('fits-bad-'), 'light.fits');
+    fs.writeFileSync(badMonth, fitsBuffer({ 'DATE-OBS': '2024-13-45T22:30:45' }));
+    expect(deriveFromFits(badMonth)).toBeNull();
+  });
+
+  it('keeps a real leap-day DATE-OBS', () => {
+    const good = path.join(tmpDir('fits-good-'), 'light.fits');
+    fs.writeFileSync(good, fitsBuffer({ 'DATE-OBS': '2024-02-29T22:30:45' }));
+    expect(deriveFromFits(good)).toEqual({ date: '2024-02-29', source: 'fits', time: '223045' });
+  });
+
+  it('falls through to a real signal when the filename date is impossible', () => {
+    // 2024-02-30 is not a date, so the name carries no usable date and the
+    // chain has to reach FITS/folder/mtime instead of inventing a session.
+    const file = path.join(tmpDir('chain-bad-'), 'Stacked_10_M42_30.0s_IRCUT_20240230-220000.fits');
+    fs.writeFileSync(file, fitsBuffer({ 'DATE-OBS': '2024-03-01T02:10:00' }));
+    expect(deriveFileDate(file, path.basename(file), fs.statSync(file)))
+      .toMatchObject({ date: '2024-03-01', source: 'fits' });
+  });
+
   it('derives date + time from mtime', () => {
     const d = new Date(2024, 2, 4, 21, 5, 9);
     expect(deriveFromMtime(d)).toEqual({ date: '2024-03-04', source: 'mtime', time: '210509' });

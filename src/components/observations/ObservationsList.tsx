@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Telescope as TelescopeIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Telescope as TelescopeIcon } from 'lucide-react';
 import type { ObservationSummary } from '../../lib/api/observations';
 import type { TelescopeProfile } from '../../lib/api/telescopes';
 import { resolveObjectLabel, formatObservationDate } from '../../lib/observationDisplay';
@@ -9,19 +10,21 @@ import { cleanCatalogId } from '../../lib/utils';
 type SortKey = 'object' | 'catalog' | 'date';
 type SortDir = 'asc' | 'desc';
 
-const SORT_COLUMNS: { id: SortKey; label: string }[] = [
-  { id: 'object', label: 'Object' },
-  { id: 'catalog', label: 'Catalog' },
-  { id: 'date', label: 'Date' },
+const PAGE_SIZE = 25;
+
+const SORT_COLUMNS: { id: SortKey; labelKey: string }[] = [
+  { id: 'object', labelKey: 'list.columnObject' },
+  { id: 'catalog', labelKey: 'list.columnCatalog' },
+  { id: 'date', labelKey: 'list.columnDate' },
 ];
 
 /** Human-readable statement of the current sort, for the share card's subtitle
  *  (it has no month to anchor it the way the calendar card does, so it needs
  *  to say what "the list" means). */
-function describeSort(key: SortKey, dir: SortDir): string {
-  if (key === 'date') return `Sorted by date, ${dir === 'desc' ? 'newest first' : 'oldest first'}`;
-  const label = SORT_COLUMNS.find(c => c.id === key)!.label.toLowerCase();
-  return `Sorted by ${label}, ${dir === 'asc' ? 'A to Z' : 'Z to A'}`;
+function describeSort(key: SortKey, dir: SortDir, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (key === 'date') return dir === 'desc' ? t('list.sortedByDateNewest') : t('list.sortedByDateOldest');
+  const column = t(SORT_COLUMNS.find(c => c.id === key)!.labelKey).toLowerCase();
+  return dir === 'asc' ? t('list.sortedByColumnAz', { column }) : t('list.sortedByColumnZa', { column });
 }
 
 /** Declared at module scope: a component defined inside a render remounts on
@@ -82,8 +85,10 @@ interface Props {
 export function ObservationsList({
   observations, telescopeById, showTelescopeUI, isDark, onSortedRowsChange,
 }: Props) {
+  const { t } = useTranslation('observations');
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [page, setPage] = useState(0);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -115,15 +120,32 @@ export function ObservationsList({
   }, [observations, sortKey, sortDir]);
 
   useEffect(() => {
-    onSortedRowsChange?.(rows, describeSort(sortKey, sortDir));
-  }, [rows, sortKey, sortDir, onSortedRowsChange]);
+    onSortedRowsChange?.(rows, describeSort(sortKey, sortDir, t));
+  }, [rows, sortKey, sortDir, onSortedRowsChange, t]);
+
+  // Re-sorting or the underlying set changing (month/telescope filter) can
+  // easily leave `page` pointing past the new last page, so jump back to the
+  // first page whenever what's being paginated changes. Adjusted during
+  // render (React's "reset state when a value changes" pattern) rather than
+  // in an effect, which would cause an extra render pass on every change.
+  const [prevRows, setPrevRows] = useState(rows);
+  if (prevRows !== rows) {
+    setPrevRows(rows);
+    setPage(0);
+  }
+
+  const totalPages = Math.ceil(rows.length / PAGE_SIZE);
+  const pageRows = useMemo(
+    () => rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [rows, page],
+  );
 
   if (observations.length === 0) {
     return (
       <div className="px-6 py-16 text-center">
-        <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>No observations yet</p>
+        <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{t('list.empty')}</p>
         <p className={`text-sm mt-1 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-          Import from a telescope or add one manually to see it here.
+          {t('list.emptyHint')}
         </p>
       </div>
     );
@@ -136,7 +158,7 @@ export function ObservationsList({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <caption className="sr-only">
-            All observations, sortable by object, catalog identifier, or date.
+            {t('list.caption')}
           </caption>
           <thead className={`border-b ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
             <tr>
@@ -144,7 +166,7 @@ export function ObservationsList({
                 <SortHeader
                   key={col.id}
                   id={col.id}
-                  label={col.label}
+                  label={t(col.labelKey)}
                   active={sortKey === col.id}
                   dir={sortDir}
                   isDark={isDark}
@@ -154,7 +176,7 @@ export function ObservationsList({
             </tr>
           </thead>
           <tbody>
-            {rows.map(obs => {
+            {pageRows.map(obs => {
               const scope = obs.telescopeId ? telescopeById.get(obs.telescopeId) : null;
               const { display, catalog } = resolveObjectLabel(obs);
 
@@ -197,11 +219,49 @@ export function ObservationsList({
         </table>
       </div>
 
-      <div className={`px-4 py-2.5 border-t text-xs flex items-center gap-2 ${
+      <div className={`px-4 py-2.5 border-t text-xs flex items-center justify-between gap-3 ${
         isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'
       }`}>
-        {showTelescopeUI && <TelescopeIcon className="w-3.5 h-3.5" />}
-        {rows.length} {rows.length === 1 ? 'observation' : 'observations'}
+        <span className="flex items-center gap-2">
+          {showTelescopeUI && <TelescopeIcon className="w-3.5 h-3.5" />}
+          {totalPages > 1
+            ? t('list.showingRange', {
+                from: page * PAGE_SIZE + 1,
+                to: Math.min((page + 1) * PAGE_SIZE, rows.length),
+                total: rows.length,
+              })
+            : t('list.count', { count: rows.length })}
+        </span>
+
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0}
+              aria-label={t('list.previousPage')}
+              className={`flex h-7 w-7 items-center justify-center rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
+                isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="tabular-nums px-1">
+              {t('list.pageOfTotal', { page: page + 1, totalPages })}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              aria-label={t('list.nextPage')}
+              className={`flex h-7 w-7 items-center justify-center rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
+                isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
+              }`}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

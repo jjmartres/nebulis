@@ -34,6 +34,8 @@ import { backfillLibraryFiles, rebuildFromManifests } from './lib/library/librar
 import { reconcileLayoutFromDisk } from './lib/library/libraryLayout.js';
 import { isLibraryAvailable, reconcilePinnedLibraryConfig } from './lib/libraryPath.js';
 import { purgeSampleObject } from './lib/library/sampleLibrary.js';
+import { setDistCacheHeaders } from './lib/staticAssets.js';
+import { spaFallback } from './lib/spaFallback.js';
 import { plannerRouter } from './routes/planner.js';
 import { plannedSessionsRouter } from './routes/plannedSessions.js';
 import { wishlistRouter } from './routes/wishlist.js';
@@ -129,7 +131,7 @@ if (startupBackupOutcome.status === 'created') {
     message:
       `Saved a database backup before upgrading from ${previousVersion ?? 'an earlier version'} ` +
       `to ${APP_VERSION}: ${backup.name}.`,
-    metadata: { backupName: backup.name, sizeBytes: backup.sizeBytes, previousVersion, pruned },
+    metadata: { backupName: backup.name, sizeBytes: backup.sizeBytes, previousVersion, currentVersion: APP_VERSION, pruned },
   });
 } else if (startupBackupOutcome.status === 'failed') {
   logEvent({
@@ -139,7 +141,11 @@ if (startupBackupOutcome.status === 'created') {
     message:
       `Could not save a database backup before applying version ${APP_VERSION}: ` +
       `${startupBackupOutcome.error}. Check free disk space. The server started normally.`,
-    metadata: { error: startupBackupOutcome.error, previousVersion: startupBackupOutcome.previousVersion },
+    metadata: {
+      error: startupBackupOutcome.error,
+      previousVersion: startupBackupOutcome.previousVersion,
+      currentVersion: APP_VERSION,
+    },
   });
 }
 
@@ -447,16 +453,9 @@ const distPath = 'pkg' in process
   ? path.resolve(path.dirname(process.execPath), 'dist')
   : path.resolve(__dirname, '..', 'dist');
 app.use(express.static(distPath, {
-  setHeaders: (res, filePath) => {
-    // Vite emits content-hashed files under /assets (e.g. index-Bf3itHA6.js), so
-    // their bytes can never change under a fixed name — cache them immutably to
-    // skip revalidation round-trips on repeat loads. index.html and other
-    // unhashed files keep express.static's default ETag/Last-Modified behaviour
-    // so a new build is always picked up.
-    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    }
-  },
+  // Cache policy (immutable hashed assets, revalidated index.html) lives in
+  // staticAssets.ts so it can be unit tested alongside the SPA fallback.
+  setHeaders: setDistCacheHeaders,
 }));
 
 // Serve pre-generated catalog thumbnail cache as static files — same access as
@@ -470,10 +469,7 @@ app.use('/sky-cache/resized', express.static(path.join(DATA_DIR, 'sky-cache', 'r
 
 // SPA fallback: any non-API route serves index.html (production only; in dev, Vite handles the frontend)
 if (process.env.NODE_ENV === 'production') {
-  app.get('/{*splat}', (_req, res, next) => {
-    if (_req.path.startsWith('/api')) return next();
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+  app.get('/{*splat}', spaFallback(distPath));
 }
 
 /**

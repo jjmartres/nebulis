@@ -23,7 +23,7 @@ test.describe('Planner Page', () => {
 
   test('shows the search box and filter controls', async ({ page }) => {
     await expect(page.getByPlaceholder(/search/i)).toBeVisible();
-    for (const label of ['All', 'Galaxies', 'Nebulae', 'Clusters', 'Wishlist']) {
+    for (const label of ['All', 'Galaxies', 'Nebulae', 'Clusters']) {
       await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
     await expect(page.getByRole('button', { name: /hide blocked/i })).toBeVisible();
@@ -34,13 +34,6 @@ test.describe('Planner Page', () => {
     await expect(page.getByText('Pleiades').first()).toBeVisible();
     await expect(page.getByText('Orion Nebula')).not.toBeVisible();
     await expect(page.getByText('Whirlpool Galaxy')).not.toBeVisible();
-  });
-
-  test('wishlist filter shows only wishlisted targets', async ({ page }) => {
-    // M45 (Pleiades) is the only wishlisted target in the mock.
-    await page.getByRole('button', { name: 'Wishlist', exact: true }).click();
-    await expect(page.getByText('Pleiades').first()).toBeVisible();
-    await expect(page.getByText('Orion Nebula')).not.toBeVisible();
   });
 
   test('galaxies filter shows only galaxies', async ({ page }) => {
@@ -60,6 +53,37 @@ test.describe('Planner Page', () => {
     await page.getByRole('button', { name: 'Show details for Orion Nebula', exact: true }).click();
     await expect(page.getByText('Reference image')).toBeVisible();
     await expect(page.getByRole('button', { name: /close details/i })).toBeVisible();
+  });
+
+  // Scrubbing the altitude chart drives the sky tracker's moment, and the
+  // caption under the chart swaps between the short scrubbed wording and the
+  // longer "(highest tonight)" default. Both states have to occupy the same
+  // height: this modal is vertically centered, so a line of difference there
+  // slid the whole dialog up and down under the cursor while scrubbing.
+  test('scrubbing the altitude chart does not move the details modal', async ({ page }) => {
+    // Tall enough that the modal is not already clamped to its 92vh ceiling,
+    // where the body scrolls and would hide the shift.
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await page.getByRole('button', { name: 'Show details for Orion Nebula', exact: true }).click();
+    const panel = page.locator('div.relative.flex.flex-col.rounded-2xl');
+    await expect(panel).toBeVisible();
+
+    const rest = await panel.boundingBox();
+    expect(rest).not.toBeNull();
+
+    const chart = panel.locator('svg.cursor-crosshair').first();
+    const chartBox = await chart.boundingBox();
+    expect(chartBox).not.toBeNull();
+    await page.mouse.move(chartBox!.x + chartBox!.width * 0.5, chartBox!.y + chartBox!.height * 0.5);
+
+    // The caption did switch to the scrubbed wording (the period right after
+    // the time is what the default "(highest tonight)" variant lacks)...
+    await expect(page.getByText(/Sky shown at \d{2}:\d{2}\./)).toBeVisible();
+
+    // ...and the modal's box is unchanged.
+    const scrubbed = await panel.boundingBox();
+    expect(Math.abs(scrubbed!.height - rest!.height)).toBeLessThan(1);
+    expect(Math.abs(scrubbed!.y - rest!.y)).toBeLessThan(1);
   });
 
   test('shows the moon summary and sky-map control', async ({ page }) => {

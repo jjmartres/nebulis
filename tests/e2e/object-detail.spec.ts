@@ -62,7 +62,9 @@ test.describe('Object Detail', () => {
   test('primary actions are present', async ({ page }) => {
     await expect(page.getByRole('button', { name: /add observation/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /compare/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /download/i })).toBeVisible();
+    // Download is a HeroAction button (it mints a signed URL then triggers the
+    // download), not an <a>, so it is not a link any more.
+    await expect(page.getByRole('button', { name: 'Download', exact: true })).toBeVisible();
   });
 
   test('destructive actions live behind the overflow menu', async ({ page }) => {
@@ -101,24 +103,21 @@ test.describe('Object Detail — Observations grouped by year', () => {
       body: JSON.stringify({ ok: true, data: [
         {
           id: '2024-03-15', date: '2024-03-15', objectId: 'M42',
-          fileCount: 12, stackedCount: 1, fitsCount: 10, subFrameCount: 10, imageCount: 1, processedCount: 0,
+          fileCount: 12, stackedCount: 1, fitsCount: 10, imageCount: 1,
           thumbnailUrl: '/api/library/objects/M42/thumbnail',
           filesUrl: '/api/library/objects/M42/sessions/2024-03-15/files',
-          weather: null,
         },
         {
           id: '2023-11-02', date: '2023-11-02', objectId: 'M42',
-          fileCount: 8, stackedCount: 1, fitsCount: 6, subFrameCount: 6, imageCount: 1, processedCount: 0,
+          fileCount: 8, stackedCount: 1, fitsCount: 6, imageCount: 1,
           thumbnailUrl: '/api/library/objects/M42/thumbnail',
           filesUrl: '/api/library/objects/M42/sessions/2023-11-02/files',
-          weather: null,
         },
         {
           id: '2023-10-01', date: '2023-10-01', objectId: 'M42',
-          fileCount: 8, stackedCount: 1, fitsCount: 6, subFrameCount: 6, imageCount: 1, processedCount: 0,
+          fileCount: 8, stackedCount: 1, fitsCount: 6, imageCount: 1,
           thumbnailUrl: '/api/library/objects/M42/thumbnail',
           filesUrl: '/api/library/objects/M42/sessions/2023-10-01/files',
-          weather: null,
         },
       ] }),
     }));

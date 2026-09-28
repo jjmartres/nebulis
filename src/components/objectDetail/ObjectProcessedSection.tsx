@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Star, Trash2, Loader2, FileDown, Layers, Sparkles, ChevronRight, ChevronDown, ImagePlus, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
@@ -6,6 +7,7 @@ import { isRenderableProcessed, isFitsProcessed, processedFormatLabel, PROCESSED
 import { getAllProcessedImagesForObject, deleteObjectProcessedImage, setGalleryImage, uploadObjectProcessedImage } from '../../lib/api/library';
 import { GalleryModal, type GalleryItem } from '../GalleryModal';
 import { FitsThumbnail } from '../FitsThumbnail';
+import { formatDate } from '../../lib/formatLocale';
 import type { ProcessedImage } from '../../types';
 
 /**
@@ -29,6 +31,7 @@ export function ObjectProcessedSection({
   isAdmin: boolean;
 }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
 
   const { data: images = [] } = useQuery({
@@ -116,9 +119,9 @@ export function ObjectProcessedSection({
             ? <ChevronDown className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
             : <ChevronRight className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />}
           <Sparkles className={`w-4 h-4 shrink-0 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} />
-          <span className={`text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Processed Images</span>
+          <span className={`text-sm font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{t('objectDetail.processedSection.heading')}</span>
           <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {hasImages ? `${images.length} across every observation` : 'None yet'}
+            {hasImages ? t('objectDetail.processedSection.countAcross', { count: images.length }) : t('objectDetail.processedSection.noneYet')}
           </span>
         </button>
         {isOpen && fitsItems.length > 0 && (
@@ -126,14 +129,14 @@ export function ObjectProcessedSection({
             type="button"
             onClick={() => setShowFits(v => !v)}
             aria-pressed={showFits}
-            title={showFits ? 'Hide raw .fit files' : 'Show raw .fit files'}
+            title={showFits ? t('objectDetail.processedSection.hideFits') : t('objectDetail.processedSection.showFits')}
             className={`shrink-0 text-[11px] font-mono font-semibold tracking-wide px-2 py-1 rounded-full border transition-colors ${
               showFits
                 ? isDark ? 'bg-accent-500/15 border-accent-500/40 text-accent-400' : 'bg-accent-50 border-accent-300 text-accent-700'
                 : isDark ? 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-400 hover:text-slate-600'
             }`}
           >
-            FIT ({fitsItems.length})
+            {t('objectDetail.processedSection.fitCount', { count: fitsItems.length })}
           </button>
         )}
       </div>
@@ -143,13 +146,13 @@ export function ObjectProcessedSection({
           {!hasImages && (
             <div className="p-4 space-y-3">
               <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                No processed images yet. Upload one to a specific observing session, or add one to the whole object right here.
+                {t('objectDetail.processedSection.emptyHint')}
               </p>
               {isAdmin
                 ? <ObjectProcessedUploader objectId={objectId} isDark={isDark} />
                 : (
                   <p className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                    Sign in as an admin to upload.
+                    {t('objectDetail.processedSection.adminOnlyUpload')}
                   </p>
                 )}
             </div>
@@ -177,7 +180,7 @@ export function ObjectProcessedSection({
                         <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${isDark ? 'bg-slate-800/60' : 'bg-slate-100'}`}>
                           <FileDown className={`w-6 h-6 ${isDark ? 'text-slate-600' : 'text-slate-400'}`} />
                           <span className={`font-mono text-[10px] font-bold tracking-wide ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {processedFormatLabel(img.originalName) ?? 'FILE'}
+                            {processedFormatLabel(img.originalName) ?? t('objectDetail.processedSection.genericFile')}
                           </span>
                         </div>
                       )}
@@ -188,7 +191,7 @@ export function ObjectProcessedSection({
                           download={img.originalName}
                           onClick={e => e.stopPropagation()}
                           className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-white/30 transition"
-                          title="Download"
+                          title={t('objectDetail.processedSection.download')}
                         >
                           <Download className="w-3.5 h-3.5" />
                         </a>
@@ -197,7 +200,7 @@ export function ObjectProcessedSection({
                             onClick={e => { e.stopPropagation(); handleSetAsGallery(img); }}
                             disabled={!!settingGalleryId}
                             className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-white/30 transition disabled:opacity-50"
-                            title="Set as gallery image"
+                            title={t('objectDetail.processedSection.setAsGallery')}
                           >
                             {settingGalleryId === img.id
                               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -209,7 +212,7 @@ export function ObjectProcessedSection({
                             onClick={e => { e.stopPropagation(); handleDelete(img.id); }}
                             disabled={!!deletingId}
                             className="p-1.5 rounded-lg bg-red-500/80 text-white hover:bg-red-500 transition disabled:opacity-50"
-                            title="Delete"
+                            title={t('objectDetail.processedSection.delete')}
                           >
                             {deletingId === img.id
                               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -228,7 +231,7 @@ export function ObjectProcessedSection({
                     <div className={`px-2 py-1.5 ${isDark ? 'bg-slate-900/80' : 'bg-white/90'}`}>
                       {img.source === 'dwarf-restack' ? (
                         <p className={`text-xs font-medium truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                          DWARF Restack
+                          {t('objectDetail.processedSection.dwarfRestack')}
                         </p>
                       ) : img.title ? (
                         <p className={`text-xs font-medium truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{img.title}</p>
@@ -238,12 +241,12 @@ export function ObjectProcessedSection({
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <p className={`text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
                           {img.date
-                            ? new Date(img.date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                            : 'No specific session'}
+                            ? formatDate(new Date(img.date + 'T12:00:00'), { month: 'short', day: 'numeric', year: 'numeric' })
+                            : t('objectDetail.processedSection.noSpecificSession')}
                         </p>
                         {img.runDates && img.runDates.length > 1 && (
                           <span
-                            title={`Combines ${img.runDates.length} nights: ${img.runDates.join(', ')}`}
+                            title={t('objectDetail.processedSection.combinesNights', { count: img.runDates.length, list: img.runDates.join(', ') })}
                             className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium ${
                               isDark ? 'bg-accent-500/10 text-accent-400' : 'bg-accent-50 text-accent-600'
                             }`}
@@ -306,6 +309,7 @@ function ObjectProcessedUploader({
   isDark: boolean;
   compact?: boolean;
 }) {
+  const { t } = useTranslation('library');
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -318,7 +322,9 @@ function ObjectProcessedUploader({
     if (isUploading) return;
     const ext = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`;
     if (!accepted.has(ext)) {
-      setError(`${ext || 'That file'} is not a supported image format.`);
+      setError(ext && ext !== '.'
+        ? t('objectDetail.processedUploader.unsupportedFormat', { ext })
+        : t('objectDetail.processedUploader.unsupportedFormatGeneric'));
       return;
     }
     setError('');
@@ -331,11 +337,11 @@ function ObjectProcessedUploader({
         queryClient.invalidateQueries({ queryKey: ['all-library-images'] }),
       ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      setError(err instanceof Error ? err.message : t('objectDetail.processedUploader.uploadFailed'));
     } finally {
       setIsUploading(false);
     }
-  }, [accepted, isUploading, objectId, queryClient]);
+  }, [accepted, isUploading, objectId, queryClient, t]);
 
   return (
     <div className="space-y-2">
@@ -362,11 +368,15 @@ function ObjectProcessedUploader({
             <ImagePlus className={`${compact ? 'w-4 h-4' : 'w-6 h-6'} ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
           )}
           <p className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-            {isUploading ? 'Uploading…' : compact ? 'Add another image' : 'Drop your image here or click to browse'}
+            {isUploading
+              ? t('objectDetail.processedUploader.uploading')
+              : compact
+                ? t('objectDetail.processedUploader.addAnother')
+                : t('objectDetail.processedUploader.dropHint')}
           </p>
           {!compact && !isUploading && (
             <p className={`text-xs ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-              JPG, PNG, TIFF, FITS, XISF, PSD, RAW. Up to 2 GB.
+              {t('objectDetail.processedUploader.formatsHint')}
             </p>
           )}
         </div>

@@ -16,11 +16,10 @@ import {
   isObjectFolder,
   isSubFolder,
   getObjectFromSubFolder,
-  normalizeCatalogId,
   isRealFile,
   observingNightDate,
 } from '../telescopeFiles.js';
-import { getCatalogEntry } from '../../data/catalog.js';
+import { identifyObjectFromFolderName } from './objectIdentification.js';
 import {
   classifyImportFile,
   countSkip,
@@ -739,15 +738,14 @@ export function summarizeSessions(files: WalkedFile[]): {
  *  import enrichment uses (so a match here means enrichment will resolve it).
  *  Returns null when nothing matches — the UI then offers a manual search. */
 export function matchCatalog(folderName: string): CatalogMatch | null {
-  const normalized = normalizeCatalogId(folderName);
-  const entry = getCatalogEntry(normalized) || getCatalogEntry(folderName);
-  if (!entry) return null;
+  const identified = identifyObjectFromFolderName(folderName);
+  if (!identified) return null;
   return {
-    objectId: normalized,
-    name: entry.name,
-    type: entry.type,
-    constellation: entry.constellation ?? null,
-    magnitude: entry.magnitude ?? null,
+    objectId: identified.objectId,
+    name: identified.name,
+    type: identified.type,
+    constellation: identified.constellation,
+    magnitude: identified.magnitude,
   };
 }
 

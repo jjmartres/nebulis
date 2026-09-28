@@ -13,6 +13,10 @@
  */
 import type { CaptureMetric } from '../../lib/captureMetrics';
 import type { Session, SessionCaptureSummary } from '../../types';
+import { formatRelativeDuration, formatDate, formatNumber } from '../../lib/formatLocale';
+
+/** The subset of react-i18next's `t` these plain (non-hook) functions need. */
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 
 export interface ObjectTotals {
   /** Sessions, counting a variant's night separately from the base object's. */
@@ -90,11 +94,11 @@ export function formatIntegration(seconds: number): string {
 export function monthYear(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
   if (!y || !m || !d) return date;
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  return formatDate(new Date(y, m - 1, d), { month: 'short', year: 'numeric' });
 }
 
 /** How long ago a night was, in the fewest words that stay true. */
-export function nightsAgo(date: string): string {
+export function nightsAgo(date: string, t: TFunc): string {
   const [y, m, d] = date.split('-').map(Number);
   if (!y || !m || !d) return date;
   const then = new Date(y, m - 1, d);
@@ -103,14 +107,18 @@ export function nightsAgo(date: string): string {
     (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - then.getTime())
     / 86_400_000,
   );
-  if (days <= 0) return 'Tonight';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
-  if (days < 14) return 'Last week';
-  if (days < 60) return `${Math.round(days / 7)} weeks ago`;
-  if (days < 365) return `${Math.round(days / 30)} months ago`;
+  // 'Tonight'/'Yesterday'/'Last week' are short domain phrases (matches
+  // LibraryHero's identical lastNight.* keys) rather than pure relative
+  // dates, so they get their own literal keys. The numeric buckets route
+  // through Intl.RelativeTimeFormat so pluralization is correct in every locale.
+  if (days <= 0) return t('libraryHero.lastNight.tonight');
+  if (days === 1) return t('libraryHero.lastNight.yesterday');
+  if (days < 7) return formatRelativeDuration(days, 'day');
+  if (days < 14) return t('libraryHero.lastNight.lastWeek');
+  if (days < 60) return formatRelativeDuration(Math.round(days / 7), 'week');
+  if (days < 365) return formatRelativeDuration(Math.round(days / 30), 'month');
   const years = days / 365;
-  return years < 1.5 ? 'A year ago' : `${Math.round(years)} years ago`;
+  return years < 1.5 ? t('objectDetail.captureStats.aYearAgo') : formatRelativeDuration(Math.round(years), 'year');
 }
 
 /**
@@ -121,25 +129,25 @@ export function nightsAgo(date: string): string {
  * Capped at five cells: past that the rail wraps to two rows on a laptop and
  * stops reading as a rule under the picture.
  */
-export function buildObjectMetrics(totals: ObjectTotals): CaptureMetric[] {
+export function buildObjectMetrics(totals: ObjectTotals, t: TFunc): CaptureMetric[] {
   const metrics: CaptureMetric[] = [];
 
   metrics.push({
     key: 'observations',
     value: String(totals.observations),
-    label: totals.observations === 1 ? 'Observation' : 'Observations',
+    label: t('objectDetail.captureStats.observations', { count: totals.observations }),
     // Only worth saying when the two counts differ, which means a variant was
     // shot alongside the base on one of the nights.
-    hint: totals.nights !== totals.observations ? `${totals.nights} nights` : undefined,
+    hint: totals.nights !== totals.observations ? t('objectDetail.captureStats.nightsHint', { count: totals.nights }) : undefined,
   });
 
   if (totals.lastNight) {
     metrics.push({
       key: 'last',
-      value: nightsAgo(totals.lastNight),
-      label: 'Last shot',
+      value: nightsAgo(totals.lastNight, t),
+      label: t('objectDetail.captureStats.lastShot'),
       hint: totals.firstNight && totals.firstNight !== totals.lastNight
-        ? `since ${monthYear(totals.firstNight)}`
+        ? t('objectDetail.captureStats.sinceHint', { month: monthYear(totals.firstNight) })
         : undefined,
     });
   }
@@ -148,30 +156,30 @@ export function buildObjectMetrics(totals: ObjectTotals): CaptureMetric[] {
     metrics.push({
       key: 'integration',
       value: formatIntegration(totals.integrationSec),
-      label: 'Integration',
-      hint: totals.framesStacked != null ? `${totals.framesStacked.toLocaleString()} frames` : undefined,
+      label: t('objectDetail.captureStats.integration'),
+      hint: totals.framesStacked != null ? t('objectDetail.captureStats.framesHint', { count: totals.framesStacked }) : undefined,
     });
   }
 
   if (totals.subFrames > 0) {
     metrics.push({
       key: 'subs',
-      value: totals.subFrames.toLocaleString(),
-      label: 'Sub-frames',
+      value: formatNumber(totals.subFrames),
+      label: t('objectDetail.captureStats.subFrames'),
     });
   } else if (totals.stacked > 0) {
     metrics.push({
       key: 'stacked',
-      value: totals.stacked.toLocaleString(),
-      label: totals.stacked === 1 ? 'Stack' : 'Stacks',
+      value: formatNumber(totals.stacked),
+      label: t('objectDetail.captureStats.stack', { count: totals.stacked }),
     });
   }
 
   if (totals.processed > 0) {
     metrics.push({
       key: 'processed',
-      value: totals.processed.toLocaleString(),
-      label: 'Processed',
+      value: formatNumber(totals.processed),
+      label: t('objectDetail.captureStats.processed'),
     });
   }
 

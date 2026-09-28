@@ -311,11 +311,16 @@ export async function buildForecast(lat: number, lon: number) {
 
   // Build hourly forecast from Open-Meteo (primary)
   const hours: ForecastHour[] = [];
+  // Cloud cover is the one field 7Timer is allowed to fill in below, and only
+  // when Open-Meteo had nothing for that hour. Tracked separately because
+  // `cloudCover === 0` cannot tell "clear sky" from the `?? 0` missing default.
+  const cloudCoverKnown: boolean[] = [];
 
   if (openMeteo?.hourly) {
     const h = openMeteo.hourly;
     for (let i = 0; i < (h.time?.length || 0); i++) {
       const time = parseOpenMeteoHour(h.time[i], forecastTimezone);
+      cloudCoverKnown.push(typeof h.cloud_cover?.[i] === 'number');
       hours.push({
         time: time.toISOString(),
         cloudCover: h.cloud_cover?.[i] ?? 0,
@@ -344,12 +349,17 @@ export async function buildForecast(lat: number, lon: number) {
       const pointTime = new Date(initDate.getTime() + point.timepoint * 3600 * 1000);
       const pointHour = pointTime.toISOString().slice(0, 13);
 
-      const match = hours.find(h => h.time.slice(0, 13) === pointHour);
+      const matchIndex = hours.findIndex(h => h.time.slice(0, 13) === pointHour);
+      const match = matchIndex >= 0 ? hours[matchIndex] : undefined;
       if (match) {
         match.seeing = map7TimerSeeing(point.seeing ?? 5);
         match.transparency = map7TimerTransparency(point.transparency ?? 5);
-        if (match.cloudCover === 0 && point.cloudcover) {
+        // Only fill a MISSING cloud cover. Testing the value instead conflated a
+        // genuine clear sky with the missing-data default, so on every clear
+        // night 7Timer's coarser estimate (3-97%) replaced Open-Meteo's 0.
+        if (!cloudCoverKnown[matchIndex] && point.cloudcover) {
           match.cloudCover = map7TimerCloud(point.cloudcover);
+          cloudCoverKnown[matchIndex] = true;
         }
       }
     }

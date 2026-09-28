@@ -60,6 +60,7 @@ import {
   syncSessionSubFrames,
   syncObjectSubFrames,
   deleteSessionSubFrames,
+  reclassifyObject,
   getSessionTelescopeId,
   getObjectPrimaryTelescopeId,
   setFavorite,
@@ -105,7 +106,7 @@ import {
   fileThumbnailDiskCacheKey,
 } from '../lib/localLibrary.js';
 import { getArchiveDir, listArchivedFolders, listArchiveScopes } from '../lib/library/archiveFolders.js';
-import { listCalibrationLibrary, findCalibrationBundle, calibrationBundleName, deleteCalibrationBundle } from '../lib/library/calibrationScan.js';
+import { listCalibrationLibrary, findCalibrationBundle, calibrationBundleName, deleteCalibrationBundle, resolveFrameType } from '../lib/library/calibrationScan.js';
 import {
   isAttachableCalibrationType,
   attachCalibrationBundle,
@@ -123,6 +124,7 @@ import {
   purgeImportTmp,
   purgeImportTmpSession,
   checkFreeSpace,
+  isImportStagingBase,
 } from '../lib/library/importStaging.js';
 import {
   getCaptureInfoForObject,
@@ -259,6 +261,11 @@ const SessionTelescopeBodySchema = z.object({
 
 const SessionSiteBodySchema = z.object({
   siteId: z.string().nullable(),
+});
+
+const ReclassifyBodySchema = z.object({
+  targetCatalogId: z.string().min(1, 'targetCatalogId is required'),
+  remember: z.boolean().optional().default(true),
 });
 
 // Folder-import wizard: scan a folder (dry run) then commit an edited plan.
@@ -530,6 +537,33 @@ router.post('/objects/:objectId/sync-subframes', requireAdmin, (req: Request, re
 });
 
 /**
+ * Reclassify an object to a different catalog identity (Object Detail →
+ * "..." → Reclassify), for when a target's designation was ambiguous or
+ * mis-picked on import. Renames or merges depending on whether the target
+ * catalog id already has a library object — see reclassifyObject's doc
+ * comment in objects.ts for why this is DB-only (no on-disk folder move).
+ */
+router.post('/objects/:objectId/reclassify', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const bodyParsed = ReclassifyBodySchema.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.apiError(400, 'BAD_REQUEST', bodyParsed.error.issues[0]?.message ?? 'targetCatalogId is required');
+    return;
+  }
+  const { targetCatalogId, remember } = bodyParsed.data;
+  try {
+    const result = reclassifyObject(objectId, targetCatalogId, { remember, userId: req.userId ?? null });
+    log.info(
+      { objectId, targetCatalogId, mode: result.mode, newObjectId: result.objectId },
+      '[reclassify] %s → %s (%s)', objectId, result.objectId, result.mode,
+    );
+    res.apiSuccess(result);
+  } catch (err) {
+    res.apiError(400, 'RECLASSIFY_FAILED', err instanceof Error ? err.message : 'Reclassify failed');
+  }
+});
+
+/**
  * Reassign a session to a different telescope. The session is identified by
  * (objectId, date) since librarySessions uses that compound key — there's no
  * surrogate session id to pass.
@@ -629,6 +663,10 @@ router.post('/import/scan', requireAdmin, (req: Request, res: Response) => {
     res.apiError(400, 'INVALID_PATH', `Folder not found or not a directory: ${rootPath}`);
     return;
   }
+  if (isImportStagingBase(rootPath)) {
+    res.apiError(400, 'INVALID_PATH', 'That folder is Nebulis\'s own upload staging area. Choose the folder that holds your images.');
+    return;
+  }
   try {
     const overrides: Record<string, unknown> = {};
     if (importSubFrames !== undefined) overrides.importSubFrames = importSubFrames;
@@ -671,6 +709,10 @@ router.post('/import/commit', requireAdmin, (req: Request, res: Response) => {
   const plan = parsed.data;
   if (!fs.existsSync(plan.rootPath) || !fs.statSync(plan.rootPath).isDirectory()) {
     res.apiError(400, 'INVALID_PATH', `Folder not found or not a directory: ${plan.rootPath}`);
+    return;
+  }
+  if (isImportStagingBase(plan.rootPath)) {
+    res.apiError(400, 'INVALID_PATH', 'That folder is Nebulis\'s own upload staging area. Choose the folder that holds your images.');
     return;
   }
   if (!claimImportLock()) {
@@ -1063,7 +1105,10 @@ router.get('/archive/scopes', (_req: Request, res: Response) => {
  * Flat/flat-dark settings groups are enriched with `attachments` here rather
  * than in calibrationScan.ts, which stays a pure filesystem read with no
  * database — this route is the one place calibration data and the
- * attachments table meet. Bias/dark/mixed groups are never attachable (see
+ * attachments table meet. Checked per bundle via `resolveFrameType`, not per
+ * group: a Dwarf `mixed` (CALI_FRAME) group blends bias/dark/flat, so one of
+ * its own bundles can be attachable while a sibling bundle in the very same
+ * group is not. Bias/dark bundles are never attachable (see
  * calibrationAttachments.ts), so they are skipped rather than paying for a
  * lookup that can never find anything.
  */
@@ -1071,8 +1116,8 @@ router.get('/calibrations', (_req: Request, res: Response) => {
   try {
     const groups = listCalibrationLibrary();
     for (const group of groups) {
-      if (!isAttachableCalibrationType(group.type)) continue;
       for (const set of group.settingsGroups) {
+        if (!isAttachableCalibrationType(resolveFrameType(group.type, set.frameType))) continue;
         set.attachments = findAttachmentsForBundle(group.scope, group.folderName, set.key);
       }
     }
@@ -1113,7 +1158,8 @@ router.post('/calibrations/attach', requireAdmin, (req: Request, res: Response) 
     res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this page loaded');
     return;
   }
-  if (!isAttachableCalibrationType(found.group.type)) {
+  const effectiveType = resolveFrameType(found.group.type, found.set.frameType);
+  if (!isAttachableCalibrationType(effectiveType)) {
     res.apiError(
       400,
       'NOT_ATTACHABLE',
@@ -1131,7 +1177,7 @@ router.post('/calibrations/attach', requireAdmin, (req: Request, res: Response) 
   const attachment = attachCalibrationBundle({
     objectId,
     date,
-    calibrationType: found.group.type,
+    calibrationType: effectiveType,
     scope,
     folderName,
     settingsKey: key,
@@ -1195,7 +1241,8 @@ router.delete('/calibrations/bundle', requireAdmin, (req: Request, res: Response
     res.apiError(404, 'BUNDLE_NOT_FOUND', 'No matching calibration bundle — the archive may have changed since this page loaded');
     return;
   }
-  if (found.group.type !== 'bias' && found.group.type !== 'dark') {
+  const effectiveType = resolveFrameType(found.group.type, found.set.frameType);
+  if (effectiveType !== 'bias' && effectiveType !== 'dark') {
     res.apiError(
       400,
       'NOT_DELETABLE_HERE',
@@ -1424,10 +1471,18 @@ router.get('/objects/:objectId/thumbnail', async (req: Request, res: Response) =
           .jpeg({ quality: 80, progressive: true })
           .toFile(cachePath));
       } catch (sharpErr) {
+        // A source sharp cannot decode is SKIPPED, never deleted. This route is
+        // public (see the auth bypass list in middleware/auth.ts), and `srcPath`
+        // is whatever resolveObjectImagePath picked — one user's gallery image,
+        // or the shared catalog master in the sky cache. On an earlier version a
+        // single unauthenticated GET of an undecodable source was therefore
+        // enough to destroy bytes on disk, and the sibling /file/thumbnail route
+        // has never done it. A decode failure is also not proof the file is
+        // worthless: a truncated-but-recoverable image is exactly the case that
+        // reaches this branch.
         const msg = sharpErr instanceof Error ? sharpErr.message : '';
         if (msg.includes('corrupt') || msg.includes('not a known file format')) {
-          console.warn(`[thumbnail] corrupt source file, deleting: ${srcPath}`);
-          try { fs.unlinkSync(srcPath); } catch { /* ignore */ }
+          console.warn(`[thumbnail] source is not decodable, leaving it in place: ${srcPath}`);
         }
         if (!res.headersSent) res.status(404).send('No image available');
         return;
@@ -2145,35 +2200,63 @@ router.post('/download/objects/:objectId/link', strictRateLimiter, (req: Request
   });
 });
 
-router.get('/download/objects/:objectId', strictRateLimiter, async (req: Request, res: Response) => {
-  const objectId = String(req.params.objectId);
-  const fileType = queryString(req.query.fileType); // 'image', 'fits', 'all'
-  const sessionDate = queryString(req.query.date);
-  // `?includeVariants=true` pulls in files from every variant of this object
-  // (e.g. M8 + M8_Mosaic), matching what the web UI's "Observations" grid and
+// Shared by the summary route (below) and the ZIP stream route, so "how many
+// files / how many bytes" can never drift from what actually gets zipped.
+function resolveObjectDownloadFiles(
+  objectId: string,
+  userId: string,
+  opts: { fileType?: string; sessionDate?: string; includeVariants?: boolean },
+) {
+  // `includeVariants` pulls in files from every variant of this object (e.g.
+  // M8 + M8_Mosaic), matching what the web UI's "Observations" grid and
   // session count show. Without it, "Download All" silently omits any date
   // that only exists under a variant id. Same family-discovery logic as the
   // `/sessions?includeVariants=true` route above.
+  let ids = [objectId];
+  if (opts.includeVariants) {
+    const all = getLocalObjects(userId);
+    const grouped = groupByVariants(all);
+    const family = grouped.find(g => g.id === objectId || g.variants.some(v => v.objectId === objectId));
+    ids = family ? [family.id, ...family.variants.map(v => v.objectId)] : [objectId];
+  }
+  let files = ids.flatMap(id => getLocalFiles(id, opts.sessionDate));
+  files = files.filter(f => !f.isThumbnail);
+  if (opts.fileType && opts.fileType !== 'all') {
+    files = files.filter(f => f.type === opts.fileType);
+  }
+  return files;
+}
+
+// Lets the web UI show "X files, Y GB" in a confirmation dialog before the
+// user commits to zipping and downloading the whole object. Cheap: the file
+// stat work it does is the same `getLocalFiles` walk the ZIP route already
+// pays for, just without archiver in the loop.
+router.get('/download/objects/:objectId/summary', strictRateLimiter, async (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const fileType = queryString(req.query.fileType);
+  const sessionDate = queryString(req.query.date);
   const includeVariants = req.query.includeVariants === 'true';
 
   try {
     if (!(await requireLibraryReachable(res))) return;
-    let ids = [objectId];
-    if (includeVariants) {
-      const all = getLocalObjects(req.userId ?? '');
-      const grouped = groupByVariants(all);
-      const family = grouped.find(g => g.id === objectId || g.variants.some(v => v.objectId === objectId));
-      ids = family ? [family.id, ...family.variants.map(v => v.objectId)] : [objectId];
-    }
-    let files = ids.flatMap(id => getLocalFiles(id, sessionDate));
+    const files = resolveObjectDownloadFiles(objectId, req.userId ?? '', { fileType, sessionDate, includeVariants });
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+    res.apiSuccess({ fileCount: files.length, totalBytes });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to summarize download';
+    res.apiError(500, 'DOWNLOAD_SUMMARY_FAILED', message);
+  }
+});
 
-    // Exclude thumbnails
-    files = files.filter(f => !f.isThumbnail);
+router.get('/download/objects/:objectId', strictRateLimiter, async (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const fileType = queryString(req.query.fileType); // 'image', 'fits', 'all'
+  const sessionDate = queryString(req.query.date);
+  const includeVariants = req.query.includeVariants === 'true';
 
-    // Filter by type
-    if (fileType && fileType !== 'all') {
-      files = files.filter(f => f.type === fileType);
-    }
+  try {
+    if (!(await requireLibraryReachable(res))) return;
+    const files = resolveObjectDownloadFiles(objectId, req.userId ?? '', { fileType, sessionDate, includeVariants });
 
     if (files.length === 0) {
       res.apiError(404, 'NO_FILES', 'No files match the filter criteria');
@@ -2239,16 +2322,60 @@ interface ArchiveJob {
 const archiveJobs = new Map<string, ArchiveJob>();
 const MAX_ARCHIVE_JOBS = 200;
 
+/** Prefix every temp download ZIP is written with (`os.tmpdir()`). Used by the
+ *  boot sweep below to find files a previous process left behind. */
+const TEMP_DOWNLOAD_PREFIX = 'nebulis-';
+
+/**
+ * Delete the ZIP behind a cache entry and drop the entry. Every removal path
+ * (expiry, eviction, one-shot serve) goes through here: deleting the map entry
+ * alone left the file on disk forever, because the sweeper only ever looks at
+ * entries still in the map.
+ */
+function deleteTempDownload(token: string): void {
+  const meta = tempDownloads.get(token);
+  if (!meta) return;
+  tempDownloads.delete(token);
+  fs.unlink(meta.filePath, () => { /* best-effort: the boot sweep also covers it */ });
+}
+
+/**
+ * Remove `nebulis-*.zip` files no entry in this process owns. Nothing else
+ * writes that prefix into the OS temp dir, and without this a restart orphaned
+ * every ZIP the previous process had handed out (the map is in-memory, so the
+ * tokens die with the process and the files were never referenced again).
+ * Runs once, at module load, off the request path.
+ */
+function sweepOrphanedTempDownloads(): void {
+  const dir = os.tmpdir();
+  let names: string[];
+  try {
+    names = fs.readdirSync(dir);
+  } catch {
+    return; // unreadable temp dir: nothing we can safely do
+  }
+  for (const name of names) {
+    if (!name.startsWith(TEMP_DOWNLOAD_PREFIX) || !name.endsWith('.zip')) continue;
+    const filePath = path.join(dir, name);
+    let owned = false;
+    for (const meta of tempDownloads.values()) {
+      if (meta.filePath === filePath) { owned = true; break; }
+    }
+    if (owned) continue;
+    // Only our own UUID-named archives: `nebulis-<uuid>.zip`.
+    if (!/^nebulis-[0-9a-f-]{36}\.zip$/i.test(name)) continue;
+    fs.unlink(filePath, () => { /* best-effort */ });
+  }
+}
+sweepOrphanedTempDownloads();
+
 // Periodic cleanup — remove expired tokens and jobs. unref: importing this
 // router (e.g. tests/backend/routeDecoding.test.ts) must not pin the process's
 // event loop open on a 10-minute interval no one is waiting on.
 setInterval(() => {
   const now = Date.now();
   for (const [token, meta] of tempDownloads) {
-    if (now > meta.expiresAt) {
-      fs.unlink(meta.filePath, () => {});
-      tempDownloads.delete(token);
-    }
+    if (now > meta.expiresAt) deleteTempDownload(token);
   }
   for (const [id, job] of archiveJobs) {
     if (now > job.expiresAt) archiveJobs.delete(id);
@@ -2369,7 +2496,10 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
     if (job.status === 'cancelled') { fs.unlink(tmpPath, () => {}); return; }
     const token = randomUUID();
     if (tempDownloads.size >= MAX_TEMP_DOWNLOADS) {
-      tempDownloads.delete(tempDownloads.keys().next().value!);
+      // Evict AND delete: dropping only the map entry leaked the ZIP (the
+      // per-token expiry sweeper never sees an entry that is no longer there).
+      const oldest = tempDownloads.keys().next().value;
+      if (oldest !== undefined) deleteTempDownload(oldest);
     }
     tempDownloads.set(token, { filePath: tmpPath, filename, expiresAt: Date.now() + 10 * 60 * 1000 });
     job.status = 'done';
@@ -3064,6 +3194,22 @@ router.post('/objects/:objectId/sessions/:date/library-files', requireAdmin, edi
     return;
   }
 
+  // Both params are spliced into the destination FILENAME below, and
+  // `path.join` normalizes, so leaving them unvalidated made this route an
+  // arbitrary-write primitive: `date = 'x/../../../tmp/pwned'` landed the staged
+  // upload outside the library entirely. The object half of the path was
+  // already contained; the filename half was not. A session date is only ever
+  // YYYY-MM-DD, and an object id is only ever a single path segment.
+  const rejectUpload = (message: string) => {
+    try { fs.unlinkSync(file.path); } catch { /* ignore */ }
+    res.apiError(400, 'INVALID_REQUEST', message);
+  };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { rejectUpload('Invalid session date'); return; }
+  if (!objectId || objectId === '.' || objectId === '..' || /[\\/]/.test(objectId)) {
+    rejectUpload('Invalid object id');
+    return;
+  }
+
   try {
     // getObjectFolderName falls back to the raw objectId on a DB miss, so a
     // crafted objectId with traversal tokens would otherwise let this upload
@@ -3111,9 +3257,17 @@ router.post('/objects/:objectId/sessions/:date/library-files', requireAdmin, edi
       const datePart = date.replace(/-/g, ''); // YYYYMMDD from session date
       const rawTimePart = now.toTimeString().slice(0, 8).replace(/:/g, ''); // HHMMSS
       const timePart = clampToNightSafeTime(rawTimePart);
-      const ext = file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+      // The extension also comes from a client-supplied filename, so strip
+      // anything that is not a plain alphanumeric extension token.
+      const ext = (file.originalname.split('.').pop() ?? 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
       filename = `${objectId}_${datePart}-${timePart}E.${ext}`;
       destPath = path.join(objDir, filename);
+    }
+    // Belt and braces: whatever the halves produced, the write must land
+    // strictly inside this object's folder.
+    const destResolved = path.resolve(destPath);
+    if (!destResolved.startsWith(objDir + path.sep)) {
+      throw new Error('Resolved destination is outside this object folder');
     }
     try {
       fs.renameSync(file.path, destPath);

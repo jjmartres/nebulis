@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { Download, Film } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import type { SessionFile } from '../../types';
+import { formatDate } from '../../lib/formatLocale';
 
 /** True for containers a browser (and the native AVPlayer/ExoPlayer clients)
  *  can actually decode. Raw AVI from older SeeStar planetary captures streams
@@ -19,9 +21,10 @@ function isPlayable(file: SessionFile): boolean {
  */
 export function VideoPanel({ videos, date }: { videos: SessionFile[]; date: string }) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('observations');
 
   const dateLabel = date && date !== 'unknown'
-    ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    ? formatDate(new Date(date + 'T12:00:00'), { month: 'short', day: 'numeric', year: 'numeric' })
     : '';
 
   return (
@@ -49,7 +52,7 @@ export function VideoPanel({ videos, date }: { videos: SessionFile[]; date: stri
                     <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                       <Film className="w-7 h-7" />
                       <span className="text-[11px] font-medium">
-                        {file.name.split('.').pop()?.toUpperCase()} video — download to play
+                        {t('observationDetail.videoPanel.downloadToPlay', { ext: file.name.split('.').pop()?.toUpperCase() })}
                       </span>
                     </div>
                   )}
@@ -61,14 +64,14 @@ export function VideoPanel({ videos, date }: { videos: SessionFile[]; date: stri
                       {file.name}
                     </p>
                     <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                      {[isTimelapse ? 'Timelapse' : 'Video', dateLabel].filter(Boolean).join(' · ')}
+                      {[isTimelapse ? t('observationDetail.videoPanel.timelapse') : t('observationDetail.videoPanel.video'), dateLabel].filter(Boolean).join(' · ')}
                     </p>
                   </div>
                   <a
                     href={file.downloadUrl}
                     download={file.name}
                     className={`shrink-0 p-2 rounded-lg transition ${isDark ? 'text-slate-400 hover:text-accent-400 hover:bg-slate-800' : 'text-slate-500 hover:text-accent-500 hover:bg-slate-100'}`}
-                    title="Download"
+                    title={t('observationDetail.videoPanel.download')}
                   >
                     <Download className="w-4 h-4" />
                   </a>
@@ -79,7 +82,7 @@ export function VideoPanel({ videos, date }: { videos: SessionFile[]; date: stri
         </div>
       ) : (
         <div className={`p-8 text-center ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-          No videos
+          {t('observationDetail.videoPanel.empty')}
         </div>
       )}
     </div>

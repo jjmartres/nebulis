@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import { Modal } from './ui/Modal';
 
@@ -19,12 +20,13 @@ interface ConfirmModalProps {
 export function ConfirmModal({
   title,
   message,
-  confirmLabel = 'Delete',
+  confirmLabel,
   onConfirm,
   onCancel,
   pending = false,
 }: ConfirmModalProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation('common');
 
   return (
     <Modal
@@ -48,14 +50,14 @@ export function ConfirmModal({
             isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          Cancel
+          {t('confirmModal.cancel')}
         </button>
         <button
           onClick={() => { if (!pending) onConfirm(); }}
           disabled={pending}
           className="px-4 py-2 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {confirmLabel}
+          {confirmLabel ?? t('confirmModal.delete')}
         </button>
       </div>
     </Modal>

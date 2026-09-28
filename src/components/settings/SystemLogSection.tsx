@@ -9,6 +9,7 @@
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle, ChevronLeft, ChevronRight, Info, KeyRound, RefreshCw,
   ScrollText, Search, Server, Settings as SettingsIcon, Smartphone, Telescope,
@@ -20,21 +21,27 @@ import {
   type SystemLogCategory, type SystemLogEntry, type SystemLogLevel,
 } from '../../lib/api/systemLog';
 import { getInputClass, Sec } from './SettingsUI';
+import { renderLogEntry } from '../../lib/systemLogRender';
+import { formatDate, formatTimeAuto, formatNumber } from '../../lib/formatLocale';
 
 const PAGE_SIZE = 10;
 
-const CATEGORY_META: Record<SystemLogCategory, { label: string; icon: typeof User }> = {
-  auth: { label: 'Sign-in', icon: KeyRound },
-  user: { label: 'Users', icon: User },
-  device: { label: 'Devices', icon: Smartphone },
-  telescope: { label: 'Telescopes', icon: Telescope },
-  sync: { label: 'Sync', icon: RefreshCw },
-  storage: { label: 'Storage', icon: HardDrive },
-  settings: { label: 'Settings', icon: SettingsIcon },
-  system: { label: 'System', icon: Server },
+// Icons only — labels are resolved via t('systemLog.category.<id>') since
+// this object is built at module load, before any component's
+// useTranslation() hook exists.
+const CATEGORY_ICONS: Record<SystemLogCategory, typeof User> = {
+  auth: KeyRound,
+  user: User,
+  device: Smartphone,
+  telescope: Telescope,
+  sync: RefreshCw,
+  storage: HardDrive,
+  settings: SettingsIcon,
+  system: Server,
 };
 
 export function SystemLogSection({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const inputClass = getInputClass(isDark);
 
@@ -75,8 +82,8 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
 
   return (
     <Sec
-      title="System Log"
-      description="Sign-ins, user and telescope changes, syncs, and other administrative activity for this install."
+      title={t('systemLog.title')}
+      description={t('systemLog.description')}
       isDark={isDark}
       actions={
         confirmClear ? (
@@ -87,7 +94,7 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
                 isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'
               }`}
             >
-              Cancel
+              {t('systemLog.cancel')}
             </button>
             <button
               onClick={() => clearMutation.mutate()}
@@ -95,7 +102,7 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
             >
               {clearMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}
-              Confirm clear
+              {t('systemLog.confirmClear')}
             </button>
           </div>
         ) : (
@@ -106,7 +113,7 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
             }`}
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Clear log
+            {t('systemLog.clearLog')}
           </button>
         )
       }
@@ -119,7 +126,7 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
             type="text"
             value={search}
             onChange={e => updateFilter(() => setSearch(e.target.value))}
-            placeholder="Search messages, users, events…"
+            placeholder={t('systemLog.searchPlaceholder')}
             className={`${inputClass} !py-2 !pl-9 text-[13px]`}
           />
         </div>
@@ -133,9 +140,9 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
           }}
           className={`${inputClass} !w-auto !py-2 text-[13px]`}
         >
-          <option value="">All categories</option>
+          <option value="">{t('systemLog.allCategories')}</option>
           {SYSTEM_LOG_CATEGORIES.map(c => (
-            <option key={c} value={c}>{CATEGORY_META[c].label}</option>
+            <option key={c} value={c}>{t(`systemLog.category.${c}`)}</option>
           ))}
         </select>
         <select
@@ -146,15 +153,15 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
           }}
           className={`${inputClass} !w-auto !py-2 text-[13px]`}
         >
-          <option value="">All levels</option>
+          <option value="">{t('systemLog.allLevels')}</option>
           {SYSTEM_LOG_LEVELS.map(l => (
-            <option key={l} value={l}>{l[0].toUpperCase() + l.slice(1)}</option>
+            <option key={l} value={l}>{t(`systemLog.level.${l}`)}</option>
           ))}
         </select>
 
         {data && data.total > 0 && (
           <span className={`ml-auto text-xs tabular-nums ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {data.total.toLocaleString()}
+            {formatNumber(data.total)}
           </span>
         )}
       </div>
@@ -165,7 +172,7 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
         </div>
       ) : !data || data.entries.length === 0 ? (
         <p className={`px-5 py-6 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {hasFilters ? 'No log entries match these filters.' : 'Nothing logged yet. Sign-ins, user changes, and other admin activity will show up here.'}
+          {hasFilters ? t('systemLog.noResultsFiltered') : t('systemLog.noResultsEmpty')}
         </p>
       ) : (
         <ul className={`divide-y ${isDark ? 'divide-slate-800/70' : 'divide-slate-100'}`}>
@@ -180,7 +187,7 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
           <button
             onClick={() => setPage(p => Math.max(0, p - 1))}
             disabled={page === 0}
-            aria-label="Previous page"
+            aria-label={t('systemLog.previousPage')}
             className={`rounded-lg p-1.5 transition disabled:opacity-30 ${
               isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
             }`}
@@ -193,7 +200,7 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
           <button
             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
-            aria-label="Next page"
+            aria-label={t('systemLog.nextPage')}
             className={`rounded-lg p-1.5 transition disabled:opacity-30 ${
               isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
             }`}
@@ -207,8 +214,12 @@ export function SystemLogSection({ isDark }: { isDark: boolean }) {
 }
 
 function LogRow({ entry, isDark }: { entry: SystemLogEntry; isDark: boolean }) {
-  const meta = CATEGORY_META[entry.category] ?? { label: entry.category, icon: ScrollText };
-  const Icon = meta.icon;
+  const { t } = useTranslation('settings');
+  const Icon = CATEGORY_ICONS[entry.category] ?? ScrollText;
+  // Falls back to the raw category string for a row written by a future
+  // build with a category this one doesn't recognize yet — same fallback
+  // CATEGORY_META used to provide, kept working now that labels are keys.
+  const categoryLabel = CATEGORY_ICONS[entry.category] ? t(`systemLog.category.${entry.category}`) : entry.category;
   const when = new Date(entry.createdAt);
 
   const dot = entry.level === 'error'
@@ -227,17 +238,17 @@ function LogRow({ entry, isDark }: { entry: SystemLogEntry; isDark: boolean }) {
 
       <span className="min-w-0 flex-1">
         <span className={`block text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-          {entry.message}
+          {renderLogEntry(entry, t)}
         </span>
         <span className={`mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
           <span className="inline-flex items-center gap-1">
             <Icon className="h-3 w-3" />
-            {meta.label}
+            {categoryLabel}
           </span>
           <span>
-            {when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {formatDate(when, { month: 'short', day: 'numeric' })}
             {' · '}
-            {when.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            {formatTimeAuto(when, { hour: 'numeric', minute: '2-digit' })}
           </span>
           {entry.username && <span>{entry.username}</span>}
           {entry.ip && <span className="font-mono">{entry.ip}</span>}

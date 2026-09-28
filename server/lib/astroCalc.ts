@@ -41,6 +41,24 @@ export interface AltAz {
 }
 
 /**
+ * The highest altitude an object at declination `dec` ever reaches at
+ * latitude `lat`, independent of time/date/season — the altitude at upper
+ * culmination (when it crosses the meridian). `90 - |lat - dec|` holds
+ * whether that transit happens to the south (northern-hemisphere observer,
+ * lower dec) or to the north (a circumpolar object near the elevated pole,
+ * e.g. Polaris at dec≈89.3° for a lat=40° observer gives ≈40.7°, matching
+ * its known near-latitude altitude). Used to filter out objects that can
+ * never clear the horizon (or a minimum-altitude threshold) from wherever
+ * the observer is, e.g. deep-southern-declination targets for a
+ * northern-hemisphere site — no amount of waiting for a different night or
+ * season changes this, so it's a pure lat/dec check, not a `visibilityWindow`
+ * scan over time.
+ */
+export function maxPossibleAltitude(lat: number, dec: number): number {
+  return 90 - Math.abs(lat - dec);
+}
+
+/**
  * Compute altitude and azimuth of a fixed object.
  * @param ra  RA in decimal hours
  * @param dec Dec in decimal degrees

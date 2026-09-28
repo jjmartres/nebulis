@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import { X, Smartphone, CheckCircle2, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { createDeviceQr, getDeviceQrStatus, type DeviceQrEnrollment } from '../../lib/api';
 import { Modal } from '../ui/Modal';
@@ -13,6 +14,7 @@ import { Modal } from '../ui/Modal';
  * which would consume the code) and close once the phone has connected.
  */
 export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClose: () => void }) {
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
   const [enrollment, setEnrollment] = useState<DeviceQrEnrollment | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -45,7 +47,7 @@ export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClo
       q.state.data?.status === 'connected' ? false : (enrollment?.pollIntervalSec ?? 3) * 1000,
   });
   const connected = statusQuery.data?.status === 'connected';
-  const connectedName = connected ? (statusQuery.data?.deviceName ?? 'Device') : null;
+  const connectedName = connected ? (statusQuery.data?.deviceName ?? t('connectDeviceModal.genericDeviceName')) : null;
 
   // Countdown to expiry.
   useEffect(() => {
@@ -71,18 +73,18 @@ export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClo
     <Modal
       isOpen
       onClose={onClose}
-      title="Connect a device"
+      title={t('connectDeviceModal.title')}
       className={`w-full max-w-md rounded-2xl border shadow-xl ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}
     >
       <div className={`flex items-center justify-between px-5 py-4 border-b ${headerBorder}`}>
         <h3 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-          Connect a device
+          {t('connectDeviceModal.title')}
         </h3>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('connectDeviceModal.close')}
           className={`p-1.5 rounded-lg transition ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
         >
           <X className="w-4 h-4" />
@@ -94,18 +96,20 @@ export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClo
           <div className="flex flex-col items-center text-center py-6">
             <CheckCircle2 className="w-14 h-14 text-emerald-500 mb-3" />
             <p className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              {connectedName} connected
+              {t('connectDeviceModal.connected', { name: connectedName })}
             </p>
             <p className={`mt-1 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Your phone is signed in and ready.
+              {t('connectDeviceModal.connectedHelp')}
             </p>
           </div>
         ) : (
           <>
             <p className={`text-sm text-center mb-5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              Open Nebulis on your phone, tap{' '}
-              <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Scan QR</span>,
-              and point it at this code. It connects and signs in, no IP address needed.
+              <Trans
+                i18nKey="connectDeviceModal.scanInstructions"
+                ns="settings"
+                components={{ 1: <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`} /> }}
+              />
             </p>
 
             <div className="flex items-center justify-center">
@@ -125,7 +129,7 @@ export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClo
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 text-slate-600">
                     <AlertTriangle className="w-7 h-7 text-amber-500 mb-2" />
                     <p className="text-xs">
-                      {generate.error?.message ?? 'Could not generate a code.'}
+                      {generate.error?.message ?? t('connectDeviceModal.generateFailed')}
                     </p>
                   </div>
                 )}
@@ -134,7 +138,7 @@ export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClo
                   <>
                     <img
                       src={enrollment.qrDataUrl}
-                      alt="Pairing QR code"
+                      alt={t('connectDeviceModal.qrAlt')}
                       className="w-full h-full"
                       style={{ imageRendering: 'pixelated', opacity: expired ? 0.15 : 1 }}
                     />
@@ -147,7 +151,7 @@ export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClo
                       >
                         <RefreshCw className={`w-7 h-7 ${generate.isPending ? 'animate-spin' : ''}`} />
                         <span className="text-sm font-medium">
-                          {generate.isPending ? 'Refreshing…' : 'Code expired. Tap to refresh.'}
+                          {generate.isPending ? t('connectDeviceModal.refreshing') : t('connectDeviceModal.codeExpiredTapToRefresh')}
                         </span>
                       </button>
                     )}
@@ -160,10 +164,12 @@ export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClo
               {enrollment && !expired && (
                 <span className={`inline-flex items-center gap-1.5 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
                   <Smartphone className="w-3.5 h-3.5" />
-                  Waiting for your phone
+                  {t('connectDeviceModal.waitingForPhone')}
                   {secondsLeft !== null && (
                     <span className="tabular-nums">
-                      · expires in {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                      {' '}· {t('connectDeviceModal.expiresIn', {
+                        time: `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`,
+                      })}
                     </span>
                   )}
                 </span>
@@ -172,7 +178,7 @@ export function ConnectDeviceModal({ isDark, onClose }: { isDark: boolean; onClo
 
             {enrollment?.url && !expired && (
               <p className={`mt-3 text-center text-[11px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                Can&apos;t scan? Enter this address manually:{' '}
+                {t('connectDeviceModal.cantScanPrefix')}{' '}
                 <span className={`font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{enrollment.url}</span>
               </p>
             )}

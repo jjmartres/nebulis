@@ -1,7 +1,9 @@
 import { useState, memo } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Heart, Images, Sparkles } from 'lucide-react';
 import { getLibraryFileThumbnailUrl, type LibraryImage } from '../../lib/api/library';
+import { formatDate } from '../../lib/formatLocale';
 
 interface ImageCardProps {
   image: LibraryImage;
@@ -14,6 +16,7 @@ interface ImageCardProps {
 }
 
 export const ImageCard = memo(function ImageCard({ image, isDark, onOpen, onToggleFavorite }: ImageCardProps) {
+  const { t } = useTranslation('library');
   const [imgError, setImgError] = useState(false);
   return (
     <div className={`group relative overflow-hidden rounded-xl border transition-all ${
@@ -32,7 +35,7 @@ export const ImageCard = memo(function ImageCard({ image, isDark, onOpen, onTogg
         )}
         {image.isProcessed && (
           <div
-            title="Processed image"
+            title={t('imageCard.processedImage')}
             className="absolute top-2 left-2 p-1 rounded-full bg-accent-500/90 text-white shadow"
           >
             <Sparkles className="w-3 h-3" />
@@ -42,7 +45,7 @@ export const ImageCard = memo(function ImageCard({ image, isDark, onOpen, onTogg
       <button
         type="button"
         onClick={() => onToggleFavorite(image)}
-        title={image.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        title={image.isFavorite ? t('imageCard.removeFromFavorites') : t('imageCard.addToFavorites')}
         className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-sm transition-all ${
           image.isFavorite
             ? 'opacity-100 bg-rose-500/90 text-white hover:bg-rose-600'
@@ -60,7 +63,9 @@ export const ImageCard = memo(function ImageCard({ image, isDark, onOpen, onTogg
           {image.objectName}
         </p>
         <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-          {image.date !== 'unknown' ? image.date : 'Unknown date'}
+          {image.date !== 'unknown'
+            ? formatDate(new Date(image.date + 'T12:00:00'), { month: 'short', day: 'numeric', year: 'numeric' })
+            : t('imageCard.unknownDate')}
         </p>
       </Link>
     </div>
