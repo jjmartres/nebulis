@@ -51,8 +51,48 @@ test.describe('Planner Page', () => {
 
   test('opens the object details modal from a library row', async ({ page }) => {
     await page.getByRole('button', { name: 'Show details for Orion Nebula', exact: true }).click();
-    await expect(page.getByText('Reference image')).toBeVisible();
+    // The reference photo is rendered with a translated alt and no visible
+    // "Reference image" label (same compact treatment as
+    // WishlistObjectModal/CatalogObjectModal), so match it by accessible name.
+    await expect(page.getByRole('img', { name: /reference image/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /close details/i })).toBeVisible();
+  });
+
+  // The chevron on a library row expands a condensed altitude chart inline,
+  // as an alternative to opening the full details modal. Distinct from the
+  // modal's own chart (covered by "scrubbing the altitude chart..." below):
+  // this one lives in the row itself and several can be open at once.
+  test.describe('library row altitude chevron', () => {
+    test('expands an inline altitude chart without opening the details modal', async ({ page }) => {
+      await expect(page.locator('svg.cursor-crosshair')).toHaveCount(0);
+
+      await page.getByRole('button', { name: 'Show altitude tonight for Orion Nebula', exact: true }).click();
+
+      await expect(page.locator('svg.cursor-crosshair')).toHaveCount(1);
+      await expect(page.getByRole('dialog')).not.toBeVisible();
+    });
+
+    test('is a toggle: clicking again collapses the chart', async ({ page }) => {
+      const toggle = page.getByRole('button', { name: 'Show altitude tonight for Orion Nebula', exact: true });
+      await toggle.click();
+      await expect(page.locator('svg.cursor-crosshair')).toHaveCount(1);
+
+      await page.getByRole('button', { name: 'Hide altitude tonight for Orion Nebula', exact: true }).click();
+      await expect(page.locator('svg.cursor-crosshair')).toHaveCount(0);
+    });
+
+    test('expanding one row leaves the others collapsed', async ({ page }) => {
+      await page.getByRole('button', { name: 'Show altitude tonight for Orion Nebula', exact: true }).click();
+      await expect(page.locator('svg.cursor-crosshair')).toHaveCount(1);
+
+      await page.getByRole('button', { name: 'Show altitude tonight for Pleiades', exact: true }).click();
+      await expect(page.locator('svg.cursor-crosshair')).toHaveCount(2);
+
+      await page.getByRole('button', { name: 'Hide altitude tonight for Orion Nebula', exact: true }).click();
+      await expect(page.locator('svg.cursor-crosshair')).toHaveCount(1);
+      // Pleiades' chart is the one still open.
+      await expect(page.getByRole('button', { name: 'Hide altitude tonight for Pleiades', exact: true })).toBeVisible();
+    });
   });
 
   // Scrubbing the altitude chart drives the sky tracker's moment, and the
@@ -146,7 +186,10 @@ test.describe('Planner Page', () => {
     test('the below-horizon row still opens details', async ({ page }) => {
       await page.getByPlaceholder(/search/i).fill('Tucanae');
       await page.getByRole('button', { name: 'Show details for 47 Tucanae', exact: true }).click();
-      await expect(page.getByText('Reference image')).toBeVisible();
+      // The reference photo is rendered with a translated alt and no visible
+    // "Reference image" label (same compact treatment as
+    // WishlistObjectModal/CatalogObjectModal), so match it by accessible name.
+    await expect(page.getByRole('img', { name: /reference image/i })).toBeVisible();
     });
   });
 

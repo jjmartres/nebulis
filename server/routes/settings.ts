@@ -479,7 +479,7 @@ router.delete('/api-key', requireAdmin, (req: Request, res: Response) => {
 
 // Reset database — purge all data except settings
 router.delete('/reset-database', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
-  const LIBRARY_DIR = getLibraryDir();
+  const libraryDir = getLibraryDir();
   const parsed = ResetDatabaseBodySchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     res.apiError(400, 'CONFIRMATION_REQUIRED', 'You must send { "confirmation": "delete" } to confirm');
@@ -509,7 +509,7 @@ router.delete('/reset-database', requireAdmin, strictRateLimiter, async (req: Re
     // avoid recursively removing an unrelated path.
     if (await isLibraryAvailable()) {
       try {
-        fs.rmSync(LIBRARY_DIR, { recursive: true });
+        fs.rmSync(libraryDir, { recursive: true });
       } catch { /* directory may not exist */ }
     }
     // The dirs below are always under DATA_DIR which the server controls.
@@ -551,8 +551,8 @@ router.delete('/reset-database', requireAdmin, strictRateLimiter, async (req: Re
     //    your drive" banner appears even though the drive was never disconnected.
     if (!isDefaultLocation()) {
       try {
-        fs.mkdirSync(LIBRARY_DIR, { recursive: true });
-        writeMarker(LIBRARY_DIR, getLibraryId());
+        fs.mkdirSync(libraryDir, { recursive: true });
+        writeMarker(libraryDir, getLibraryId());
       } catch { /* best effort — drive may have been removed between purge and here */ }
     }
 

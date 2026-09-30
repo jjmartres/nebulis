@@ -22,6 +22,7 @@ import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
 import { translateMoonPhase } from '../../lib/moonPhaseLabel';
 import { formatDate } from '../../lib/formatLocale';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   date: Date;
@@ -65,7 +66,8 @@ export function NightHero({
   siteControl,
 }: Props) {
   const { t } = useTranslation('planner');
-  const hex = conditions ? scoreHex(conditions.score) : '#64748b';
+  const { isNight } = useTheme();
+  const hex = conditions ? scoreHex(conditions.score, isNight) : (isNight ? '#661a1a' : '#64748b');
   const fmt = (d: Date | null) => (d ? formatTime(d.toISOString(), timeZone) : null);
 
   const dateLabel = formatDate(date, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -97,7 +99,7 @@ export function NightHero({
       />
       <div
         className="pointer-events-none absolute inset-0 rounded-3xl"
-        style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }}
+        style={{ boxShadow: `inset 0 0 0 1px ${isNight ? 'rgba(204,51,51,0.10)' : 'rgba(255,255,255,0.10)'}` }}
       />
 
       {/* One padded panel, title and content together, rather than two
@@ -149,7 +151,7 @@ export function NightHero({
               </div>
               <h2
                 className="mt-1 flex items-center gap-1 font-display text-[28px] font-bold leading-none tracking-tight"
-                style={conditions ? { color: hex, textShadow: `0 0 28px ${hex}4d` } : { color: '#e2e8f0' }}
+                style={conditions ? { color: hex, textShadow: `0 0 28px ${hex}4d` } : { color: isNight ? '#882222' : '#e2e8f0' }}
               >
                 {conditions ? scoreLabel(conditions.score, t) : t('nightHero.noForecastYet')}
                 {onOpenWeather && (

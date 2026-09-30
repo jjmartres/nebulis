@@ -31,6 +31,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Cheap checks first, so a type or lint error fails in seconds rather than
+      # after the whole suite. Neither was gated here before: `tsc` and `eslint`
+      # ran only on a developer's machine, so both could regress unnoticed while
+      # CI stayed green. `pnpm run lint` enforces the frozen baseline in
+      # eslint-suppressions.json, so existing debt passes but a new violation
+      # fails.
+      - name: Typecheck
+        run: |
+          pnpm run typecheck
+          pnpm run typecheck:server
+
+      - name: Lint
+        run: pnpm run lint
+
       - name: Run tests with coverage
         run: pnpm test:coverage
 
@@ -40,4 +54,48 @@ jobs:
         with:
           name: coverage-report
           path: coverage/
+          if-no-files-found: ignore
+
+  e2e:
+    # Separate job because it needs a browser binary and its own dev server.
+    # These 23 specs existed but ran in no workflow at all, so UI regressions
+    # (renamed exports, moved actions, changed labels) reached users with every
+    # other check green. The suite is deterministic headless Chromium.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `--with-deps` pulls the OS libraries Chromium needs on the runner.
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      # playwright.config.ts starts the Vite dev server itself (the specs mock
+      # the API with page.route, so no backend is required), and sets
+      # retries: 2 / workers: 1 when CI is set, which GitHub Actions does.
+      - name: Run end-to-end tests
+        run: pnpm exec playwright test
+
+      # The report is the only readable failure detail (screenshots, traces on
+      # first retry), and playwright-report/ is gitignored, so keep it here.
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
           if-no-files-found: ignore

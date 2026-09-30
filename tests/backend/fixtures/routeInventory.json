@@ -1,0 +1,2128 @@
+[
+  {
+    "method": "POST",
+    "path": "/auth/login",
+    "guards": [
+      "rateLimit",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/auth/me",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/register",
+    "guards": [
+      "rateLimit",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/auth/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/auth/users",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/users",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/auth/users/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/auth/users/:id/password",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/auth/users/:id/profile",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/auth/users/:id/role",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/:id/image",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/:id/info",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/catalog/:id/override",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/catalog/:id/override",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/catalog/:id/prefetch",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/:id/sky",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/:id/sources",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/credits/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/geocode/reverse",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/geocode/search",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/catalog/prefetch/cache",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/catalog/prefetch/cancel",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/prefetch/pack-debug",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/catalog/prefetch/start",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/prefetch/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalog/search",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalogs/:catalog/progress",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/catalogs/best-window",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/devices",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/devices/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/devices/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/devices/admin/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/devices/admin/all",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dso",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dso/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dso/curve/:objectId",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dso/plan",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dso/tonight",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dso/verdict",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/forecast",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/all-images",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/archive",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/archive/scopes",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/calibrations",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/calibrations/attach",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/calibrations/attach/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/calibrations/attachments",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/calibrations/bundle",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/calibrations/download/:id",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/calibrations/download/link",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/download/objects/:objectId",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/download/objects/:objectId/link",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/download/objects/:objectId/subframe-filters",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/download/objects/:objectId/subframes",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/download/objects/:objectId/summary",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/download/status/:jobId",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/download/status/:jobId/cancel",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/download/tmp/:token",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/favorites",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/file",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/file",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/file/thumbnail",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/fits-thumbnail",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/headers",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/image-favorites",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/images/favorite",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/images/favorite",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/import",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/import/cancel",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/import/commit",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/import/debug-event",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/import/history",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/import/preflight",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/import/scan",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/import/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/import/temp/:tmpId",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/import/upload-temp",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/manual-observations",
+    "guards": [
+      "requireAdmin",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/object-filters",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/objects/:objectId",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/capture",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/objects/:objectId/favorite",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/favorite",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/files",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/gallery-image",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/gallery-image",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/gallery-image/upload",
+    "guards": [
+      "requireAdmin",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/integration",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/linked-files",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/location",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/processed-images",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/processed-images",
+    "guards": [
+      "requireAdmin",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/objects/:objectId/processed-images/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/processed-images/:id",
+    "guards": [
+      "requireAdmin",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/processing-runs",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/processing-runs",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/processing-status",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/project-archives",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/project-archives",
+    "guards": [
+      "requireAdmin",
+      "checkArchiveUploadSpace",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/objects/:objectId/project-archives/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/reclassify",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/restore",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/sessions",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/objects/:objectId/sessions/:date",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/sessions/:date/files",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/library-files",
+    "guards": [
+      "requireAdmin",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/move",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/sessions/:date/processed-images",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/processed-images",
+    "guards": [
+      "requireAdmin",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/objects/:objectId/sessions/:date/processed-images/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/processed-images/:id/unmark",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/processed-images/from-file",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/restore",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/sessions/:date/session-image",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/sessions/:date/session-image",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/sessions/:date/site",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/objects/:objectId/sessions/:date/subframes",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/sync",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/sync-subframes",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/sessions/:date/telescope",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/stacked-images",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sync-subframes",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/thumbnail",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/deleted",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/deleted-sessions",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/observations",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/observations/:objectId/:date",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/processed-images/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/project-archives/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/sample-object",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/sample-object",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/sources",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/sources",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/library/sources/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/library/sources/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/sources/:id/rescan",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/sources/scan",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/tiff-thumbnail",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/video",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/meta/changelog",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/meta/update",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/meta/update/apply",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/meta/update/check",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/meta/version",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/notes",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/notes",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/notes/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/notes/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/notes/object/:objectId",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/notes/object/:objectId/:date",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/observations",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/observations/:objectId/:date",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/observations/locations",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/openapi.json",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/pair/approve",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/pair/lookup",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/pair/poll",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/pair/qr",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/pair/qr/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/pair/start",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/planned-sessions",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/planned-sessions",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/planned-sessions/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/planned-sessions/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/planner",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/planner/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/planner/curve/:objectId",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/planner/plan",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/planner/tonight",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/planner/verdict",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/preferences/last-seen-version",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/preferences/last-seen-version",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/preferences/watermarks",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/preferences/watermarks",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/reports/integration/:objectId",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/reports/session/:objectId/:sessionDate",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/satellite/cache",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/satellite/catalog/refresh",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/satellite/catalog/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/satellite/detect",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/satellite/results",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/settings",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/settings",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/settings/api-key",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/settings/debug-logging/disable",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/settings/debug-logging/download",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/settings/debug-logging/enable",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/settings/debug-logging/status",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/settings/generate-api-key",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/settings/nightly/run",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/settings/reset-database",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/sites",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/sites",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/sites/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/sites/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/sites/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/sites/:id/bortle-lookup",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/sites/:id/default",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/sites/active",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/sites/active",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/analyze",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/analyze/fix",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/archive",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/storage/archive",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/archive/adopt",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/archive/contents",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/archive/destination/browse",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/archive/destination/test",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/archive/restore",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/archive/retention",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/archive/retention/apply",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/archive/run",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/archive/run/cancel",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/archive/run/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/browse",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/cleanup",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/storage/cleanup/subframes",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/client-locality",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/db-backups",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/db-backups",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/storage/db-backups/:name",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/db-backups/:name/download",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/library",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/library-location",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/library-location/network/test",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/library-location/reset",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/locate-folder",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/migrate",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/migrate/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/storage/renest",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/renest/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/system",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/storage/volumes",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/system-log",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/system-log",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/telescope/file",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/file",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/telescope/files",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/files",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/objects",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/objects/:objectId",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/objects/:objectId/files",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/objects/:objectId/sessions",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/objects/:objectId/sessions/:sessionDate/files",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/objects/:objectId/subs",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/objects/:objectId/thumbnail",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescope/test",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescopes",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/telescopes/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/telescopes/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes/:id/archive",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescopes/:id/optical-configs",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes/:id/optical-configs",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/telescopes/:id/optical-configs/:cid",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/telescopes/:id/optical-configs/:cid",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes/:id/reassign-all",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescopes/:id/transports",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes/:id/transports",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/telescopes/:id/transports/:tid",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/telescopes/:id/transports/:tid",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes/:id/unarchive",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescopes/drives",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescopes/dwarf-mounts",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes/probe-identity",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescopes/status",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/telescopes/status/all",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes/test-connection",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/wishlist",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/wishlist",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/wishlist/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/wishlist/:id",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/wishlist/by-object/:objectId",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/wishlist/object/:objectId",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  }
+]

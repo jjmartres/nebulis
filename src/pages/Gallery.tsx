@@ -11,7 +11,9 @@ import type { ProcessingStatus } from '../types';
 import { LibraryHero } from '../components/library/LibraryHero';
 import { ImportModal } from '../components/ImportModal';
 import { FolderImportWizard } from '../components/folderImport/FolderImportWizard';
+import { LinkFolderWizard } from '../components/folderImport/LinkFolderWizard';
 import { useTheme } from '../hooks/useTheme';
+import { nightSafeColor } from '../lib/nightSafeColor';
 import { useAuth } from '../contexts/AuthContext';
 import { useClickOutside } from '../hooks/useClickOutside';
 import { useFilterChipPrefs } from '../hooks/useFilterChipPrefs';
@@ -70,6 +72,9 @@ export function Gallery() {
   const [telescopeFilter, setTelescopeFilter] = useState<string>(ALL_TELESCOPES_FILTER);
   const [processingFilter, setProcessingFilter] = useState<string>(ALL_PROCESSING_FILTER);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [linkTarget, setLinkTarget] = useState<{ path: string; subframes: boolean; fits: boolean } | null>(null);
+  // Set when the user steps back out of the link review: the import dialog reopens on its options step with these.
+  const [resumeLink, setResumeLink] = useState<{ path: string; includeSubframes: boolean } | null>(null);
   const [newObservationOpen, setNewObservationOpen] = useState(false);
   const [wizardPath, setWizardPath] = useState<string | null>(null);
   const [wizardSubframes, setWizardSubframes] = useState(false);
@@ -82,6 +87,10 @@ export function Gallery() {
   const sortRef = useRef<HTMLDivElement>(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  // On a phone the chip row + two facet dropdowns is a lot of vertical space
+  // to spend before any object is visible, so it starts collapsed there and
+  // sm:block below overrides this on anything wider.
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [telescopeMenuOpen, setTelescopeMenuOpen] = useState(false);
   const telescopeMenuRef = useRef<HTMLDivElement>(null);
   const [processingMenuOpen, setProcessingMenuOpen] = useState(false);
@@ -264,7 +273,8 @@ export function Gallery() {
         obj.name.toLowerCase().includes(effectiveTerm) ||
         obj.catalogId.toLowerCase().includes(effectiveTerm) ||
         obj.constellation.toLowerCase().includes(effectiveTerm) ||
-        (obj.aliases ?? []).some(a => a.toLowerCase().startsWith(effectiveTerm));
+        (obj.aliases ?? []).some(a => a.toLowerCase().startsWith(effectiveTerm)) ||
+        (obj.nicknames ?? []).some(n => n.toLowerCase().includes(effectiveTerm));
 
       const matchesType = matchesFilter(
         effectiveFilterId,
@@ -398,7 +408,30 @@ export function Gallery() {
         )}
       </div>
 
-      {/* Object type filter bar */}
+      {/* Object type filter bar — collapsed behind a toggle on mobile, where
+          the chip row plus two facet dropdowns would otherwise push every
+          object below the fold before the page even shows one. */}
+      <div className="sm:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen(o => !o)}
+          aria-expanded={mobileFiltersOpen}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium ring-1 ring-inset transition-colors ${
+            isDark
+              ? 'bg-slate-900/70 ring-slate-700/60 text-slate-300 hover:bg-slate-800'
+              : 'bg-white ring-slate-200 text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          {t('gallery.filters')}
+          {(effectiveFilterId !== ALL_FILTER_ID
+            || effectiveTelescopeFilter !== ALL_TELESCOPES_FILTER
+            || processingFilter !== ALL_PROCESSING_FILTER) && (
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-400" aria-hidden="true" />
+          )}
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${mobileFiltersOpen ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
       {/*
         Two grid columns, not a flex row: a nested flex-wrap child's preferred
         (max-content) width is the width of ALL its chips laid out on one
@@ -409,7 +442,7 @@ export function Gallery() {
         column while the telescope column stays put at the top.
       */}
       <div
-        className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 ${
+        className={`${mobileFiltersOpen ? 'grid' : 'hidden'} sm:grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 ${
           isDark ? 'text-slate-400' : 'text-slate-500'
         }`}
       >
@@ -520,7 +553,7 @@ export function Gallery() {
                 {selectedTelescope ? (
                   <span
                     className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: selectedTelescope.color }}
+                    style={{ backgroundColor: nightSafeColor(selectedTelescope.color, isNight) }}
                     aria-hidden="true"
                   />
                 ) : (
@@ -566,7 +599,7 @@ export function Gallery() {
                         <span className="flex items-center gap-2 min-w-0">
                           <span
                             className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: scope.color }}
+                            style={{ backgroundColor: nightSafeColor(scope.color, isNight) }}
                             aria-hidden="true"
                           />
                           <span className="truncate">{scope.name}</span>
@@ -652,7 +685,7 @@ export function Gallery() {
 
       {/* Content */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
@@ -660,7 +693,7 @@ export function Gallery() {
                 isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
               }`}
             >
-              <div className="h-48 img-placeholder" />
+              <div className="h-28 sm:h-48 img-placeholder" />
               <div className="p-5 space-y-3">
                 <div className={`h-5 rounded w-3/4 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`} />
                 <div className={`h-4 rounded w-1/2 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`} />
@@ -724,7 +757,7 @@ export function Gallery() {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-6">
             {filtered.map(obj => (
               <ObjectCard key={obj.id} object={obj} isDark={isDark} telescopes={telescopes} />
             ))}
@@ -794,7 +827,8 @@ export function Gallery() {
       {/* Import modal — drop zone → review wizard */}
       {showImportModal && (
         <ImportModal
-          onClose={() => setShowImportModal(false)}
+          resume={resumeLink ?? undefined}
+          onClose={() => { setShowImportModal(false); setResumeLink(null); }}
           onReview={(folderPath, includeSubframes, includeFits, telescopeId, archiveAll, tmpId) => {
             setShowImportModal(false);
             setWizardSubframes(includeSubframes);
@@ -803,6 +837,11 @@ export function Gallery() {
             setWizardTelescopeId(telescopeId);
             setWizardTmpId(tmpId);
             setWizardPath(folderPath);
+          }}
+          onLink={(folderPath, includeSubframes, includeFits) => {
+            setShowImportModal(false);
+            setResumeLink(null);
+            setLinkTarget({ path: folderPath, subframes: includeSubframes, fits: includeFits });
           }}
         />
       )}
@@ -816,6 +855,22 @@ export function Gallery() {
           navigate(`/observations/${encodeURIComponent(result.objectId)}/${encodeURIComponent(result.date)}`);
         }}
       />
+
+      {/* Link a folder in place: nothing is copied into the library */}
+      {linkTarget && (
+        <LinkFolderWizard
+          rootPath={linkTarget.path}
+          includeSubframes={linkTarget.subframes}
+          includeFits={linkTarget.fits}
+          onClose={() => setLinkTarget(null)}
+          onBack={() => {
+            setResumeLink({ path: linkTarget.path, includeSubframes: linkTarget.subframes });
+            setLinkTarget(null);
+            setShowImportModal(true);
+          }}
+          onDone={() => queryClient.invalidateQueries({ queryKey: ['library-objects'] })}
+        />
+      )}
 
       {/* Guided folder-import wizard (scan → review sessions → commit) */}
       {wizardPath && (

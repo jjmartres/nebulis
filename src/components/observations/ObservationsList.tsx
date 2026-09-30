@@ -6,6 +6,8 @@ import type { ObservationSummary } from '../../lib/api/observations';
 import type { TelescopeProfile } from '../../lib/api/telescopes';
 import { resolveObjectLabel, formatObservationDate } from '../../lib/observationDisplay';
 import { cleanCatalogId } from '../../lib/utils';
+import { useTheme } from '../../hooks/useTheme';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 
 type SortKey = 'object' | 'catalog' | 'date';
 type SortDir = 'asc' | 'desc';
@@ -86,6 +88,7 @@ export function ObservationsList({
   observations, telescopeById, showTelescopeUI, isDark, onSortedRowsChange,
 }: Props) {
   const { t } = useTranslation('observations');
+  const { isNight } = useTheme();
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
@@ -199,7 +202,7 @@ export function ObservationsList({
                       {showTelescopeUI && scope && (
                         <span
                           className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: scope.color }}
+                          style={{ backgroundColor: nightSafeColor(scope.color, isNight) }}
                           title={scope.name}
                         />
                       )}

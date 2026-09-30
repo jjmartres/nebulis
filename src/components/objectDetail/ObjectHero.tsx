@@ -27,6 +27,8 @@ import { useImageFocalPoint } from '../../hooks/useImageFocalPoint';
 import { FileLocationModal } from '../library/FileLocationModal';
 import { DownloadConfirmModal } from './DownloadConfirmModal';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
+import { useTheme } from '../../hooks/useTheme';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 import { HERO_IMAGES } from '../../lib/heroImagery';
 import { CaptureRail } from '../ui/CaptureRail';
 import type { CaptureMetric } from '../../lib/captureMetrics';
@@ -145,6 +147,7 @@ export function ObjectHero({
   objectId, hideTargetActions = false,
 }: Props) {
   const { t } = useTranslation('library');
+  const { isNight } = useTheme();
   const [showLocation, setShowLocation] = useState(false);
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -368,9 +371,9 @@ export function ObjectHero({
                     {/* Which telescopes have been on this target. A target shot on
                         two rigs is worth knowing about before comparing nights. */}
                     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-                      {telescopes.map(tel => (
+                      {telescopes.map((tel, i) => (
                         <span key={tel.id} className="inline-flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: tel.color }} />
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: nightSafeColor(tel.color, isNight, i) }} />
                           {tel.name}
                         </span>
                       ))}

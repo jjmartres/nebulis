@@ -1,0 +1,92 @@
+[
+  {
+    "path": "/",
+    "module": "./pages/Gallery",
+    "export": "Gallery"
+  },
+  {
+    "path": "/backup",
+    "module": "./pages/BackupStatus",
+    "export": "BackupStatus"
+  },
+  {
+    "path": "/calibrations",
+    "module": "./pages/CalibrationLibrary",
+    "export": "CalibrationLibrary"
+  },
+  {
+    "path": "/catalogs",
+    "module": "./pages/CatalogsHub",
+    "export": "CatalogsHub"
+  },
+  {
+    "path": "/catalogs/:catalog",
+    "module": "./pages/CatalogBoard",
+    "export": "CatalogBoard"
+  },
+  {
+    "path": "/forecast",
+    "module": "./pages/ForecastPage",
+    "export": "ForecastPage"
+  },
+  {
+    "path": "/help",
+    "module": "./pages/HelpPage",
+    "export": "HelpPage"
+  },
+  {
+    "path": "/image-gallery",
+    "module": "./pages/ImageGalleryPage",
+    "export": "ImageGalleryPage"
+  },
+  {
+    "path": "/link",
+    "module": "./pages/LinkDevicePage",
+    "export": null
+  },
+  {
+    "path": "/object/:objectId",
+    "module": "./pages/ObjectDetail",
+    "export": "ObjectDetail"
+  },
+  {
+    "path": "/object/:objectId/compare",
+    "module": "./pages/CompareView",
+    "export": "CompareView"
+  },
+  {
+    "path": "/observations",
+    "module": "./pages/ObservationsCalendar",
+    "export": "ObservationsCalendar"
+  },
+  {
+    "path": "/observations/:objectId/:date",
+    "module": "./pages/ObservationDetail",
+    "export": "ObservationDetail"
+  },
+  {
+    "path": "/observations/new",
+    "module": "./pages/NewObservationPage",
+    "export": "NewObservationPage"
+  },
+  {
+    "path": "/planner",
+    "module": "./pages/PlannerPage",
+    "export": "PlannerPage"
+  },
+  {
+    "path": "/settings",
+    "module": "./pages/Settings",
+    "export": "SettingsPage"
+  },
+  {
+    "path": "/storage",
+    "module": "./components/StorageDashboard",
+    "export": "StorageDashboard"
+  },
+  {
+    "path": "/wishlist",
+    "module": "./pages/WishlistPage",
+    "export": "WishlistPage"
+  }
+]

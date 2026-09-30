@@ -246,13 +246,23 @@ export function listObjectFilesByFolder(folderName: string, layout: LibraryLayou
  * Only the flat → nested direction is repaired, and only when the evidence is
  * unambiguous: a session-style subdirectory holds a real file and nothing real
  * sits loose at the object root. The reverse (nested row, loose root files) is
- * a normal mid-renest state, not a bug, and is left to the renest tool.
+ * left alone: it can only be a leftover from the now-removed manual reorganize
+ * tool, not something newly-imported objects ever produce.
  *
  * Walks the library with synchronous fs calls, so call it from the same
  * deferred, `isLibraryAvailable()`-gated boot path as the other repairs.
  * Idempotent. Returns the number of objects flipped.
  */
 export function reconcileLayoutFromDisk(): number {
+  const drifted = findLayoutDrift();
+  for (const objectId of drifted) setObjectLayout(objectId, 'nested');
+  return drifted.length;
+}
+
+/** Objects stored as flat whose folder is unambiguously nested. The read-only
+ *  half of reconcileLayoutFromDisk, so the library analysis can report the
+ *  drift before anything is changed. */
+export function findLayoutDrift(): string[] {
   const libraryDir = getLibraryDir();
   const flatObjects = db
     .prepare<[], { objectId: string; folderName: string | null }>(
@@ -260,7 +270,7 @@ export function reconcileLayoutFromDisk(): number {
     )
     .all();
 
-  let fixed = 0;
+  const drifted: string[] = [];
   for (const { objectId, folderName } of flatObjects) {
     const objDir = path.join(libraryDir, folderName || objectId);
     let entries: fs.Dirent[];
@@ -278,10 +288,7 @@ export function reconcileLayoutFromDisk(): number {
         return false;
       }
     });
-    if (hasNestedRealFile) {
-      setObjectLayout(objectId, 'nested');
-      fixed++;
-    }
+    if (hasNestedRealFile) drifted.push(objectId);
   }
-  return fixed;
+  return drifted;
 }

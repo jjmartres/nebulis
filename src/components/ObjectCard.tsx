@@ -7,6 +7,8 @@ import { toggleFavorite, getLibraryObjectThumbnailUrl } from '../lib/api/library
 import type { TelescopeProfile } from '../lib/api/telescopes';
 import type { AstroObject } from '../types';
 import { processingStatusLabel } from '../lib/processingStatus';
+import { useTheme } from '../hooks/useTheme';
+import { nightSafeColor } from '../lib/nightSafeColor';
 
 interface ObjectCardProps {
   object: AstroObject;
@@ -48,7 +50,16 @@ function getTypeColor(type: string, isDark: boolean) {
 }
 
 export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes }: ObjectCardProps) {
+  const { isNight } = useTheme();
   const { t } = useTranslation('library');
+  // Other names for the same object, so a card called "NGC188" can still be
+  // recognised as "C1 · Polarissima Cluster". Never repeats the shown name.
+  const alsoKnownAs = [...(object.aliases ?? []), ...(object.nicknames ?? [])]
+    .filter((n, i, all) => n.toLowerCase() !== object.name.toLowerCase()
+      && n.toLowerCase() !== object.catalogId.toLowerCase()
+      && all.findIndex(o => o.toLowerCase() === n.toLowerCase()) === i)
+    .slice(0, 3)
+    .join(' · ');
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const queryClient = useQueryClient();
@@ -103,7 +114,7 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
       }`}
     >
       {/* Preview area with sky image */}
-      <div className={`relative h-48 overflow-hidden ${
+      <div className={`relative h-28 sm:h-48 overflow-hidden ${
         isDark
           ? 'bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800'
           : 'bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100'
@@ -144,8 +155,8 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
         }`}>
           {(!imgLoaded || imgError) && (
             <div className="text-center">
-              <Sparkles className={`w-10 h-10 mx-auto mb-2 ${isDark ? 'text-accent-500/40' : 'text-accent-400/50'}`} />
-              <span className={`font-display font-bold text-3xl tracking-tight ${
+              <Sparkles className={`w-6 h-6 sm:w-10 sm:h-10 mx-auto mb-1 sm:mb-2 ${isDark ? 'text-accent-500/40' : 'text-accent-400/50'}`} />
+              <span className={`font-display font-bold text-lg sm:text-3xl tracking-tight ${
                 isDark ? 'text-slate-300' : 'text-slate-600'
               }`}>
                 {object.catalogId}
@@ -156,8 +167,8 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
 
         {/* Catalog ID badge when image is loaded */}
         {imgLoaded && !imgError && (
-          <div className="absolute bottom-2 left-3 z-10">
-            <span className="font-display font-bold text-xl text-white drop-shadow-lg">
+          <div className="absolute bottom-1.5 left-2 sm:bottom-2 sm:left-3 z-10">
+            <span className="font-display font-bold text-sm sm:text-xl text-white drop-shadow-lg">
               {object.catalogId}
             </span>
           </div>
@@ -204,11 +215,11 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
             className="absolute top-2 left-2 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-black/40 backdrop-blur-sm"
             title={dotEntries.map(t => t.name).join(', ')}
           >
-            {dotEntries.map(t => (
+            {dotEntries.map((t, i) => (
               <span
                 key={t.id}
                 className="w-1.5 h-1.5 rounded-full ring-1 ring-white/20"
-                style={{ backgroundColor: t.color }}
+                style={{ backgroundColor: nightSafeColor(t.color, isNight, i) }}
               />
             ))}
           </div>
@@ -216,15 +227,20 @@ export const ObjectCard = memo(function ObjectCard({ object, isDark, telescopes 
       </div>
 
       {/* Content */}
-      <div className="p-5">
-        <h3 className={`font-display font-semibold text-lg mb-1 ${
+      <div className="p-3 sm:p-5">
+        <h3 className={`font-display font-semibold text-sm sm:text-lg mb-0.5 sm:mb-1 truncate ${
           isDark ? 'text-slate-100' : 'text-slate-900'
         }`}>
           {object.name}
         </h3>
+        {alsoKnownAs && (
+          <p className={`hidden sm:block text-xs truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`} title={alsoKnownAs}>
+            {alsoKnownAs}
+          </p>
+        )}
 
-        <div className="flex flex-wrap items-center gap-2 mt-3 -ml-2.5">
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3 -ml-1.5 sm:-ml-2.5">
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-medium truncate max-w-full ${
             getTypeColor(object.type, isDark)
           }`}>
             {object.type}

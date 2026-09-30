@@ -23,6 +23,7 @@ import { PAGE_HERO } from '../../lib/heroImagery';
 import type { AstroObject } from '../../types';
 import { formatDate, formatRelativeDuration, formatNumber } from '../../lib/formatLocale';
 import { classOfType, type ObjectClass } from '../../lib/objectCategories';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   /** Objects the hero describes. Already narrowed by the telescope facet so the
@@ -40,6 +41,15 @@ const CLASS_META: Record<ObjectClass, { key: string; dot: string }> = {
   galaxy:  { key: 'libraryHero.class.galaxy',  dot: '#a78bfa' },
   nebula:  { key: 'libraryHero.class.nebula',  dot: '#22d3ee' },
   cluster: { key: 'libraryHero.class.cluster', dot: '#fbbf24' },
+};
+
+/** Same class dots, collapsed to a brightness-only red ladder for red-light
+ *  mode — raw hex in a `style` prop, so .night's CSS variable overrides in
+ *  index.css can't reach it. */
+const NIGHT_CLASS_DOT: Record<ObjectClass, string> = {
+  galaxy: '#dd3333',
+  nebula: '#a02828',
+  cluster: '#661a1a',
 };
 
 /** Display order for the class breakdown. Deliberately separate from the shared
@@ -78,6 +88,7 @@ function lastNightLabel(date: string, t: (key: string) => string): string {
 
 export function LibraryHero({ objects, accent, filteredLabel }: Props) {
   const { t } = useTranslation('library');
+  const { isNight } = useTheme();
   const { total, observations, favorites, breakdown, lastNight } = useMemo(() => {
     let obs = 0;
     let favs = 0;
@@ -139,12 +150,16 @@ export function LibraryHero({ objects, accent, filteredLabel }: Props) {
         {/* The collection. Held to a share of the width on a wide screen so the
             artwork behind has somewhere to be seen. */}
         <div className="min-w-0 lg:max-w-[52%]">
-          <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            <Library className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
+          <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+            <Library className="h-5 w-5 sm:h-7 sm:w-7" style={{ color: accent }} />
             {t('libraryHero.title')}
           </h1>
 
-          <p className="mt-2 text-[13px] text-white/55">
+          {/* The breakdown/count line and the stat row below both restate
+              numbers the object grid shows on the very next scroll, so on a
+              phone they cost more space than they earn: hidden there, the
+              title alone leaves room for the grid to start immediately. */}
+          <p className="mt-2 hidden text-[13px] text-white/55 sm:block">
             {empty ? (
               t('libraryHero.emptyHint')
             ) : (
@@ -153,7 +168,7 @@ export function LibraryHero({ objects, accent, filteredLabel }: Props) {
                   <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 align-middle">
                     {breakdown.map(({ cls, count }) => (
                       <span key={cls} className="inline-flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: CLASS_META[cls].dot }} />
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: isNight ? NIGHT_CLASS_DOT[cls] : CLASS_META[cls].dot }} />
                         <span className="tabular-nums text-white/70">{count}</span>
                         <span>{t(CLASS_META[cls].key, { count })}</span>
                       </span>
@@ -168,7 +183,7 @@ export function LibraryHero({ objects, accent, filteredLabel }: Props) {
           </p>
 
           {!empty && (
-            <div className="mt-6 flex flex-wrap items-end gap-x-12 gap-y-4 sm:gap-x-16">
+            <div className="mt-6 hidden flex-wrap items-end gap-x-12 gap-y-4 sm:flex sm:gap-x-16">
               {stats.map(({ value, label, prose }) => (
                 <div key={label} className="min-w-0">
                   <div className={`font-display font-bold leading-none tracking-tight text-white ${

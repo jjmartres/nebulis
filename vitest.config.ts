@@ -8,10 +8,15 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
-    environmentMatchGlobs: [
-      // Use jsdom for React component tests
-      ['tests/frontend/**', 'jsdom'],
-    ],
+    // tests/lab needs the Docker lab (npm run lab:up); it has its own config, vitest.lab.config.ts.
+    exclude: ['**/node_modules/**', 'tests/lab/**'],
+    // The test environment is chosen per file with a
+    // `// @vitest-environment jsdom` docblock. This config previously used
+    // `environmentMatchGlobs: [['tests/frontend/**', 'jsdom']]`, but Vitest 4
+    // removed that option and ignores unknown keys silently, so every frontend
+    // test was in fact running under `node` and DOM globals (localStorage,
+    // matchMedia) were undefined. The docblock is the supported replacement;
+    // files that render React declare it explicitly.
     setupFiles: ['tests/setup.ts'],
     // Wipe leftover <repo>/.test-tmp scratch dirs once before the suite so a
     // previously crashed run doesn't accumulate husks in the repo root.

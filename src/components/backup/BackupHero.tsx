@@ -129,8 +129,8 @@ export function BackupHero({
             button crowds it. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 lg:max-w-[58%]">
-            <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              <FolderSync className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
+            <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+              <FolderSync className="h-5 w-5 sm:h-7 sm:w-7" style={{ color: accent }} />
               {t('backupHero.title')}
             </h1>
 
@@ -294,7 +294,7 @@ function LiveProgress({
         />
       </div>
 
-      <div className="flex flex-wrap gap-x-8 gap-y-3 pt-1">
+      <div className="hidden flex-wrap gap-x-8 gap-y-3 pt-1 sm:flex">
         {chips.map(({ label, value }) => (
           <div key={label} className="min-w-0">
             <div className="font-display text-base font-bold leading-none tracking-tight text-white tabular-nums">
@@ -352,7 +352,7 @@ function IdleStats({
   if (stats.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-x-12 gap-y-4 sm:gap-x-16">
+    <div className="hidden flex-wrap gap-x-12 gap-y-4 sm:flex sm:gap-x-16">
       {stats.map(({ value, label, tone }) => (
         <div key={label} className="min-w-0">
           <div className={`font-display text-2xl font-bold leading-none tracking-tight tabular-nums ${

@@ -574,3 +574,17 @@ export async function getLibraryLocationInfo(): Promise<LibraryLocationInfo> {
     pinned: isLibraryPinned(),
   };
 }
+
+
+/**
+ * Whether `otherPath` is on the same filesystem device as the library. Statted here
+ * so callers can ask the question without holding the library path themselves.
+ * Anything that cannot be statted answers false.
+ */
+export function isOnSameDeviceAsLibrary(otherPath: string): boolean {
+  try {
+    return fs.statSync(otherPath).dev === fs.statSync(getLibraryDir()).dev;
+  } catch {
+    return false;
+  }
+}

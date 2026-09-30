@@ -4,6 +4,7 @@
  * before the number does.
  */
 import { scoreHex } from '../../lib/forecastScore';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   score: number;
@@ -18,7 +19,8 @@ interface Props {
 }
 
 export function ScoreDial({ score, size = 132, showLabel = true, label, className = '' }: Props) {
-  const hex = scoreHex(score);
+  const { isNight } = useTheme();
+  const hex = scoreHex(score, isNight);
   const R = 46;
   const circumference = 2 * Math.PI * R;
   const offset = circumference * (1 - Math.min(100, Math.max(0, score)) / 100);
@@ -30,7 +32,7 @@ export function ScoreDial({ score, size = 132, showLabel = true, label, classNam
         style={{ background: `radial-gradient(circle, ${hex}2e 0%, transparent 68%)` }}
       />
       <svg viewBox="0 0 110 110" width={size} height={size} className="-rotate-90 relative">
-        <circle cx="55" cy="55" r={R} fill="none" strokeWidth="6" stroke="rgba(255,255,255,0.09)" />
+        <circle cx="55" cy="55" r={R} fill="none" strokeWidth="6" stroke={isNight ? 'rgba(204,51,51,0.09)' : 'rgba(255,255,255,0.09)'} />
         <circle
           cx="55" cy="55" r={R} fill="none" strokeWidth="6" strokeLinecap="round"
           stroke={hex}

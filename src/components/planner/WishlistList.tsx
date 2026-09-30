@@ -269,7 +269,7 @@ export function WishlistList({
           </div>
         ) : (
           <div className="pt-3">
-            <div className={layout === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4' : 'space-y-2'}>
+            <div className={layout === 'grid' ? 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4' : 'space-y-2'}>
               {layout === 'grid' ? sorted.map(item => (
                 <WishlistCard
                   key={item.id}

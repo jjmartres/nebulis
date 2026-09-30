@@ -8,6 +8,8 @@ import {
   deleteSessionSubFrames,
   setSessionImage as apiSetSessionImage,
   getProcessedImages,
+  markFileAsProcessed,
+  unmarkProcessedImage,
   deleteProcessedImage as apiDeleteProcessedImage,
   setGalleryImage,
   getImageFavorites,
@@ -117,6 +119,10 @@ export function ObservationDetail() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [markProcessedError, setMarkProcessedError] = useState<string | null>(null);
+  const [draggingPath, setDraggingPath] = useState<string | null>(null);
+  const [confirmUnmarkId, setConfirmUnmarkId] = useState<string | null>(null);
+  const [confirmMarkProcessedPath, setConfirmMarkProcessedPath] = useState<string | null>(null);
   const [deletingProcessedId, setDeletingProcessedId] = useState<string | null>(null);
   const [confirmDeleteProcessedId, setConfirmDeleteProcessedId] = useState<string | null>(null);
   const [settingGalleryId, setSettingGalleryId] = useState<string | null>(null);
@@ -202,6 +208,11 @@ export function ObservationDetail() {
     ? telescopes.find(scope => scope.id === observation.telescopeId) ?? null
     : null;
 
+  // Depends on the lat/lon primitives, not the `coordinates` object: React
+  // Query can hand back a new `observation` object with identical coordinates
+  // on a background refetch, and depending on the object itself would re-run
+  // the reverse-geocoding lookup below on every one of those, not just on an
+  // actual location change.
   useEffect(() => {
     const coords = observation?.coordinates;
     if (!coords) return;
@@ -210,6 +221,7 @@ export function ObservationDetail() {
       setLocationName(name);
     }).catch(() => {});
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [observation?.coordinates?.lat, observation?.coordinates?.lon]);
 
   const { data: objectInfo } = useQuery({
@@ -602,6 +614,39 @@ export function ObservationDetail() {
     finally { setDeletingProcessedId(null); }
   }, [objectId, date, deletingProcessedId, queryClient]);
 
+  const handleMarkFileAsProcessed = useCallback(async (filePath: string) => {
+    setDraggingPath(null);
+    if (!objectId || !date) return;
+    setMarkProcessedError(null);
+    try {
+      await markFileAsProcessed(objectId, date, filePath);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['processedImages', objectId, date] }),
+        queryClient.invalidateQueries({ queryKey: ['observation', objectId, date] }),
+        queryClient.invalidateQueries({ queryKey: ['observation-files', objectId, date] }),
+      ]);
+      setPinnedTab('processed');
+    } catch (err) {
+      setMarkProcessedError(err instanceof Error ? err.message : t('observationDetail.tabs.markProcessedFailedFallback'));
+    }
+  }, [objectId, date, queryClient, t]);
+
+  const handleUnmarkProcessed = useCallback(async (id: string) => {
+    if (!objectId || !date) return;
+    setMarkProcessedError(null);
+    try {
+      await unmarkProcessedImage(objectId, date, id);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['processedImages', objectId, date] }),
+        queryClient.invalidateQueries({ queryKey: ['observation', objectId, date] }),
+        queryClient.invalidateQueries({ queryKey: ['observation-files', objectId, date] }),
+      ]);
+      setPinnedTab('images');
+    } catch (err) {
+      setMarkProcessedError(err instanceof Error ? err.message : t('observationDetail.tabs.markProcessedFailedFallback'));
+    }
+  }, [objectId, date, queryClient, t]);
+
   const handleSetProcessedAsGallery = useCallback(async (img: ProcessedImage) => {
     if (!objectId || settingGalleryId) return;
     setSettingGalleryId(img.id);
@@ -733,6 +778,8 @@ if (isLoading) {
         <ObservationTabs
           active={activeTab}
           onChange={setPinnedTab}
+          onDropFileOnProcessed={isAdmin ? handleMarkFileAsProcessed : undefined}
+          dragActive={draggingPath !== null}
           counts={{
             images: imageTabCount,
             subframes: subFrames.length,
@@ -740,6 +787,15 @@ if (isLoading) {
             videos: videoFiles.length,
           }}
         />
+
+        {markProcessedError && (
+          <div role="alert" className="mt-4 flex items-start justify-between gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            <span>{t('observationDetail.tabs.markProcessedFailed', { message: markProcessedError })}</span>
+            <button onClick={() => setMarkProcessedError(null)} aria-label={t('observationDetail.tabs.dismiss')} className="shrink-0 hover:text-red-300">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         <div className="pt-5">
         {activeTab === 'images' && (
@@ -767,6 +823,9 @@ if (isLoading) {
           date={date}
           openGallery={openGallery}
           isAdmin={isAdmin}
+          onMarkProcessed={setConfirmMarkProcessedPath}
+          draggingPath={draggingPath}
+          onDragPathChange={setDraggingPath}
         />
         )}
 
@@ -803,6 +862,7 @@ if (isLoading) {
           settingGalleryId={settingGalleryId}
           deletingProcessedId={deletingProcessedId}
           onRequestDelete={setConfirmDeleteProcessedId}
+          onRequestUnmark={setConfirmUnmarkId}
           isDragging={isDragging}
           setIsDragging={setIsDragging}
           onUploadClick={() => { setPendingUploadFile(null); setShowUploadModal(true); }}
@@ -898,6 +958,32 @@ if (isLoading) {
           onConfirm={() => {
             handleDeleteProcessed(confirmDeleteProcessedId);
             setConfirmDeleteProcessedId(null);
+          }}
+        />
+      )}
+
+      {confirmUnmarkId && (
+        <ConfirmModal
+          title={t('observationDetail.page.unmarkProcessedTitle')}
+          message={t('observationDetail.page.unmarkProcessedMessage')}
+          confirmLabel={t('observationDetail.page.unmarkProcessedConfirm')}
+          onCancel={() => setConfirmUnmarkId(null)}
+          onConfirm={() => {
+            void handleUnmarkProcessed(confirmUnmarkId);
+            setConfirmUnmarkId(null);
+          }}
+        />
+      )}
+
+      {confirmMarkProcessedPath && (
+        <ConfirmModal
+          title={t('observationDetail.page.markProcessedTitle')}
+          message={t('observationDetail.page.markProcessedMessage')}
+          confirmLabel={t('observationDetail.page.markProcessedConfirm')}
+          onCancel={() => setConfirmMarkProcessedPath(null)}
+          onConfirm={() => {
+            void handleMarkFileAsProcessed(confirmMarkProcessedPath);
+            setConfirmMarkProcessedPath(null);
           }}
         />
       )}

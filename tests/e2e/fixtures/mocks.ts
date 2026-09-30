@@ -804,7 +804,7 @@ export const MOCK = {
 
 // ─── Route matchers ───────────────────────────────────────────────────────────
 
-function json(data: unknown, status = 200): Parameters<Route['fulfill']>[0] {
+export function json(data: unknown, status = 200): Parameters<Route['fulfill']>[0] {
   return {
     status,
     contentType: 'application/json',
@@ -816,6 +816,39 @@ function json(data: unknown, status = 200): Parameters<Route['fulfill']>[0] {
  * Register all API mocks. Call in beforeEach or at the start of each test.
  */
 export async function mockAllRoutes(page: Page) {
+  /**
+   * A floor under every other handler, registered first so that everything mocked
+   * below wins (Playwright runs the most recently added matching route first).
+   *
+   * A request this suite does not mock must not reach a real backend. When a Nebulis
+   * dev server is listening on the API port, it answers 401 for these specs' test
+   * token, and `fetchJSON` clears the stored token on ANY 401. `AuthProvider` reads a
+   * missing token as open-access **admin**, so the two viewer specs on the observation
+   * page see the admin-only menu items and fail, with nothing wrong in the code. That
+   * is a real failure of this suite's determinism, and it depends only on whether
+   * something happens to be running on the developer's machine.
+   *
+   * The pattern is anchored to a first path segment of `api` rather than matching that
+   * segment anywhere in the path: the Vite dev server serves modules from
+   * `/src/lib/api/`, and a looser glob `**` + `/api/` + `**` swallows those and breaks
+   * every page load. External hosts are left alone, which is what keeps the map tiles
+   * in the share specs able to load.
+   */
+  await page.route(/^https?:\/\/[^/]+\/api\//, r =>
+    r.fulfill(
+      json(
+        {
+          ok: false,
+          error: {
+            code: 'UNMOCKED_IN_E2E',
+            message: `No e2e mock for ${r.request().method()} ${new URL(r.request().url()).pathname}. Add one to tests/e2e/fixtures/mocks.ts.`,
+          },
+        },
+        503,
+      ),
+    ),
+  );
+
   // Auth
   await page.route('**/api/auth/status', r => r.fulfill(json(ok(MOCK.authStatus))));
   await page.route('**/api/auth/login', r => r.fulfill(json(ok(MOCK.loginResponse))));
@@ -1176,4 +1209,187 @@ export async function mockOpenAuth(page: Page) {
 export async function mockHasUsers(page: Page) {
   await page.route('**/api/auth/status', r =>
     r.fulfill(json(ok({ hasUsers: true, requiresSetup: false }))));
+}
+
+// ─── External archive ───────────────────────────────────────────────────────
+
+export interface ArchiveRouteOptions {
+  /** Which destination state the status endpoint should report. */
+  destinationState?: 'unconfigured' | 'offline' | 'absent' | 'match' | 'foreign' | 'invalid-path';
+  foundArchiveId?: string | null;
+  /** Config as the status endpoint reports it, and as PUT echoes it back. */
+  config?: Record<string, unknown>;
+  /** The network half of the config, for a share destination. */
+  network?: Record<string, unknown>;
+  /** Anything else the destination view should carry. */
+  destination?: Record<string, unknown>;
+  /** What the Test connection button should be told. */
+  testResult?: { ok: boolean; reason: string | null };
+  /** The folders the share browser should offer. */
+  shareDirectories?: Array<{ name: string; path: string }>;
+  shareBrowsePath?: string;
+  objects?: Array<Record<string, unknown>>;
+  files?: Array<Record<string, unknown>>;
+  /** What the restore endpoint reports. `conflicts` drives the overwrite prompt. */
+  restore?: { restored?: number; skipped?: number; conflicts?: string[]; failures?: string[] };
+}
+
+/**
+ * The archive's endpoints, so the Settings section and the browse modal can be
+ * driven without a real disk.
+ *
+ * Register AFTER mockAllRoutes: Playwright runs the most recently registered
+ * matching handler first, and the archive paths are specific enough that they would
+ * otherwise be shadowed by nothing, but keeping the convention makes the order
+ * obvious at a glance.
+ *
+ * `**\/archive/contents**` needs the trailing wildcard: Playwright anchors a glob to
+ * the whole URL, so a bare `.../contents` never matches the `?folder=` variant.
+ */
+export async function mockArchiveRoutes(page: Page, options: ArchiveRouteOptions = {}): Promise<void> {
+  const destinationState = options.destinationState ?? 'match';
+  const network = {
+    host: '',
+    share: '',
+    domain: '',
+    username: '',
+    hasPassword: false,
+    subpath: '',
+    ...options.network,
+  };
+  const config: Record<string, unknown> = {
+    // The master switch is on in the fixture, because most of the archive journeys
+    // are about what a configured archive does. A test that is about the disabled
+    // state passes `config: { enabled: false }`.
+    enabled: true,
+    path: '/Volumes/Archive',
+    locationType: 'local',
+    network,
+    archiveId: 'archive-1',
+    scope: 'all',
+    selectedObjects: [],
+    includeSubframes: true,
+    copyMinAgeDays: 0,
+    copyMinAgeEnabled: false,
+    scheduleEnabled: false,
+    scheduleMode: 'daily',
+    scheduleHour: 2,
+    scheduleMinute: 0,
+    scheduleIntervalHours: 24,
+    scheduleCron: '',
+    retentionDays: 0,
+    retentionEnabled: false,
+    retentionSubframesOnly: false,
+    removeLocalAfter: false,
+    lastRunAt: '',
+    lastResult: '',
+    ...options.config,
+  };
+  /** The mock keeps what it was told, so a save is visible to the read that follows
+   *  it. A fixture that answered every GET with the original object could not show a
+   *  destination being chosen at all. */
+  let savedConfig: Record<string, unknown> = { ...config };
+
+  /** How a destination is described, from the config it describes. The display path
+   *  for a share is the share itself, not the directory it is mounted at. */
+  function destinationView(state: string, foundArchiveId: string | null): Record<string, unknown> {
+    const active = savedConfig.network as Record<string, unknown>;
+    const subpath = String(active.subpath ?? '');
+    return {
+      state,
+      path: savedConfig.locationType === 'network'
+        ? `\\\\${String(active.host ?? '')}\\${String(active.share ?? '')}${subpath === '' ? '' : `\\${subpath}`}`
+        : savedConfig.path,
+      foundArchiveId,
+      locationType: savedConfig.locationType,
+      network: active,
+      networkSupported: true,
+      sameDiskAsLibrary: false,
+    };
+  }
+
+  let savedDestination: Record<string, unknown> = {
+    ...destinationView(destinationState, options.foundArchiveId ?? null),
+    ...options.destination,
+  };
+
+  function view(): { config: Record<string, unknown>; destination: Record<string, unknown> } {
+    return { config: savedConfig, destination: savedDestination };
+  }
+
+  function applyPatch(patch: Record<string, unknown>): void {
+    const next = { ...savedConfig, ...patch };
+    const nextNetwork = { ...(savedConfig.network as Record<string, unknown>), ...(patch.network as Record<string, unknown> | undefined) };
+    // A password is never echoed back, exactly as the server behaves.
+    delete nextNetwork.password;
+    delete nextNetwork.clearPassword;
+    next.network = nextNetwork;
+    savedConfig = next;
+
+    // A freshly saved destination has no archive on it yet, whichever kind it is.
+    savedDestination = destinationView('absent', null);
+  }
+
+
+  const objects = options.objects ?? [
+    { folderName: 'M 31', objectId: 'M31', firstArchivedAt: '2026-01-01T00:00:00.000Z', lastArchivedAt: '2026-03-01T00:00:00.000Z', filesTotal: 2, subframes: 1, bytes: 2048, missingLocally: 1 },
+  ];
+  const files = options.files ?? [
+    { relPath: '2026-01-01_22-00-00/Stacked_10_M31.jpg', isSubframe: false, bytes: 1024, presentLocally: true },
+    { relPath: '2026-01-01_22-00-00/sub_00001_M31.fit', isSubframe: true, bytes: 1024, presentLocally: false },
+  ];
+  const restore = {
+    ran: true,
+    restored: options.restore?.restored ?? 1,
+    skipped: options.restore?.skipped ?? 0,
+    bytesRestored: 1024,
+    conflicts: options.restore?.conflicts ?? [],
+    failures: options.restore?.failures ?? [],
+  };
+
+  // "Run now" answers 202 at once; the finished run shows up on the status route.
+  let runStarted = false;
+  const finishedRun = { trigger: 'manual', finishedAt: new Date().toISOString(), result: { ran: true, copied: 2, skipped: 0, tooYoungSkipped: 0, linkedSkipped: 0, cancelled: false, bytesCopied: 2048, failures: [], warnings: [], localRemoved: 0, retentionRemoved: 0 } };
+  await page.route('**/api/storage/archive/run/status', r =>
+    r.fulfill(json(ok({ progress: { running: false, phase: 'idle', filesTotal: 0, filesDone: 0, bytesTotal: 0, bytesDone: 0, copied: 0, skipped: 0, warnings: [] }, running: false, lastRun: runStarted ? finishedRun : null }))));
+  await page.route('**/api/storage/archive/run', r => {
+    runStarted = true;
+    return r.fulfill(json(ok({ started: true }), 202));
+  });
+  await page.route('**/api/storage/archive/retention/apply', r =>
+    r.fulfill(json(ok({ removed: 2, bytesRemoved: 2048, failures: [], plan: { mode: 'whole-object', filesTotal: 2, warnings: [] } }))));
+  await page.route('**/api/storage/archive/retention', r =>
+    r.fulfill(json(ok({ plan: { mode: 'whole-object', filesTotal: 2, warnings: [] } }))));
+  await page.route('**/api/storage/archive/contents**', r => {
+    const url = r.request().url();
+    r.fulfill(json(ok(url.includes('folder=') ? { files } : { objects })));
+  });
+  await page.route('**/api/storage/archive/restore', r => r.fulfill(json(ok(restore))));
+  await page.route('**/api/storage/archive/adopt', r => r.fulfill(json(ok(view()))));
+  await page.route('**/api/storage/archive/destination/test', r =>
+    r.fulfill(json(ok(options.testResult ?? { ok: true, reason: null }))));
+  await page.route('**/api/storage/archive/destination/browse**', r => {
+    // The route is a POST because it may carry credentials, and a URL is the wrong
+    // place for those. Refusing anything else here means a future client that went back
+    // to a GET fails loudly instead of being quietly answered by this fixture.
+    if (r.request().method() !== 'POST') {
+      r.fulfill(json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' } }, 405));
+      return;
+    }
+    r.fulfill(json(ok({
+      path: options.shareBrowsePath ?? '\\\\nas.local\\Archive',
+      root: '\\\\nas.local\\Archive',
+      directories: options.shareDirectories ?? [
+        { name: 'Nebulis-Archive', path: '\\\\nas.local\\Archive\\Nebulis-Archive' },
+        { name: 'Other', path: '\\\\nas.local\\Archive\\Other' },
+      ],
+    })));
+  });
+  await page.route('**/api/storage/archive', r => {
+    if (r.request().method() === 'PUT') {
+      const patch = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      applyPatch(patch);
+    }
+    r.fulfill(json(ok(view())));
+  });
 }

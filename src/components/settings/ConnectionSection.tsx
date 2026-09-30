@@ -31,6 +31,8 @@ import { triggerImport, getImportStatus, getLibraryArchive } from '../../lib/api
 import { deviceNoun, isDwarfKind } from '../../lib/telescopePresets';
 import { AddTelescopeModal } from './AddTelescopeModal';
 import { ReassignTelescopeModal } from './ReassignTelescopeModal';
+import { useTheme } from '../../hooks/useTheme';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 import { TransportEditorModal } from './TransportEditorModal';
 import { Sec } from './SettingsUI';
 import { ConfirmModal } from '../ConfirmModal';
@@ -354,6 +356,7 @@ function TelescopeRow({
   isPending: boolean;
 }) {
   const { t } = useTranslation('settings');
+  const { isNight } = useTheme();
   const sessions = telescope.sessionCount ?? 0;
   const transports = telescope.transports ?? [];
 
@@ -401,7 +404,7 @@ function TelescopeRow({
     >
       <span
         className="w-3 h-3 rounded-full shrink-0 ring-1 ring-black/10"
-        style={{ backgroundColor: telescope.color || '#8b5cf6' }}
+        style={{ backgroundColor: nightSafeColor(telescope.color || '#8b5cf6', isNight) }}
         aria-hidden="true"
       />
       <TelescopeIcon className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
@@ -525,6 +528,7 @@ function ArchivedTelescopeRow({
   isPending: boolean;
 }) {
   const { t } = useTranslation('settings');
+  const { isNight } = useTheme();
   const sessions = telescope.sessionCount ?? 0;
   return (
     <div
@@ -534,7 +538,7 @@ function ArchivedTelescopeRow({
     >
       <span
         className="w-3 h-3 rounded-full shrink-0 ring-1 ring-black/10 grayscale"
-        style={{ backgroundColor: telescope.color || '#8b5cf6' }}
+        style={{ backgroundColor: nightSafeColor(telescope.color || '#8b5cf6', isNight) }}
         aria-hidden="true"
       />
       <TelescopeIcon className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-600' : 'text-slate-400'}`} />

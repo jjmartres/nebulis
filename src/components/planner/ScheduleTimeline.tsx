@@ -19,6 +19,7 @@ import { Moon, Plus } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 import { formatObjectName } from '../../lib/utils';
 import { scoreHex, calculateVisibilityScore } from '../../lib/forecastScore';
+import { useTheme } from '../../hooks/useTheme';
 import { formatDuration, twilightGradientCss, type Interval, type NightGap, type TwilightMarks } from '../../lib/plannerNight';
 import { ScheduledImagingBlock } from './ScheduledImagingBlock';
 import {
@@ -175,6 +176,7 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
   ref,
 ) {
   const { t } = useTranslation('planner');
+  const { isNight } = useTheme();
   const fmtHm = (d: Date) => formatHm(d, observerTimezone);
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: 'schedule' });
 
@@ -230,11 +232,11 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
       .map(h => {
         const from = new Date(h.time).getTime();
         const to = from + 3_600_000;
-        const vis = calculateVisibilityScore(h, moonIllumination, observerTimezone, darkWindow, t);
+        const vis = calculateVisibilityScore(h, moonIllumination, observerTimezone, darkWindow, t, isNight);
         return { from, to, hour: h, vis };
       })
       .filter(b => b.to > startMs && b.from < nightEnd.getTime());
-  }, [forecastHours, moonIllumination, observerTimezone, darkStart, darkEnd, startMs, nightEnd, totalMs, t]);
+  }, [forecastHours, moonIllumination, observerTimezone, darkStart, darkEnd, startMs, nightEnd, totalMs, t, isNight]);
 
   // Detect overlap per session for the warning badge. Uses direct pairwise
   // rangesOverlap (strict <) so sessions sharing an exact endpoint are never
@@ -266,7 +268,7 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
     else if (ref) ref.current = el;
   };
 
-  const background = twilightGradientCss(twilight, startMs, totalMs, 'to bottom');
+  const background = twilightGradientCss(twilight, startMs, totalMs, 'to bottom', isNight);
   const darkMinutes = darkStart && darkEnd ? Math.max(0, Math.round(minutesBetween(darkStart, darkEnd))) : 0;
   const darkHours = darkMinutes / 60;
 
@@ -330,7 +332,7 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
                   height: `${Math.max(2, bottom - top - 2)}px`,
                   left: `${TIMELINE_GUTTER_PX - 14}px`,
                   width: '5px',
-                  background: scoreHex(b.vis.score),
+                  background: scoreHex(b.vis.score, isNight),
                   opacity: 0.85,
                 }}
                 title={t('scheduleTimeline.weatherTitle', {
@@ -464,11 +466,23 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
               className="pointer-events-none absolute left-0 right-0 z-30 flex items-center"
               style={{ top: `${yFor(nowMs)}px`, transform: 'translateY(-50%)' }}
             >
-              <span className="h-2 w-2 shrink-0 rounded-full bg-rose-400 shadow-[0_0_10px_2px_rgba(251,113,133,0.6)]" />
-              <span className="h-px flex-1 bg-rose-400/70" />
+              {/* Brightest step of the red ladder rather than the .night-mapped
+                  rose-400 (which lands mid-ladder, too dim for a "find me
+                  instantly" marker): this is the one indicator that has to
+                  outshine the rest of the red-mapped UI, not blend into it. */}
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={isNight
+                  ? { backgroundColor: '#dd3333', boxShadow: '0 0 10px 2px rgba(221,51,51,0.6)' }
+                  : { backgroundColor: '#fb7185', boxShadow: '0 0 10px 2px rgba(251,113,133,0.6)' }}
+              />
+              <span className="h-px flex-1" style={{ backgroundColor: isNight ? 'rgba(221,51,51,0.7)' : 'rgba(251,113,133,0.7)' }} />
               {/* Dark label rather than text-white: the night theme remaps
-                  text-white to red, which would vanish against the rose pill. */}
-              <span className="mr-2 rounded-full bg-rose-400 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-950">
+                  text-white to red, which would vanish against the pill. */}
+              <span
+                className="mr-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-950"
+                style={{ backgroundColor: isNight ? '#dd3333' : '#fb7185' }}
+              >
                 {t('scheduleTimeline.now')}
               </span>
             </div>

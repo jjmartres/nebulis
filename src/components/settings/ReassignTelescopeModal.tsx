@@ -4,6 +4,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import { ArrowRight, X } from 'lucide-react';
 import { reassignTelescopeSessions, type TelescopeProfile } from '../../lib/api/telescopes';
 import { Modal } from '../ui/Modal';
+import { useTheme } from '../../hooks/useTheme';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 
 /**
  * "Move all sessions from telescope A → B" picker.
@@ -24,6 +26,7 @@ export function ReassignTelescopeModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation('settings');
+  const { isNight } = useTheme();
   const queryClient = useQueryClient();
   const [targetId, setTargetId] = useState<string>(candidates[0]?.id ?? '');
   const [result, setResult] = useState<{ sessionsUpdated: number; objectsUpdated: number } | null>(null);
@@ -115,7 +118,7 @@ export function ReassignTelescopeModal({
                   <div className="flex items-center gap-2 min-w-0">
                     <span
                       className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: source.color || '#8b5cf6' }}
+                      style={{ backgroundColor: nightSafeColor(source.color || '#8b5cf6', isNight) }}
                     />
                     <span className="text-sm truncate">{source.name}</span>
                   </div>

@@ -8,6 +8,8 @@
 import fs from 'fs';
 import path from 'path';
 import { getLibraryDir } from '../libraryPath.js';
+import { LINKED_SOURCE_DIR_NAME } from './archiveFolders.js';
+import { resolveLibraryFile } from './fileResolver.js';
 import db from '../db.js';
 import { isErrnoException } from '../errors.js';
 import {
@@ -639,34 +641,24 @@ export function getLocalSessions(objectId: string) {
     }
   }
 
-  if (!objDir || !fs.existsSync(objDir)) {
-    return Array.from(sessionMap.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, stats]) => ({
-        id: `${objectId}_${date}`,
-        date,
-        objectId,
-        fileCount: stats.fileCount,
-        stackedCount: stats.stackedKeys.size,
-        fitsCount: stats.fitsCount,
-        subFrameCount: stats.subFrameCount,
-        imageCount: stats.imageCount,
-        videoCount: stats.videoCount,
-        processedCount: processedCountByDate.get(date) ?? 0,
-        thumbnailUrl: `${LIBRARY_API_BASE}/objects/${encodeURIComponent(objectId)}/thumbnail`,
-        filesUrl: `${LIBRARY_API_BASE}/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}/files`,
-        weather: weatherMap.get(date) || null,
-        ...enrich(date),
-      }));
-  }
-
   // Layout-aware listing: flat objects are one level, nested objects are
   // object/<session>/<file>. listObjectFiles is the only place that knows the
   // difference, so everything below works on an object-relative path.
-  const entries = listObjectFiles(objDir, getObjectLayout(objectId))
-    .filter(e => isRealFile(e.fileName)
-      && !e.fileName.startsWith('sky_')
-      && !e.fileName.startsWith('gallery_'));
+  //
+  // A linked-only object (every file a `libraryFiles` row pointing outside
+  // the library, none ever copied here) has no managed folder at all, so
+  // `objDir` legitimately never exists — that used to be this function's
+  // whole-function early return, which meant a linked-only object showed
+  // zero real sessions no matter how many files it actually had. Skipping
+  // only the disk walk here, rather than returning, lets the linked-file
+  // loop below (and the shared session-card construction at the end of this
+  // function) run for that object exactly as it does for a managed one.
+  const entries = (!objDir || !fs.existsSync(objDir))
+    ? []
+    : listObjectFiles(objDir, getObjectLayout(objectId))
+      .filter(e => isRealFile(e.fileName)
+        && !e.fileName.startsWith('sky_')
+        && !e.fileName.startsWith('gallery_'));
 
   // Session membership comes from libraryFiles when the file has a row, and
   // falls back to parsing the name when it doesn't. See resolverFor().
@@ -739,6 +731,57 @@ export function getLocalSessions(objectId: string) {
     if (cat === 'video') s.videoCount++;
   }
 
+  // Linked (non-copied) source files: a libraryFiles row is their only
+  // representation, since they were never walked off disk into `objDir`
+  // above (they live on the user's own drive — see fileResolver.ts). This is
+  // the fix for the gap found during the linked-library call-site audit: a
+  // linked object's real files were previously invisible here entirely,
+  // which the contract's own acceptance tests require to work. Mirrors the
+  // managed-file loop above field-for-field, with `row.role` — set directly
+  // by Step 5's attribution engine, not guessed — as the primary type signal
+  // instead of a filename parse, since a linked file's own name is whatever
+  // the user gave it and may not follow any device's naming convention at all.
+  for (const row of getLibraryFilesForObject(objectId)) {
+    if (!row.sourceId) continue; // managed row, already counted above
+    const sessionKey = sessionDateForRow(row);
+    if (!sessionKey || deletedSessions.has(sessionKey)) continue;
+
+    let s = sessionMap.get(sessionKey);
+    if (!s) {
+      s = { fileCount: 0, stackedKeys: new Set(), fitsCount: 0, subFrameCount: 0, imageCount: 0, videoCount: 0, thumbnailFile: null, stackedImageFile: null, anyImageFile: null, stackedImageIsCheap: false, anyImageIsCheap: false };
+      sessionMap.set(sessionKey, s);
+    }
+    const parsed = parseFilename(row.fileName);
+    const effectiveType = row.role === 'stacked' || row.role === 'sub' || row.role === 'thumbnail' || row.role === 'video'
+      ? row.role : parsed.type;
+    const isThumbnail = row.role === 'thumbnail' || parsed.isThumbnail;
+
+    s.fileCount++;
+    if (effectiveType === 'stacked') {
+      s.stackedKeys.add(row.relPath.slice(0, row.relPath.length - path.extname(row.fileName).length));
+    }
+    if (isThumbnail && !s.thumbnailFile) s.thumbnailFile = row.relPath;
+    const isViewableImage = (parsed.extension === '.jpg' || parsed.extension === '.jpeg'
+      || parsed.extension === '.png' || parsed.extension === '.tif' || parsed.extension === '.tiff')
+      && !isDwarfInternalArtifact(row.fileName);
+    const isCheapImage = parsed.extension === '.jpg' || parsed.extension === '.jpeg';
+    if (!isThumbnail && effectiveType === 'stacked' && isViewableImage
+      && (!s.stackedImageFile || (isCheapImage && !s.stackedImageIsCheap))) {
+      s.stackedImageFile = row.relPath;
+      s.stackedImageIsCheap = isCheapImage;
+    }
+    if (!isThumbnail && effectiveType !== 'stacked' && isViewableImage
+      && (!s.anyImageFile || (isCheapImage && !s.anyImageIsCheap))) {
+      s.anyImageFile = row.relPath;
+      s.anyImageIsCheap = isCheapImage;
+    }
+    if (effectiveType === 'sub') s.subFrameCount++;
+    const cat = getFileCategory(row.fileName);
+    if (cat === 'fits') s.fitsCount++;
+    if (cat === 'image') s.imageCount++;
+    if (cat === 'video') s.videoCount++;
+  }
+
   return Array.from(sessionMap.entries())
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([date, stats]) => ({
@@ -792,7 +835,12 @@ export function getLocalSessions(objectId: string) {
         if (processedThumb) return fileUrlFor(processedThumb);
         const best = stats.thumbnailFile ?? stats.stackedImageFile ?? stats.anyImageFile;
         if (!best) return `${LIBRARY_API_BASE}/objects/${encodeURIComponent(objectId)}/thumbnail`;
-        return fileUrlFor(getFolderName(objectId) + '/' + best);
+        // A managed file's `best` is object-relative (needs the folder prefix);
+        // a linked file's is already the full '@src/<id>/...' relPath (the loop
+        // above stores row.relPath directly, never an object-relative form,
+        // since a linked file has no "object folder" of its own to be relative
+        // to) — LINKED_SOURCE_DIR_NAME distinguishes the two unambiguously.
+        return fileUrlFor(best.startsWith(`${LINKED_SOURCE_DIR_NAME}/`) ? best : getFolderName(objectId) + '/' + best);
       })(),
       filesUrl: `${LIBRARY_API_BASE}/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}/files`,
       weather: weatherMap.get(date) || null,
@@ -808,14 +856,18 @@ export function getLocalFiles(objectId: string, sessionDate?: string) {
   // without this guard. Mirrors the containment in library.ts:1164/1201.
   const objDir = path.resolve(LIBRARY_DIR, folderName);
   if (!objDir.startsWith(LIBRARY_DIR + path.sep)) return [];
-  if (!fs.existsSync(objDir)) return [];
 
   const identity = resolverFor(objectId);
 
-  const realEntries = listObjectFiles(objDir, getObjectLayout(objectId))
-    .filter(e => isRealFile(e.fileName)
-      && !e.fileName.startsWith('sky_')
-      && !e.fileName.startsWith('gallery_'));
+  // A linked-only object has no managed folder at all — see the matching note
+  // in getLocalSessions above. Skip only the disk walk, not the whole
+  // function, so its linked files (built separately below) still return.
+  const realEntries = !fs.existsSync(objDir)
+    ? []
+    : listObjectFiles(objDir, getObjectLayout(objectId))
+      .filter(e => isRealFile(e.fileName)
+        && !e.fileName.startsWith('sky_')
+        && !e.fileName.startsWith('gallery_'));
 
   // See the matching pre-pass in getLocalSessions: Dwarf's bare `stacked.jpg`
   // device preview is only a redundant duplicate worth hiding when the same
@@ -827,7 +879,7 @@ export function getLocalFiles(objectId: string, sessionDate?: string) {
     if (key) sessionsWithSuperiorStack.add(key);
   }
 
-  return realEntries
+  const managedCards = realEntries
     .filter(e =>
       // Dwarf plate-solve / stack-count working images: kept on disk under
       // Archive mode but never a photo, so no client should list them.
@@ -927,7 +979,82 @@ export function getLocalFiles(objectId: string, sessionDate?: string) {
               : undefined,
         subIndex: parsed.subIndex || null,
       };
+    });
+
+  // Linked (non-copied) source files: same gap and same fix as
+  // getLocalSessions above — a libraryFiles row is a linked file's only
+  // representation, so it never appears in `realEntries` (nothing to walk off
+  // disk under `objDir`). `libPath` is `row.relPath` directly, already the
+  // full `@src/<id>/...` form the client-facing URLs below need — there is no
+  // separate "object folder" to be relative to, unlike a managed file's
+  // `folderName + '/' + entry.relPath`.
+  const linkedCards = getLibraryFilesForObject(objectId)
+    .filter(row => row.sourceId !== null)
+    .filter(row => !sessionDate || sessionDateForRow(row) === sessionDate)
+    .map(row => {
+      const resolved = resolveLibraryFile(row.relPath);
+      // A row that no longer resolves (source disabled, or removed since the
+      // last rescan marked it) is left out rather than shown as a broken
+      // card; Step 5's rescan is what reconciles the row itself.
+      if (!resolved) return null;
+      let stat: fs.Stats;
+      try {
+        stat = fs.statSync(resolved.abs);
+      } catch {
+        return null;
+      }
+      const fname = row.fileName;
+      const parsed = parseFilename(fname);
+      const knownType: FileCategory = getFileCategory(fname);
+      const roleFileType = row.role === 'stacked' || row.role === 'sub' || row.role === 'thumbnail' || row.role === 'video'
+        ? row.role : null;
+      const knownFileType: 'stacked' | 'sub' | 'thumbnail' | 'video' | 'other' =
+        roleFileType ?? (
+          parsed.type === 'stacked' || parsed.type === 'sub' || parsed.type === 'thumbnail' || parsed.type === 'video'
+            ? parsed.type : 'other');
+      const libPath = row.relPath;
+      const isTiff = /\.tiff?$/i.test(fname);
+      const isJpeg = /\.jpe?g$/i.test(fname);
+      const needsRasterConversion = /\.png$/i.test(fname) || isTiff;
+      const hasRenderedTier = needsRasterConversion || isJpeg;
+      return {
+        name: fname,
+        size: stat.size,
+        type: knownType,
+        fileType: knownFileType,
+        path: libPath,
+        sessionFolder: null,
+        exposure: parsed.exposure || null,
+        filter: parsed.filter || null,
+        timestamp: parsed.timestamp || null,
+        date: parsed.date || null,
+        frameCount: parsed.frameCount || null,
+        isThumbnail: row.role === 'thumbnail' || parsed.isThumbnail,
+        previewable: true,
+        downloadUrl: `${LIBRARY_API_BASE}/file?path=${encodeURIComponent(libPath)}&v=${Math.round(stat.mtimeMs)}`,
+        videoUrl: knownType === 'video'
+          ? `${LIBRARY_API_BASE}/video?path=${encodeURIComponent(libPath)}&v=${Math.round(stat.mtimeMs)}`
+          : undefined,
+        thumbUrl: knownType === 'fits'
+          ? `${LIBRARY_API_BASE}/fits-thumbnail?v=${FITS_THUMBNAIL_PIPELINE_VERSION}&path=${encodeURIComponent(libPath)}`
+          : isTiff
+            ? `${LIBRARY_API_BASE}/tiff-thumbnail?path=${encodeURIComponent(libPath)}`
+            : hasRenderedTier
+              ? `${LIBRARY_API_BASE}/file/thumbnail?path=${encodeURIComponent(libPath)}`
+              : undefined,
+        previewUrl: knownType === 'fits'
+          ? `${LIBRARY_API_BASE}/fits-thumbnail?v=${FITS_THUMBNAIL_PIPELINE_VERSION}&size=preview&path=${encodeURIComponent(libPath)}`
+          : isTiff
+            ? `${LIBRARY_API_BASE}/tiff-thumbnail?size=preview&path=${encodeURIComponent(libPath)}`
+            : hasRenderedTier
+              ? `${LIBRARY_API_BASE}/file/thumbnail?w=2048&h=2048&path=${encodeURIComponent(libPath)}`
+              : undefined,
+        subIndex: parsed.subIndex || null,
+      };
     })
+    .filter((card): card is NonNullable<typeof card> => card !== null);
+
+  return [...managedCards, ...linkedCards]
     .sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
 }
 
@@ -1458,6 +1585,84 @@ export function deleteSessionSubFrames(objectId: string, date: string): { delete
   } catch { /* ignore */ }
   writeObjectManifest(objectId, folderName);
   return { deleted };
+}
+
+/**
+ * Delete specific files from one object folder, with the same bookkeeping
+ * `deleteSessionSubFrames` does.
+ *
+ * The caller decides *which* files are safe to remove; this function owns the
+ * mechanical part — containment, unlink, row, file count, manifest — so that every
+ * deletion path keeps the library's records consistent. Splitting it that way is
+ * deliberate: the policy for "safe to remove" belongs to whatever justified the
+ * deletion, while the bookkeeping has to be identical everywhere or the library
+ * ends up listing files that are not on disk.
+ *
+ * Each path is checked twice: `resolveContainedObjectDir` proves it stays inside the
+ * library root, and the extra prefix check proves it stays inside *this* object's
+ * folder. The first alone is not enough, because
+ * `resolveContainedObjectDir(id, '..', 'OtherObject', 'f.fit')` resolves to a sibling
+ * object and is still a descendant of the library root.
+ *
+ * A path that is not a regular file is skipped rather than removed: a symlink in a
+ * file's place is something else wearing its name, and unlinking it would remove
+ * something no record describes.
+ */
+export function deleteLocalFilesByRelPath(objectId: string, relPaths: string[]): { deleted: number } {
+  const objDir = resolveContainedObjectDir(objectId);
+  if (!objDir) return { deleted: 0 };
+  const folderName = getFolderName(objectId);
+  let deleted = 0;
+
+  for (const relPath of relPaths) {
+    const segments = relPath.split('/');
+    if (segments.length === 0 || segments.some(s => s === '' || s === '.' || s === '..')) continue;
+
+    const abs = resolveContainedObjectDir(objectId, ...segments);
+    if (!abs || !abs.startsWith(objDir + path.sep)) continue;
+    if (!isRealFile(path.basename(abs))) continue;
+
+    try {
+      const stat = fs.lstatSync(abs);
+      if (!stat.isFile()) continue;
+      fs.unlinkSync(abs);
+      deleted++;
+      deleteLibraryFileRow(`${folderName}/${relPath}`);
+    } catch {
+      // Already gone, or unreadable. Either way there is nothing more to record.
+    }
+  }
+
+  try {
+    const remaining = fs.existsSync(objDir)
+      ? listObjectFiles(objDir, getObjectLayout(objectId)).filter(e => isRealFile(e.fileName))
+      : [];
+    stmts.updateObjectFileCount.run(remaining.length, objectId);
+  } catch { /* ignore */ }
+  writeObjectManifest(objectId, folderName);
+  return { deleted };
+}
+
+/**
+ * Recompute an object's file count from the disk and rewrite its per-object
+ * manifest.
+ *
+ * The tail that every path adding or removing library files needs. Split out
+ * because deletion and archive-restore both require it, and they must not disagree
+ * about how the count is derived: it is counted from what is actually on disk
+ * rather than adjusted by a delta, so a count that has drifted corrects itself the
+ * next time anything changes.
+ */
+export function refreshObjectFileCount(objectId: string): void {
+  const objDir = resolveContainedObjectDir(objectId);
+  if (!objDir) return;
+  try {
+    const remaining = fs.existsSync(objDir)
+      ? listObjectFiles(objDir, getObjectLayout(objectId)).filter(e => isRealFile(e.fileName))
+      : [];
+    stmts.updateObjectFileCount.run(remaining.length, objectId);
+  } catch { /* ignore */ }
+  writeObjectManifest(objectId, getFolderName(objectId));
 }
 
 /**

@@ -20,9 +20,12 @@ import { isErrnoException } from '../lib/errors.js';
 import { redactUrl } from '../lib/logSafe.js';
 import { THUMBNAILS_DIR } from '../lib/paths.js';
 import { getLibraryDir, isLibraryAvailable, statLibraryFileForServe, TimeoutError } from '../lib/libraryPath.js';
+import { resolveLibraryFile, LinkedFileReadOnlyError } from '../lib/library/fileResolver.js';
+import { getObjectLayout, sessionFolderFor } from '../lib/library/libraryLayout.js';
 import { runRender } from '../lib/renderQueue.js';
 import { mintDownloadToken, DOWNLOAD_TOKEN_TTL_MS } from '../lib/downloadToken.js';
 import { isLibraryMigrating } from '../lib/libraryMaintenance.js';
+import { acquireLibraryLock, libraryBusyRefusal } from '../lib/libraryBusy.js';
 import { getSite } from '../lib/observingSites.js';
 import { plantSampleObject, purgeSampleObject } from '../lib/library/sampleLibrary.js';
 import sharp from '../lib/sharp-optional.js';
@@ -83,6 +86,8 @@ import {
   getAllProcessedImagesForObject,
   getProcessedImageRecord,
   addProcessedImage,
+  moveProcessedImageToLibrary,
+  refreshObjectFileCount,
   replaceProcessedImageFile,
   deleteProcessedImage,
   getProcessedImageFile,
@@ -120,8 +125,6 @@ import { stageUploadDestPath } from '../lib/library/uploadPath.js';
 import {
   IMPORT_TMP_BASE,
   isValidTmpId,
-  getImportTmpUsage,
-  purgeImportTmp,
   purgeImportTmpSession,
   checkFreeSpace,
   isImportStagingBase,
@@ -139,6 +142,12 @@ import { getById as getDsoById } from '../lib/dsoCatalog.js';
 import { caldwellToNgcId } from '../lib/caldwellCatalog.js';
 import { resolveCanonicalId } from '../lib/catalogAliases.js';
 import { getSettingsData, getProfileById } from '../lib/telescopes.js';
+import {
+  scanSource, commitSource, rescanSource, deleteSource, updateSource, isValidRefreshInterval, summarizeSources,
+  assertLinkableRoot, LinkSourceError,
+  LinkedDeleteError, getLinkedFileRow, getLinkedFileRows, deleteLinkedFilesFromDisk, summarizeLinkedFiles,
+} from '../lib/library/librarySources.js';
+import type { AttributionOverride } from '../lib/library/treeAttribution.js';
 import { queryString, contentDispositionHeader } from '../lib/queryHelpers.js';
 
 // Multer: temp-disk storage for file uploads.
@@ -186,6 +195,12 @@ const upload = multer({
 });
 
 const router = Router();
+
+/** 409 for a request that could not take the shared library lock. */
+function sendImportBusy(res: Response, importMessage: string): void {
+  const refusal = libraryBusyRefusal(importMessage);
+  res.apiError(409, refusal.code, refusal.message);
+}
 
 // ─── Library write guard ─────────────────────────────────────────────────────
 // Block anything that writes to the library while it is being moved, or while
@@ -385,7 +400,7 @@ router.post('/import', requireAdmin, (req: Request, res: Response) => {
   );
 
   if (!claimImportLock()) {
-    res.apiError(409, 'IMPORT_RUNNING', 'An import is already in progress');
+    sendImportBusy(res, 'An import is already in progress');
     return;
   }
 
@@ -461,7 +476,7 @@ router.post('/objects/:objectId/sessions/:date/sync', requireAdmin, (req: Reques
   const date = String(req.params.date);
 
   if (!claimImportLock()) {
-    res.apiError(409, 'IMPORT_RUNNING', 'An import is already in progress');
+    sendImportBusy(res, 'An import is already in progress');
     return;
   }
 
@@ -496,7 +511,7 @@ router.post('/objects/:objectId/sessions/:date/sync-subframes', requireAdmin, (r
   const date = String(req.params.date);
 
   if (!claimImportLock()) {
-    res.apiError(409, 'IMPORT_RUNNING', 'An import is already in progress');
+    sendImportBusy(res, 'An import is already in progress');
     return;
   }
 
@@ -524,7 +539,7 @@ router.post('/objects/:objectId/sync-subframes', requireAdmin, (req: Request, re
   const objectId = String(req.params.objectId);
 
   if (!claimImportLock()) {
-    res.apiError(409, 'IMPORT_RUNNING', 'An import is already in progress');
+    sendImportBusy(res, 'An import is already in progress');
     return;
   }
 
@@ -716,11 +731,142 @@ router.post('/import/commit', requireAdmin, (req: Request, res: Response) => {
     return;
   }
   if (!claimImportLock()) {
-    res.apiError(409, 'IMPORT_RUNNING', 'An import is already in progress');
+    sendImportBusy(res, 'An import is already in progress');
     return;
   }
   commitFolderImport(plan).catch(err => console.error('Folder commit error:', err.message));
   res.apiSuccess({ started: true, objects: plan.objects.filter(o => !o.skip).length });
+});
+
+// ── Linked folders: index a folder in place, copy nothing ───────────────────
+// Every route is admin-only: it
+// reads an arbitrary server-side path, like the folder picker it is paired with.
+
+const LinkScanBodySchema = z.object({
+  rootPath: z.string().min(1, 'rootPath is required'),
+  importSubFrames: z.boolean().optional(),
+  importFits: z.boolean().optional(),
+});
+
+const LinkCommitBodySchema = LinkScanBodySchema.extend({
+  label: z.string().trim().min(1).max(120),
+  /** Minutes between automatic rescans; omitted or null is a one-time link. */
+  refreshIntervalMin: z.number().int().refine(isValidRefreshInterval, 'Pick one of the listed refresh intervals').nullable().optional(),
+  /** Review-screen decisions for this one commit, keyed by directory relative
+   *  to rootPath ('' is the root itself). */
+  overrides: z.array(z.discriminatedUnion('action', [
+    z.object({ dirPath: z.string(), action: z.literal('assign'), objectId: z.string().min(1).max(64) }),
+    z.object({ dirPath: z.string(), action: z.literal('ignore') }),
+  ])).max(5000).optional(),
+});
+
+function linkSettings(body: { importSubFrames?: boolean; importFits?: boolean }): Record<string, unknown> {
+  const overrides: Record<string, unknown> = {};
+  if (body.importSubFrames !== undefined) overrides.importSubFrames = body.importSubFrames;
+  if (body.importFits !== undefined) overrides.importFits = body.importFits;
+  return Object.keys(overrides).length > 0 ? { ...getSettingsData(), ...overrides } : getSettingsData();
+}
+
+function sendLinkError(res: Response, err: unknown, fallbackCode: string): void {
+  if (err instanceof LinkSourceError) {
+    const status = err.code === 'SOURCE_NOT_FOUND' ? 404 : err.code === 'ALREADY_LINKED' || err.code === 'ALREADY_IMPORTED' ? 409 : 400;
+    res.apiError(status, err.code, err.message);
+    return;
+  }
+  res.apiError(500, fallbackCode, err instanceof Error ? err.message : 'Linked folder request failed');
+}
+
+router.get('/sources', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    res.apiSuccess({ sources: summarizeSources() });
+  } catch (err) {
+    sendLinkError(res, err, 'SOURCES_FAILED');
+  }
+});
+
+router.post('/sources/scan', requireAdmin, (req: Request, res: Response) => {
+  const parsed = LinkScanBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(400, 'MISSING_PATH', parsed.error.issues[0]?.message ?? 'rootPath is required');
+    return;
+  }
+  try {
+    assertLinkableRoot(parsed.data.rootPath);
+    res.apiSuccess(scanSource(parsed.data.rootPath, linkSettings(parsed.data)));
+  } catch (err) {
+    sendLinkError(res, err, 'SCAN_FAILED');
+  }
+});
+
+router.post('/sources', requireAdmin, (req: Request, res: Response) => {
+  const parsed = LinkCommitBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(400, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request');
+    return;
+  }
+  const { rootPath, label, overrides } = parsed.data;
+  const release = acquireLibraryLock('linked-scan');
+  if (release === null) {
+    sendImportBusy(res, 'An import is running. Wait for it to finish, then link the folder.');
+    return;
+  }
+  try {
+    const map = new Map<string, AttributionOverride>();
+    for (const o of overrides ?? []) {
+      map.set(o.dirPath, o.action === 'ignore' ? { action: 'ignore' } : { action: 'assign', objectId: normalizeCatalogId(o.objectId) });
+    }
+    const { importSubFrames, importFits } = parsed.data;
+    res.apiSuccess(commitSource(rootPath, linkSettings(parsed.data), {
+      label,
+      overrides: map,
+      importOptions: { importSubFrames, importFits },
+      refreshIntervalMin: parsed.data.refreshIntervalMin ?? null,
+    }));
+  } catch (err) {
+    sendLinkError(res, err, 'LINK_FAILED');
+  } finally {
+    release();
+  }
+});
+
+router.patch('/sources/:id', requireAdmin, (req: Request, res: Response) => {
+  const parsed = z.object({
+    label: z.string().optional(),
+    refreshIntervalMin: z.number().int().nullable().optional(),
+  }).refine(b => b.label !== undefined || b.refreshIntervalMin !== undefined, 'label or refreshIntervalMin is required')
+    .safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(400, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request');
+    return;
+  }
+  try {
+    res.apiSuccess(updateSource(String(req.params.id), parsed.data));
+  } catch (err) {
+    sendLinkError(res, err, 'UPDATE_FAILED');
+  }
+});
+
+router.post('/sources/:id/rescan', requireAdmin, (req: Request, res: Response) => {
+  const release = acquireLibraryLock('linked-scan');
+  if (release === null) {
+    sendImportBusy(res, 'An import is running. Wait for it to finish, then rescan.');
+    return;
+  }
+  try {
+    res.apiSuccess(rescanSource(String(req.params.id), getSettingsData()));
+  } catch (err) {
+    sendLinkError(res, err, 'RESCAN_FAILED');
+  } finally {
+    release();
+  }
+});
+
+router.delete('/sources/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    res.apiSuccess(deleteSource(String(req.params.id)));
+  } catch (err) {
+    sendLinkError(res, err, 'UNLINK_FAILED');
+  }
 });
 
 /**
@@ -743,34 +889,6 @@ router.post('/import/preflight', requireAdmin, (req: Request, res: Response) => 
     requiredBytes: check.requiredBytes,
     message: check.message,
   });
-});
-
-/**
- * Current size of the upload staging area, for the Storage settings card.
- */
-router.get('/import/temp-usage', requireAdmin, (_req: Request, res: Response) => {
-  res.apiSuccess(getImportTmpUsage());
-});
-
-/**
- * Manual "clean up temporary files". Deletes staged upload sessions that
- * haven't been written to recently.
- *
- * The short age floor is deliberate: an upload batch in flight refreshes its
- * session directory's mtime, so anything untouched for five minutes is not an
- * active upload. A running import is refused outright rather than age-gated,
- * since a commit reading from a staged dir would lose the files under it.
- */
-const MANUAL_PURGE_MIN_AGE_MS = 5 * 60 * 1000;
-
-router.post('/import/temp-cleanup', requireAdmin, (_req: Request, res: Response) => {
-  if (getImportStatus().running) {
-    res.apiError(409, 'IMPORT_RUNNING', 'An import is running. Wait for it to finish, then clean up.');
-    return;
-  }
-  const result = purgeImportTmp(MANUAL_PURGE_MIN_AGE_MS, () => getImportStatus().running);
-  log.info(result, '[library] manual import-tmp cleanup');
-  res.apiSuccess(result);
 });
 
 /**
@@ -860,6 +978,12 @@ router.post('/import/upload-temp', requireAdmin, (req: Request, res: Response, n
     if (req.body?.relativePaths) relativePaths = JSON.parse(req.body.relativePaths);
   } catch { /* fall back to filename */ }
 
+  // Each file's original modified time, parallel to `relativePaths`. Optional: an older client omits it.
+  let lastModified: unknown[] = [];
+  try {
+    if (req.body?.lastModified) lastModified = JSON.parse(req.body.lastModified);
+  } catch { /* keep the upload time */ }
+
   // Support batched uploads: an existing tmpId resumes into the same dir instead
   // of creating a new one. UUID format is enforced to prevent path traversal.
   const existingTmpId: string | undefined = typeof req.body?.tmpId === 'string' ? req.body.tmpId : undefined;
@@ -910,6 +1034,11 @@ router.post('/import/upload-temp', requireAdmin, (req: Request, res: Response, n
         } else {
           throw renameErr;
         }
+      }
+      // Restore the file's own modified time (see the client): a sane past value only, never the future.
+      const modified = lastModified[i];
+      if (typeof modified === 'number' && Number.isFinite(modified) && modified > 0 && modified <= Date.now()) {
+        try { fs.utimesSync(destAbs, modified / 1000, modified / 1000); } catch { /* best-effort */ }
       }
     }
 
@@ -1196,7 +1325,8 @@ router.delete('/calibrations/attach/:id', requireAdmin, (req: Request, res: Resp
 
 /** What's attached to one object — every session that has its own attachment
  *  plus the whole-object one, or (with `?date=`) just what resolves for that
- *  one session (a session-specific pick wins over the whole-object one). Not
+ *  one session (a session-specific pick replaces the whole-object ones for
+ *  that type; a type can hold several bundles, e.g. one flat set per filter). Not
  *  read by the Calibration Library page itself (that page reads the reverse
  *  direction via GET /calibrations above) — this is for a future object/
  *  session detail view to show "flats attached: ...".*/
@@ -1490,7 +1620,10 @@ router.get('/objects/:objectId/thumbnail', async (req: Request, res: Response) =
     }
     res.set('Content-Type', 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=86400');
-    res.sendFile(cachePath);
+    // cachePath is built from a hash key we generate, never from request input, so dotfiles are safe to
+    // allow. Without this Express 404s any file whose absolute path has a hidden directory in it
+    // (e.g. DATA_DIR=~/.nebulis/data), which blanked every thumbnail.
+    res.sendFile(cachePath, { dotfiles: 'allow' });
   } catch (err) {
     console.error('[thumbnail] failed to generate:', err);
     if (!res.headersSent) res.status(500).send('Failed to generate thumbnail');
@@ -1604,6 +1737,13 @@ router.delete('/sample-object', requireAdmin, (_req: Request, res: Response) => 
   res.apiSuccess(purged);
 });
 
+// What a delete would take from a linked folder: how many originals, how big,
+// and where. The delete dialogs ask this so they can offer the choice only when
+// there is something to choose.
+router.get('/objects/:objectId/linked-files', requireAdmin, (req: Request, res: Response) => {
+  res.apiSuccess(summarizeLinkedFiles(String(req.params.objectId), queryString(req.query.date) || undefined));
+});
+
 router.delete('/objects/:objectId', requireAdmin, (req: Request, res: Response) => {
   if (getImportStatus().running) {
     res.apiError(409, 'IMPORT_RUNNING', 'An import is running. Wait for it to finish, then delete.');
@@ -1611,10 +1751,17 @@ router.delete('/objects/:objectId', requireAdmin, (req: Request, res: Response) 
   }
   const objectId = String(req.params.objectId);
   try {
+    // Off by default: deleting an object drops it from Nebulis and leaves the
+    // originals in a linked folder alone unless the user opted in.
+    if (queryString(req.query.deleteLinkedFiles) === '1') deleteLinkedFilesFromDisk(getLinkedFileRows(objectId));
     deleteLocalObject(objectId);
     invalidateAllImagesCache();
     res.apiSuccess({ deleted: true, objectId });
   } catch (err) {
+    if (err instanceof LinkedDeleteError) {
+      res.apiError(err.code === 'LINKED_SOURCE_UNAVAILABLE' ? 409 : 500, err.code, err.message);
+      return;
+    }
     const message = err instanceof Error ? err.message : 'Delete failed';
     res.apiError(500, 'DELETE_FAILED', message);
   }
@@ -1628,10 +1775,15 @@ router.delete('/objects/:objectId/sessions/:date', requireAdmin, (req: Request, 
   const objectId = String(req.params.objectId);
   const date = String(req.params.date);
   try {
+    if (queryString(req.query.deleteLinkedFiles) === '1') deleteLinkedFilesFromDisk(getLinkedFileRows(objectId, date));
     deleteLocalSession(objectId, date);
     invalidateAllImagesCache();
     res.apiSuccess({ deleted: true, objectId, date });
   } catch (err) {
+    if (err instanceof LinkedDeleteError) {
+      res.apiError(err.code === 'LINKED_SOURCE_UNAVAILABLE' ? 409 : 500, err.code, err.message);
+      return;
+    }
     const message = err instanceof Error ? err.message : 'Delete failed';
     res.apiError(500, 'DELETE_FAILED', message);
   }
@@ -1678,8 +1830,9 @@ router.post('/objects/:objectId/sessions/:date/restore', requireAdmin, (req: Req
 });
 
 router.delete('/objects/:objectId/sessions/:date/subframes', requireAdmin, (req: Request, res: Response) => {
-  if (getImportStatus().running) {
-    res.apiError(409, 'IMPORT_RUNNING', 'An import is running. Wait for it to finish, then delete.');
+  const release = acquireLibraryLock('purge');
+  if (release === null) {
+    sendImportBusy(res, 'An import is running. Wait for it to finish, then delete.');
     return;
   }
   const objectId = String(req.params.objectId);
@@ -1690,6 +1843,8 @@ router.delete('/objects/:objectId/sessions/:date/subframes', requireAdmin, (req:
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Delete failed';
     res.apiError(500, 'DELETE_FAILED', message);
+  } finally {
+    release();
   }
 });
 
@@ -1802,16 +1957,13 @@ router.get('/video', async (req: Request, res: Response) => {
     return;
   }
 
-  // Resolve and contain inside the library root, trailing-separator compared so
-  // a sibling like `<...>/library-x` can't satisfy a bare startsWith. Same guard
-  // as /file/thumbnail.
-  const LIBRARY_DIR = getLibraryDir();
-  const absPath = path.resolve(LIBRARY_DIR, filePath);
-  const libRoot = LIBRARY_DIR.endsWith(path.sep) ? LIBRARY_DIR : LIBRARY_DIR + path.sep;
-  if (!absPath.startsWith(libRoot)) {
+  // Resolution + containment lives in fileResolver.ts — see its header.
+  const resolved = resolveLibraryFile(filePath);
+  if (!resolved) {
     res.status(403).type('text/plain').send('Forbidden');
     return;
   }
+  const absPath = resolved.abs;
 
   if (!(await requireLibraryReachable(res))) return;
   try {
@@ -1904,16 +2056,13 @@ router.get('/file/thumbnail', burstyRateLimiter, async (req: Request, res: Respo
     return;
   }
 
-  // Resolve absolute path and keep it inside LIBRARY_DIR. Compare against the
-  // directory *with a trailing separator* so a sibling like `<...>/library-x`
-  // can't satisfy a bare `startsWith('<...>/library')` and escape the root.
-  const LIBRARY_DIR = getLibraryDir();
-  const absPath = path.resolve(LIBRARY_DIR, filePath);
-  const libRoot = LIBRARY_DIR.endsWith(path.sep) ? LIBRARY_DIR : LIBRARY_DIR + path.sep;
-  if (!absPath.startsWith(libRoot)) {
+  // Resolution + containment lives in fileResolver.ts — see its header.
+  const resolved = resolveLibraryFile(filePath);
+  if (!resolved) {
     res.status(403).send('Forbidden');
     return;
   }
+  const absPath = resolved.abs;
 
   if (!(await requireLibraryReachable(res))) return;
 
@@ -1944,7 +2093,10 @@ router.get('/file/thumbnail', burstyRateLimiter, async (req: Request, res: Respo
 
     res.set('Content-Type', 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=86400');
-    res.sendFile(cachePath);
+    // cachePath is built from a hash key we generate, never from request input, so dotfiles are safe to
+    // allow. Without this Express 404s any file whose absolute path has a hidden directory in it
+    // (e.g. DATA_DIR=~/.nebulis/data), which blanked every thumbnail.
+    res.sendFile(cachePath, { dotfiles: 'allow' });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Thumbnail generation failed';
     // Explicit text/plain: res.send(string) defaults to text/html, and this
@@ -1977,16 +2129,13 @@ router.get('/fits-thumbnail', async (req: Request, res: Response) => {
     return;
   }
 
-  // Resolve absolute path and keep it inside LIBRARY_DIR. Compare against the
-  // directory *with a trailing separator* so a sibling like `<...>/library-x`
-  // can't satisfy a bare `startsWith('<...>/library')` and escape the root.
-  const LIBRARY_DIR = getLibraryDir();
-  const absPath = path.resolve(LIBRARY_DIR, filePath);
-  const libRoot = LIBRARY_DIR.endsWith(path.sep) ? LIBRARY_DIR : LIBRARY_DIR + path.sep;
-  if (!absPath.startsWith(libRoot)) {
+  // Resolution + containment lives in fileResolver.ts — see its header.
+  const resolved = resolveLibraryFile(filePath);
+  if (!resolved) {
     res.status(403).send('Forbidden');
     return;
   }
+  const absPath = resolved.abs;
 
   if (!(await requireLibraryReachable(res))) return;
 
@@ -2042,13 +2191,13 @@ router.get('/tiff-thumbnail', async (req: Request, res: Response) => {
     return;
   }
 
-  const LIBRARY_DIR = getLibraryDir();
-  const absPath = path.resolve(LIBRARY_DIR, filePath);
-  const libRoot = LIBRARY_DIR.endsWith(path.sep) ? LIBRARY_DIR : LIBRARY_DIR + path.sep;
-  if (!absPath.startsWith(libRoot)) {
+  // Resolution + containment lives in fileResolver.ts — see its header.
+  const resolved = resolveLibraryFile(filePath);
+  if (!resolved) {
     res.status(403).send('Forbidden');
     return;
   }
+  const absPath = resolved.abs;
 
   if (!(await requireLibraryReachable(res))) return;
 
@@ -2274,9 +2423,15 @@ router.get('/download/objects/:objectId', strictRateLimiter, async (req: Request
     archive.pipe(res);
 
     for (const f of files) {
-      const fullPath = path.join(getLibraryDir(), f.path);
-      if (fs.existsSync(fullPath)) {
-        archive.file(fullPath, { name: f.path });
+      // Resolved through fileResolver.ts rather than joined onto LIBRARY_DIR
+      // directly: a linked (non-copied) file's relPath doesn't live under
+      // LIBRARY_DIR at all, so the old join silently produced a path
+      // fs.existsSync would never find — the file just vanished from the zip
+      // with no error. name: f.path is unchanged for a managed file; a linked
+      // file's zip-entry naming is a cosmetic follow-up, not a correctness one.
+      const resolved = resolveLibraryFile(f.path);
+      if (resolved && fs.existsSync(resolved.abs)) {
+        archive.file(resolved.abs, { name: f.path });
       }
     }
 
@@ -2613,10 +2768,29 @@ router.delete('/file', requireAdmin, (req: Request, res: Response) => {
     return;
   }
   try {
-    deleteLocalFile(filePath);
+    // A linked file is the user's own original: there is no Nebulis copy, so
+    // deleting it is permanent. The client has to say it means that.
+    const linkedRow = getLinkedFileRow(filePath);
+    if (linkedRow) {
+      if (queryString(req.query.deleteLinked) !== '1') {
+        res.apiError(409, 'LINKED_DELETE_UNCONFIRMED', 'This file is in a linked folder and Nebulis has no other copy. Confirm that you want it deleted from disk.');
+        return;
+      }
+      deleteLinkedFilesFromDisk([linkedRow]);
+    } else {
+      deleteLocalFile(filePath);
+    }
     invalidateAllImagesCache();
     res.apiSuccess({ deleted: true });
   } catch (err) {
+    if (err instanceof LinkedDeleteError) {
+      res.apiError(err.code === 'LINKED_SOURCE_UNAVAILABLE' ? 409 : 500, err.code, err.message);
+      return;
+    }
+    if (err instanceof LinkedFileReadOnlyError) {
+      res.apiError(403, err.code, err.message);
+      return;
+    }
     const message = err instanceof Error ? err.message : 'Delete failed';
     res.apiError(500, 'DELETE_FAILED', message);
   }
@@ -2793,19 +2967,16 @@ router.put('/objects/:objectId/gallery-image', requireAdmin, (req: Request, res:
       } catch { /* dir may not exist */ }
     }
     // A client-supplied imagePath (the common case: picking one of this
-    // object's own images) must resolve inside LIBRARY_DIR. Without this,
-    // a value like "../../../../etc/passwd" gets stored verbatim and later
-    // reaches sharp() on the *public*, auth-bypassed /thumbnail route via
-    // resolveObjectImagePath — an unauthenticated arbitrary-file read, and
-    // (on a decode failure) delete. The catalog-source:* sentinel is a fixed
+    // object's own images — including a linked object's own linked photo, a
+    // legitimate case, not a safety exception: the write here is a DB pointer,
+    // never the file's bytes) must resolve to a real, indexed file. Without
+    // this, a value like "../../../../etc/passwd" gets stored verbatim and
+    // later reaches sharp() on the *public*, auth-bypassed /thumbnail route via
+    // resolveObjectImagePath. The catalog-source:* sentinel is a fixed
     // literal, not a path, so it's exempt.
-    if (resolved !== null && !isCatalogSourceSentinel(resolved)) {
-      const LIBRARY_DIR = getLibraryDir();
-      const abs = path.resolve(LIBRARY_DIR, resolved);
-      if (abs !== LIBRARY_DIR && !abs.startsWith(LIBRARY_DIR + path.sep)) {
-        res.apiError(400, 'INVALID_PATH', 'imagePath resolves outside the library');
-        return;
-      }
+    if (resolved !== null && !isCatalogSourceSentinel(resolved) && !resolveLibraryFile(resolved)) {
+      res.apiError(400, 'INVALID_PATH', 'imagePath resolves outside the library');
+      return;
     }
     setGalleryImageUserChosen(objectId, resolved);
     res.apiSuccess({ objectId, galleryImage: resolved });
@@ -2913,14 +3084,13 @@ router.put('/objects/:objectId/sessions/:date/session-image', requireAdmin, stri
     return;
   }
   // Stored verbatim and later joined with LIBRARY_DIR for an existence check
-  // (see getLocalSessions) — reject anything that would resolve outside it.
-  if (imagePath) {
-    const LIBRARY_DIR = getLibraryDir();
-    const abs = path.resolve(LIBRARY_DIR, imagePath);
-    if (abs !== LIBRARY_DIR && !abs.startsWith(LIBRARY_DIR + path.sep)) {
-      res.apiError(400, 'INVALID_PATH', 'imagePath resolves outside the library');
-      return;
-    }
+  // (see getLocalSessions) — reject anything that doesn't resolve to a real,
+  // indexed file. A linked object's own session image is a legitimate value
+  // here (a DB pointer, not a file mutation), same reasoning as the object-
+  // level gallery-image route above.
+  if (imagePath && !resolveLibraryFile(imagePath)) {
+    res.apiError(400, 'INVALID_PATH', 'imagePath resolves outside the library');
+    return;
   }
   setSessionImage(objectId, date, imagePath ?? null);
   res.apiSuccess({ objectId, date, sessionImage: imagePath ?? null });
@@ -3002,6 +3172,101 @@ router.post('/objects/:objectId/sessions/:date/processed-images', requireAdmin, 
   } catch (err) {
     try { fs.unlinkSync(file.path); } catch { /* ignore */ }
     res.apiError(500, 'UPLOAD_FAILED', err instanceof Error ? err.message : 'Upload failed');
+  }
+});
+
+// Promote a telescope-side file already in this object's library folder to a
+// processed image (the Images tab → Processed tab drag). The file is copied
+// through a temp staging file so addProcessedImage's rename-into-place applies
+// unchanged, and only then is the original removed — a failure part-way leaves
+// the original untouched. A linked (read-only) source file is never removed, so
+// there it is a copy.
+router.post('/objects/:objectId/sessions/:date/processed-images/from-file', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const date = String(req.params.date);
+  const relPath = typeof req.body?.path === 'string' ? req.body.path.trim() : '';
+  if (!relPath) {
+    res.apiError(400, 'MISSING_PATH', 'Body field "path" is required');
+    return;
+  }
+  const resolved = resolveLibraryFile(relPath);
+  if (!resolved || !fs.existsSync(resolved.abs) || !fs.statSync(resolved.abs).isFile()) {
+    res.apiError(404, 'NOT_FOUND', 'File not found');
+    return;
+  }
+  // A managed file must sit in this object's own folder; anything else would
+  // let the route re-home another object's data.
+  if (resolved.sourceId === null) {
+    const objDir = path.resolve(getLibraryDir(), getObjectFolderName(objectId));
+    if (!resolved.abs.startsWith(objDir + path.sep)) {
+      res.apiError(400, 'INVALID_REQUEST', 'File does not belong to this object');
+      return;
+    }
+  }
+  const originalName = path.basename(resolved.abs);
+  if (!isRenderableProcessedName(originalName) && !isStoredOnlyProcessedName(originalName)) {
+    res.apiError(422, 'UNSUPPORTED_FORMAT', 'This file type cannot be stored as a processed image');
+    return;
+  }
+
+  const staged = path.join(os.tmpdir(), `processed_${randomUUID()}_${originalName}`);
+  try {
+    fs.copyFileSync(resolved.abs, staged);
+    const record = addProcessedImage(objectId, date, staged, originalName, processedImageMimeType(originalName), '', '', null);
+    let movedOriginal = false;
+    if (resolved.sourceId === null) {
+      try {
+        deleteLocalFile(relPath);
+        movedOriginal = true;
+      } catch (err) {
+        log.warn({ err, relPath }, '[processed] promoted copy saved but original could not be removed');
+      }
+    }
+    invalidateAllImagesCache();
+    res.apiSuccess({ ...record, movedOriginal });
+  } catch (err) {
+    try { fs.unlinkSync(staged); } catch { /* already moved or never created */ }
+    res.apiError(500, 'PROMOTE_FAILED', err instanceof Error ? err.message : 'Could not mark as processed');
+  }
+});
+
+// Move a processed image back into the night's telescope images: the undo of
+// the from-file promote above. Only renderable images go back, because the
+// Images tab is a grid of pictures; an XISF or PSD deliverable stays processed.
+router.post('/objects/:objectId/sessions/:date/processed-images/:id/unmark', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const date = String(req.params.date);
+  const id = String(req.params.id);
+  const record = getProcessedImageRecord(id);
+  if (!record || record.objectId !== objectId || record.date !== date) {
+    res.apiError(404, 'NOT_FOUND', 'Processed image not found');
+    return;
+  }
+  if (!isRenderableProcessedName(record.filename)) {
+    res.apiError(422, 'UNSUPPORTED_FORMAT', 'Only JPG, PNG and TIFF images can go back to Images');
+    return;
+  }
+  try {
+    // Nested objects keep one folder per session; reuse the one this night's
+    // files already sit in, or the canonical name when it has none yet.
+    let sessionFolder: string | null = null;
+    if (getObjectLayout(objectId) === 'nested') {
+      sessionFolder = getLocalFiles(objectId, date).find(f => f.sessionFolder)?.sessionFolder
+        ?? sessionFolderFor(null, date, null);
+    }
+    const newPath = moveProcessedImageToLibrary(id, {
+      sessionFolder,
+      telescopeId: getSessionTelescopeId(objectId, date),
+    });
+    if (!newPath) {
+      res.apiError(404, 'NOT_FOUND', 'Processed image not found');
+      return;
+    }
+    refreshObjectFileCount(objectId);
+    invalidateAllImagesCache();
+    res.apiSuccess({ id, path: newPath });
+  } catch (err) {
+    res.apiError(500, 'UNMARK_FAILED', err instanceof Error ? err.message : 'Could not move the image back');
   }
 });
 

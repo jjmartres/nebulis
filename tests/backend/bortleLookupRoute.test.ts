@@ -1,8 +1,10 @@
-/* eslint-disable @typescript-eslint/no-require-imports --
-   `vi.hoisted` runs before the ESM imports are evaluated, which is the only way
+/* `vi.hoisted` runs before the ESM imports are evaluated, which is the only way
    to point DATA_DIR at a scratch directory before server/lib/paths.ts reads it
    at module load. Same idiom as libraryLocationResetRoute.test.ts; the require
-   calls are Node builtins inside that hoisted block, nowhere else. */
+   calls are Node builtins inside that hoisted block, nowhere else. No
+   eslint-disable is needed: eslint.config.js turns
+   `@typescript-eslint/no-require-imports` off for tests/ precisely because this
+   idiom requires a synchronous require. */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import http from 'http';
 import type { AddressInfo } from 'net';

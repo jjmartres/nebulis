@@ -33,6 +33,7 @@ import {
   type DarkWindow,
 } from '../../lib/forecastScore';
 import { activeLocale } from '../../lib/formatLocale';
+import { useTheme } from '../../hooks/useTheme';
 
 interface TonightInfo {
   moonIllumination: number;
@@ -71,6 +72,19 @@ const SKY_RAMP: { d: number; c: Rgb }[] = [
   { d: 1.0,  c: [  4,   7,  19] },
 ];
 
+/** Night-theme sky ramp: the same darkness curve, but blue-black instead of
+ *  a photopically-blue dusk. This is baked into an SVG gradient stop, not a
+ *  Tailwind class, so it needs its own red-light variant rather than relying
+ *  on the .night CSS overrides. */
+const NIGHT_SKY_RAMP: { d: number; c: Rgb }[] = [
+  { d: 0.0,  c: [ 42,  10,  10] },
+  { d: 0.22, c: [ 30,   8,   8] },
+  { d: 0.45, c: [ 18,   5,   5] },
+  { d: 0.70, c: [ 10,   3,   3] },
+  { d: 0.88, c: [  5,   1,   1] },
+  { d: 1.0,  c: [  0,   0,   0] },
+];
+
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
@@ -90,11 +104,12 @@ function hourTickLabel(ms: number, timeZone: string | undefined): string {
   }
 }
 
-function skyColor(d: number): string {
+function skyColor(d: number, isNight = false): string {
+  const ramp = isNight ? NIGHT_SKY_RAMP : SKY_RAMP;
   const x = Math.min(1, Math.max(0, d));
-  for (let i = 1; i < SKY_RAMP.length; i++) {
-    const lo = SKY_RAMP[i - 1];
-    const hi = SKY_RAMP[i];
+  for (let i = 1; i < ramp.length; i++) {
+    const lo = ramp[i - 1];
+    const hi = ramp[i];
     if (x <= hi.d) {
       const t = hi.d === lo.d ? 0 : (x - lo.d) / (hi.d - lo.d);
       return `rgb(${Math.round(lerp(lo.c[0], hi.c[0], t))},${Math.round(lerp(lo.c[1], hi.c[1], t))},${Math.round(lerp(lo.c[2], hi.c[2], t))})`;
@@ -142,6 +157,7 @@ export function NightRibbon({
   hours, tonight, timeZone, darkWindow, tempUnit, selectedTime, onSelect,
 }: Props) {
   const { t } = useTranslation('forecast');
+  const { isNight } = useTheme();
   const [wrapRef, width] = useMeasuredWidth<HTMLDivElement>();
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -215,9 +231,9 @@ export function NightRibbon({
     const N = 40;
     return Array.from({ length: N + 1 }, (_, i) => {
       const f = i / N;
-      return { offset: f, color: skyColor(darknessAt(t0 + f * span)) };
+      return { offset: f, color: skyColor(darknessAt(t0 + f * span), isNight) };
     });
-  }, [darknessAt, t0, span]);
+  }, [darknessAt, t0, span, isNight]);
 
   const stars = useMemo(() => {
     if (width < MIN_WIDTH) return [];
@@ -238,9 +254,9 @@ export function NightRibbon({
     () => hours.map(h => ({
       hour: h,
       ms: new Date(h.time).getTime(),
-      vis: calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow, t),
+      vis: calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow, t, isNight),
     })),
-    [hours, tonight.moonIllumination, timeZone, darkWindow, t],
+    [hours, tonight.moonIllumination, timeZone, darkWindow, t, isNight],
   );
 
   if (hours.length < 2) return null;
@@ -372,8 +388,8 @@ export function NightRibbon({
 
               {/* Warm light lingering at the horizon around sunset and sunrise. */}
               <radialGradient id={`${gid}-dusk`} cx="50%" cy="100%" r="72%">
-                <stop offset="0%" stopColor="rgba(251,146,60,0.42)" />
-                <stop offset="100%" stopColor="rgba(251,146,60,0)" />
+                <stop offset="0%" stopColor={isNight ? 'rgba(204,51,51,0.42)' : 'rgba(251,146,60,0.42)'} />
+                <stop offset="100%" stopColor={isNight ? 'rgba(204,51,51,0)' : 'rgba(251,146,60,0)'} />
               </radialGradient>
 
               {/* Anchored to the sky band, not to each path's bounding box, so a
@@ -384,9 +400,9 @@ export function NightRibbon({
                 gradientUnits="userSpaceOnUse"
                 x1="0" y1={SKY_TOP} x2="0" y2={SKY_BOTTOM}
               >
-                <stop offset="0%" stopColor="rgba(203,213,225,0.17)" />
-                <stop offset="45%" stopColor="rgba(203,213,225,0.07)" />
-                <stop offset="100%" stopColor="rgba(203,213,225,0)" />
+                <stop offset="0%" stopColor={isNight ? 'rgba(153,42,42,0.17)' : 'rgba(203,213,225,0.17)'} />
+                <stop offset="45%" stopColor={isNight ? 'rgba(153,42,42,0.07)' : 'rgba(203,213,225,0.07)'} />
+                <stop offset="100%" stopColor={isNight ? 'rgba(153,42,42,0)' : 'rgba(203,213,225,0)'} />
               </linearGradient>
 
               {/* Moonlight washing the top of the sky while the Moon is up. */}
@@ -395,8 +411,8 @@ export function NightRibbon({
                 gradientUnits="userSpaceOnUse"
                 x1="0" y1={SKY_TOP} x2="0" y2={SKY_BOTTOM}
               >
-                <stop offset="0%" stopColor="rgba(253,246,227,0.09)" />
-                <stop offset="100%" stopColor="rgba(253,246,227,0)" />
+                <stop offset="0%" stopColor={isNight ? 'rgba(204,51,51,0.09)' : 'rgba(253,246,227,0.09)'} />
+                <stop offset="100%" stopColor={isNight ? 'rgba(204,51,51,0)' : 'rgba(253,246,227,0)'} />
               </linearGradient>
 
               {/* One stop per hour, coloured by that hour's own score band. */}
@@ -405,7 +421,7 @@ export function NightRibbon({
                   <stop
                     key={s.hour.time}
                     offset={scored.length === 1 ? 0 : i / (scored.length - 1)}
-                    stopColor={scoreHex(s.vis.score)}
+                    stopColor={scoreHex(s.vis.score, isNight)}
                   />
                 ))}
               </linearGradient>
@@ -475,7 +491,7 @@ export function NightRibbon({
                     cx={PAD_X + s.fx * (width - PAD_X * 2)}
                     cy={s.y}
                     r={s.r}
-                    fill="#ffffff"
+                    fill={isNight ? '#cc3333' : '#ffffff'}
                     opacity={o}
                   />
                 );
@@ -503,7 +519,7 @@ export function NightRibbon({
                 return (
                   <g key={i}>
                     <path d={area} fill={`url(#${gid}-cloud)`} opacity={deck.fill} filter={`url(#${gid}-blur)`} />
-                    <path d={line} fill="none" stroke={`rgba(226,232,240,${deck.edge})`} strokeWidth="1" />
+                    <path d={line} fill="none" stroke={isNight ? `rgba(153,42,42,${deck.edge})` : `rgba(226,232,240,${deck.edge})`} strokeWidth="1" />
                   </g>
                 );
               })}
@@ -518,13 +534,13 @@ export function NightRibbon({
                   <g key={b.label}>
                     <line
                       x1={x} y1={SKY_TOP} x2={x} y2={SKY_BOTTOM}
-                      stroke="rgba(255,255,255,0.22)" strokeWidth="1" strokeDasharray="3 4"
+                      stroke={isNight ? 'rgba(204,51,51,0.22)' : 'rgba(255,255,255,0.22)'} strokeWidth="1" strokeDasharray="3 4"
                     />
                     {roomForLabel && (
                       <text
                         x={x} y={SKY_BOTTOM - 7}
                         textAnchor="middle" fontSize="9"
-                        fill="rgba(255,255,255,0.55)"
+                        fill={isNight ? 'rgba(204,51,51,0.55)' : 'rgba(255,255,255,0.55)'}
                         letterSpacing="0.10em"
                         style={{ textTransform: 'uppercase', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
                       >
@@ -555,7 +571,7 @@ export function NightRibbon({
             {/* Sky band hairline, above the clipped content. */}
             <rect
               x={PAD_X} y={SKY_TOP} width={width - PAD_X * 2} height={SKY_BOTTOM - SKY_TOP}
-              rx="12" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="1"
+              rx="12" fill="none" stroke={isNight ? 'rgba(204,51,51,0.10)' : 'rgba(255,255,255,0.10)'} strokeWidth="1"
             />
 
             {/* ── Moon window ── */}
@@ -566,15 +582,15 @@ export function NightRibbon({
                   <rect
                     x={xOf(a)} y={MOON_Y} width={w} height={MOON_H}
                     rx={MOON_H / 2}
-                    fill="rgba(250,224,158,0.20)"
-                    stroke="rgba(250,224,158,0.42)"
+                    fill={isNight ? 'rgba(204,51,51,0.20)' : 'rgba(250,224,158,0.20)'}
+                    stroke={isNight ? 'rgba(204,51,51,0.42)' : 'rgba(250,224,158,0.42)'}
                     strokeWidth="1"
                   />
-                  <circle cx={xOf(a) + MOON_H / 2} cy={MOON_Y + MOON_H / 2} r="3.5" fill="rgba(253,246,227,0.95)" />
+                  <circle cx={xOf(a) + MOON_H / 2} cy={MOON_Y + MOON_H / 2} r="3.5" fill={isNight ? 'rgba(204,51,51,0.95)' : 'rgba(253,246,227,0.95)'} />
                   {w > 130 && (
                     <text
                       x={xOf(a) + MOON_H + 6} y={MOON_Y + MOON_H - 4}
-                      fontSize="8.5" fill="rgba(253,246,227,0.9)"
+                      fontSize="8.5" fill={isNight ? 'rgba(204,51,51,0.9)' : 'rgba(253,246,227,0.9)'}
                       letterSpacing="0.12em" fontWeight="600"
                       style={{ textTransform: 'uppercase' }}
                     >
@@ -593,17 +609,19 @@ export function NightRibbon({
                 <g key={s.hour.time}>
                   <circle
                     cx={x} cy={RAIL_Y} r={isActive ? 5 : 3}
-                    fill={scoreHex(s.vis.score)}
+                    fill={scoreHex(s.vis.score, isNight)}
                     opacity={isActive ? 1 : 0.75}
                   />
                   {isActive && (
-                    <circle cx={x} cy={RAIL_Y} r="8.5" fill="none" stroke={scoreHex(s.vis.score)} strokeOpacity="0.45" strokeWidth="1.5" />
+                    <circle cx={x} cy={RAIL_Y} r="8.5" fill="none" stroke={scoreHex(s.vis.score, isNight)} strokeOpacity="0.45" strokeWidth="1.5" />
                   )}
                   {i % labelStride === 0 && (
                     <text
                       x={x} y={LABEL_Y}
                       textAnchor="middle" fontSize="10.5"
-                      fill={isActive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.42)'}
+                      fill={isNight
+                        ? (isActive ? 'rgba(204,51,51,0.95)' : 'rgba(204,51,51,0.42)')
+                        : (isActive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.42)')}
                       className="tabular-nums"
                     >
                       {hourTickLabel(s.ms, timeZone)}
@@ -618,9 +636,9 @@ export function NightRibbon({
               <g>
                 <line
                   x1={xOf(now)} y1={MOON_Y} x2={xOf(now)} y2={RAIL_Y}
-                  stroke="rgba(255,255,255,0.55)" strokeWidth="1.5"
+                  stroke={isNight ? 'rgba(204,51,51,0.55)' : 'rgba(255,255,255,0.55)'} strokeWidth="1.5"
                 />
-                <circle cx={xOf(now)} cy={MOON_Y} r="3.5" fill="#ffffff" />
+                <circle cx={xOf(now)} cy={MOON_Y} r="3.5" fill={isNight ? '#cc3333' : '#ffffff'} />
               </g>
             )}
 
@@ -628,7 +646,7 @@ export function NightRibbon({
             {active && (
               <line
                 x1={xOf(active.ms)} y1={SKY_TOP} x2={xOf(active.ms)} y2={RAIL_Y}
-                stroke="rgba(255,255,255,0.65)" strokeWidth="1" strokeDasharray="2 3"
+                stroke={isNight ? 'rgba(204,51,51,0.65)' : 'rgba(255,255,255,0.65)'} strokeWidth="1" strokeDasharray="2 3"
               />
             )}
           </svg>

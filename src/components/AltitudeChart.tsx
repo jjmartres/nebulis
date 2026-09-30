@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { computeAltitudeCurve, buildTonightWindow } from '../lib/altaz';
 import { computeMoonInterferenceCurve, type MoonVerdict } from '../lib/moonProximity';
 import { formatHm } from '../lib/timeFormat';
+import { useTheme } from '../hooks/useTheme';
 
 type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -58,6 +59,7 @@ interface AltitudeChartProps {
  */
 export function AltitudeChart({ ra, dec, lat, lon, minAlt, moonIllumination, timeZone, isDark, onScrub, fill = false }: AltitudeChartProps) {
   const { t } = useTranslation('common');
+  const { isNight } = useTheme();
   const { samples, start, end } = useMemo(() => {
     const { start, end } = buildTonightWindow(new Date(), timeZone);
     const samples = computeAltitudeCurve(ra, dec, lat, lon, start, end, 15);
@@ -199,11 +201,11 @@ export function AltitudeChart({ ra, dec, lat, lon, minAlt, moonIllumination, tim
   const xToPx = (x: number) => padL + x * plotW;
   const yToPx = (y: number) => padT + (1 - y) * plotH;
 
-  const gridColor = isDark ? 'rgba(148,163,184,0.10)' : 'rgba(100,116,139,0.14)';
-  const axisLabelColor = isDark ? '#64748b' : '#94a3b8';
-  const curveColor = isDark ? '#e2e8f0' : '#475569';
-  const dotFill = isDark ? '#ffffff' : '#0f172a';
-  const dotStroke = isDark ? '#0f172a' : '#ffffff';
+  const gridColor = isNight ? 'rgba(153,42,42,0.10)' : isDark ? 'rgba(148,163,184,0.10)' : 'rgba(100,116,139,0.14)';
+  const axisLabelColor = isNight ? '#661a1a' : isDark ? '#64748b' : '#94a3b8';
+  const curveColor = isNight ? '#cc3333' : isDark ? '#e2e8f0' : '#475569';
+  const dotFill = isNight ? '#cc3333' : isDark ? '#ffffff' : '#0f172a';
+  const dotStroke = isNight ? '#000000' : isDark ? '#0f172a' : '#ffffff';
 
   // Fixed 4-hour ticks — start is local noon, so offsets of 0/4/8/12/16/20/24
   // produce the hour labels 12, 16, 20, 00, 04, 08, 12.
@@ -350,11 +352,13 @@ export function AltitudeChart({ ra, dec, lat, lon, minAlt, moonIllumination, tim
               const spanMs = end.getTime() - start.getTime();
               const x0 = xToPx((seg.startMs - start.getTime()) / spanMs);
               const x1 = xToPx((seg.endMs - start.getTime()) / spanMs);
-              const bandFill = seg.category === 'warning'
-                ? (isDark ? '#fb7185' : '#e11d48')
-                : seg.category === 'caution'
-                  ? (isDark ? '#fbbf24' : '#d97706')
-                  : (isDark ? 'rgba(251,191,36,0.38)' : 'rgba(217,119,6,0.3)');
+              const bandFill = isNight
+                ? (seg.category === 'warning' ? '#a02828' : seg.category === 'caution' ? '#661a1a' : 'rgba(102,26,26,0.38)')
+                : seg.category === 'warning'
+                  ? (isDark ? '#fb7185' : '#e11d48')
+                  : seg.category === 'caution'
+                    ? (isDark ? '#fbbf24' : '#d97706')
+                    : (isDark ? 'rgba(251,191,36,0.38)' : 'rgba(217,119,6,0.3)');
               return (
                 <rect
                   key={i}
@@ -412,7 +416,7 @@ export function AltitudeChart({ ra, dec, lat, lon, minAlt, moonIllumination, tim
             x2={W - padR}
             y1={yToPx(minAlt / 90)}
             y2={yToPx(minAlt / 90)}
-            stroke={isDark ? 'rgba(251,146,60,0.4)' : 'rgba(251,146,60,0.55)'}
+            stroke={isNight ? 'rgba(204,51,51,0.45)' : isDark ? 'rgba(251,146,60,0.4)' : 'rgba(251,146,60,0.55)'}
             strokeWidth={1}
             strokeDasharray="4 4"
           />
@@ -449,7 +453,7 @@ export function AltitudeChart({ ra, dec, lat, lon, minAlt, moonIllumination, tim
             cx={xToPx(currentPoint.x)}
             cy={yToPx(currentPoint.y)}
             r={3}
-            fill={isDark ? 'rgba(226,232,240,0.4)' : 'rgba(71,85,105,0.4)'}
+            fill={isNight ? 'rgba(153,42,42,0.4)' : isDark ? 'rgba(226,232,240,0.4)' : 'rgba(71,85,105,0.4)'}
           />
         )}
 
@@ -461,7 +465,7 @@ export function AltitudeChart({ ra, dec, lat, lon, minAlt, moonIllumination, tim
               x2={xToPx(activePoint.x)}
               y1={padT}
               y2={H - padB}
-              stroke={isDark ? 'rgba(226,232,240,0.35)' : 'rgba(71,85,105,0.35)'}
+              stroke={isNight ? 'rgba(153,42,42,0.35)' : isDark ? 'rgba(226,232,240,0.35)' : 'rgba(71,85,105,0.35)'}
               strokeWidth={1}
             />
             <circle

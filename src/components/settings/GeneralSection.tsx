@@ -23,13 +23,24 @@ const NAV_ITEM_ICONS: Record<NavItemId, React.ReactNode> = {
 
 /** Tiny mini-UI swatches that hint at what the theme looks like. */
 function ThemePreview({ id }: { id: Theme }) {
+  const { isNight } = useTheme();
   const palette: Record<Theme, { bg: string; surface: string; line: string; accent: string; text: string }> = {
     light: { bg: '#f4f6fa', surface: '#ffffff', line: '#e2e8f0', accent: '#f59e0b', text: '#0f172a' },
     dark:  { bg: '#0a0e17', surface: '#0f1524', line: '#1a2235', accent: '#fbbf24', text: '#e2e8f0' },
     space: { bg: '#06050f', surface: '#0d0b1f', line: '#1e1a40', accent: '#a78bfa', text: '#c8c3e0' },
     night: { bg: '#000000', surface: '#0a0000', line: '#2a0808', accent: '#cc3333', text: '#cc3333' },
   };
-  const p = palette[id];
+  // Red-light mode: these are inline hex, so the `.night` token overrides
+  // can't reach them, and a white "Light" tile or violet "Space" tile would
+  // blow out dark adaptation. Keep each tile distinguishable by brightness
+  // only, all within the red ladder (index.css --night-*).
+  const nightPalette: Record<Theme, { bg: string; surface: string; line: string; accent: string; text: string }> = {
+    light: { bg: '#3a0f0f', surface: '#4d1414', line: '#661a1a', accent: '#a02828', text: '#b82e2e' },
+    dark:  { bg: '#1a0505', surface: '#2a0808', line: '#3a0f0f', accent: '#882222', text: '#a02828' },
+    space: { bg: '#0d0202', surface: '#1a0505', line: '#2a0808', accent: '#661a1a', text: '#882222' },
+    night: palette.night,
+  };
+  const p = (isNight ? nightPalette : palette)[id];
   return (
     <div className="relative h-20 w-full" style={{ background: p.bg }}>
       <div className="absolute inset-x-2 top-2 h-3 rounded" style={{ background: p.surface, border: `1px solid ${p.line}` }} />

@@ -13,6 +13,8 @@ import { formatTransport } from '../../lib/api/library';
 import type { ConnectionType } from '../../lib/api/telescopes';
 import { formatInterval, formatRelativeTime } from '../../lib/timeFormat';
 import { formatNumber } from '../../lib/formatLocale';
+import { useTheme } from '../../hooks/useTheme';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 
 export interface TelescopeCardModel {
   id: string;
@@ -46,6 +48,7 @@ export function TelescopeCard({
   telescope: tel, isDark, importRunning, runningTelescopeId, pending, onSync,
 }: Props) {
   const { t } = useTranslation('library');
+  const { isNight } = useTheme();
   const isThisOne = importRunning && runningTelescopeId === tel.id;
   const disabled = !tel.online || !tel.configured || importRunning || pending;
 
@@ -76,7 +79,7 @@ export function TelescopeCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: tel.color }} />
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: nightSafeColor(tel.color, isNight) }} />
             <span className={`truncate font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
               {tel.name}
             </span>

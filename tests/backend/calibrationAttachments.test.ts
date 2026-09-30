@@ -86,19 +86,40 @@ describe('attachCalibrationBundle / detachCalibrationBundle', () => {
     expect(attachment.date).toBe('2026-09-04');
   });
 
-  it('reattaching the same (object, date, type) slot replaces the previous bundle, keeping the same attachment id', () => {
+  it('attaching a different bundle of the same type adds a row instead of replacing the first', () => {
     makeObject('M27', 'M 27');
     const first = attachCalibrationBundle({
       objectId: 'M27', date: '2026-08-01', calibrationType: 'flat',
-      scope: null, folderName: 'Flats', settingsKey: 'A',
+      scope: null, folderName: 'Plan/Flat', settingsKey: 'Ha-key',
     });
     const second = attachCalibrationBundle({
       objectId: 'M27', date: '2026-08-01', calibrationType: 'flat',
-      scope: null, folderName: 'Flats', settingsKey: 'B',
+      scope: null, folderName: 'Plan/Flat', settingsKey: 'SII-key',
     });
+    expect(second.id).not.toBe(first.id);
+    expect(listAttachmentsForObject('M27')).toHaveLength(2);
+  });
+
+  it('bundles with the same settingsKey but a different folder or scope are distinct bundles', () => {
+    makeObject('M27c', 'M 27c');
+    const base = { objectId: 'M27c', date: '2026-08-01', calibrationType: 'flat' as const, settingsKey: 'same-key' };
+    const a = attachCalibrationBundle({ ...base, scope: null, folderName: 'Autorun/Flat' });
+    const b = attachCalibrationBundle({ ...base, scope: null, folderName: 'Plan/Flat' });
+    const c = attachCalibrationBundle({ ...base, scope: 'telescope-a', folderName: 'Plan/Flat' });
+    expect(new Set([a.id, b.id, c.id]).size).toBe(3);
+    expect(listAttachmentsForObject('M27c')).toHaveLength(3);
+  });
+
+  it('attaching the same bundle twice is idempotent — same id, no duplicate row, including an unscoped (NULL scope) bundle', () => {
+    makeObject('M27b', 'M 27b');
+    const input = {
+      objectId: 'M27b', date: '2026-08-01', calibrationType: 'flat' as const,
+      scope: null, folderName: 'Plan/Flat', settingsKey: 'Ha-key',
+    };
+    const first = attachCalibrationBundle(input);
+    const second = attachCalibrationBundle(input);
     expect(second.id).toBe(first.id);
-    expect(second.settingsKey).toBe('B');
-    expect(listAttachmentsForObject('M27')).toHaveLength(1);
+    expect(listAttachmentsForObject('M27b')).toHaveLength(1);
   });
 
   it('a flat attachment and a flatDark attachment on the same (object, date) do not collide', () => {
@@ -132,6 +153,20 @@ describe('resolveAttachmentsForSession', () => {
     // back to the whole-object one rather than coming back empty.
     const otherNight = resolveAttachmentsForSession('M42', '2026-02-20');
     expect(otherNight.find(a => a.calibrationType === 'flat')?.settingsKey).toBe('whole-object-flats');
+  });
+
+  it('returns every bundle of a type, and a session-specific set replaces the whole-object set rather than joining it', () => {
+    makeObject('NGC6888b', 'NGC 6888');
+    const base = { objectId: 'NGC6888b', calibrationType: 'flat' as const, scope: null, folderName: 'Plan/Flat' };
+    attachCalibrationBundle({ ...base, settingsKey: 'Ha' });
+    attachCalibrationBundle({ ...base, settingsKey: 'SII' });
+    attachCalibrationBundle({ ...base, date: '2026-01-15', settingsKey: 'OIII' });
+
+    const keys = (date: string) => resolveAttachmentsForSession('NGC6888b', date).map(a => a.settingsKey).sort();
+    // A night with no attachment of its own gets both whole-object bundles.
+    expect(keys('2026-02-20')).toEqual(['Ha', 'SII']);
+    // The overridden night gets only its own — not its own plus the whole-object pair.
+    expect(keys('2026-01-15')).toEqual(['OIII']);
   });
 
   it('returns nothing for a type with no attachment at all', () => {

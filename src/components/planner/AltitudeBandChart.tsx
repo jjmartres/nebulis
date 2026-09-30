@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { computeAltitudeCurve } from '../../lib/altaz';
 import { twilightGradientCss, type TwilightMarks } from '../../lib/plannerNight';
+import { useTheme } from '../../hooks/useTheme';
 import { formatHm, hourTicks } from './scheduleGeometry';
 import type { PlannedSession } from '../../lib/api/plannedSessions';
 
@@ -83,11 +84,14 @@ export function AltitudeBandChart({
   twilight,
 }: AltitudeBandChartProps) {
   const { t } = useTranslation('planner');
+  const { isNight } = useTheme();
   // The chart sits directly under the schedule on the same night canvas, so its
-  // palette is night-side in every theme rather than following the app theme.
+  // palette is night-side in every theme rather than following the app theme
+  // — except the astronomy red-light theme, which twilightGradientCss carves
+  // out explicitly (see its own comment).
   const background = useMemo(
-    () => twilightGradientCss(twilight, nightStart.getTime(), nightEnd.getTime() - nightStart.getTime(), 'to right'),
-    [twilight, nightStart, nightEnd],
+    () => twilightGradientCss(twilight, nightStart.getTime(), nightEnd.getTime() - nightStart.getTime(), 'to right', isNight),
+    [twilight, nightStart, nightEnd, isNight],
   );
 
   // Compute one altitude curve per scheduled block, clipped to its time band.
@@ -156,6 +160,46 @@ export function AltitudeBandChart({
     return plotBottom - t * plotHeight;
   };
 
+  // Shared by the mouse-move and tap handlers below: finds the sample nearest
+  // a given screen X and updates the crosshair, or clears it if that X isn't
+  // over any plotted band.
+  function updateHoverAtClientX(clientX: number) {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    // viewBox is stretched (preserveAspectRatio=none) so X / Y scale
+    // independently. Convert screen px → SVG user-space px.
+    const svgX = ((clientX - rect.left) / rect.width) * SVG_WIDTH;
+    if (svgX < plotLeft || svgX > plotRight) { setHover(null); return; }
+    // Walk each session band and snap to the nearest sample inside it.
+    for (const c of curves) {
+      const xStart = timeToX(c.start);
+      const xEnd = timeToX(c.end);
+      if (svgX < xStart || svgX > xEnd) continue;
+      // Linear-time nearest sample. Sample density is ~5 minutes;
+      // O(n) per move is fine for the handful of bands a user plans.
+      let best = c.samples[0];
+      let bestDx = Infinity;
+      for (const s of c.samples) {
+        const dx = Math.abs(timeToX(s.time) - svgX);
+        if (dx < bestDx) { bestDx = dx; best = s; }
+      }
+      if (best) {
+        setHover({
+          svgX: timeToX(best.time),
+          sessionId: c.session.id,
+          objectName: c.session.objectName,
+          time: best.time,
+          alt: best.alt,
+          curveY: Math.max(plotTop, Math.min(plotBottom, altToY(best.alt))),
+        });
+      }
+      return;
+    }
+    // Cursor between bands (in a gap) — clear hover so no stale crosshair lingers.
+    setHover(null);
+  }
+
   // Build hour ticks. Hour-tick set from scheduleGeometry to match the
   // timeline above (same observer-zone snapping).
   const ticks = hourTicks(nightStart, nightEnd, observerTimezone);
@@ -164,12 +208,16 @@ export function AltitudeBandChart({
   const yTicks: number[] = [];
   for (let a = Math.ceil(range.lo / 10) * 10; a <= range.hi; a += 10) yTicks.push(a);
 
-  const axisColor = 'rgb(255 255 255 / 0.22)';
-  const gridColor = 'rgb(255 255 255 / 0.10)';
-  const textColor = 'rgb(226 232 240 / 0.75)';
-  const labelColor = 'rgb(226 232 240 / 0.45)';
-  const curveColor = 'rgb(52 211 153)';     // emerald-400
-  const minAltLineColor = 'rgb(244 114 182 / 0.7)'; // pink-ish
+  // Every color on this chart is baked as a raw rgb() literal (not a Tailwind
+  // class), so none of it is caught by .night's CSS variable overrides in
+  // index.css — it has to branch on isNight directly, same as the twilight
+  // gradient above.
+  const axisColor = isNight ? 'rgb(153 42 42 / 0.22)' : 'rgb(255 255 255 / 0.22)';
+  const gridColor = isNight ? 'rgb(153 42 42 / 0.10)' : 'rgb(255 255 255 / 0.10)';
+  const textColor = isNight ? 'rgb(153 42 42 / 0.75)' : 'rgb(226 232 240 / 0.75)';
+  const labelColor = isNight ? 'rgb(153 42 42 / 0.45)' : 'rgb(226 232 240 / 0.45)';
+  const curveColor = isNight ? 'rgb(204 51 51)' : 'rgb(52 211 153)';     // emerald-400
+  const minAltLineColor = isNight ? 'rgb(153 42 42 / 0.7)' : 'rgb(244 114 182 / 0.7)'; // pink-ish
 
   // Viewport-relative height: grows on tall screens, floored so it stays usable
   // on short ones. The measured value feeds the SVG's coordinate system above.
@@ -263,43 +311,14 @@ export function AltitudeBandChart({
         className="block w-full h-full"
         role="img"
         aria-label={t('altitudeBandChart.ariaLabel')}
-        onMouseMove={(e) => {
-          const svg = svgRef.current;
-          if (!svg) return;
-          const rect = svg.getBoundingClientRect();
-          // viewBox is stretched (preserveAspectRatio=none) so X / Y scale
-          // independently. Convert screen px → SVG user-space px.
-          const svgX = ((e.clientX - rect.left) / rect.width) * SVG_WIDTH;
-          if (svgX < plotLeft || svgX > plotRight) { setHover(null); return; }
-          // Walk each session band and snap to the nearest sample inside it.
-          for (const c of curves) {
-            const xStart = timeToX(c.start);
-            const xEnd = timeToX(c.end);
-            if (svgX < xStart || svgX > xEnd) continue;
-            // Linear-time nearest sample. Sample density is ~5 minutes;
-            // O(n) per move is fine for the handful of bands a user plans.
-            let best = c.samples[0];
-            let bestDx = Infinity;
-            for (const s of c.samples) {
-              const dx = Math.abs(timeToX(s.time) - svgX);
-              if (dx < bestDx) { bestDx = dx; best = s; }
-            }
-            if (best) {
-              setHover({
-                svgX: timeToX(best.time),
-                sessionId: c.session.id,
-                objectName: c.session.objectName,
-                time: best.time,
-                alt: best.alt,
-                curveY: Math.max(plotTop, Math.min(plotBottom, altToY(best.alt))),
-              });
-            }
-            return;
-          }
-          // Cursor between bands (in a gap) — clear hover so no stale crosshair lingers.
-          setHover(null);
-        }}
+        onMouseMove={(e) => updateHoverAtClientX(e.clientX)}
         onMouseLeave={() => setHover(null)}
+        // There is no hover on a touchscreen, so without this the altitude/time
+        // readout this handler drives never appears on mobile at all. A tap
+        // (not a drag) shows the reading at that point, same as a single mouse
+        // move: touchmove was deliberately left unwired since preventing it
+        // would fight the page's own scroll inside this scrollable modal.
+        onTouchStart={(e) => { if (e.touches[0]) updateHoverAtClientX(e.touches[0].clientX); }}
       >
         {/* Y-axis labels and grid lines */}
         {yTicks.map(a => {
@@ -389,7 +408,7 @@ export function AltitudeBandChart({
                 y={plotTop}
                 width={Math.max(0, xEnd - xStart)}
                 height={plotHeight}
-                fill="rgb(16 185 129 / 0.07)"
+                fill={isNight ? 'rgb(102 26 26 / 0.10)' : 'rgb(16 185 129 / 0.07)'}
               />
               <line x1={xStart} x2={xStart} y1={plotTop} y2={plotBottom} stroke={axisColor} strokeWidth={1} />
               <line x1={xEnd} x2={xEnd} y1={plotTop} y2={plotBottom} stroke={axisColor} strokeWidth={1} />
@@ -429,6 +448,7 @@ export function AltitudeBandChart({
             alt={hover.alt}
             axisColor={axisColor}
             timeZone={observerTimezone}
+            isNight={isNight}
           />
         )}
       </svg>
@@ -447,6 +467,7 @@ interface HoverOverlayProps {
   alt: number;
   axisColor: string;
   timeZone?: string;
+  isNight: boolean;
 }
 
 function HoverOverlay({
@@ -460,6 +481,7 @@ function HoverOverlay({
   alt,
   axisColor,
   timeZone,
+  isNight,
 }: HoverOverlayProps) {
   const { t } = useTranslation('planner');
   // Tooltip box: pick a side that keeps the box inside the plot. Width is a
@@ -471,12 +493,12 @@ function HoverOverlay({
   const tooltipX = placeRight ? x + margin : x - margin - tooltipWidth;
   const tooltipY = Math.max(plotTop + 2, Math.min(plotBottom - tooltipHeight - 2, curveY - tooltipHeight / 2));
 
-  const bg = 'rgb(2 6 23 / 0.95)';
-  const border = 'rgb(255 255 255 / 0.18)';
-  const headColor = 'rgb(241 245 249)';
-  const subColor = 'rgb(148 163 184)';
-  const dotColor = 'rgb(52 211 153)';
-  const dotRing = 'rgb(2 6 23)';
+  const bg = isNight ? 'rgb(0 0 0 / 0.95)' : 'rgb(2 6 23 / 0.95)';
+  const border = isNight ? 'rgb(153 42 42 / 0.18)' : 'rgb(255 255 255 / 0.18)';
+  const headColor = isNight ? 'rgb(204 51 51)' : 'rgb(241 245 249)';
+  const subColor = isNight ? 'rgb(136 34 34)' : 'rgb(148 163 184)';
+  const dotColor = isNight ? 'rgb(204 51 51)' : 'rgb(52 211 153)';
+  const dotRing = isNight ? 'rgb(0 0 0)' : 'rgb(2 6 23)';
 
   const timeLabel = formatHm(time, timeZone);
 

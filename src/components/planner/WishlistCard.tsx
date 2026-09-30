@@ -160,7 +160,7 @@ export const WishlistCard = memo(function WishlistCard({
           <span className="min-w-0 truncate text-sm font-semibold">{formatObjectName(item.objectId, item.name)}</span>
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-            className={`shrink-0 rounded-lg p-1 opacity-0 transition group-hover:opacity-100 ${
+            className={`shrink-0 rounded-lg p-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 ${
               isDark ? 'text-slate-500 hover:text-red-400 hover:bg-white/5' : 'text-slate-400 hover:text-red-500 hover:bg-slate-100'
             }`}
             aria-label={t('wishlistPanel.remove', { name: item.name })}

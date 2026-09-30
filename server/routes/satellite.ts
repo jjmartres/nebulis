@@ -6,7 +6,7 @@ import { satelliteCatalog } from '../lib/satelliteCatalog.js';
 import { satelliteTracker, normalizeObservationTimestamp, type ObservationParams } from '../lib/satelliteTracker.js';
 import { parseFitsHeader } from '../lib/fitsParser.js';
 import { DATA_DIR } from '../lib/paths.js';
-import { getLibraryDir } from '../lib/libraryPath.js';
+import { resolveLibraryFile } from '../lib/library/fileResolver.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { getSessionTelescopeId } from '../lib/localLibrary.js';
 import { getProfileById, type TelescopeKind } from '../lib/telescopes.js';
@@ -230,7 +230,6 @@ function updateCache(updates: Record<string, CachedResult | null> | 'clear'): vo
 // ─── Detect satellite trail in a FITS file ──────────────────────────
 router.post('/detect', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const LIBRARY_DIR = getLibraryDir();
     const { filePath, skipCache, identifyOnly, overrideLat, overrideLon } = req.body;
     if (!filePath || typeof filePath !== 'string') {
       res.apiError(400, 'MISSING_PATH', 'filePath is required');
@@ -248,19 +247,17 @@ router.post('/detect', requireAdmin, async (req: Request, res: Response) => {
     }
 
     // Read the FITS file — relative paths (ObjectName/file.fits) come from the
-    // local library. Absolute paths used to be passed to smbGetFile directly,
-    // which allowed an admin client to coax the server into reading from
-    // arbitrary SMB shares (\\evil-server\share\...) and other absolute paths.
-    // Restrict to relative library paths only.
-    if (path.isAbsolute(filePath) || filePath.includes('..')) {
-      res.apiError(400, 'INVALID_PATH', 'filePath must be a relative library path');
-      return;
-    }
-    const localPath = path.resolve(LIBRARY_DIR, filePath);
-    if (!localPath.startsWith(LIBRARY_DIR + path.sep) && localPath !== LIBRARY_DIR) {
+    // local library, or a linked source via fileResolver.ts's '@src/...' form.
+    // Absolute paths used to be passed to smbGetFile directly, which allowed an
+    // admin client to coax the server into reading from arbitrary SMB shares
+    // (\\evil-server\share\...) and other absolute paths — resolveLibraryFile
+    // refuses both, same as it does for every other read route.
+    const resolvedFile = resolveLibraryFile(filePath);
+    if (!resolvedFile) {
       res.apiError(403, 'FORBIDDEN', 'Invalid file path');
       return;
     }
+    const localPath = resolvedFile.abs;
     const fileBuffer = await fs.promises.readFile(localPath);
 
     // Step 1: Read the FITS header FIRST.

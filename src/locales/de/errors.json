@@ -53,6 +53,8 @@
     "SOURCE_NOT_FOUND": "Quellteleskop nicht gefunden.",
     "TARGET_NOT_FOUND": "Zielteleskop nicht gefunden.",
     "TMP_NOT_FOUND": "Upload-Sitzung nicht gefunden. Bitte von vorn beginnen.",
-    "UNSUPPORTED_PLATFORM": "Bibliotheksstandorte auf Netzwerkfreigaben werden auf dieser Plattform nicht unterstützt."
+    "UNSUPPORTED_PLATFORM": "Bibliotheksstandorte auf Netzwerkfreigaben werden auf dieser Plattform nicht unterstützt.",
+    "ARCHIVE_DISABLED": "Das Archiv ist aus, es wurde also nichts geschrieben oder gelöscht. Schalte es in den Einstellungen im Tab Archiv ein.",
+    "ARCHIVE_RETENTION_DISABLED": "Die Bereinigung ist aus, es wurde also nichts gelöscht. Schalte sie in den Archiveinstellungen ein."
   }
 }

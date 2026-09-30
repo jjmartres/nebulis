@@ -133,7 +133,7 @@ export function UploadProcessedModal({ isOpen, onClose, objectId, date, initialF
     } finally {
       setIsUploading(false);
     }
-  }, [uploadFile, isUploading, objectId, date, uploadTitle, uploadNotes, software, combineMultiple, selectedDates, queryClient, onClose]);
+  }, [uploadFile, isUploading, objectId, date, uploadTitle, uploadNotes, software, combineMultiple, selectedDates, queryClient, onClose, t]);
 
   // Guards both Escape and backdrop-click while an upload is in flight.
   const handleModalClose = () => {

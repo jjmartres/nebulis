@@ -131,8 +131,8 @@ export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
             its siblings instead of growing a third row underneath. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              <SettingsIcon className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
+            <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+              <SettingsIcon className="h-5 w-5 sm:h-7 sm:w-7" style={{ color: accent }} />
               {t('hero.title')}
             </h1>
             <p className="mt-2 text-[13px] text-white/55">{subtitle}</p>
@@ -150,8 +150,12 @@ export function SettingsHero({ accent, subtitle, isAdmin }: Props) {
           )}
         </div>
 
+        {/* System stats (users, telescopes online, storage, last sync, build)
+            repeat what the settings tabs below already say in detail, so on a
+            phone they cost more scroll than they're worth: the title, status
+            line and release-notes button are what's left there. */}
         {(stats.length > 0 || (isAdmin && versionInfo)) && (
-          <div className="flex flex-wrap items-end justify-between gap-x-12 gap-y-4">
+          <div className="hidden flex-wrap items-end justify-between gap-x-12 gap-y-4 sm:flex">
             {stats.length > 0 && (
               <div className="flex flex-wrap items-end gap-x-12 gap-y-4 sm:gap-x-16">
                 {stats.map(({ value, label, prose }) => (

@@ -11,16 +11,22 @@ export function Toggle({
   checked,
   onChange,
   disabled,
+  label,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
+  /** Accessible name. A `role="switch"` with no name is announced as an anonymous
+   *  switch, and it also forces tests to address it by position, which silently
+   *  repoints them the moment another toggle is added above. */
+  label?: string;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-[22px] w-[42px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -309,17 +315,22 @@ export function Seg<T extends string>({
   options,
   onChange,
   isDark,
+  disabled = false,
 }: {
   value: T;
   options: { id: T; label: string }[];
   onChange: (id: T) => void;
   isDark: boolean;
+  /** Inert but visible. Used where a section is switched off as a whole: the
+   *  controls stay readable so the user can see what is configured. */
+  disabled?: boolean;
 }) {
   return (
     <div
+      data-segmented
       className={`inline-flex p-0.5 rounded-lg border ${
         isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-100/70 border-slate-200'
-      }`}
+      } ${disabled ? 'opacity-60' : ''}`}
     >
       {options.map(opt => {
         const active = opt.id === value;
@@ -327,7 +338,10 @@ export function Seg<T extends string>({
           <button
             key={opt.id}
             onClick={() => onChange(opt.id)}
+            disabled={disabled}
             className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+              disabled ? 'cursor-not-allowed' : ''
+            } ${
               active
                 ? isDark
                   ? 'bg-slate-800 text-white shadow-sm'

@@ -152,6 +152,9 @@ export interface AstroObject {
   telescopeIds?: string[];
   /** All catalog aliases for this object (e.g. ["C30"] for NGC7331). */
   aliases?: string[];
+  /** Extra names learned from how the user labelled the object's folder
+   *  (e.g. "Polarissima Cluster" for NGC188). Searchable, shown on the card. */
+  nicknames?: string[];
   /** Absent on an older server response; treat a missing value as
    *  'unprocessed', the same default a fresh column backfills every
    *  pre-existing row to server-side. */

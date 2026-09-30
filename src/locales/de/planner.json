@@ -8,6 +8,8 @@
     "noObservableWindow": "Für diesen Ort und dieses Datum ist kein beobachtbares Nachtfenster verfügbar.",
     "skyNotSet": "nicht festgelegt",
     "skyMapSaveFailed": "Himmelskarte konnte nicht gespeichert werden: {{error}}",
+    "quickAddNoWindow": "Der heutige Zeitplan wurde noch nicht vollständig geladen. Versuche es gleich noch einmal.",
+    "quickAddNoSlot": "Kein freier Platz für {{name}} heute Nacht. Der Zeitplan ist möglicherweise bereits voll.",
     "targetsTab": "Ziele",
     "scheduleTab": "Zeitplan",
     "dropToSchedule": "Auf der Zeitleiste ablegen, um 90 Minuten einzuplanen",

@@ -53,6 +53,8 @@
     "SOURCE_NOT_FOUND": "Source telescope not found",
     "TARGET_NOT_FOUND": "Target telescope not found",
     "TMP_NOT_FOUND": "Upload session not found. Please start over.",
-    "UNSUPPORTED_PLATFORM": "Network share library locations are not supported on this platform."
+    "UNSUPPORTED_PLATFORM": "Network share library locations are not supported on this platform.",
+    "ARCHIVE_DISABLED": "The archive is turned off, so nothing was written or deleted. Turn it on in Settings, on the Archive tab.",
+    "ARCHIVE_RETENTION_DISABLED": "Pruning is turned off, so nothing was deleted. Turn it on in the archive settings."
   }
 }

@@ -1,5 +1,29 @@
 # Changelog
-## 2.1.0 (274) - September 20th, 2026
+## 2.1.1 (284) - September 26th, 2026
+### New
+- Linked Folders: if Nebulis runs on the same computer that holds your session files, link a folder instead of copying it into the library. Nebulis reads your images where they already are. Manage them under Settings -> Storage -> Linked Folders.
+- External Archive: keep a verified backup of your library on a disk you can unplug or on an SMB network share. Turn it on under Settings -> Archive (off by default). Choose a schedule, optionally delete archive copies after a set number of days, and optionally remove local sub-frames once they are copied and checked. Every file is verified after copying, and you can browse the archive and restore from it.
+- Library Health: a new scan under Settings -> Cleanup finds missing files, objects whose folder is gone, and layout mismatches. Nothing changes until you press a repair button. Repairs never delete image files, and objects whose folder is gone go to the trash, where you can restore them.
+
+### Updated
+- Night mode: colors that still showed through (blue, green, and so on) are now red, so the whole app stays in night colors.
+- Navigation bar: on screens narrower than 1024 px the menu is behind a hamburger button, with a drawer that adapts to orientation. (@jjmartres)
+- Library: objects remember the popular name from your folder name. A folder called "C 1 - Polarissima Cluster" gives the nickname "Polarissima Cluster", which shows on the object card and in Gallery search.
+- Processed images: admins can drag a finished image onto the Processed tab, or use the new button on each image, to mark it as processed.
+- Add Telescope: now a step-by-step wizard with import presets.
+- Import: simpler import screen for files and folders.
+
+### Fixes
+- Import: two different files with the same name from the same night no longer overwrite each other. The second gets a distinct name.
+- Import: folders like M16_Ha or M31_mosaic now import as their own object under the base object's card, matching telescope sync.
+- Import: deeply nested folders (for example Astro/2025/Clusters/Globular/Old/M92) now resolve to the right object instead of a category folder name.
+- Import: a browser upload with no date in its name or metadata now keeps its file modified date instead of the upload day.
+- Thumbnails: previews no longer stay blank when the data folder path includes a hidden folder (for example ~/.nebulis).
+- Calibrations: attaching a second flat set no longer detaches the first, so multi-filter rigs can attach Ha and SII flats to the same object or night. (@jjmartres)
+- ZWO ASIAIR: a sync no longer freezes at "Copying Calibration frames" on a corrupted, endlessly repeating folder structure, and it stops early if the ASIAIR drops off the network. (@jjmartres)
+- Sync: Cancel now stops the calibration and RESTACKED archive steps right away.
+
+## 2.1.0 (282) - September 20th, 2026
 ### New
 - Localization: the web app is now available in German, French, and Spanish (Settings -> General -> Language), AI-translated and not yet checked by a native speaker. If you spot a wrong or awkward phrase, or want to contribute a language that isn't listed, open a pull request against the public GitHub repo (nebulis-app/nebulis) - src/locales/CONTRIBUTING-TRANSLATIONS.md walks through exactly what to change and how. You can also send translation feedback to support@nebulis.app.
 - Wishlist: starring an object now builds a real wishlist, reachable from a new top-nav section or the Planner toolbar, with search, priority, notes, scheduling, and JSON export/import. Targets not up tonight show a 12-month altitude chart of their best months instead.
@@ -78,7 +102,7 @@
 - Dwarf: combined "RESTACKED" images now import as regular library objects, added automatically as processed images.
 - Dwarf: Star Trails captures now import as their own library object.
 - Gallery: added a telescope filter, matching Library.
-- Database backups: Nebulis now snapshots its database automatically just before applying an update, so you can roll back without losing data. Manage backups, or make one yourself, at Settings -> Storage -> Backups; restore steps are in DOWNGRADE.md and a RESTORE.txt saved alongside them.
+- Database backups: Nebulis now snapshots its database automatically just before applying an update, so you can roll back without losing data. Manage backups, or make one yourself, at Settings -> Storage -> Backups; restore steps are in docs/DOWNGRADE.md and a RESTORE.txt saved alongside them.
 
 
 ### Updated

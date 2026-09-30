@@ -64,9 +64,14 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
     adminOnly: true,
     items: [
       { id: 'location', labelKey: 'nav.location' },
-      { id: 'organize', labelKey: 'nav.organize' },
-      { id: 'cleanup', labelKey: 'nav.cleanup' },
+      // A bare "Archive" in the nav, which the user asked for. This codebase also has
+      // a calibration archive, so the section title stays "External archive" and the
+      // copy says "archive disk" throughout: the short nav label is disambiguated by
+      // what it opens, not by repeating the qualifier in the menu.
+      { id: 'archive', labelKey: 'nav.archive' },
+      { id: 'linked', labelKey: 'nav.linked' },
       { id: 'backups', labelKey: 'nav.backups' },
+      { id: 'cleanup', labelKey: 'nav.cleanup' },
     ],
   },
   { id: 'log', labelKey: 'nav.log', icon: ScrollText, adminOnly: true },

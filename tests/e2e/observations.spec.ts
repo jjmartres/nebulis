@@ -212,7 +212,8 @@ test.describe('Observation Detail', () => {
           variants: [],
         } }),
       }));
-    await page.getByRole('button', { name: /file location/i }).click();
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await page.getByRole('menuitem', { name: /show file location/i }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('/srv/nebulis/library/M42/2024-03-15')).toBeVisible();
   });

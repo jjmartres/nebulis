@@ -673,6 +673,18 @@ export function normalizeCatalogId(folderId: string): string {
     .replace(/\s+/g, '');
 }
 
+/**
+ * The imaging-variant suffix of a folder or target name ("M31_mosaic" -> "_mosaic", "M16 Ha" -> "_Ha"),
+ * or '' when there is none. Same word list as normalizeCatalogId, minus `_photo` / `_video`: those are
+ * SeeStar capture modes of one target and collapse onto it, while a mosaic or a narrowband set is its
+ * own object that the Library groups under the base object's card.
+ */
+export function variantSuffix(name: string): string {
+  const withoutCaptureMode = name.replace(/_(photo|video)$/i, '');
+  const m = withoutCaptureMode.match(/[_\s]+(mosai[ck]|mosiac|panel|ha|oiii|sii|sho|hoo|rgb|lrgb|nb|narrowband|broadband|luminance|lum|bicolor|tricolor|hargb)\s*(\d*)$/i);
+  return m ? `_${m[1]}${m[2]}` : '';
+}
+
 /** Strip spaces from a folder name to produce the normalized DB primary key.
  *  "M 16" → "M16", "IC 1318" → "IC1318". Unlike normalizeCatalogId this does
  *  NOT strip variant suffixes, so "M16_Ha" stays "M16_Ha". */

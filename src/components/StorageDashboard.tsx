@@ -57,7 +57,10 @@ export function StorageDashboard({ embedded = false }: { embedded?: boolean } = 
     staleTime: 5 * 60 * 1000,
   });
 
-  const objects = data?.objects ?? [];
+  // Memoized (not a bare `?? []`) because `objects` is itself a dependency of
+  // the three useMemo hooks below: a fresh `[]` reference on every render
+  // while `data` is still loading would defeat their memoization entirely.
+  const objects = useMemo(() => data?.objects ?? [], [data?.objects]);
   const telescopeOnline = data?.telescopeOnline ?? false;
   const telescopeKind = data?.telescopeKind ?? null;
   const isSeestar = telescopeKind !== null && isSeestarKind(toTelescopeKind(telescopeKind));

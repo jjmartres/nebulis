@@ -61,15 +61,19 @@ const CATALOG_CONFIGS: Record<string, CatalogDef> = {
 
 // ── Type classification ──────────────────────────────────────────────────────
 
-type ObjectClass = 'galaxy' | 'nebula' | 'cluster' | 'other';
+export type ObjectClass = 'galaxy' | 'nebula' | 'cluster' | 'other';
 
 /** The coarse family for a raw type, or 'other' for everything the shared table
  *  does not claim (double stars, star clouds, an unresolved "Unknown").
  *
  *  This used to carry its own shorthand aliases (gal, neb, pn, snr, oc, cl...).
  *  None of them appear in the catalog's 22 real type strings, and `cl` also
- *  matched "Dark Cloud", so they are gone rather than ported. */
-function classifyType(type: string | undefined): ObjectClass {
+ *  matched "Dark Cloud", so they are gone rather than ported.
+ *
+ *  Exported so tests exercise this function directly instead of a hand-copied
+ *  mirror that can drift from it unnoticed (see git history for classifyType
+ *  before it delegated to classOfType). */
+export function classifyType(type: string | undefined): ObjectClass {
   return classOfType(type) ?? 'other';
 }
 

@@ -1,52 +1,47 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
-// ── classifyType logic (extracted for unit testing) ───────────────────────────
-// Mirror the same classification function from the route so we can test it
-// without spinning up Express.
-
-type ObjectClass = 'galaxy' | 'nebula' | 'cluster' | 'other';
-
-function classifyType(type: string | undefined): ObjectClass {
-  const t = (type ?? '').toLowerCase();
-  if (t.includes('galaxy') || t.includes('gal') || t === 'g') return 'galaxy';
-  if (
-    t.includes('nebula') || t.includes('neb') || t.includes('planetary') ||
-    t.includes('supernova') || t.includes('remnant') || t === 'pn' || t === 'snr'
-  ) return 'nebula';
-  if (
-    t.includes('cluster') || t.includes('cl') || t.includes('asterism') ||
-    t === 'oc' || t === 'gc' || t === 'ocl' || t === 'gcl'
-  ) return 'cluster';
-  return 'other';
-}
+// ── classifyType ──────────────────────────────────────────────────────────────
+// Imports the real route function (server/routes/catalogs.ts) rather than a
+// hand-copied mirror. The mirror this replaced still tested shorthand aliases
+// (gal/oc/gc/pn/snr) that were deliberately dropped when classifyType was
+// rewritten to delegate to classOfType/objectCategories.ts — it kept passing
+// against its own stale copy while asserting behavior the app no longer has.
+import { classifyType } from '../../server/routes/catalogs';
 
 describe('classifyType', () => {
   it('classifies galaxies', () => {
     expect(classifyType('Galaxy')).toBe('galaxy');
     expect(classifyType('spiral galaxy')).toBe('galaxy');
-    expect(classifyType('Gal')).toBe('galaxy');
   });
 
   it('classifies nebulae', () => {
     expect(classifyType('Emission Nebula')).toBe('nebula');
     expect(classifyType('Planetary Nebula')).toBe('nebula');
     expect(classifyType('Supernova Remnant')).toBe('nebula');
-    expect(classifyType('SNR')).toBe('nebula');
-    expect(classifyType('PN')).toBe('nebula');
   });
 
   it('classifies clusters', () => {
     expect(classifyType('Open Cluster')).toBe('cluster');
     expect(classifyType('Globular Cluster')).toBe('cluster');
-    expect(classifyType('OC')).toBe('cluster');
-    expect(classifyType('GC')).toBe('cluster');
     expect(classifyType('Asterism')).toBe('cluster');
   });
 
-  it('classifies unknown types as other', () => {
+  it('classifies unknown types, and shorthand catalog codes, as other', () => {
     expect(classifyType('Double Star')).toBe('other');
     expect(classifyType('')).toBe('other');
     expect(classifyType(undefined)).toBe('other');
+  });
+
+  it('no longer recognizes the removed shorthand aliases (gal/oc/gc/pn/snr)', () => {
+    // These matched in an earlier version and were removed because none of
+    // them appear in the catalog's real type strings, and 'cl' also matched
+    // "Dark Cloud". Locking this in so a future revert is a visible diff here,
+    // not a silent regression.
+    expect(classifyType('Gal')).toBe('other');
+    expect(classifyType('OC')).toBe('other');
+    expect(classifyType('GC')).toBe('other');
+    expect(classifyType('PN')).toBe('other');
+    expect(classifyType('SNR')).toBe('other');
   });
 });
 
@@ -64,10 +59,8 @@ describe('Messier catalog entries', () => {
     expect(missing).toEqual([]);
   });
 
-  it('M42 resolves to Orion Nebula', () => {
-    const e = getCatalogEntry('M42');
-    expect(e?.name).toBe('Orion Nebula');
-  });
+  // M42 -> Orion Nebula is already asserted in catalog.test.ts against the
+  // same getCatalogEntry; not repeated here.
 
   it('M31 resolves to Andromeda Galaxy', () => {
     const e = getCatalogEntry('M31');

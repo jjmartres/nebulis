@@ -19,6 +19,7 @@ import {
   type ProcessedImageSource,
 } from './objects.js';
 import { getRunDates } from './processingRuns.js';
+import { recordLibraryFile } from './libraryFiles.js';
 
 // Single source of truth for every processed-image format: which extensions
 // are accepted, whether each can be rendered in an <img> tag, and the MIME
@@ -373,6 +374,65 @@ export function getProcessedImageFile(id: string): { data: Buffer; name: string;
   const filePath = resolveContainedObjectDir(row.objectId, 'processed', row.filename);
   if (!fs.existsSync(filePath)) return null;
   return { data: fs.readFileSync(filePath), name: row.originalName, mimeType: row.mimeType };
+}
+
+/**
+ * Move a processed image back into its night's telescope-image folder: the
+ * reverse of promoting a library file to processed (see the `from-file` route).
+ *
+ * The file lands in `sessionFolder` (nested layout) or at object level (flat)
+ * and is registered as a library file pinned to `date` through
+ * `sessionDateOverride`, so a name `parseFilename` can't read (a PixInsight
+ * export, say) still belongs to this night. The processed row goes away only
+ * after the file is in place. A crowned session image that pointed at the
+ * processed copy follows the file to its new path.
+ *
+ * Returns the new library-relative path, or null when the row does not exist.
+ */
+export function moveProcessedImageToLibrary(
+  id: string,
+  opts: { sessionFolder: string | null; telescopeId: string | null },
+): string | null {
+  const row = stmts.getProcessedImage.get(id);
+  if (!row || !row.date) return null;
+
+  const folderName = getFolderName(row.objectId);
+  const srcPath = resolveContainedObjectDir(row.objectId, 'processed', row.filename);
+  const destDir = opts.sessionFolder
+    ? resolveContainedObjectDir(row.objectId, opts.sessionFolder)
+    : resolveContainedObjectDir(row.objectId);
+  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+  const filename = uniqueProcessedFilename(destDir, row.originalName || row.filename);
+  const destPath = path.join(destDir, filename);
+  try {
+    fs.renameSync(srcPath, destPath);
+  } catch (renameErr) {
+    if (isErrnoException(renameErr) && renameErr.code === 'EXDEV') {
+      fs.copyFileSync(srcPath, destPath);
+      fs.unlinkSync(srcPath);
+    } else {
+      throw renameErr;
+    }
+  }
+
+  recordLibraryFile({
+    objectId: row.objectId,
+    folderName,
+    sessionFolder: opts.sessionFolder,
+    fileName: filename,
+    sessionDateOverride: row.date,
+    telescopeId: opts.telescopeId,
+    bytes: fs.statSync(destPath).size,
+  });
+
+  const processedRel = `${folderName}/processed/${row.filename}`;
+  const newRel = opts.sessionFolder ? `${folderName}/${opts.sessionFolder}/${filename}` : `${folderName}/${filename}`;
+  if (stmts.getSessionImage.get(row.objectId, row.date)?.sessionImage === processedRel) {
+    stmts.setSessionImage.run(newRel, row.objectId, row.date);
+  }
+  stmts.deleteProcessedImageRow.run(id);
+  return newRel;
 }
 
 /** Delete a processed image record and its file from disk. */

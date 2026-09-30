@@ -53,6 +53,8 @@
     "SOURCE_NOT_FOUND": "Télescope source introuvable.",
     "TARGET_NOT_FOUND": "Télescope cible introuvable.",
     "TMP_NOT_FOUND": "Session de téléversement introuvable. Recommence depuis le début.",
-    "UNSUPPORTED_PLATFORM": "Les emplacements de bibliothèque sur partage réseau ne sont pas pris en charge sur cette plateforme."
+    "UNSUPPORTED_PLATFORM": "Les emplacements de bibliothèque sur partage réseau ne sont pas pris en charge sur cette plateforme.",
+    "ARCHIVE_DISABLED": "L'archive est désactivée, donc rien n'a été écrit ni supprimé. Activez-la dans les Réglages, onglet Archive.",
+    "ARCHIVE_RETENTION_DISABLED": "L'élagage est désactivé, donc rien n'a été supprimé. Activez-le dans les réglages de l'archive."
   }
 }

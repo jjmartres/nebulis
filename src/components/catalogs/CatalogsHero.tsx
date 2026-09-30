@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
 import { formatNumber } from '../../lib/formatLocale';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   /** Unique objects imaged across every program (payload already deduped on
@@ -32,19 +33,20 @@ interface Props {
 
 /** Circular imaged/total gauge. The percentage sits in the middle because a
  *  ring on its own can't be read to any precision. */
-function ProgressRing({ pct, accent }: { pct: number; accent: string }) {
+function ProgressRing({ pct, accent, className = '' }: { pct: number; accent: string; className?: string }) {
   const { t } = useTranslation('catalogs');
+  const { isNight } = useTheme();
   const r = 46;
   const circumference = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <svg
       viewBox="0 0 112 112"
-      className="h-24 w-24 shrink-0 sm:h-28 sm:w-28"
+      className={`h-24 w-24 shrink-0 sm:h-28 sm:w-28 ${className}`}
       role="img"
       aria-label={t('catalogsHero.percentImagedAriaLabel', { percent: clamped })}
     >
-      <circle cx="56" cy="56" r={r} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="10" />
+      <circle cx="56" cy="56" r={r} fill="none" stroke={isNight ? 'rgba(204,51,51,0.14)' : 'rgba(255,255,255,0.14)'} strokeWidth="10" />
       <circle
         cx="56"
         cy="56"
@@ -63,7 +65,7 @@ function ProgressRing({ pct, accent }: { pct: number; accent: string }) {
         y="56"
         textAnchor="middle"
         dominantBaseline="central"
-        fill="#fff"
+        fill={isNight ? '#dd3333' : '#fff'}
         fontSize="23"
         className="font-display font-bold tabular-nums"
       >
@@ -99,8 +101,8 @@ export function CatalogsHero({ imaged, total, pct, loaded, accent }: Props) {
 
       <div className="relative flex hero-min-h flex-col justify-center gap-6 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="min-w-0">
-          <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            <BookOpen className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
+          <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+            <BookOpen className="h-5 w-5 sm:h-7 sm:w-7" style={{ color: accent }} />
             {t('catalogsHero.title')}
           </h1>
           <p className="mt-2 text-[13px] text-white/55">
@@ -108,7 +110,7 @@ export function CatalogsHero({ imaged, total, pct, loaded, accent }: Props) {
           </p>
 
           {loaded && (
-            <div className="mt-6 flex flex-wrap items-end gap-x-12 gap-y-4 sm:gap-x-16">
+            <div className="mt-6 hidden flex-wrap items-end gap-x-12 gap-y-4 sm:flex sm:gap-x-16">
               {stats.map(({ value, label }) => (
                 <div key={label} className="min-w-0">
                   <div className="font-display text-2xl font-bold leading-none tracking-tight text-white tabular-nums">
@@ -123,7 +125,7 @@ export function CatalogsHero({ imaged, total, pct, loaded, accent }: Props) {
           )}
         </div>
 
-        {loaded && <ProgressRing pct={pct} accent={accent} />}
+        {loaded && <ProgressRing pct={pct} accent={accent} className="hidden sm:block" />}
       </div>
     </section>
   );

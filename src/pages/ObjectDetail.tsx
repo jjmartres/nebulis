@@ -54,6 +54,7 @@ import { TonightPanel } from '../components/objectDetail/TonightPanel';
 import { ObservationsSection } from '../components/objectDetail/ObservationsSection';
 import { ObjectTrashModal } from '../components/objectDetail/ObjectTrashModal';
 import { DangerConfirm } from '../components/objectDetail/DangerConfirm';
+import { LinkedFilesChoice } from '../components/objectDetail/LinkedFilesChoice';
 import { buildObjectMetrics, summarizeObject } from '../components/objectDetail/objectStats';
 import { ObjectProcessedSection } from '../components/objectDetail/ObjectProcessedSection';
 import { ObjectProjectArchivesSection } from '../components/objectDetail/ObjectProjectArchivesSection';
@@ -93,6 +94,7 @@ export function ObjectDetail() {
   const accent = isNight ? '#f87171' : isSpace ? '#a78bfa' : '#fbbf24';
 
   const [deleteObjectConfirm, setDeleteObjectConfirm] = useState(false);
+  const [deleteLinkedFiles, setDeleteLinkedFiles] = useState(false);
   const [deleteSession, setDeleteSession] = useState<{ objectId: string; date: string } | null>(null);
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
   const [newObservationOpen, setNewObservationOpen] = useState(false);
@@ -160,7 +162,7 @@ export function ObjectDetail() {
   [allObjects, objectId, baseObject]);
 
   const deleteObjectMutation = useMutation({
-    mutationFn: () => deleteLibraryObject(activeObjectId),
+    mutationFn: () => deleteLibraryObject(activeObjectId, { deleteLinkedFiles }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['library-objects'] });
       // The delete lands in the same trash the restore button reads from, so
@@ -170,13 +172,14 @@ export function ObjectDetail() {
       // navigate away, so this is for whichever object list the user returns
       // to next.
       queryClient.invalidateQueries({ queryKey: ['deleted-objects'] });
+      setDeleteLinkedFiles(false);
       navigate('/');
     },
   });
 
   const deleteSessionMutation = useMutation({
     mutationFn: ({ objectId: oid, date }: { objectId: string; date: string }) =>
-      deleteLibrarySession(oid, date),
+      deleteLibrarySession(oid, date, { deleteLinkedFiles }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['library-sessions', variables.objectId] });
       // Without this the "N deleted" restore link never appears after
@@ -188,6 +191,7 @@ export function ObjectDetail() {
       queryClient.invalidateQueries({ queryKey: ['library-objects'] });
       queryClient.invalidateQueries({ queryKey: ['observations'] });
       setDeleteSession(null);
+      setDeleteLinkedFiles(false);
     },
   });
 
@@ -749,15 +753,20 @@ export function ObjectDetail() {
           title={t('objectDetail.deleteObjectTitle')}
           pending={deleteObjectMutation.isPending}
           error={deleteObjectMutation.error}
-          onCancel={() => setDeleteObjectConfirm(false)}
+          onCancel={() => { setDeleteObjectConfirm(false); setDeleteLinkedFiles(false); }}
           onConfirm={() => deleteObjectMutation.mutate()}
           body={
-            <Trans
-              i18nKey="objectDetail.deleteObjectBody"
-              ns="library"
-              values={{ name: baseObjectId }}
-              components={{ 1: <strong /> }}
-            />
+            <div className="space-y-3">
+              <p>
+                <Trans
+                  i18nKey="objectDetail.deleteObjectBody"
+                  ns="library"
+                  values={{ name: baseObjectId }}
+                  components={{ 1: <strong /> }}
+                />
+              </p>
+              <LinkedFilesChoice objectId={activeObjectId} checked={deleteLinkedFiles} onChange={setDeleteLinkedFiles} />
+            </div>
           }
         />
       )}
@@ -767,20 +776,25 @@ export function ObjectDetail() {
           title={t('objectDetail.deleteObservationTitle')}
           pending={deleteSessionMutation.isPending}
           error={deleteSessionMutation.error}
-          onCancel={() => setDeleteSession(null)}
+          onCancel={() => { setDeleteSession(null); setDeleteLinkedFiles(false); }}
           onConfirm={() => deleteSessionMutation.mutate(deleteSession)}
           body={
-            <Trans
-              i18nKey="objectDetail.deleteObservationBody"
-              ns="library"
-              values={{
-                objectId: deleteSession.objectId,
-                date: formatDate(new Date(deleteSession.date + 'T12:00:00'), {
-                  year: 'numeric', month: 'long', day: 'numeric',
-                }),
-              }}
-              components={{ 1: <strong />, 3: <strong /> }}
-            />
+            <div className="space-y-3">
+              <p>
+                <Trans
+                  i18nKey="objectDetail.deleteObservationBody"
+                  ns="library"
+                  values={{
+                    objectId: deleteSession.objectId,
+                    date: formatDate(new Date(deleteSession.date + 'T12:00:00'), {
+                      year: 'numeric', month: 'long', day: 'numeric',
+                    }),
+                  }}
+                  components={{ 1: <strong />, 3: <strong /> }}
+                />
+              </p>
+              <LinkedFilesChoice objectId={deleteSession.objectId} date={deleteSession.date} checked={deleteLinkedFiles} onChange={setDeleteLinkedFiles} />
+            </div>
           }
         />
       )}

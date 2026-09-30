@@ -11,6 +11,7 @@ import path from 'path';
 import { createHash } from 'crypto';
 import db from '../db.js';
 import { getLibraryDir } from '../libraryPath.js';
+import { resolveLibraryFile } from './fileResolver.js';
 import { normalizeCatalogId } from '../telescopeFiles.js';
 import { listObjectFiles, getObjectLayout } from './libraryLayout.js';
 import { resolverFor } from './libraryFiles.js';
@@ -303,22 +304,23 @@ export function setSessionImage(objectId: string, date: string, imagePath: strin
 // ─── Object image resolution ─────────────────────────────────────────────────
 
 /** Resolve a stored `galleryImage` value to an absolute path, but only when it
- *  stays inside LIBRARY_DIR. `galleryImage` is set via PUT
+ *  stays inside LIBRARY_DIR — or, since a gallery image is one of the
+ *  legitimate "DB pointer to a file" cases, inside a linked source's own root
+ *  when the value is an indexed `@src/...` path. `galleryImage` is set via PUT
  *  /objects/:objectId/gallery-image, which accepts any string in its request
  *  body — a value like "../../../../etc/passwd" would otherwise let
  *  resolveObjectImagePath hand back an arbitrary path. That return value
  *  reaches `sharp(srcPath)` on the *public* (auth-bypassed)
- *  /objects/:objectId/thumbnail route, so an unvalidated escape isn't just a
- *  read of arbitrary file content: a decode failure there also unlinks
- *  `srcPath`, i.e. an admin's bad input becomes an unauthenticated arbitrary
- *  file read + delete primitive. Returns null (same as "no such file") rather
- *  than throwing, so this composes with resolveObjectImagePath's existing
- *  fallback-through-priority-tiers structure. */
+ *  /objects/:objectId/thumbnail route, so an unvalidated escape would be a
+ *  read of arbitrary file content, not just a broken thumbnail (that route no
+ *  longer deletes on a decode failure — see its own comment — but never
+ *  serving an unvalidated path is still the point). Returns null (same as "no
+ *  such file") rather than throwing, so this composes with
+ *  resolveObjectImagePath's existing fallback-through-priority-tiers
+ *  structure. Resolution + containment for both cases lives in
+ *  fileResolver.ts now — see its header. */
 function safeGalleryImagePath(galleryImage: string): string | null {
-  const LIBRARY_DIR = getLibraryDir();
-  const abs = path.resolve(LIBRARY_DIR, galleryImage);
-  if (abs !== LIBRARY_DIR && !abs.startsWith(LIBRARY_DIR + path.sep)) return null;
-  return abs;
+  return resolveLibraryFile(galleryImage)?.abs ?? null;
 }
 
 const CATALOG_SOURCE_SENTINEL_RE = /^catalog-source:(hubble|wiki|dss2)$/;

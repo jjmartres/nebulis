@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import type { ByTypeStats, ObjectClass } from '../../lib/api/catalogs';
 import type { CatalogMeta } from '../../lib/catalogMeta';
 import { CatalogHeroImage } from './CatalogHeroImage';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   /** Undefined for a catalog slug we carry no editorial copy for. */
@@ -36,6 +37,16 @@ const TYPE_META: Record<ObjectClass, { labelKey: string; dot: string }> = {
   nebula:  { labelKey: 'objectClass.nebula',  dot: '#22d3ee' },
   cluster: { labelKey: 'objectClass.cluster', dot: '#fbbf24' },
   other:   { labelKey: 'objectClass.other',   dot: '#94a3b8' },
+};
+
+/** Same category dots, collapsed to a brightness-only red ladder for
+ *  red-light mode — raw hex in a `style` prop, so .night's CSS variable
+ *  overrides in index.css can't reach it. */
+const NIGHT_TYPE_DOT: Record<ObjectClass, string> = {
+  galaxy: '#dd3333',
+  nebula: '#a02828',
+  cluster: '#661a1a',
+  other: '#4d1414',
 };
 
 const TYPE_ORDER: ObjectClass[] = ['galaxy', 'nebula', 'cluster', 'other'];
@@ -79,6 +90,7 @@ export function CatalogHero({
   accent, typeFilter, onTypeFilterChange, onPlan,
 }: Props) {
   const { t } = useTranslation('catalogs');
+  const { isNight } = useTheme();
   const pct = total > 0 ? Math.round((imagedCount / total) * 100) : 0;
   const remaining = total - imagedCount;
   const ringOffset = RING_CIRCUMFERENCE - (pct / 100) * RING_CIRCUMFERENCE;
@@ -207,7 +219,8 @@ export function CatalogHero({
       <div className={`relative grid grid-cols-2 ${SM_COLS[visibleTypes.length] ?? 'sm:grid-cols-4'} border-t border-white/10`}>
         {visibleTypes.map((cls, idx) => {
           const stats = byType[cls];
-          const { labelKey: typeLabelKey, dot } = TYPE_META[cls];
+          const { labelKey: typeLabelKey, dot: dotColorLight } = TYPE_META[cls];
+          const dot = isNight ? NIGHT_TYPE_DOT[cls] : dotColorLight;
           const typeLabel = t(typeLabelKey);
           const barPct = stats.total > 0 ? (stats.imaged / stats.total) * 100 : 0;
           const active = typeFilter === cls;

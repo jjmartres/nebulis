@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { Download, Image, Heart, Share2, Loader2, Trash2 } from 'lucide-react';
 import { getLibraryFileThumbnailUrl, deleteLibraryFile, type LibraryImage } from '../../lib/api/library';
+import { isLinkedPath } from '../../lib/linkedPaths';
 import { LightboxFrame, LightboxPane } from '../lightbox/LightboxFrame';
 import { LightboxImage } from '../lightbox/LightboxImage';
 import { useZoomPan } from '../lightbox/useZoomPan';
@@ -126,7 +127,7 @@ export function ImageViewer({
     deletingRef.current = true;
     setDeleting(true);
     try {
-      await deleteLibraryFile(target.path);
+      await deleteLibraryFile(target.path, { deleteLinked: isLinkedPath(target.path) });
       queryClient.invalidateQueries({ queryKey: ['all-library-images'] });
       queryClient.invalidateQueries({ queryKey: ['library-objects'] });
       setRemovedPaths(prev => new Set(prev).add(target.path));
@@ -275,7 +276,7 @@ export function ImageViewer({
       {pendingDelete && (
         <ConfirmModal
           title={t('galleryModal.deleteFileTitle')}
-          message={t('galleryModal.deleteFileMessage', { name: pendingDelete.name })}
+          message={t(isLinkedPath(pendingDelete.path) ? 'galleryModal.deleteLinkedFileMessage' : 'galleryModal.deleteFileMessage', { name: pendingDelete.name })}
           confirmLabel={deleting ? t('galleryModal.deleting') : t('objectDetail.processedSection.delete')}
           pending={deleting}
           onCancel={() => setPendingDelete(null)}

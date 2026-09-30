@@ -17,6 +17,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { AlertTriangle, ArrowUp, Frame, GripVertical, Info, Moon, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatHm, SNAP_MINUTES, TIMELINE_GUTTER_PX } from './scheduleGeometry';
+import { useTheme } from '../../hooks/useTheme';
 import type { PlannedSession } from '../../lib/api/plannedSessions';
 import type { VisibilityVerdict } from '../../lib/visibilityCheck';
 import type { MoonVerdict } from '../../lib/moonProximity';
@@ -97,6 +98,7 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
   observerTimezone,
 }: ScheduledImagingBlockProps) {
   const { t } = useTranslation('planner');
+  const { isNight } = useTheme();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `block:${session.id}`,
     data: { kind: 'block', sessionId: session.id } satisfies BlockDragData,
@@ -117,11 +119,16 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
   const warn = !bad && (verdict === 'partial' || lowInSky || moonVerdict === 'caution' || hasOverlap);
 
   const stripeColor = bad ? 'bg-red-500' : warn ? 'bg-amber-500' : 'bg-emerald-500';
-  const edgeGlow = bad
-    ? 'rgba(239,68,68,0.35)'
-    : warn
-      ? 'rgba(245,158,11,0.32)'
-      : 'rgba(16,185,129,0.28)';
+  // Raw rgba, not a Tailwind class, so .night's CSS variable overrides can't
+  // reach it — it needs its own red-ladder branch like the traffic-light
+  // stripe above gets for free from those overrides.
+  const edgeGlow = isNight
+    ? (bad ? 'rgba(204,51,51,0.35)' : warn ? 'rgba(136,34,34,0.32)' : 'rgba(102,26,26,0.28)')
+    : bad
+      ? 'rgba(239,68,68,0.35)'
+      : warn
+        ? 'rgba(245,158,11,0.32)'
+        : 'rgba(16,185,129,0.28)';
 
   const start = new Date(session.startTime);
   const end = new Date(session.endTime);
@@ -344,7 +351,7 @@ function ResizeHandle({ edge, pxPerMinute, onResize, disabled }: ResizeHandlePro
 
   return (
     <div
-      className={`absolute left-0 right-0 z-20 cursor-ns-resize ${edge === 'top' ? 'top-0' : 'bottom-0'} h-2 ${
+      className={`absolute left-0 right-0 z-20 cursor-ns-resize ${edge === 'top' ? 'top-0' : 'bottom-0'} h-3 ${
         active ? 'bg-accent-400/50' : 'hover:bg-accent-400/30'
       }`}
       onPointerDown={handlePointerDown}

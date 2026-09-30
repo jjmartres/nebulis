@@ -1,5 +1,7 @@
 @import "./assets/fonts/fonts.css";
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../src";
+@source "../index.html";
 
 @theme {
   /* Color palette - Deep space inspired, warm and professional */
@@ -143,9 +145,16 @@ html {
    "near-identical copies drift" reason `.hero-panel` is; set high enough that
    a stat row (the tallest normal content in this group) sets the floor
    itself, so every banner in the group renders at the same height regardless
-   of which one happens to have the most content that day. */
+   of which one happens to have the most content that day.
+
+   Mobile is deliberately a much lower floor than the desktop one below: every
+   banner in this group hides its subtitle and stat row under `sm:`, leaving
+   just the title (plus, for a couple of banners, one action button), so the
+   old 9.5rem floor was mostly empty space pushing real content off the first
+   screen. Banners that still carry a button on a phone (Backup, Settings)
+   simply grow past this floor from their own content; it never clips them. */
 .hero-min-h {
-  min-height: 9.5rem;
+  min-height: 4.5rem;
 }
 @media (min-width: 640px) {
   .hero-min-h {
@@ -558,6 +567,142 @@ html.space::before {
 /* Pure black background, deep red text — preserves dark adaptation */
 .night {
   color-scheme: dark;
+
+  /* Collapse Tailwind's entire stock palette to one red ladder. The
+     per-class rules below (added first, kept for the custom slate/accent/
+     teal/white tokens) only ever caught the exact classes someone thought
+     to list, which is why "good/warn/bad" badges built from stock hues
+     (bg-emerald-500, text-amber-500, stroke-blue-400, border-violet-400,
+     text-sky-300, ...) kept rendering their real color in red-light mode.
+     Tailwind v4 compiles every utility - including opacity variants like
+     text-emerald-500/60 - to var(--color-<family>-<shade>), so redefining
+     the token here re-styles every call site at once, the same technique
+     `.light` above uses for the --color-slate and --color-accent families.
+     This does not reach raw hex used outside a Tailwind class (inline style={{color}},
+     SVG fill/stroke/stopColor bound to a computed value) - those are
+     handled at the call site instead (see scoreHex(score, isNight) in
+     forecastScore.ts, MoonDisk, AltitudeChart, NightRibbon). */
+  --night-50: #dd3333;
+  --night-100: #cc3333;
+  --night-200: #b82e2e;
+  --night-300: #a02828;
+  --night-400: #882222;
+  --night-500: #661a1a;
+  --night-600: #551515;
+  --night-700: #4d1414;
+  --night-800: #3a0f0f;
+  --night-900: #2a0808;
+  --night-950: #1a0505;
+
+  --color-white: var(--night-50);
+  --color-danger-500: var(--night-100);
+  --color-danger-600: var(--night-200);
+
+  /* Same ladder for the app's own custom slate/accent/teal tokens, so an
+     opacity variant the explicit per-class rules below don't happen to list
+     (e.g. bg-slate-800/40, text-accent-400/70) still comes out red instead
+     of falling through to this app's normal amber/cool-gray values. */
+  --color-slate-950: var(--night-950);
+  --color-slate-900: var(--night-900);
+  --color-slate-800: var(--night-800);
+  --color-slate-700: var(--night-700);
+  --color-slate-600: var(--night-600);
+  --color-slate-500: var(--night-500);
+  --color-slate-400: var(--night-400);
+  --color-slate-300: var(--night-300);
+  --color-slate-200: var(--night-200);
+  --color-slate-100: var(--night-100);
+  --color-slate-50: var(--night-50);
+
+  --color-accent-300: var(--night-100);
+  --color-accent-400: var(--night-100);
+  --color-accent-500: var(--night-500);
+  --color-accent-600: var(--night-600);
+  --color-accent-700: var(--night-700);
+
+  --color-teal-400: var(--night-400);
+  --color-teal-500: var(--night-500);
+  --color-teal-600: var(--night-600);
+
+  --color-red-50: var(--night-50); --color-red-100: var(--night-100); --color-red-200: var(--night-200);
+  --color-red-300: var(--night-300); --color-red-400: var(--night-400); --color-red-500: var(--night-500);
+  --color-red-600: var(--night-600); --color-red-700: var(--night-700); --color-red-800: var(--night-800);
+  --color-red-900: var(--night-900); --color-red-950: var(--night-950);
+
+  --color-orange-50: var(--night-50); --color-orange-100: var(--night-100); --color-orange-200: var(--night-200);
+  --color-orange-300: var(--night-300); --color-orange-400: var(--night-400); --color-orange-500: var(--night-500);
+  --color-orange-600: var(--night-600); --color-orange-700: var(--night-700); --color-orange-800: var(--night-800);
+  --color-orange-900: var(--night-900); --color-orange-950: var(--night-950);
+
+  --color-amber-50: var(--night-50); --color-amber-100: var(--night-100); --color-amber-200: var(--night-200);
+  --color-amber-300: var(--night-300); --color-amber-400: var(--night-400); --color-amber-500: var(--night-500);
+  --color-amber-600: var(--night-600); --color-amber-700: var(--night-700); --color-amber-800: var(--night-800);
+  --color-amber-900: var(--night-900); --color-amber-950: var(--night-950);
+
+  --color-yellow-50: var(--night-50); --color-yellow-100: var(--night-100); --color-yellow-200: var(--night-200);
+  --color-yellow-300: var(--night-300); --color-yellow-400: var(--night-400); --color-yellow-500: var(--night-500);
+  --color-yellow-600: var(--night-600); --color-yellow-700: var(--night-700); --color-yellow-800: var(--night-800);
+  --color-yellow-900: var(--night-900); --color-yellow-950: var(--night-950);
+
+  --color-lime-50: var(--night-50); --color-lime-100: var(--night-100); --color-lime-200: var(--night-200);
+  --color-lime-300: var(--night-300); --color-lime-400: var(--night-400); --color-lime-500: var(--night-500);
+  --color-lime-600: var(--night-600); --color-lime-700: var(--night-700); --color-lime-800: var(--night-800);
+  --color-lime-900: var(--night-900); --color-lime-950: var(--night-950);
+
+  --color-green-50: var(--night-50); --color-green-100: var(--night-100); --color-green-200: var(--night-200);
+  --color-green-300: var(--night-300); --color-green-400: var(--night-400); --color-green-500: var(--night-500);
+  --color-green-600: var(--night-600); --color-green-700: var(--night-700); --color-green-800: var(--night-800);
+  --color-green-900: var(--night-900); --color-green-950: var(--night-950);
+
+  --color-emerald-50: var(--night-50); --color-emerald-100: var(--night-100); --color-emerald-200: var(--night-200);
+  --color-emerald-300: var(--night-300); --color-emerald-400: var(--night-400); --color-emerald-500: var(--night-500);
+  --color-emerald-600: var(--night-600); --color-emerald-700: var(--night-700); --color-emerald-800: var(--night-800);
+  --color-emerald-900: var(--night-900); --color-emerald-950: var(--night-950);
+
+  --color-cyan-50: var(--night-50); --color-cyan-100: var(--night-100); --color-cyan-200: var(--night-200);
+  --color-cyan-300: var(--night-300); --color-cyan-400: var(--night-400); --color-cyan-500: var(--night-500);
+  --color-cyan-600: var(--night-600); --color-cyan-700: var(--night-700); --color-cyan-800: var(--night-800);
+  --color-cyan-900: var(--night-900); --color-cyan-950: var(--night-950);
+
+  --color-sky-50: var(--night-50); --color-sky-100: var(--night-100); --color-sky-200: var(--night-200);
+  --color-sky-300: var(--night-300); --color-sky-400: var(--night-400); --color-sky-500: var(--night-500);
+  --color-sky-600: var(--night-600); --color-sky-700: var(--night-700); --color-sky-800: var(--night-800);
+  --color-sky-900: var(--night-900); --color-sky-950: var(--night-950);
+
+  --color-blue-50: var(--night-50); --color-blue-100: var(--night-100); --color-blue-200: var(--night-200);
+  --color-blue-300: var(--night-300); --color-blue-400: var(--night-400); --color-blue-500: var(--night-500);
+  --color-blue-600: var(--night-600); --color-blue-700: var(--night-700); --color-blue-800: var(--night-800);
+  --color-blue-900: var(--night-900); --color-blue-950: var(--night-950);
+
+  --color-indigo-50: var(--night-50); --color-indigo-100: var(--night-100); --color-indigo-200: var(--night-200);
+  --color-indigo-300: var(--night-300); --color-indigo-400: var(--night-400); --color-indigo-500: var(--night-500);
+  --color-indigo-600: var(--night-600); --color-indigo-700: var(--night-700); --color-indigo-800: var(--night-800);
+  --color-indigo-900: var(--night-900); --color-indigo-950: var(--night-950);
+
+  --color-violet-50: var(--night-50); --color-violet-100: var(--night-100); --color-violet-200: var(--night-200);
+  --color-violet-300: var(--night-300); --color-violet-400: var(--night-400); --color-violet-500: var(--night-500);
+  --color-violet-600: var(--night-600); --color-violet-700: var(--night-700); --color-violet-800: var(--night-800);
+  --color-violet-900: var(--night-900); --color-violet-950: var(--night-950);
+
+  --color-purple-50: var(--night-50); --color-purple-100: var(--night-100); --color-purple-200: var(--night-200);
+  --color-purple-300: var(--night-300); --color-purple-400: var(--night-400); --color-purple-500: var(--night-500);
+  --color-purple-600: var(--night-600); --color-purple-700: var(--night-700); --color-purple-800: var(--night-800);
+  --color-purple-900: var(--night-900); --color-purple-950: var(--night-950);
+
+  --color-fuchsia-50: var(--night-50); --color-fuchsia-100: var(--night-100); --color-fuchsia-200: var(--night-200);
+  --color-fuchsia-300: var(--night-300); --color-fuchsia-400: var(--night-400); --color-fuchsia-500: var(--night-500);
+  --color-fuchsia-600: var(--night-600); --color-fuchsia-700: var(--night-700); --color-fuchsia-800: var(--night-800);
+  --color-fuchsia-900: var(--night-900); --color-fuchsia-950: var(--night-950);
+
+  --color-pink-50: var(--night-50); --color-pink-100: var(--night-100); --color-pink-200: var(--night-200);
+  --color-pink-300: var(--night-300); --color-pink-400: var(--night-400); --color-pink-500: var(--night-500);
+  --color-pink-600: var(--night-600); --color-pink-700: var(--night-700); --color-pink-800: var(--night-800);
+  --color-pink-900: var(--night-900); --color-pink-950: var(--night-950);
+
+  --color-rose-50: var(--night-50); --color-rose-100: var(--night-100); --color-rose-200: var(--night-200);
+  --color-rose-300: var(--night-300); --color-rose-400: var(--night-400); --color-rose-500: var(--night-500);
+  --color-rose-600: var(--night-600); --color-rose-700: var(--night-700); --color-rose-800: var(--night-800);
+  --color-rose-900: var(--night-900); --color-rose-950: var(--night-950);
 }
 .night body {
   background-color: #000000;

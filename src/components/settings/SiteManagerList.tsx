@@ -183,7 +183,11 @@ function SiteRow({
         </p>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Hover-revealed on a pointer device, but there is no hover on a
+          touchscreen, so these actions (including the only way to delete or
+          un-default a site) would be invisible and effectively unreachable on
+          mobile without the `opacity-100` floor below `sm:`. */}
+      <div className="flex items-center gap-1 shrink-0 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
         <button
           onClick={e => { e.stopPropagation(); onSetSky(); }}
           title={t('siteManager.setVisibleSky')}

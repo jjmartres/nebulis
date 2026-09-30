@@ -488,6 +488,12 @@ export function PlannerPage() {
   const [resizePreview, setResizePreview] = useState<Map<number, { edge: 'top' | 'bottom'; deltaMinutes: number }>>(new Map());
   const [copyingPrevNight, setCopyingPrevNight] = useState(false);
   const [copyPrevNightError, setCopyPrevNightError] = useState<string | null>(null);
+  // handleQuickAdd (the target list's "+" button, the only way to schedule on
+  // a phone where drag-and-drop isn't available) used to fail several of its
+  // checks in total silence: tap it with no free slot left tonight and
+  // nothing happened at all, with no way to tell that from the tap simply not
+  // registering. This surfaces exactly which of those checks failed.
+  const [quickAddNotice, setQuickAddNotice] = useState<string | null>(null);
   const [skyEditorOpen, setSkyEditorOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
@@ -879,7 +885,11 @@ export function PlannerPage() {
    */
   const handleQuickAdd = useCallback(
     (target: PlannerTarget) => {
-      if (observerLat == null || observerLon == null || !timelineStartIso || !timelineEndIso) return;
+      setQuickAddNotice(null);
+      if (observerLat == null || observerLon == null || !timelineStartIso || !timelineEndIso) {
+        setQuickAddNotice(t('plannerPage.quickAddNoWindow'));
+        return;
+      }
       const tStart = new Date(timelineStartIso);
       const tEnd = new Date(timelineEndIso);
       const windowStart = darkStartIso ? new Date(darkStartIso) : tStart;
@@ -907,11 +917,17 @@ export function PlannerPage() {
         busy,
         moonIllumination: planner?.moonIllumination ?? undefined,
       });
-      if (!slot) return;
+      if (!slot) {
+        setQuickAddNotice(t('plannerPage.quickAddNoSlot', { name: target.name }));
+        return;
+      }
 
       const start = clampTime(snapToGrid(slot.start), tStart, tEnd);
       const end = clampTime(new Date(start.getTime() + DEFAULT_BLOCK_MINUTES * 60_000), tStart, tEnd);
-      if (minutesBetween(start, end) < MIN_BLOCK_MINUTES) return;
+      if (minutesBetween(start, end) < MIN_BLOCK_MINUTES) {
+        setQuickAddNotice(t('plannerPage.quickAddNoSlot', { name: target.name }));
+        return;
+      }
 
       createMutate({
         objectId: target.id,
@@ -923,7 +939,7 @@ export function PlannerPage() {
       });
       setMobilePane('schedule');
     },
-    [observerLat, observerLon, timelineStartIso, timelineEndIso, darkStartIso, darkEndIso, sessions, createMutate, planner?.moonIllumination],
+    [observerLat, observerLon, timelineStartIso, timelineEndIso, darkStartIso, darkEndIso, sessions, createMutate, planner?.moonIllumination, t],
   );
 
   /**
@@ -1291,6 +1307,12 @@ export function PlannerPage() {
       {copyPrevNightError && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/15 px-3 py-2 text-xs text-red-400">
           {copyPrevNightError}
+        </div>
+      )}
+
+      {quickAddNotice && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
+          {quickAddNotice}
         </div>
       )}
 

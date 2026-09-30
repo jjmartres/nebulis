@@ -37,10 +37,14 @@ async function mockActiveTelescope(page: Page) {
   await page.reload();
 }
 
-/** Open the per-telescope connection/import editor. */
-async function openTelescopeEditor(page: Page) {
+/**
+ * Open the per-telescope editor. It is tabbed (Telescope / Connect / Import)
+ * and opens on Telescope, so pass the tab that holds the field under test.
+ */
+async function openTelescopeEditor(page: Page, tab?: 'Connect' | 'Import') {
   await page.getByRole('button', { name: 'Telescopes' }).click();
   await page.getByRole('button', { name: 'Edit telescope' }).click();
+  if (tab) await page.getByRole('tab', { name: tab }).click();
 }
 
 /** Settings groups are a sidebar of tabs, not one long page. */
@@ -77,25 +81,25 @@ test.describe('Settings Page', () => {
 
   test('shows SMB hostname field pre-filled', async ({ page }) => {
     await mockActiveTelescope(page);
-    await openTelescopeEditor(page);
+    await openTelescopeEditor(page, 'Connect');
     await expect(page.locator('input[value="192.168.1.100"]')).toBeVisible();
   });
 
   test('shows share name field', async ({ page }) => {
     await mockActiveTelescope(page);
-    await openTelescopeEditor(page);
+    await openTelescopeEditor(page, 'Connect');
     await expect(page.locator('input[value="Seestar"]')).toBeVisible();
   });
 
   test('shows username field', async ({ page }) => {
     await mockActiveTelescope(page);
-    await openTelescopeEditor(page);
+    await openTelescopeEditor(page, 'Connect');
     await expect(page.locator('input[value="seestar"]')).toBeVisible();
   });
 
   test('test connection button is present', async ({ page }) => {
     await mockActiveTelescope(page);
-    await openTelescopeEditor(page);
+    await openTelescopeEditor(page, 'Connect');
     await expect(page.getByRole('button', { name: /test connection/i })).toBeVisible();
   });
 
@@ -104,7 +108,7 @@ test.describe('Settings Page', () => {
     // The endpoint moved from POST /api/telescope/test to
     // POST /api/telescopes/test-connection.
     await page.route('**/api/telescopes/test-connection', r => r.fulfill(json(MOCK.connectionTest)));
-    await openTelescopeEditor(page);
+    await openTelescopeEditor(page, 'Connect');
 
     await page.getByRole('button', { name: /test connection/i }).click();
     await expect(page.getByText(/connected|success|found/i)).toBeVisible({ timeout: 5000 });
@@ -113,7 +117,7 @@ test.describe('Settings Page', () => {
   test('test connection failure shows error message', async ({ page }) => {
     await mockActiveTelescope(page);
     await page.route('**/api/telescopes/test-connection', r => r.fulfill(json(MOCK.connectionTestFailed)));
-    await openTelescopeEditor(page);
+    await openTelescopeEditor(page, 'Connect');
 
     await page.getByRole('button', { name: /test connection/i }).click();
     await expect(page.getByText(/error|failed|refused/i)).toBeVisible({ timeout: 5000 });
@@ -126,16 +130,17 @@ test.describe('Settings Page', () => {
     await expect(page.getByRole('button', { name: /save/i })).toBeVisible();
   });
 
-  test('saving settings calls PUT API', async ({ page }) => {
-    let putCalled = false;
+  test('saving settings calls PUT API with the changed field', async ({ page }) => {
+    let putBody: unknown = null;
     await page.route('**/api/settings', async r => {
-      if (r.request().method() === 'PUT') putCalled = true;
+      if (r.request().method() === 'PUT') putBody = r.request().postDataJSON();
       r.fulfill(json(MOCK.settings));
     });
 
-    await makeSettingsDirty(page);
+    await makeSettingsDirty(page); // switches the temperature unit to Celsius
     await page.getByRole('button', { name: /save/i }).click();
-    await expect.poll(() => putCalled).toBe(true);
+    await expect.poll(() => putBody).not.toBeNull();
+    expect((putBody as { temperatureUnit?: string }).temperatureUnit).toBe('celsius');
   });
 
   // ─── Observer location ────────────────────────────────────────────────────
@@ -197,10 +202,10 @@ test.describe('Settings Page', () => {
     await expect(page.locator('input[type="password"]')).toBeVisible();
   });
 
-  test('creating a user calls POST API', async ({ page }) => {
-    let postCalled = false;
+  test('creating a user calls POST API with the entered fields', async ({ page }) => {
+    let postBody: unknown = null;
     await page.route('**/api/auth/users', async r => {
-      if (r.request().method() === 'POST') postCalled = true;
+      if (r.request().method() === 'POST') postBody = r.request().postDataJSON();
       r.fulfill(json(MOCK.users));
     });
 
@@ -212,7 +217,11 @@ test.describe('Settings Page', () => {
     await page.locator('input[type="password"]').fill('password123');
     await page.getByRole('button', { name: 'Create user' }).click();
 
-    await expect.poll(() => postCalled).toBe(true);
+    await expect.poll(() => postBody).not.toBeNull();
+    expect(postBody).toMatchObject({
+      username: 'newuser',
+      email: 'new@example.com',
+    });
   });
 
   test('delete user button is present', async ({ page }) => {
@@ -223,14 +232,13 @@ test.describe('Settings Page', () => {
   // ─── Import/Sync settings ─────────────────────────────────────────────────
   // The global sync/import toggles (syncEnabled, syncJpg, autoImport, ...) were
   // removed from Settings. Each telescope now carries its own auto-import
-  // switch and file-type filters, in the edit modal's "Import behavior"
-  // section.
+  // switch and file-type filters, on the edit modal's "Import"
+  // tab.
 
   test('import settings section is present', async ({ page }) => {
     await mockActiveTelescope(page);
-    await openTelescopeEditor(page);
+    await openTelescopeEditor(page, 'Import');
 
-    await expect(page.getByText('Import behavior', { exact: true })).toBeVisible();
     await expect(page.getByText('Auto-import from this telescope')).toBeVisible();
   });
 

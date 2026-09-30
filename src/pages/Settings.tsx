@@ -17,16 +17,17 @@ import { ConnectedDevicesSection } from '../components/settings/ConnectedDevices
 import { ConnectionSection } from '../components/settings/ConnectionSection';
 import { SkySection } from '../components/settings/SkySection';
 import { StorageLocationSection } from '../components/settings/StorageLocationSection';
-import { ReorganizeLibrarySection } from '../components/settings/ReorganizeLibrarySection';
-import { StorageCleanupSection } from '../components/settings/StorageCleanupSection';
 import { DatabaseBackupsSection } from '../components/settings/DatabaseBackupsSection';
+import { LibraryCleanupSection } from '../components/settings/LibraryCleanupSection';
+import { LinkedFoldersSection } from '../components/settings/LinkedFoldersSection';
+import { ArchiveSection } from '../components/settings/ArchiveSection';
 import { SystemLogSection } from '../components/settings/SystemLogSection';
 import { DangerSection } from '../components/settings/DangerSection';
 import { AboutSection } from '../components/settings/AboutSection';
 
 export function SettingsPage() {
   const { t } = useTranslation('settings');
-  const { isDark } = useTheme();
+  const { isDark, isNight } = useTheme();
   const { isAdmin, isViewer } = useAuth();
   const queryClient = useQueryClient();
 
@@ -129,7 +130,10 @@ export function SettingsPage() {
   }
 
   const showSaveBar = isDirty || justSaved;
-  const accent = isDark ? '#fbbf24' : '#b45309';
+  // Hex, not a Tailwind class: SettingsHero appends alpha digits for its
+  // radial washes and paints the icon via inline style, so the `.night`
+  // token overrides never reach it. Night gets the red-ladder value.
+  const accent = isNight ? '#cc3333' : isDark ? '#fbbf24' : '#b45309';
   const subtitleKey = subtitleKeyFor(resolvedGroup, resolvedSection);
 
   function renderActive() {
@@ -149,8 +153,9 @@ export function SettingsPage() {
       case 'sky':
         return <SkySection isDark={isDark} form={form} setForm={setForm} />;
       case 'storage':
-        if (resolvedSection === 'organize') return <ReorganizeLibrarySection isDark={isDark} />;
-        if (resolvedSection === 'cleanup') return <StorageCleanupSection isDark={isDark} />;
+        if (resolvedSection === 'archive') return <ArchiveSection isDark={isDark} />;
+        if (resolvedSection === 'linked') return <LinkedFoldersSection isDark={isDark} />;
+        if (resolvedSection === 'cleanup') return <LibraryCleanupSection isDark={isDark} />;
         if (resolvedSection === 'backups') return <DatabaseBackupsSection isDark={isDark} />;
         return <StorageLocationSection isDark={isDark} />;
       case 'log':
@@ -276,9 +281,7 @@ function subtitleKeyFor(groupId: string, sectionId: string | null): string {
     case 'hardware': return 'subtitle.hardware';
     case 'sky':      return 'subtitle.sky';
     case 'storage':
-      if (sectionId === 'organize') return 'subtitle.storageOrganize';
-      if (sectionId === 'cleanup') return 'subtitle.storageCleanup';
-      return 'subtitle.storage';
+      return sectionId === 'cleanup' ? 'subtitle.libraryCleanup' : 'subtitle.storage';
     case 'log':      return 'subtitle.log';
     case 'danger':   return 'subtitle.danger';
     case 'about':    return 'subtitle.about';

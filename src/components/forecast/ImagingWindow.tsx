@@ -30,6 +30,7 @@ import {
   resolveImagingWindow,
   type TwilightTimes,
 } from '../../lib/forecastNights';
+import { useTheme } from '../../hooks/useTheme';
 
 interface TonightInfo extends TwilightTimes {
   moonIllumination: number;
@@ -57,8 +58,8 @@ function ColLabel({ children }: { children: React.ReactNode }) {
 }
 
 /** Score chip, matching the style of the ribbon's scrub tooltip. */
-function ScoreChip({ score, label }: { score: number; label: string }) {
-  const hex = scoreHex(score);
+function ScoreChip({ score, label, isNight }: { score: number; label: string; isNight: boolean }) {
+  const hex = scoreHex(score, isNight);
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ring-1 ring-inset"
@@ -87,6 +88,7 @@ export function ImagingWindow({
   hours, tonight, timeZone, darkWindow, tempUnit, windUnit, isDark,
 }: Props) {
   const { t } = useTranslation('forecast');
+  const { isNight } = useTheme();
 
   const win = resolveImagingWindow(tonight);
   if (!win) return null;
@@ -185,7 +187,7 @@ export function ImagingWindow({
           </thead>
           <tbody>
             {windowHours.map((hour, idx) => {
-              const vis = calculateVisibilityScore(hour, tonight.moonIllumination, timeZone, darkWindow, t);
+              const vis = calculateVisibilityScore(hour, tonight.moonIllumination, timeZone, darkWindow, t, isNight);
               const hourMs = new Date(hour.time).getTime();
               const moonUp = moonKnown && moonUpAt(hourMs);
               // Below the horizon is stated plainly; an amber illumination
@@ -206,7 +208,7 @@ export function ImagingWindow({
                   </td>
 
                   <td className="px-3 py-2.5">
-                    <ScoreChip score={vis.score} label={scoreLabel(vis.score, t)} />
+                    <ScoreChip score={vis.score} label={scoreLabel(vis.score, t)} isNight={isNight} />
                   </td>
 
                   <td className={`px-3 py-2.5 ${cellText}`}>

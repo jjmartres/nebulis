@@ -15,6 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from '../sharp-optional.js';
 import { getLibraryDir } from '../libraryPath.js';
+import { LINKED_SOURCE_DIR_NAME } from './archiveFolders.js';
 import { THUMBNAILS_DIR } from '../paths.js';
 import { runRender } from '../renderQueue.js';
 import { getLocalObservations } from './observations.js';
@@ -121,6 +122,13 @@ export async function prewarmSessionThumbnails(reason = 'manual'): Promise<Prewa
         const objectId = relPath ? null : objectThumbId(url);
 
         if (relPath) {
+          // A linked source's relPath (the '@src/...' form — see fileResolver.ts)
+          // never lives under libraryDir, so joining it here would always miss on
+          // existsSync below anyway (safe, but a wasted resolve+stat on every
+          // pass). Skip explicitly: linked-file session thumbnails render
+          // on-demand instead of being pre-warmed, matching the contract's scope
+          // (only hero thumbnails are generated eagerly for a linked object).
+          if (relPath.startsWith(LINKED_SOURCE_DIR_NAME + '/')) { result.skipped++; continue; }
           const absPath = path.resolve(libraryDir, relPath);
           if (!absPath.startsWith(libRoot) || !fs.existsSync(absPath)) { result.skipped++; continue; }
           if (!/\.(jpe?g|png|tiff?)$/i.test(relPath)) { result.skipped++; continue; }

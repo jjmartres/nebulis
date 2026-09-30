@@ -8,6 +8,8 @@
     "noObservableWindow": "Aucune fenêtre nocturne observable n'est disponible pour cette position et cette date.",
     "skyNotSet": "non défini",
     "skyMapSaveFailed": "Impossible d'enregistrer la carte du ciel : {{error}}",
+    "quickAddNoWindow": "Le planning de ce soir n'a pas encore fini de charger. Réessayez dans un instant.",
+    "quickAddNoSlot": "Aucun créneau libre pour {{name}} ce soir. Le planning est peut-être déjà complet.",
     "targetsTab": "Cibles",
     "scheduleTab": "Horaire",
     "dropToSchedule": "Déposer sur la chronologie pour programmer 90 minutes",

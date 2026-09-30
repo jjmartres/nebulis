@@ -23,6 +23,8 @@ import { formatTemp } from '../../lib/forecastScore';
 import { formatIntegration } from './objectStats';
 import { formatDate, formatNumber } from '../../lib/formatLocale';
 import type { SessionCaptureSummary, SessionWeather } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 
 export interface ObservationCardModel {
   /** The variant this night belongs to, which is what the link must point at.
@@ -79,6 +81,7 @@ function variantBadgeClass(label: string): string {
 }
 
 export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: Props) {
+  const { isNight } = useTheme();
   const { t } = useTranslation('library');
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -185,7 +188,7 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
 
           {o.telescope && (
             <div className={`flex items-center gap-1.5 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: o.telescope.color }} />
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: nightSafeColor(o.telescope.color, isNight) }} />
               <span className="truncate">{o.telescope.name}</span>
             </div>
           )}

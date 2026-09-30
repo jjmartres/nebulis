@@ -48,6 +48,7 @@ import {
   asiairLocalName,
   resolveAsiairRoot,
   ASIAIR_CALIBRATION_PATHS,
+  ASIAIR_CALIBRATION_WALK,
   type WalkerConfig,
   type GenericDiscoveredObject,
   type AsiairDiscoveredObject,
@@ -81,7 +82,8 @@ import {
 } from './objects.js';
 import { resolveObjectImagePath, invalidateAllImagesCache, objectThumbnailDiskCacheKey } from './gallery.js';
 import { writeFileIntoLibrary, copyTransportFile } from './importWrite.js';
-import { recordLibraryFiles, roleForFile, resolverFor, writeObjectManifest, type RecordFileInput } from './libraryFiles.js';
+import { recordLibraryFiles, roleForFile, resolverFor, writeObjectManifest, getLibraryFileRow, type RecordFileInput } from './libraryFiles.js';
+import { classifyExistingCopy } from './existingCopy.js';
 import { isCaptureInfoSidecar, ingestCaptureInfoFile } from './captureInfo.js';
 import { getStartrailsObjectId, patchStartrailsObjectMeta } from './dwarfStartrails.js';
 import { getVideosObjectId, patchVideosObjectMeta } from './dwarfVideos.js';
@@ -140,6 +142,7 @@ import { deviceNoun, isGenericShare, offlineAdvice } from '../deviceWording.js';
 import { canonicalImportName } from './importNaming.js';
 import { debugLog } from '../debugLogger.js';
 import { log } from '../logger.js';
+import { acquireLibraryLock } from '../libraryBusy.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1793,7 +1796,7 @@ export async function runImport(
       try {
         await migrateRestackedToSharedRootOnce();
         const restackedPath = path.posix.join(walkerBase, RESTACKED_FOLDER);
-        const allCandidates = await collectRemoteArchiveCandidates(profile, walkerBase, [RESTACKED_FOLDER]);
+        const allCandidates = await collectRemoteArchiveCandidates(profile, walkerBase, [RESTACKED_FOLDER], { shouldCancel: () => importCancelRequested });
         const matchedRelPaths = new Set<string>();
         // Derive the subfolder set and each subfolder's file list from
         // allCandidates: collectRemoteArchiveCandidates already walked the
@@ -1903,7 +1906,12 @@ export async function runImport(
         // lists each independently and simply finds nothing for one that's
         // absent (smbListDir returns an empty listing for a missing remote
         // directory rather than throwing, matching SMB/local semantics).
-        const candidates = await collectRemoteArchiveCandidates(profile, archiveBase, archiveFolders);
+        // Only the ASIAIR sweep gets the phantom-tree limits: Dwarf's CALI_FRAME
+        // and DWARF_DARK are ordinary folders that need the default walk.
+        const candidates = await collectRemoteArchiveCandidates(profile, archiveBase, archiveFolders, {
+          shouldCancel: () => importCancelRequested,
+          ...(isAsiair ? ASIAIR_CALIBRATION_WALK : {}),
+        });
         if (candidates.length > 0) {
           const archived = await downloadToArchive(profile, candidates, getArchiveDir(profile.id), {
             shouldCancel: () => importCancelRequested,
@@ -1956,7 +1964,7 @@ export async function runImport(
           })
           .map(e => e.name);
         if (otherFolders.length > 0) {
-          const candidates = await collectRemoteArchiveCandidates(profile, '', otherFolders);
+          const candidates = await collectRemoteArchiveCandidates(profile, '', otherFolders, { shouldCancel: () => importCancelRequested });
           if (candidates.length > 0) {
             const archived = await downloadToArchive(profile, candidates, getArchiveDir(profile.id), {
               shouldCancel: () => importCancelRequested,
@@ -3014,6 +3022,9 @@ export function getImportHistory(limit = 10, offset = 0): { entries: ImportHisto
   };
 }
 
+/** Releases the shared library lock taken by the current import claim. */
+let releaseLibraryLock: (() => void) | null = null;
+
 /**
  * Atomically claim the import lock. Returns true if the lock was acquired,
  * false if an import is already running. Callers must use this before calling
@@ -3022,6 +3033,11 @@ export function getImportHistory(limit = 10, offset = 0): { entries: ImportHisto
  */
 export function claimImportLock(): boolean {
   if (importStatus.running) return false;
+  // Shared with the archive, linked scans and repairs: an import must not start
+  // while any of them is mid-run, and none of them may start while this holds.
+  const release = acquireLibraryLock('import');
+  if (release === null) return false;
+  releaseLibraryLock = release;
   importStatus.running = true;
   // Mint the owning run's id HERE, not later when a run function replaces
   // importStatus. `releaseImportLock(runId)` is a conditional release, so the
@@ -3054,6 +3070,8 @@ export function claimImportLock(): boolean {
 export function releaseImportLock(runId?: string | null): void {
   if (runId !== undefined && importStatus.runId !== runId) return;
   importStatus.running = false;
+  releaseLibraryLock?.();
+  releaseLibraryLock = null;
   try { stmts.setImportRunning.run(0, null); } catch { /* best-effort */ }
 }
 
@@ -3554,27 +3572,38 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
           : canonicalImportName(file.name, target, file.derived.date, file.derived.time, EMPTY_NAMES);
         const naturalPath = path.join(objLocalDir, sessionDir, naturalName);
         if (fs.existsSync(naturalPath)) {
-          // A prior run's copy can have been interrupted before .tmp staging
-          // was added below, leaving a truncated file at the final name.
-          // Compare against the known source size so a retry heals it
-          // instead of treating a partial file as "already imported" forever.
-          let complete = true;
-          try { complete = fs.statSync(naturalPath).size === file.size; } catch { complete = false; }
-          if (complete) {
+          // What is already at this name? "Same name" is not "same file": two different files can share a
+          // name and a night (per-night subfolders that reuse names, two backups merged). The recorded
+          // source path is the fast answer for a re-run; otherwise the bytes decide (see existingCopy.ts).
+          const naturalRel = `${path.basename(objLocalDir)}/${sessionDir ? `${sessionDir}/` : ''}${naturalName}`;
+          let verdict: 'identical' | 'partial' | 'different';
+          try {
+            const recorded = getLibraryFileRow(naturalRel);
+            if (recorded && recorded.sourcePath === file.relPath && fs.statSync(naturalPath).size === file.size) {
+              verdict = 'identical';
+            } else {
+              verdict = await classifyExistingCopy(naturalPath, file.absPath);
+            }
+          } catch { verdict = 'different'; }
+
+          if (verdict === 'identical') {
             log.info({ file: naturalName, objectId: targetObjectId }, '[folder-import] exists');
             importStatus.skippedFiles++;
             importStatus.filesDone++;
             used.add(naturalName);
             continue;
           }
-          log.warn({ file: naturalName, objectId: targetObjectId }, '[folder-import] re-copying partial file from a prior interrupted run');
-          // The partial file occupies its own natural name, so leaving it in
-          // `used` made the naming below treat that name as taken and dedup to
-          // a second, differently named copy — the heal never happened and an
-          // interrupted import left both a corrupt file and a duplicate. Drop
-          // the name so the retry reuses it; writeFileIntoLibrary's size check
-          // overwrites the partial in place.
-          used.delete(naturalName);
+          if (verdict === 'partial') {
+            // A prior run's copy can have been interrupted before .tmp staging was added, leaving a
+            // truncated file at the final name. It is a prefix of the source, so a retry heals it.
+            log.warn({ file: naturalName, objectId: targetObjectId }, '[folder-import] re-copying partial file from a prior interrupted run');
+            // The partial file occupies its own natural name, so leaving it in `used` made the naming
+            // below dedup to a second copy. Drop the name so the retry reuses it; writeFileIntoLibrary's
+            // size check overwrites the partial in place.
+            used.delete(naturalName);
+          }
+          // 'different': another file owns this name. It stays in `used`, so the naming below gives this
+          // one a numeric suffix and both survive.
         }
 
         // Nested: keep the source name. It only falls back to the canonical

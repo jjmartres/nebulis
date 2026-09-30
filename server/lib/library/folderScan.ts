@@ -20,6 +20,7 @@ import {
   observingNightDate,
 } from '../telescopeFiles.js';
 import { identifyObjectFromFolderName } from './objectIdentification.js';
+import { getAliasesForCanonical } from '../catalogAliases.js';
 import {
   classifyImportFile,
   countSkip,
@@ -27,7 +28,7 @@ import {
   type ImportSkipSummary,
   type SkipTally,
 } from './importFilter.js';
-import { planObjectFolder, groupByTarget, targetFromFileName, isNonObjectFolder } from './objectDiscovery.js';
+import { planObjectFolder, groupByTarget, targetFromFileName, isNonObjectFolder, isDeviceModelFolder } from './objectDiscovery.js';
 import { deriveFileDate, confidenceForSource, type DerivedDate, type DateSource } from './dateDerivation.js';
 import { isStartrailsFolder, STARTRAILS_TARGET_NAME } from './dwarfStartrails.js';
 import { isDwarfSessionFolder, extractTargetFromSessionFolder, getWalkerConfig } from '../walkers/index.js';
@@ -91,6 +92,8 @@ export interface CatalogMatch {
   type: string;
   constellation: string | null;
   magnitude: number | null;
+  /** Other catalog designations for the same object ("C1" for NGC188). */
+  aliases: string[];
 }
 
 export interface ScannedSession {
@@ -109,6 +112,10 @@ export interface ScannedObject {
   unsortedCount: number;
   unsortedBytes: number;
   catalogMatch: CatalogMatch | null;
+  /** The id the object is stored under by default: the catalog match, keeping an imaging variant
+   *  (`M16_Ha`, `M31_mosaic`) so it lands as its own object like a telescope sync stores it. Null when
+   *  nothing matched (the wizard then falls back to the folder name). */
+  targetObjectId: string | null;
 }
 
 /** One reason files under the scan root will not be imported, and how many.
@@ -359,6 +366,7 @@ function collectAsiairObjectSources(rootPath: string): CollectedSources | null {
 }
 
 export function collectObjectSources(rootPath: string, telescopeKind?: TelescopeKind): CollectedSources {
+  containerProbesLeft = CONTAINER_PROBE_BUDGET;
   // ASIAIR nests targets two levels down under a capture-mode and frame-type
   // pair, and the same target can appear under several of them at once. That
   // is not something `basePath` can describe, so it gets its own pass. It
@@ -400,9 +408,84 @@ export function collectObjectSources(rootPath: string, telescopeKind?: Telescope
   // are pulled out before anything else so they can never become library
   // objects. Excluding them here rather than at either call site is what keeps
   // the scan's plan and commit's re-derivation in agreement.
+  const { sources, excludedFolders } = collectLevel(rootPath, entries, '', 0);
+
+  // Guarantee a unique folderName per source. Nothing above prevents two
+  // independently-discovered sources landing on the same name — e.g. a split
+  // target from one folder's filenames colliding with a literal top-level
+  // directory of that name, or a loose-file target colliding with an object
+  // folder. commitFolderImport's planByFolder keys the user's per-object
+  // decisions (targetObjectId, sessionMap, skip) by folderName in a plain
+  // Map, so two sources sharing a name used to silently collapse onto one
+  // plan entry: both got processed, but only one's session-date decisions
+  // applied, and the other's files were session-mapped by a plan that never
+  // saw their actual dates (usually landing in date-dropped). Disambiguating
+  // here keeps a strict 1:1 between what the scan shows the user and what a
+  // commit plan entry can address; the user can still merge them by hand
+  // afterward (rename one to the other's target) same as any other alias.
+  const nameCounts = new Map<string, number>();
+  for (const source of sources) {
+    nameCounts.set(source.folderName, (nameCounts.get(source.folderName) ?? 0) + 1);
+  }
+  const nameSeen = new Map<string, number>();
+  for (const source of sources) {
+    if ((nameCounts.get(source.folderName) ?? 0) <= 1) continue;
+    const seen = (nameSeen.get(source.folderName) ?? 0) + 1;
+    nameSeen.set(source.folderName, seen);
+    if (seen > 1) source.folderName = `${source.folderName} (${seen})`;
+  }
+
+  return { sources, excludedFolders, resolvedRoot: rootPath, basePathDetected };
+}
+
+// How many folder levels of category folders ("Astro/2025/Q3/Clusters/Globular/M92") the scan will look
+// through to find the object level. Deep archives exist, so this is generous, but the probe walks every
+// non-object folder it meets, so it is also capped by a budget of directory reads per scan: picking a huge
+// folder (a whole photos drive) can never turn into an exhaustive crawl. Past the budget a folder is treated
+// as an object, which is what every folder past the depth limit already was.
+const MAX_CONTAINER_DEPTH = 8;
+const CONTAINER_PROBE_BUDGET = 2000;
+let containerProbesLeft = CONTAINER_PROBE_BUDGET;
+
+/**
+ * Whether a folder only groups objects rather than being one. True for a
+ * telescope-model folder ("1. Seestar S50"), and for a folder whose own name
+ * identifies no catalog object but which holds folders that do (directly, or
+ * through another container). Deliberately false for anything that names an
+ * object itself, so "M 31 - Andromeda" holding dated session folders stays one
+ * object.
+ */
+function isContainerDir(absDir: string, name: string, depth: number): boolean {
+  if (isDeviceModelFolder(name)) return true;
+  if (isDwarfSessionFolder(name) || identifyObjectFromFolderName(name)) return false;
+  if (depth + 1 >= MAX_CONTAINER_DEPTH) return false;
+  if (containerProbesLeft <= 0) return false;
+  containerProbesLeft--;
+  return readChildDirs(absDir)
+    .filter(k => !k.startsWith('.') && isObjectFolder(k) && !isSubFolder(k) && !isNonObjectFolder(k))
+    .some(k => identifyObjectFromFolderName(k) !== null || isContainerDir(path.join(absDir, k), k, depth + 1));
+}
+
+/** One directory level of object discovery: its object folders (with `_sub`
+ *  companions), Dwarf session groups and loose files, plus recursion into any
+ *  container folders. `relPrefix` keeps excluded-folder names relative to the
+ *  scan's resolved root. */
+function collectLevel(
+  rootPath: string,
+  entries: fs.Dirent[],
+  relPrefix: string,
+  depth: number,
+): { sources: ObjectSource[]; excludedFolders: string[] } {
   const allDirs = entries.filter(e => e.isDirectory());
   const candidateDirs = allDirs.filter(e => !isNonObjectFolder(e.name));
-  const objectDirs = candidateDirs.filter(e => isObjectFolder(e.name));
+  // Hand-organised trees group objects under category folders ("1. Caldwell
+  // Objects") and telescope folders ("1. Seestar S50"). Those are containers,
+  // not objects: descend into them so the object level is found at any depth.
+  const containerDirs = depth < MAX_CONTAINER_DEPTH
+    ? candidateDirs.filter(e => isObjectFolder(e.name) && isContainerDir(path.join(rootPath, e.name), e.name, depth))
+    : [];
+  const containerNames = new Set(containerDirs.map(d => d.name));
+  const objectDirs = candidateDirs.filter(e => isObjectFolder(e.name) && !containerNames.has(e.name));
   const subDirs = candidateDirs.filter(e => isSubFolder(e.name));
 
   const sources: ObjectSource[] = [];
@@ -443,7 +526,7 @@ export function collectObjectSources(rootPath: string, telescopeKind?: Telescope
   const excludedFolders = allDirs
     .filter(e => isNonObjectFolder(e.name))
     .filter(e => !(startrailsFolded && isStartrailsFolder(e.name)))
-    .map(e => e.name).sort();
+    .map(e => relPrefix + e.name).sort();
 
   for (const dir of objectDirs) {
     if (isDwarfSessionFolder(dir.name)) {
@@ -581,33 +664,22 @@ export function collectObjectSources(rootPath: string, telescopeKind?: Telescope
     }
   }
 
-  // Guarantee a unique folderName per source. Nothing above prevents two
-  // independently-discovered sources landing on the same name — e.g. a split
-  // target from one folder's filenames colliding with a literal top-level
-  // directory of that name, or a loose-file target colliding with an object
-  // folder. commitFolderImport's planByFolder keys the user's per-object
-  // decisions (targetObjectId, sessionMap, skip) by folderName in a plain
-  // Map, so two sources sharing a name used to silently collapse onto one
-  // plan entry: both got processed, but only one's session-date decisions
-  // applied, and the other's files were session-mapped by a plan that never
-  // saw their actual dates (usually landing in date-dropped). Disambiguating
-  // here keeps a strict 1:1 between what the scan shows the user and what a
-  // commit plan entry can address; the user can still merge them by hand
-  // afterward (rename one to the other's target) same as any other alias.
-  const nameCounts = new Map<string, number>();
-  for (const source of sources) {
-    nameCounts.set(source.folderName, (nameCounts.get(source.folderName) ?? 0) + 1);
-  }
-  const nameSeen = new Map<string, number>();
-  for (const source of sources) {
-    if ((nameCounts.get(source.folderName) ?? 0) <= 1) continue;
-    const seen = (nameSeen.get(source.folderName) ?? 0) + 1;
-    nameSeen.set(source.folderName, seen);
-    if (seen > 1) source.folderName = `${source.folderName} (${seen})`;
+  for (const dir of containerDirs) {
+    const childPath = path.join(rootPath, dir.name);
+    let childEntries: fs.Dirent[];
+    try {
+      childEntries = fs.readdirSync(childPath, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    const nested = collectLevel(childPath, childEntries, `${relPrefix}${dir.name}/`, depth + 1);
+    sources.push(...nested.sources);
+    excludedFolders.push(...nested.excludedFolders);
   }
 
-  return { sources, excludedFolders, resolvedRoot: rootPath, basePathDetected };
+  return { sources, excludedFolders };
 }
+
 
 /** Walk an object's source dirs, gating by import settings and deriving a
  *  session date for every kept file. */
@@ -680,7 +752,13 @@ export function walkObjectFiles(
     // baseDir makes the session folder name appear in each file's relPath, so
     // deriveFromPath can extract that date for files like stacked.jpg that have
     // no date in their own name and would otherwise fall through to mtime.
-    const baseDir = isDwarfSessionFolder(path.basename(dir)) ? path.dirname(dir) : dir;
+    //
+    // A STARTRAILS capture folder is dated the same way. Its name carries the capture's start time
+    // (STARTRAILS_DWARF_RAW_WIDE_EXP_10_GAIN_0_2026-04-05-00-22-28-967) but doesn't begin with a session
+    // prefix, so without this its files fell through to their modification time, which on a copied card is
+    // the day it was copied.
+    const isStartrailsCapture = isStartrailsFolder(path.basename(path.dirname(dir)));
+    const baseDir = isDwarfSessionFolder(path.basename(dir)) || isStartrailsCapture ? path.dirname(dir) : dir;
     visit(baseDir, dir, 0, isSubFolder(path.basename(dir)));
   }
   return { files, truncated, skipped };
@@ -746,6 +824,7 @@ export function matchCatalog(folderName: string): CatalogMatch | null {
     type: identified.type,
     constellation: identified.constellation,
     magnitude: identified.magnitude,
+    aliases: getAliasesForCanonical(identified.objectId),
   };
 }
 
@@ -792,6 +871,7 @@ export function scanImportFolder(
       unsortedCount,
       unsortedBytes,
       catalogMatch: matchCatalog(source.folderName),
+      targetObjectId: identifyObjectFromFolderName(source.folderName)?.targetObjectId ?? null,
     });
   }
 

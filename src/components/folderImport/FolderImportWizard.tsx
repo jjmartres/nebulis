@@ -28,9 +28,10 @@ function buildEdits(result: ImportScanResult): ObjectEdit[] {
     fileCount: o.fileCount,
     bytes: o.bytes,
     skip: false,
-    targetObjectId: o.catalogMatch?.objectId ?? o.folderName,
+    targetObjectId: o.targetObjectId ?? o.catalogMatch?.objectId ?? o.folderName,
     targetFolderName: o.folderName,
     catalogName: o.catalogMatch?.name ?? null,
+    aliases: o.catalogMatch?.aliases ?? [],
     sessions: o.sessions.map(s => ({
       derivedDate: s.date,
       finalDate: s.date,

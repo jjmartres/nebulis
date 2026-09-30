@@ -128,6 +128,10 @@
       "images": "Imágenes",
       "subframes": "Subtomas",
       "processed": "Procesadas",
+      "dropToMarkProcessed": "Suelta para marcar como procesada",
+      "markProcessedFailed": "No se pudo marcar como procesada: {{message}}",
+      "markProcessedFailedFallback": "No se pudo marcar como procesada",
+      "dismiss": "Cerrar",
       "videos": "Vídeos"
     },
     "captureMetrics": {
@@ -238,7 +242,8 @@
       "removeFromFavorites": "Quitar de favoritos",
       "addToFavorites": "Añadir a favoritos",
       "showingRange": "Mostrando {{from}}–{{to}} de {{total}}",
-      "empty": "No se encontraron archivos"
+      "empty": "No se encontraron archivos",
+      "markAsProcessed": "Marcar como procesada"
     },
     "processedImagesGrid": {
       "upload": "Subir",
@@ -251,7 +256,8 @@
       "setAsGalleryImage": "Establecer como imagen de galería",
       "delete": "Eliminar",
       "combinesNights": "Combina {{count}} noches: {{list}}",
-      "addMore": "Añadir más"
+      "addMore": "Añadir más",
+      "moveToImages": "Marcar como no procesada"
     },
     "hero": {
       "breadcrumb": "Ruta de navegación",
@@ -301,7 +307,13 @@
       "deleteSubframes": "Eliminar subtomas",
       "compareImage1Alt": "Imagen 1",
       "compareImage2Alt": "Imagen 2",
-      "vs": "vs"
+      "vs": "vs",
+      "markProcessedTitle": "¿Marcar como procesada?",
+      "markProcessedMessage": "La imagen pasa de Imágenes a Procesadas. No se elimina nada.",
+      "markProcessedConfirm": "Marcar como procesada",
+      "unmarkProcessedTitle": "¿Marcar como no procesada?",
+      "unmarkProcessedMessage": "La imagen pasa de Procesadas a las Imágenes de esta noche. No se elimina nada.",
+      "unmarkProcessedConfirm": "Marcar como no procesada"
     },
     "fitsHeaderModal": {
       "title": "Cabecera FITS de {{fileName}}",

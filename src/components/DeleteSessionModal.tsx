@@ -6,6 +6,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { deleteLibrarySession } from '../lib/api/library';
 import { useTheme } from '../hooks/useTheme';
 import { Modal } from './ui/Modal';
+import { LinkedFilesChoice } from './objectDetail/LinkedFilesChoice';
 
 interface Props {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export function DeleteSessionModal({ isOpen, onClose, objectId, date, displayNam
 
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteLinkedFiles, setDeleteLinkedFiles] = useState(false);
 
   // The heading, the input placeholder, and this check all read from the same
   // key so they can never drift apart in a translated UI.
@@ -36,7 +38,7 @@ export function DeleteSessionModal({ isOpen, onClose, objectId, date, displayNam
     if (confirmText.toLowerCase() !== confirmWord.toLowerCase()) return;
     setIsDeleting(true);
     try {
-      await deleteLibrarySession(objectId, date);
+      await deleteLibrarySession(objectId, date, { deleteLinkedFiles });
       // This route back always lands on the object page, and without these
       // its session grid and "N deleted" restore link both read from caches
       // that still show the world as it was before the delete: the default
@@ -51,7 +53,7 @@ export function DeleteSessionModal({ isOpen, onClose, objectId, date, displayNam
     } catch {
       setIsDeleting(false);
     }
-  }, [isDeleting, confirmText, confirmWord, objectId, date, onClose, navigate, queryClient]);
+  }, [isDeleting, confirmText, confirmWord, objectId, date, deleteLinkedFiles, onClose, navigate, queryClient]);
 
   // Guards both Escape and backdrop-click, matching the Cancel button's own
   // `disabled={isDeleting}` so a delete already in flight can't be dismissed
@@ -89,6 +91,7 @@ export function DeleteSessionModal({ isOpen, onClose, objectId, date, displayNam
           </p>
           <p>{t('observationDetail.deleteSessionModal.unaffectedText')}</p>
         </div>
+        <LinkedFilesChoice objectId={objectId} date={date} checked={deleteLinkedFiles} onChange={setDeleteLinkedFiles} />
         <div className="space-y-1.5">
           <label className={`text-xs font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
             {t('observationDetail.deleteSessionModal.typeToConfirmBefore')}{' '}

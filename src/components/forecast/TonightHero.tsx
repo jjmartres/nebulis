@@ -25,6 +25,7 @@ import { NightRibbon } from './NightRibbon';
 import { ScoreDial } from '../ui/ScoreDial';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
 import { PAGE_HERO } from '../../lib/heroImagery';
+import { useTheme } from '../../hooks/useTheme';
 
 interface TonightInfo {
   moonIllumination: number;
@@ -130,11 +131,12 @@ export function TonightHero({
   hours, tonight, timeZone, darkWindow, tempUnit, selectedTime, onSelect, accent, siteControl, lightPollution,
 }: Props) {
   const { t } = useTranslation('forecast');
+  const { isNight } = useTheme();
   const fmt = (iso: string | null) => (iso ? formatTime(iso, timeZone) : null);
 
   const scored = hours.map(h => ({
     hour: h,
-    vis: calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow, t),
+    vis: calculateVisibilityScore(h, tonight.moonIllumination, timeZone, darkWindow, t, isNight),
   }));
 
   // The headline rating averages only the hours inside the usable window, so a
@@ -152,7 +154,7 @@ export function TonightHero({
     : 0;
 
   const best = findBestWindow(scored);
-  const hex = scoreHex(nightScore);
+  const hex = scoreHex(nightScore, isNight);
 
   // The recommendation for the middle of the usable window says more about the
   // night than the one for an arbitrary edge hour.
@@ -185,7 +187,7 @@ export function TonightHero({
         className="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-50"
         style={{ background: `radial-gradient(90% 90% at 88% 0%, ${accent}1f 0%, transparent 70%)` }}
       />
-      <div className="pointer-events-none absolute inset-0 rounded-3xl" style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10)' }} />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl" style={{ boxShadow: `inset 0 0 0 1px ${isNight ? 'rgba(204,51,51,0.10)' : 'rgba(255,255,255,0.10)'}` }} />
 
       {/* One padded panel, title and content together, rather than two
           stacked boxes with a hard rule between them — matching how the

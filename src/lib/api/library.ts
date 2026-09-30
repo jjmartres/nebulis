@@ -432,17 +432,29 @@ export const getObjectCapture = (objectId: string) =>
 
 export const getLibraryFitsHeaders = (path: string) =>
   fetchJSON<FitsHeaderData>(`/library/headers?path=${encodeURIComponent(path)}`);
-export const deleteLibraryFile = (path: string) =>
-  fetchJSON<{ deleted: boolean }>(`/library/file?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
-export const deleteLibraryObject = (objectId: string) =>
+/** `deleteLinked` is the caller saying the user knows a file from a linked folder is
+ *  their own original and wants it removed from disk. The server refuses without it. */
+export const deleteLibraryFile = (path: string, opts?: { deleteLinked?: boolean }) =>
+  fetchJSON<{ deleted: boolean }>(
+    `/library/file?path=${encodeURIComponent(path)}${opts?.deleteLinked ? '&deleteLinked=1' : ''}`,
+    { method: 'DELETE' },
+  );
+/** `deleteLinkedFiles` also deletes the object's originals from any linked folder.
+ *  Without it the object leaves Nebulis and those files stay where they are. */
+export const deleteLibraryObject = (objectId: string, opts?: { deleteLinkedFiles?: boolean }) =>
   fetchJSON<{ deleted: boolean; objectId: string }>(
-    `/library/objects/${encodeURIComponent(objectId)}`,
+    `/library/objects/${encodeURIComponent(objectId)}${opts?.deleteLinkedFiles ? '?deleteLinkedFiles=1' : ''}`,
     { method: 'DELETE' }
   );
-export const deleteLibrarySession = (objectId: string, date: string) =>
+export const deleteLibrarySession = (objectId: string, date: string, opts?: { deleteLinkedFiles?: boolean }) =>
   fetchJSON<{ deleted: boolean; objectId: string; date: string }>(
-    `/library/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}`,
+    `/library/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}${opts?.deleteLinkedFiles ? '?deleteLinkedFiles=1' : ''}`,
     { method: 'DELETE' }
+  );
+export interface LinkedFilesSummary { files: number; bytes: number; folders: string[] }
+export const getLinkedFilesSummary = (objectId: string, date?: string) =>
+  fetchJSON<LinkedFilesSummary>(
+    `/library/objects/${encodeURIComponent(objectId)}/linked-files${date ? `?date=${encodeURIComponent(date)}` : ''}`,
   );
 
 /** A deleted object still shown in the trash, awaiting restore or a permanent
@@ -544,6 +556,8 @@ interface ImportCatalogMatch {
   type: string;
   constellation: string | null;
   magnitude: number | null;
+  /** Other catalog designations for the same object ("C1" for NGC188). */
+  aliases: string[];
 }
 
 interface ImportScannedSession {
@@ -562,6 +576,8 @@ interface ImportScannedObject {
   unsortedCount: number;
   unsortedBytes: number;
   catalogMatch: ImportCatalogMatch | null;
+  /** Default id to store the object under; keeps an imaging variant such as `M16_Ha`. Optional for older servers. */
+  targetObjectId?: string | null;
 }
 
 export interface ImportScanResult {
@@ -711,27 +727,6 @@ export const preflightImportSpace = (bytes: number) =>
     body: JSON.stringify({ bytes }),
   });
 
-export interface ImportTempUsage {
-  path: string;
-  bytes: number;
-  files: number;
-  sessions: number;
-  oldestAt: string | null;
-}
-
-export const getImportTempUsage = () =>
-  fetchJSON<ImportTempUsage>('/library/import/temp-usage');
-
-export interface ImportTempCleanupResult {
-  deleted: number;
-  errors: number;
-  bytes: number;
-  skippedActive: number;
-}
-
-export const cleanupImportTemp = () =>
-  fetchJSON<ImportTempCleanupResult>('/library/import/temp-cleanup', { method: 'POST' });
-
 /** Drop a single staged upload session. Best-effort: used when the import
  *  dialog is dismissed mid-upload, where a failure just means the sweeper
  *  reclaims the space later instead. */
@@ -823,6 +818,9 @@ export async function uploadFolderTemp(
       const formData = new FormData();
       batch.files.forEach((f, i) => formData.append('files', f, batch.paths[i] || f.name));
       formData.append('relativePaths', JSON.stringify(batch.paths));
+      // Each file's own modified time. The staged copy would otherwise be stamped with the moment of upload,
+      // and the folder scan falls back to a file's mtime when nothing else dates it.
+      formData.append('lastModified', JSON.stringify(batch.files.map(f => f.lastModified)));
       if (tmpId) formData.append('tmpId', tmpId);
 
       const xhr = new XMLHttpRequest();
@@ -1032,6 +1030,23 @@ export async function uploadObjectProcessedImage(
   const body = await res.json();
   return parseProcessedImage(body?.data ?? body);
 }
+
+/** Promote a telescope-side file already in the library to a processed image
+ *  for this session (Images tab → Processed tab drag). The server moves managed
+ *  files and copies linked read-only ones. */
+export const markFileAsProcessed = (objectId: string, date: string, path: string) =>
+  fetchJSON<{ id: string; movedOriginal: boolean }>(
+    `/library/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}/processed-images/from-file`,
+    { method: 'POST', body: JSON.stringify({ path }) }
+  );
+
+/** Move a processed image back into the night's telescope images (the undo of
+ *  markFileAsProcessed). */
+export const unmarkProcessedImage = (objectId: string, date: string, id: string) =>
+  fetchJSON<{ id: string; path: string }>(
+    `/library/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}/processed-images/${id}/unmark`,
+    { method: 'POST' }
+  );
 
 export const deleteProcessedImage = (objectId: string, date: string, id: string) =>
   fetchJSON<{ deleted: boolean; id: string }>(
@@ -1371,6 +1386,9 @@ export interface ObjectLocation {
   libraryRoot: string;
   object: DiskLocation;
   session: DiskLocation | null;
+  /** Folders on the user's own disk that hold this object's files, one per
+   *  linked source. Empty for an object that is only in the managed library. */
+  linked: Array<{ sourceId: string; sourceLabel: string; path: string; exists: boolean }>;
   /** Other objects in the same variant family (Mosaic/Hα/...). Only populated
    *  for the object-level view (no date). */
   variants: Array<DiskLocation & { objectId: string; label: string }>;

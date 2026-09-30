@@ -1,0 +1,250 @@
+{
+  "scripts/build-sharpless-catalog.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "server/dist/index.js": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "server/lib/catalogPack/unpack.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "server/lib/db.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "server/lib/library/import.ts": {
+    "no-control-regex": {
+      "count": 4
+    },
+    "no-useless-escape": {
+      "count": 1
+    }
+  },
+  "server/lib/migrate.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 6
+    }
+  },
+  "server/lib/queryHelpers.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "server/lib/smb.ftp.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "server/lib/smb.shared.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "server/middleware/apiEnvelope.ts": {
+    "@typescript-eslint/no-namespace": {
+      "count": 1
+    }
+  },
+  "server/routes/catalog.ts": {
+    "no-empty": {
+      "count": 1
+    }
+  },
+  "server/routes/notes.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "server/routes/settings.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "server/routes/sites.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/components/AltitudeChart.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    }
+  },
+  "src/components/CombineSubframesModal.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/CompareSessionsModal.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/FitsPreview.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "src/components/ImageEditorModal.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "src/components/Layout.tsx": {
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/components/SatelliteTrailScanModal.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/refs": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/StorageDashboard.tsx": {
+    "react-hooks/static-components": {
+      "count": 11
+    }
+  },
+  "src/components/SyncSubframesModal.tsx": {
+    "react-hooks/refs": {
+      "count": 2
+    }
+  },
+  "src/components/UploadProcessedModal.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/UploadProjectArchiveModal.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/catalogs/CatalogPlanModal.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    }
+  },
+  "src/components/folderImport/FolderImportWizard.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/gallery/PlanetariumMode.tsx": {
+    "react-hooks/refs": {
+      "count": 2
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/help/WhatsNewAutoPopup.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/onboarding/OnboardingStep3.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/components/planner/ScheduledImagingBlock.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "src/components/settings/SettingsNav.tsx": {
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/components/settings/SettingsUI.tsx": {
+    "react-refresh/only-export-components": {
+      "count": 3
+    }
+  },
+  "src/components/tour/TourProvider.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    },
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/components/ui/LocalPathPicker.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "src/contexts/AuthContext.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    },
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/contexts/SyncSubframesContext.tsx": {
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/contexts/WhatsNewGateContext.tsx": {
+    "react-refresh/only-export-components": {
+      "count": 1
+    }
+  },
+  "src/hooks/useImageFocalPoint.ts": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/lib/api/telescopes.ts": {
+    "@typescript-eslint/no-empty-object-type": {
+      "count": 1
+    }
+  },
+  "src/pages/ObservationsCalendar.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "src/pages/PlannerPage.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/types/dom.d.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "tests/backend/authMiddleware.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "tests/backend/folderImport.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "tests/backend/libraryTrash.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  }
+}

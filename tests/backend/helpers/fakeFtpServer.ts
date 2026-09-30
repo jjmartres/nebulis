@@ -27,6 +27,9 @@ export interface FakeFtpServer {
    *  USER). This is the number that reflects control-connection pooling;
    *  `socketCount` also counts probes. */
   sessionCount: number;
+  /** Fault injection: each entry is a path substring. The next RETR whose path contains it
+   *  sends half the bytes, drops the data connection and answers 426, once. */
+  dropRetrOnce: string[];
   close: () => Promise<void>;
 }
 
@@ -62,6 +65,7 @@ export async function startFakeFtpServer(root: FakeDir): Promise<FakeFtpServer> 
     commands: [],
     socketCount: 0,
     sessionCount: 0,
+    dropRetrOnce: [],
     close: async () => undefined,
   };
 
@@ -167,6 +171,17 @@ export async function startFakeFtpServer(root: FakeDir): Promise<FakeFtpServer> 
         case 'RETR': {
           const node = resolve(root, abs(arg));
           if (node === undefined || isDir(node)) return send('550 No such file');
+          const dropAt = state.dropRetrOnce.findIndex(m => abs(arg).includes(m));
+          if (dropAt !== -1 && pendingData) {
+            state.dropRetrOnce.splice(dropAt, 1);
+            const waiting = pendingData;
+            pendingData = null;
+            send('150 Opening data connection');
+            const conn = await waiting;
+            conn.write(node.subarray(0, Math.floor(node.length / 2)));
+            conn.destroy();
+            return send('426 Connection closed; transfer aborted');
+          }
           return transfer(conn => conn.write(node));
         }
         case 'STOR': {

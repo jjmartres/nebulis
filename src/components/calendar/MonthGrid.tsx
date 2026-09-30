@@ -19,6 +19,7 @@ import type { ObservationSummary } from '../../lib/api/observations';
 import type { TelescopeProfile } from '../../lib/api/telescopes';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { formatDate, weekdayLabels, weekStartsOn } from '../../lib/formatLocale';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 
 /** How many entries fit a cell before the rest go behind "+N more". */
 const VISIBLE_PER_DAY = 3;
@@ -160,7 +161,7 @@ export function MonthGrid({
                             {showTelescopeUI && scope && (
                               <span
                                 className="h-1.5 w-1.5 shrink-0 rounded-full"
-                                style={{ backgroundColor: scope.color }}
+                                style={{ backgroundColor: nightSafeColor(scope.color, isNight) }}
                                 aria-hidden="true"
                               />
                             )}
@@ -307,7 +308,7 @@ export function MonthGrid({
                           {showTelescopeUI && scope && (
                             <span
                               className="h-1.5 w-1.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: scope.color }}
+                              style={{ backgroundColor: nightSafeColor(scope.color, isNight) }}
                               aria-hidden="true"
                             />
                           )}

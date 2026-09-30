@@ -44,6 +44,7 @@ export {
   asiairLocalName,
   resolveAsiairRoot,
   ASIAIR_CALIBRATION_PATHS,
+  ASIAIR_CALIBRATION_WALK,
   ASIAIR_MODE_FOLDERS,
   ASIAIR_LIVE_FOLDER,
 } from './asiairWalker.js';

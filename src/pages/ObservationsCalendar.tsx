@@ -36,6 +36,7 @@ const ObservationsWorldMap = lazyRoute(() =>
 import type { ObservationsWorldMapHandle } from '../components/ObservationsWorldMap';
 import { listTelescopes, type TelescopeProfile } from '../lib/api/telescopes';
 import { useTheme } from '../hooks/useTheme';
+import { nightSafeColor } from '../lib/nightSafeColor';
 import { cleanCatalogId, formatObjectName } from '../lib/utils';
 import { formatDate, formatTime24, weekStartsOn } from '../lib/formatLocale';
 
@@ -618,7 +619,7 @@ export function ObservationsCalendar() {
                     {showTelescopeUI && scope && (
                       <span
                         className="w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{ backgroundColor: scope.color }}
+                        style={{ backgroundColor: nightSafeColor(scope.color, isNight) }}
                         aria-hidden="true"
                       />
                     )}

@@ -57,6 +57,9 @@ async function preflight(profile: AnyProfile): Promise<void> {
     // Callers that build an ad-hoc profile should pass it for that reason.
     await ensureSmbReachable(hostname, undefined, profile?.kind);
   } catch (err) {
+    // Feed the status pill: without this a host that just failed preflight
+    // still reads ONLINE until three status probes in a row fail.
+    recordSmbOpResult(hostname, false, err instanceof Error ? err.message : String(err));
     if (isDebugLoggingEnabled()) {
       debugLog('smb', `Preflight failed: ${hostname} not reachable on port 445 — ${err instanceof Error ? err.message : err}`);
     }

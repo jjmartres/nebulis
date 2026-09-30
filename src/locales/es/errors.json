@@ -53,6 +53,8 @@
     "SOURCE_NOT_FOUND": "Telescopio de origen no encontrado.",
     "TARGET_NOT_FOUND": "Telescopio de destino no encontrado.",
     "TMP_NOT_FOUND": "Sesión de subida no encontrada. Empieza de nuevo.",
-    "UNSUPPORTED_PLATFORM": "Las ubicaciones de biblioteca en recursos compartidos de red no son compatibles en esta plataforma."
+    "UNSUPPORTED_PLATFORM": "Las ubicaciones de biblioteca en recursos compartidos de red no son compatibles en esta plataforma.",
+    "ARCHIVE_DISABLED": "El archivo está desactivado, así que no se escribió ni se borró nada. Actívalo en Ajustes, en la pestaña Archivo.",
+    "ARCHIVE_RETENTION_DISABLED": "La limpieza está desactivada, así que no se borró nada. Actívala en los ajustes del archivo."
   }
 }

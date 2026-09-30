@@ -215,13 +215,19 @@ test.describe('Viewer — Observation Detail page', () => {
   });
 
   test('hides the Move observation button', async ({ page }) => {
-    // The move/relocate action is the hero's admin-only "Combine" button now
-    // (SessionHero; it opens MoveObservationModal).
-    await expect(page.getByRole('main').getByRole('button', { name: /^combine$/i })).toHaveCount(0);
+    // The move/relocate action is a hero overflow-menu item ("Move to another
+    // object"). The menu is opened first and confirmed to have rendered, so
+    // this cannot pass vacuously on a menu that simply is not there: a viewer
+    // still gets "Show file location", just not the admin-only items.
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /show file location/i })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /move to another object/i })).toHaveCount(0);
   });
 
   test('hides the Delete observation button', async ({ page }) => {
-    await expect(page.getByRole('main').getByRole('button', { name: /^delete$/i })).toHaveCount(0);
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /show file location/i })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /delete session/i })).toHaveCount(0);
   });
 });
 
@@ -234,11 +240,14 @@ test.describe('Admin — Observation Detail page', () => {
   });
 
   test('shows the Move (Combine) button', async ({ page }) => {
-    await expect(page.getByRole('main').getByRole('button', { name: /^combine$/i })).toBeVisible();
+    // Admin-only, and a hero overflow-menu item rather than a top-level button.
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /move to another object/i })).toBeVisible();
   });
 
   test('shows Delete button', async ({ page }) => {
-    await expect(page.getByRole('main').getByRole('button', { name: /^delete$/i })).toBeVisible();
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /delete session/i })).toBeVisible();
   });
 });
 
