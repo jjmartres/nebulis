@@ -658,6 +658,14 @@
     ]
   },
   {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/gallery-crop",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
     "method": "GET",
     "path": "/library/objects/:objectId/gallery-image",
     "guards": [
@@ -2051,6 +2059,14 @@
   {
     "method": "POST",
     "path": "/telescopes/probe-identity",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/telescopes/scan",
     "guards": [
       "requireAdmin",
       "<anonymous>"

@@ -123,14 +123,29 @@
     "importFromTelescope": "Import from Telescope",
     "uploadObservation": "Upload Observation",
     "configureSettings": "Configure Settings",
+    "gridSize": "Grid size",
+    "groupOptions": {"none": "No grouping", "catalog": "By catalog", "type": "By type", "constellation": "By constellation"},
     "sortOptions": {
+      "catalogAsc": "Catalog number (M1, M2…)",
       "nameAsc": "Name (A–Z)",
       "nameDesc": "Name (Z–A)",
       "latestObservation": "Latest observation",
       "oldestObservation": "Oldest observation",
       "mostSessions": "Most sessions",
       "recentlyImported": "Recently imported"
-    }
+    },
+    "view": "View",
+    "add": "Add",
+    "filterType": "Type",
+    "filterScope": "Scope",
+    "filterStatus": "Status",
+    "groupBy": "Group by",
+    "sortBy": "Sort by",
+    "removeFilter": "Remove filter {{name}}",
+    "clearFilters": "Clear filters",
+    "moreTypes": "More types ({{count}})",
+    "fewerTypes": "Fewer types",
+    "reset": "Reset to defaults"
   },
   "objectCard": {
     "removeFromFavorites": "Remove from favorites",
@@ -420,7 +435,15 @@
     "noImagesInLibrary": "No images in library",
     "starToFavorite": "Star an image to add it to your favorites.",
     "uploadProcessedHint": "Upload a processed image from an observation page to see it here.",
-    "importFromTelescopeHint": "Import images from your SeeStar telescope to see them here."
+    "importFromTelescopeHint": "Import images from your SeeStar telescope to see them here.",
+    "filters": "Filters",
+    "filterType": "Type",
+    "filterShow": "Show",
+    "moreTypes": "More types ({{count}})",
+    "fewerTypes": "Fewer types",
+    "removeFilter": "Remove filter {{name}}",
+    "clearFilters": "Clear filters",
+    "reset": "Reset to defaults"
   },
   "galleryHero": {
     "title": "Image Gallery",
@@ -898,7 +921,23 @@
     "noObservationImages": "No observation images available yet",
     "cancel": "Cancel",
     "save": "Save",
-    "previewAlt": "Preview"
+    "previewAlt": "Preview",
+    "framingHeading": "Framing",
+    "framingPickFirst": "Pick a specific image (a reference source, an upload or one of your observations) to zoom and pan it. Auto can't be framed because it may change.",
+    "framingHint": "Drag the box to move it and drag a corner to resize it. Everything inside the box is what the library card and object header will show.",
+    "framePortrait": "Switch to a portrait frame",
+    "frameLandscape": "Switch to a landscape frame",
+    "framedTag": "Framed",
+    "framedPortraitSuffix": "(rotated)",
+    "frameButton": "Frame image",
+    "framedBadge": "Framed {{zoom}}×",
+    "framingBack": "Back",
+    "framingApply": "Use this framing",
+    "framingUnavailable": "This image can't be previewed for framing.",
+    "zoom": "Zoom",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetFraming": "Reset framing"
   },
   "imageCompareModal": {
     "title": "Compare Images",

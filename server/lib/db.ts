@@ -1113,6 +1113,16 @@ db.exec(`
   }
 }
 
+// Settings → Library → "Credit objects in the same frame". On by default for
+// existing and fresh installs alike: it only changes what the catalog boards
+// count as imaged, and never touches a file or a library object.
+{
+  const companionCols = db.prepare<[], { name: string }>('PRAGMA table_info(appSettings)').all();
+  if (!companionCols.some(c => c.name === 'groupCatalogCompanions')) {
+    db.prepare('ALTER TABLE appSettings ADD COLUMN groupCatalogCompanions INTEGER NOT NULL DEFAULT 1').run();
+  }
+}
+
 // ─── Sub-frame role correction ──────────────────────────────────────────────
 // A sub-frame is a raw exposure and is always FITS. Rows recorded before
 // parseFilename enforced that could hold a device's per-frame preview under

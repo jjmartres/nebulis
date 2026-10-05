@@ -1,4 +1,23 @@
 # Changelog
+## 2.1.2 (287) - October 5th, 2026
+### New
+- Catalog: an object that sat inside the frame of something you imaged now counts as imaged too (exampleL Imaging M42 also counts M43, and imaging M51 also counts NGC 5195). These tiles show "In M42", the object popup says which object it was imaged with and opens it. How many objects count depends on your telescope's field of view, so a wider scope picks up more. Turn it off under Settings -> Library -> Credit objects in the same frame (on by default).
+- Add Telescope: a new Find device button looks for SeeStar, ASIAIR and Dwarf devices on your network. Pick one and Nebulis fills in its address and telescope type.
+- Library: change how big the object cards are. Open View and drag the Grid size slider toward the small grid for up to 10 columns, or toward the large one for as few as 2. From 6 columns the cards switch to a compact layout so they stay readable. Nebulis remembers your choice in this browser. The slider shows on tablets and computers; phones stay at 2 columns.
+- Object cover image: choose how the picture is framed. Pick an image in Choose Gallery Image, press Frame image, then drag the box to move it and drag a corner to resize it. Nothing zooms until you move the box. The rotate button switches between a landscape and a portrait frame, so a tall object can have a tall photo. The library card and the object header both use your framing. Images with a saved frame show a Framed badge in the picker.
+
+### Updated
+- Reclassify object: search now finds an object by any of its names: NGC, IC, Messier, Caldwell or Sharpless number, or a common name. Typing "C20", "Caldwell 20" or "North America" all find NGC 7000. Each result shows the catalog ID and the object's other names as colored tags, so you can tell which object you are picking. The search box is ready to type in as soon as the dialog opens.
+- Catalog boards: the "Imaged" badge and the new in-frame badge are larger and easier to read. The text is now dark on the amber badge instead of white.
+- FTP: updated the FTP library used for Dwarf sync to version 6.2.2.
+- Library and Gallery: the filter, sort and group controls are now one row. Filters (type, telescope, status), Favorites, View (group, sort, grid size) and Add (upload, new observation) each have their own button. Active filters show as chips you can remove, and a reset arrow in each popover restores its defaults.
+
+### Fixes
+- Reclassify object: search results no longer list the same object twice, and a name is no longer repeated in the results (for example "NGC 4449 NGC 4449").
+- Linked Folders: reclassifying an object no longer gets undone. Before, the next rescan, manual or scheduled, read the folder name again and put the files back under the old object. Reclassified linked files now stay where you put them, and linking the same folder again keeps the change too.
+- Gallery: images from a linked folder now show in the Gallery. They were skipped before, so a linked object could look empty there. They also appear in the cover image picker, and they leave the Gallery as soon as you unlink the folder.
+- Sharpless catalog: Sharpless objects with no entry of their own showed a position 15 times too far east on the Sharpless board, which also threw off best-time and planning results. The position is now correct.
+
 ## 2.1.1 (284) - September 26th, 2026
 ### New
 - Linked Folders: if Nebulis runs on the same computer that holds your session files, link a folder instead of copying it into the library. Nebulis reads your images where they already are. Manage them under Settings -> Storage -> Linked Folders.

@@ -24,17 +24,15 @@ test.describe('Image Gallery', () => {
     await expect(page.getByText('Andromeda Galaxy')).toBeVisible();
   });
 
-  test('shows object types in the filter chips', async ({ page }) => {
-    // Cards now carry only the object name and date. The gallery surfaces object
-    // types as filter chips instead: curated groups (Galaxy) are pinned by
-    // default, while the exact type derived from the images (Emission Nebula) is
-    // pinned from the Customize filters menu.
-    await expect(page.getByRole('button', { name: 'Galaxy', exact: true })).toBeVisible();
+  test('lists object types in the Filters popover', async ({ page }) => {
+    // Cards carry only the object name and date. Object types live in the
+    // Filters popover: curated groups (Galaxy) up front, and the exact types
+    // derived from the images (Emission Nebula) behind "More types".
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    await expect(page.getByRole('button', { name: /^Galaxy\b/ })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Customize filters' }).click();
-    await page.getByRole('menuitemcheckbox', { name: /Emission Nebula/ }).click();
-
-    await expect(page.getByRole('button', { name: 'Emission Nebula', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: /More types/ }).click();
+    await expect(page.getByRole('button', { name: /^Emission Nebula\b/ })).toBeVisible();
   });
 
   test('shows loading state while fetching', async ({ page }) => {
@@ -94,12 +92,13 @@ test.describe('Image Gallery', () => {
   // ─── Processed only ───────────────────────────────────────────────────────
 
   test('processed-only toggle is present', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /processed only/i })).toBeVisible();
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    await expect(page.getByRole('button', { name: 'Processed only', exact: true })).toBeVisible();
   });
 
   test('processed-only filters out raw images', async ({ page }) => {
-    const processedBtn = page.getByRole('button', { name: /processed only/i });
-    await processedBtn.click();
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    await page.getByRole('button', { name: 'Processed only', exact: true }).click();
     // Only the processed NGC7000 entry should remain.
     await expect(page.getByText('North America Nebula')).toBeVisible();
     await expect(page.getByText('Orion Nebula')).not.toBeVisible();
@@ -107,9 +106,10 @@ test.describe('Image Gallery', () => {
   });
 
   test('clearing processed-only restores all images', async ({ page }) => {
-    const processedBtn = page.getByRole('button', { name: /processed only/i });
-    await processedBtn.click();
-    await processedBtn.click();
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    const processedBtn = page.getByRole('button', { name: 'Processed only', exact: true });
+    await processedBtn.click(); // enable
+    await processedBtn.click(); // disable
     await expect(page.getByText('Orion Nebula')).toBeVisible();
     await expect(page.getByText('Andromeda Galaxy')).toBeVisible();
     await expect(page.getByText('North America Nebula')).toBeVisible();
@@ -139,15 +139,14 @@ test.describe('Image Gallery', () => {
   // ─── Type filter ──────────────────────────────────────────────────────────
 
   test('type filter is present', async ({ page }) => {
-    await expect(
-      page.getByRole('button', { name: /all|galaxy|nebula/i })
-        .or(page.locator('select').filter({ hasText: /type|all/i }))
-        .first()
-    ).toBeVisible();
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    await expect(page.getByText('Type', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Galaxy\b/ })).toBeVisible();
   });
 
   test('filtering by type shows only matching images', async ({ page }) => {
-    const galaxyFilter = page.getByRole('button', { name: /^galaxy$/i });
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    const galaxyFilter = page.getByRole('button', { name: /^galaxy\b/i });
     if (await galaxyFilter.isVisible()) {
       await galaxyFilter.click();
       await expect(page.getByText('Andromeda Galaxy')).toBeVisible();

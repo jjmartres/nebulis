@@ -65,8 +65,9 @@ test.describe('Gallery', () => {
   });
 
   test('type filter shows only matching objects', async ({ page }) => {
-    // Click the Galaxy filter button
-    await page.getByRole('button', { name: /^galaxy$/i }).click();
+    // Type filters live in the Filters popover; pills carry a count suffix.
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    await page.getByRole('button', { name: /^galaxy\b/i }).click();
 
     await expect(page.getByText('Andromeda Galaxy')).toBeVisible();
     await expect(page.getByText('Orion Nebula')).not.toBeVisible();
@@ -74,7 +75,8 @@ test.describe('Gallery', () => {
   });
 
   test('type filter "All" restores all objects', async ({ page }) => {
-    await page.getByRole('button', { name: /^galaxy$/i }).click();
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    await page.getByRole('button', { name: /^galaxy\b/i }).click();
     await expect(page.getByText('Orion Nebula')).not.toBeVisible();
 
     await page.getByRole('button', { name: /^all$/i }).click();
@@ -85,7 +87,8 @@ test.describe('Gallery', () => {
   test('combining search and type filter works', async ({ page }) => {
     // Anchor the name: with the full curated group set, /nebula/i would also
     // match the "Planetary Nebula" chip.
-    await page.getByRole('button', { name: /^nebula$/i }).click();
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    await page.getByRole('button', { name: /^nebula\b/i }).click();
     const searchInput = page.getByPlaceholder(/search/i);
     await searchInput.fill('North America');
 

@@ -77,7 +77,8 @@ async function goToLastStep(page: Page): Promise<void> {
 
 /** Open the import modal and commit to a way in. Step 0 is a choice between "Link Data" and "Upload Data". */
 async function startImport(page: Page, way: 'link' | 'upload'): Promise<void> {
-  await page.getByRole('button', { name: 'Upload Files' }).first().click();
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Upload Files' }).click();
   await page.getByRole('button', { name: way === 'link' ? /^Link Data/ : /^Upload Data/ }).click();
 }
 
@@ -321,7 +322,8 @@ test.describe('Linked folders', () => {
     await page.route('**/api/storage/volumes', r => r.fulfill(json(ok({ volumes: [] }))));
     await page.goto('/');
     await dismissWhatsNew(page);
-    await page.getByRole('button', { name: 'Upload Files' }).first().click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Upload Files' }).click();
 
     // The title is both the visible heading and the dialog's accessible name, so a screen reader hears
     // the same thing a sighted user reads.
@@ -400,7 +402,8 @@ test.describe('Linked folders', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
 
     // Opened fresh, it asks the first question again rather than resuming.
-    await page.getByRole('button', { name: 'Upload Files' }).first().click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Upload Files' }).click();
     await expect(page.getByText('How do you want to import this?')).toBeVisible();
     await expect(page.getByRole('dialog', { name: 'Import to Library' })).toBeVisible();
   });

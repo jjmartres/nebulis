@@ -1,8 +1,8 @@
 {
   "name": "nebulis-web",
   "private": true,
-  "version": "2.1.1",
-  "buildNumber": 284,
+  "version": "2.1.2",
+  "buildNumber": 287,
   "type": "module",
   "packageManager": "pnpm@10.30.3",
   "scripts": {
@@ -26,6 +26,8 @@
     "catalog:populate": "npx tsx scripts/populate-curated-layer.ts",
     "catalog:distances": "npx tsx scripts/build-client-distances.ts",
     "catalog:distances:check": "npx tsx scripts/build-client-distances.ts --check",
+    "catalog:companions": "npx tsx scripts/build-catalog-companions.ts",
+    "catalog:companions:check": "npx tsx scripts/build-catalog-companions.ts --check",
     "typecheck": "tsc -b --noEmit",
     "typecheck:server": "tsc --noEmit -p server/tsconfig.json",
     "docker:build": "docker compose -f docker/docker-compose.yml build",
@@ -125,7 +127,8 @@
       "ip-address": "^10.7.1",
       "browserslist": "^4.28.7",
       "nanoid": "^3.3.18",
-      "undici": "^7.29.1"
+      "undici": "^7.29.1",
+      "basic-ftp@<=6.2.0": ">=6.2.1"
     },
     "onlyBuiltDependencies": [
       "better-sqlite3",

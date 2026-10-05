@@ -167,6 +167,7 @@ export function CatalogBoard() {
         label={progress.label}
         total={progress.total}
         imagedCount={progress.imagedCount}
+        imagedInFrameCount={progress.imagedInFrameCount}
         byType={progress.byType}
         accent={accent}
         typeFilter={typeFilter}

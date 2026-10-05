@@ -556,12 +556,13 @@ export interface LibraryAnalysis {
   missingObjectCount: number;
   layoutDrift: number;
   flatObjects: number;
+  missingProcessed: { count: number; objects: number };
   /** Paths that could not be checked. While non-zero, repairs refuse to run. */
   unreadable: number;
   ranAt: string;
 }
 
-export type RepairCategory = 'staleRecords' | 'missingObjects' | 'layoutDrift';
+export type RepairCategory = 'staleRecords' | 'missingObjects' | 'layoutDrift' | 'missingProcessed';
 
 export const analyzeLibrary = () => fetchJSON<LibraryAnalysis>('/storage/analyze');
 

@@ -81,6 +81,9 @@ export interface Settings {
    *  Calibrations page flags it `isExpired` (default 180). Flats/flat-darks
    *  are unaffected — they're matched to a session instead of aged out. */
   calibrationExpiryDays: number;
+  /** Catalog boards also credit objects that sat inside the frame of an object
+   *  you imaged (M43 when M42 was shot). Default on. */
+  groupCatalogCompanions: boolean;
 }
 
 export interface CatalogEntry {
@@ -144,6 +147,8 @@ export interface AstroObject {
    *  the `version` arg to getLibraryObjectThumbnailUrl so re-uploads to the
    *  same `gallery_<id>.jpg` path defeat the browser's 24h cache. */
   galleryImageVersion?: string | null;
+  /** Zoom/pan window the user framed on the chosen image; null = whole image. */
+  galleryCrop?: GalleryCrop | null;
   /** Other captured variants of this object (e.g. Mosaic, Hα, HOO). */
   variants?: { objectId: string; label: string }[];
   /** Telescope that captured the most sessions for this object. */
@@ -285,4 +290,15 @@ export interface ProjectArchive {
   url: string;
   /** Relative library path (folderName/project-archives/filename). */
   path: string;
+}
+
+/** A framing window on an object's picture: centre (0..1 of the image) and
+ *  zoom (>1). The window keeps the image's aspect ratio. Mirrors
+ *  server/lib/library/galleryCrop.ts. */
+export interface GalleryCrop {
+  x: number;
+  y: number;
+  zoom: number;
+  /** Frame is the image's aspect turned 90 degrees (portrait on a landscape picture). */
+  rotated?: boolean;
 }

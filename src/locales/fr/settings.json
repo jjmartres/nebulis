@@ -281,6 +281,10 @@
       "groupByNight": {
         "label": "Grouper par nuit d'observation",
         "description": "Une session de 23h à 1h compte comme une seule nuit, pas deux dates de calendrier."
+      },
+      "groupCompanions": {
+        "label": "Compter les objets du même champ",
+        "description": "Les autres objets du catalogue qui se trouvaient dans le champ d'un objet photographié comptent aussi comme photographiés. Exemple : photographier M42 compte aussi M43. Désactiver pour ne compter que les objets visés."
       }
     },
     "calibration": {
@@ -750,6 +754,12 @@
     "transportHelpAsiair": "Le Wi-Fi lit le partage ASIAIR sur le réseau local. L'USB est plus rapide : branchez la clé ASIAIR ou sa carte microSD à cet ordinateur.",
     "transportHelpDefault": "Le Wi-Fi lit les fichiers sur le réseau local. L'USB est plus rapide et fonctionne sans réseau, quand l'eMMC est montée comme lecteur externe.",
     "hostnameLabel": "Nom d'hôte / Adresse IP",
+    "findDevice": "Trouver l'appareil",
+    "findDeviceScanning": "Scanning…",
+    "findDeviceNone": "Aucun SeeStar, ASIAIR ou Dwarf trouvé sur {{subnets}}. Vérifiez qu'il est allumé et sur le même Wi-Fi que cet ordinateur, ou saisissez l'adresse.",
+    "findDeviceNoNetwork": "Cet ordinateur n'a pas de réseau local à analyser. Saisissez plutôt l'adresse.",
+    "findDeviceFailed": "Échec de l'analyse. Saisissez plutôt l'adresse.",
+    "findDevicePick": "{{count}} trouvé. Touchez-en un pour l'utiliser :",
     "hostnameHelp": "Pour une connectivité fiable, assignez une IP statique ou une réservation DHCP.",
     "advancedConnectionSettings": "Paramètres de connexion avancés",
     "advancedShareSettings": "Paramètres de partage avancés",
@@ -1378,6 +1388,11 @@
       "title": "Fichiers manquants",
       "detail": "Enregistrements de fichiers absents du disque, sur {{objects}} objet(s).",
       "fix": "Supprimer les enregistrements"
+    },
+    "processed": {
+      "title": "Images traitées sans fichier",
+      "detail": "Cartes de la galerie dont le fichier d'image traitée a disparu, sur {{objects}} objet(s).",
+      "fix": "Supprimer les entrées"
     },
     "missing": {
       "title": "Objets sans dossier",

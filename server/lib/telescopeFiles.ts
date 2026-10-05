@@ -627,13 +627,17 @@ export function clampToNightSafeTime(hms: string): string {
   return hms;
 }
 
+/** `M42_sub`, `IC 1318_subs`, and the hyphenated `Fish on the platter nebula-sub`
+ *  the SeeStar writes for targets with a custom name. */
+const SUB_FOLDER_RE = /[_-]subs?$/;
+
 /**
  * Determine if a folder name is an object folder (not _sub, Samples, etc.)
  */
 export function isObjectFolder(name: string): boolean {
   if (name === '.' || name === '..') return false;
   if (name === 'Samples') return false;
-  if (name.endsWith('_sub') || name.endsWith('_subs')) return false;
+  if (SUB_FOLDER_RE.test(name)) return false;
   if (name.startsWith('.')) return false;
   return true;
 }
@@ -642,7 +646,7 @@ export function isObjectFolder(name: string): boolean {
  * Determine if a folder is a sub-frames companion folder.
  */
 export function isSubFolder(name: string): boolean {
-  return name.endsWith('_sub') || name.endsWith('_subs');
+  return SUB_FOLDER_RE.test(name);
 }
 
 /**
@@ -650,7 +654,7 @@ export function isSubFolder(name: string): boolean {
  * "M42_sub" -> "M42", "IC 1318_subs" -> "IC 1318"
  */
 export function getObjectFromSubFolder(subFolderName: string): string {
-  return subFolderName.replace(/_(sub|subs)$/, '');
+  return subFolderName.replace(SUB_FOLDER_RE, '');
 }
 
 /**

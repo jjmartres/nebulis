@@ -15,6 +15,7 @@ import { recordLinkedLibraryFiles, markLinkedFilesMissing, countLibraryFilesForO
 import { walkSource } from './sourceWalk.js';
 import { resolveLibraryFile } from './fileResolver.js';
 import { attributeFiles, type AttributionOverride } from './treeAttribution.js';
+import { getDesignationRedirect } from './designationRedirects.js';
 import { getStartrailsObjectId, patchStartrailsObjectMeta, STARTRAILS_OBJECT_TYPE, STARTRAILS_TARGET_NAME } from './dwarfStartrails.js';
 import { isNonObjectFolder } from './objectDiscovery.js';
 import { STARTRAILS_FOLDER } from '../walkers/dwarfWalker.js';
@@ -212,6 +213,15 @@ function ensureLinkedSessions(pairs: Iterable<{ objectId: string; captureDate: s
     }
   });
   tx();
+}
+
+/** Route files through the user's "Reclassify object" corrections. Without
+ *  this, a rescan re-reads each folder name and quietly puts reclassified
+ *  files back under the object the user moved them off. */
+function applyDesignationRedirects(attribution: { files: Array<{ objectId?: string | null }> }): void {
+  for (const f of attribution.files) {
+    if (f.objectId) f.objectId = getDesignationRedirect(f.objectId) ?? f.objectId;
+  }
 }
 
 /**
@@ -677,6 +687,7 @@ export function commitSource(rootPath: string, settings: Record<string, unknown>
   const sourceId = `src_${randomUUID().replace(/-/g, '').slice(0, 20)}`;
   const walked = walkSource(rootPath, settings);
   const attribution = attributeFiles(walked.files.map(f => f.relPath), { overrides: options.overrides });
+  applyDesignationRedirects(attribution);
   const byRelPath = new Map(walked.files.map(f => [f.relPath, f]));
 
   const inputsByObject = new Map<string, RecordLinkedFileInput[]>();
@@ -975,6 +986,7 @@ export function rescanSource(id: string, baseSettings: Record<string, unknown>):
   if (walked.files.length === 0 && storedCount > 0) return goOffline();
 
   const attribution = attributeFiles(walked.files.map(f => f.relPath), { overrides: parseStoredOverrides(source.overrides) });
+  applyDesignationRedirects(attribution);
   const byRelPath = new Map(walked.files.map(f => [f.relPath, f]));
 
   const stored = db.prepare<[string], StoredLinkedRow>(

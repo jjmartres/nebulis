@@ -13,6 +13,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/** A scraped cross-reference this far from the Sharpless position is a scraping
+ *  mistake, not the same object. Real ones are within a degree or two (Sharpless
+ *  regions are large); the worst genuine case in the catalog is well under 3 deg. */
+const MAX_CROSSREF_SEP_DEG = 3;
 const OUTPUT = path.join(ROOT, 'server', 'data', 'sharpless.json');
 const UA = 'Nebulis/1.0 (astronomy app; catalog data build; contact=nebulis.app)';
 
@@ -146,6 +150,43 @@ function extractCommonName(cell1Link: string, cell2: string, notes: string): str
   return null;
 }
 
+interface OpenNgcRow { id: string; ngcName?: string | null; messier?: number | string | null; ra?: number | null; dec?: number | null }
+
+/** OpenNGC rows by NGC/IC id and by Messier id ("M8"), for checking positions. */
+function loadReferencePositions(): Map<string, { raDeg: number; decDeg: number }> {
+  const rows = JSON.parse(fs.readFileSync(path.join(ROOT, 'server', 'data', 'openngc.json'), 'utf8')) as OpenNgcRow[];
+  const byRef = new Map<string, { raDeg: number; decDeg: number }>();
+  for (const r of rows) {
+    if (r.ra == null || r.dec == null) continue;
+    const pos = { raDeg: r.ra * 15, decDeg: r.dec };
+    byRef.set(r.id.toUpperCase().replace(/\s+/g, ''), pos);
+    if (r.ngcName) byRef.set(r.ngcName.toUpperCase().replace(/\s+/g, ''), pos);
+    if (r.messier != null) byRef.set(`M${r.messier}`, pos);
+  }
+  return byRef;
+}
+
+function separationDeg(a: { raDeg: number; decDeg: number }, b: { raDeg: number; decDeg: number }): number {
+  const rad = Math.PI / 180;
+  const cos = Math.sin(a.decDeg * rad) * Math.sin(b.decDeg * rad)
+    + Math.cos(a.decDeg * rad) * Math.cos(b.decDeg * rad) * Math.cos((a.raDeg - b.raDeg) * rad);
+  return Math.acos(Math.min(1, Math.max(-1, cos))) / rad;
+}
+
+/** Keep `ref` only if it can't be shown to be the wrong object. A reference that
+ *  OpenNGC doesn't list (e.g. NGC6820) is kept: absence of a position is not a mismatch. */
+function checkedRef(sh2: number, ref: string | null, at: { raDeg: number; decDeg: number }, known: Map<string, { raDeg: number; decDeg: number }>): string | null {
+  if (!ref) return null;
+  const pos = known.get(ref.toUpperCase().replace(/\s+/g, ''));
+  if (!pos) return ref;
+  const sep = separationDeg(at, pos);
+  if (sep > MAX_CROSSREF_SEP_DEG) {
+    console.warn(`[sharpless] dropping Sh2-${sh2} -> ${ref}: ${sep.toFixed(1)} deg from the Sharpless position`);
+    return null;
+  }
+  return ref;
+}
+
 async function fetchWikipedia(): Promise<Map<number, WikiRow>> {
   const url =
     'https://en.wikipedia.org/w/api.php' +
@@ -204,17 +245,19 @@ async function main() {
   console.log(`[sharpless] Wikipedia: ${wikiRows.size} matched rows`);
 
   const entries: SharplessEntry[] = [];
+  const knownPositions = loadReferencePositions();
 
   for (const [sh2, viz] of vizierRows) {
     const wiki = wikiRows.get(sh2);
+    const at = { raDeg: viz.raDeg, decDeg: viz.decDeg };
     entries.push({
       id: `Sh2-${sh2}`,
       raDeg: viz.raDeg,
       decDeg: viz.decDeg,
       sizeArcmin: viz.sizeArcmin,
       commonName: wiki?.commonName ?? null,
-      ngcRef: wiki?.ngcRef ?? null,
-      messierRef: wiki?.messierRef ?? null,
+      ngcRef: checkedRef(sh2, wiki?.ngcRef ?? null, at, knownPositions),
+      messierRef: checkedRef(sh2, wiki?.messierRef ?? null, at, knownPositions),
     });
   }
 

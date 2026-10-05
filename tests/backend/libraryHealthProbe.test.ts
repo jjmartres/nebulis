@@ -6,7 +6,7 @@ import path from 'path';
 import db from '../../server/lib/db';
 import { getLibraryDir } from '../../server/lib/libraryPath';
 import { recordLibraryFiles } from '../../server/lib/library/libraryFiles';
-import { analyzeLibrary, fixStaleRecords, fixMissingObjects, LibraryUnreadableError } from '../../server/lib/library/analyze';
+import { analyzeLibrary, fixStaleRecords, fixMissingObjects, fixMissingProcessed, LibraryUnreadableError } from '../../server/lib/library/analyze';
 import { getSubframeUsage, purgeAllSubframes } from '../../server/lib/library/cleanup';
 import { probePath } from '../../server/lib/fsProbe';
 
@@ -133,5 +133,33 @@ describe('subframe cleanup', () => {
     expect(result).toMatchObject({ deleted: 0, staleRemoved: 0, unreadable: 1 });
     expect(rowCount()).toBe(2);
     expect(fs.existsSync(abs(SUB))).toBe(true);
+  });
+});
+
+describe('missing processed images', () => {
+  const PID_GONE = 'proc_health_gone';
+  const PID_OK = 'proc_health_ok';
+  const insert = (id: string, filename: string): void => {
+    db.prepare(
+      `INSERT OR REPLACE INTO sessionProcessedImages (id, objectId, filename, originalName, uploadedAt)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(id, OBJECT_ID, filename, filename, new Date().toISOString());
+  };
+  afterEach(() => {
+    db.prepare('DELETE FROM sessionProcessedImages WHERE objectId = ?').run(OBJECT_ID);
+  });
+
+  it('flags a processed record with no file and repairs only that one', async () => {
+    fs.mkdirSync(path.join(getLibraryDir(), FOLDER, 'processed'), { recursive: true });
+    fs.writeFileSync(path.join(getLibraryDir(), FOLDER, 'processed', 'kept.jpg'), 'x');
+    insert(PID_OK, 'kept.jpg');
+    insert(PID_GONE, 'gone.jpg');
+
+    const analysis = await analyzeLibrary();
+    expect(analysis.missingProcessed).toEqual({ count: 1, objects: 1 });
+
+    expect(await fixMissingProcessed()).toEqual({ removed: 1 });
+    const left = db.prepare<[string], { id: string }>('SELECT id FROM sessionProcessedImages WHERE objectId = ?').all(OBJECT_ID);
+    expect(left.map(r => r.id)).toEqual([PID_OK]);
   });
 });

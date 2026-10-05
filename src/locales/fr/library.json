@@ -123,14 +123,34 @@
     "importFromTelescope": "Importer depuis le télescope",
     "uploadObservation": "Téléverser une observation",
     "configureSettings": "Configurer les paramètres",
+    "gridSize": "Taille de la grille",
+    "groupOptions": {
+      "none": "Sans groupement",
+      "catalog": "Par catalogue",
+      "type": "Par type",
+      "constellation": "Par constellation"
+    },
     "sortOptions": {
+      "catalogAsc": "Numéro de catalogue (M1, M2…)",
       "nameAsc": "Nom (A–Z)",
       "nameDesc": "Nom (Z–A)",
       "latestObservation": "Observation la plus récente",
       "oldestObservation": "Observation la plus ancienne",
       "mostSessions": "Le plus de sessions",
       "recentlyImported": "Importés récemment"
-    }
+    },
+    "view": "Vue",
+    "add": "Ajouter",
+    "filterType": "Type",
+    "filterScope": "Portée",
+    "filterStatus": "Statut",
+    "groupBy": "Regrouper par",
+    "sortBy": "Trier par",
+    "removeFilter": "Retirer le filtre {{name}}",
+    "clearFilters": "Effacer les filtres",
+    "moreTypes": "Plus de types ({{count}})",
+    "fewerTypes": "Moins de types",
+    "reset": "Rétablir les valeurs par défaut"
   },
   "objectCard": {
     "removeFromFavorites": "Retirer des favoris",
@@ -420,7 +440,15 @@
     "noImagesInLibrary": "Aucune image dans la bibliothèque",
     "starToFavorite": "Ajoutez une étoile à une image pour l'ajouter à vos favoris.",
     "uploadProcessedHint": "Téléversez une image traitée depuis une page d'observation pour la voir ici.",
-    "importFromTelescopeHint": "Importez des images depuis votre télescope SeeStar pour les voir ici."
+    "importFromTelescopeHint": "Importez des images depuis votre télescope SeeStar pour les voir ici.",
+    "filters": "Filtres",
+    "filterType": "Type",
+    "filterShow": "Afficher",
+    "moreTypes": "Plus de types ({{count}})",
+    "fewerTypes": "Moins de types",
+    "removeFilter": "Retirer le filtre {{name}}",
+    "clearFilters": "Effacer les filtres",
+    "reset": "Rétablir les valeurs par défaut"
   },
   "galleryHero": {
     "title": "Galerie d'images",
@@ -773,7 +801,7 @@
       "deleteSelectedText": "Supprimer le texte sélectionné"
     },
     "fonts": {
-      "sansSerif": "Sans-serif",
+      "sansSerif": "Sans empattement",
       "serif": "Serif",
       "monospace": "Monospace",
       "impact": "Impact"
@@ -898,7 +926,23 @@
     "noObservationImages": "Aucune image d'observation disponible pour l'instant",
     "cancel": "Annuler",
     "save": "Enregistrer",
-    "previewAlt": "Aperçu"
+    "previewAlt": "Aperçu",
+    "framingHeading": "Cadrage",
+    "framingPickFirst": "Choisissez une image précise (une source de référence, un téléversement ou l'une de vos observations) pour la cadrer. Auto ne peut pas être cadré, car il peut changer.",
+    "framingHint": "Faites glisser le cadre pour le déplacer et tirez un coin pour le redimensionner. Tout ce qui est dans le cadre s'affiche sur la carte de la bibliothèque et dans l'en-tête de l'objet.",
+    "framePortrait": "Passer en cadre portrait",
+    "frameLandscape": "Passer en cadre paysage",
+    "framedTag": "Cadré",
+    "framedPortraitSuffix": "(pivoté)",
+    "frameButton": "Cadrer l'image",
+    "framedBadge": "Cadré {{zoom}}×",
+    "framingBack": "Retour",
+    "framingApply": "Utiliser ce cadrage",
+    "framingUnavailable": "Cette image ne peut pas être prévisualisée pour le cadrage.",
+    "zoom": "Zoom",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière",
+    "resetFraming": "Réinitialiser le cadrage"
   },
   "imageCompareModal": {
     "title": "Comparer les images",

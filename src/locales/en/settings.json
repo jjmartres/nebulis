@@ -281,6 +281,10 @@
       "groupByNight": {
         "label": "Group by observing night",
         "description": "An 11pm–1am session counts as one night, not two calendar dates."
+      },
+      "groupCompanions": {
+        "label": "Credit objects in the same frame",
+        "description": "Other catalog objects that were also in the frame of something you imaged count as imaged too. Example: imaging M42 also counts M43. Turn off to count only the objects you aimed at."
       }
     },
     "calibration": {
@@ -750,6 +754,12 @@
     "transportHelpAsiair": "Wi-Fi reads the ASIAIR share over the LAN. USB is faster: plug the ASIAIR stick or its microSD card into this computer.",
     "transportHelpDefault": "Wi-Fi reads files over the LAN. USB is faster and works without a network, when the eMMC is mounted as an external drive.",
     "hostnameLabel": "Hostname / IP Address",
+    "findDevice": "Find device",
+    "findDeviceScanning": "Scanning…",
+    "findDeviceNone": "No SeeStar, ASIAIR or Dwarf found on {{subnets}}. Check it is on and on the same Wi-Fi as this computer, or type the address.",
+    "findDeviceNoNetwork": "This computer has no local network to scan. Type the address instead.",
+    "findDeviceFailed": "Scan failed. Type the address instead.",
+    "findDevicePick": "Found {{count}} — tap one to use it:",
     "hostnameHelp": "For reliable connectivity, assign a static IP or DHCP reservation.",
     "advancedConnectionSettings": "Advanced connection settings",
     "advancedShareSettings": "Advanced share settings",
@@ -1377,6 +1387,11 @@
     "stale": {
       "title": "Missing files",
       "detail": "Records for files no longer on disk, across {{objects}} object(s).",
+      "fix": "Remove records"
+    },
+    "processed": {
+      "title": "Processed images with no file",
+      "detail": "Gallery cards for processed images whose file is gone, across {{objects}} object(s).",
       "fix": "Remove records"
     },
     "missing": {

@@ -16,6 +16,7 @@ const TEST_DATA_DIR = vi.hoisted(() => {
 });
 
 import { createManualObservation } from '../../server/lib/library/import';
+import { getObjectLayout } from '../../server/lib/library/libraryLayout';
 import { LIBRARY_DIR } from '../../server/lib/paths';
 
 describe('createManualObservation', () => {
@@ -40,7 +41,14 @@ describe('createManualObservation', () => {
     expect(result.objectId).toBe('M31');
     expect(result.date).toBe('2026-01-01');
     expect(fs.existsSync(path.join(LIBRARY_DIR, 'M31'))).toBe(true);
-    const files = fs.readdirSync(path.join(LIBRARY_DIR, 'M31'));
+    // A new object is nested: the file sits in a session folder, not the object
+    // root, and the row says so. Otherwise the "one-time library update" prompt
+    // fires on a library that was never in the old layout.
+    const sessions = fs.readdirSync(path.join(LIBRARY_DIR, 'M31'));
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]).toMatch(/^2026-01-01_/);
+    const files = fs.readdirSync(path.join(LIBRARY_DIR, 'M31', sessions[0]));
     expect(files.some(f => f.startsWith('M31_') && f.endsWith('.jpg'))).toBe(true);
+    expect(getObjectLayout('M31')).toBe('nested');
   });
 });

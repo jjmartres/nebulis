@@ -9,7 +9,7 @@
 import { memo } from 'react';
 import { getCatalogStaticThumbnailUrl, getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import type { CatalogProgressObject } from '../../lib/api/catalogs';
-import { Check, Star } from 'lucide-react';
+import { Check, Layers, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { FitAssessment } from '../../lib/telescopeFov';
 import { fitDisplayStrings } from '../../lib/telescopeFov';
@@ -46,6 +46,9 @@ export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, f
   const staticUrl = getCatalogStaticThumbnailUrl(object.id);
   const apiUrl = getCatalogThumbnailUrl(object.id, object.majorAxisArcmin);
   const imaged = object.isImaged;
+  // Imaged through another object's frame (M43 when M42 was shot): same credit,
+  // but say where the images actually are.
+  const inFrameHost = object.imagedVia?.[0]?.name ?? null;
   const fitStrings = fit ? fitDisplayStrings(fit, t) : null;
 
   // Secondary line: prefer the common name, fall back to the object type.
@@ -60,7 +63,9 @@ export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, f
         ${isDark ? 'focus-visible:ring-offset-slate-950' : 'focus-visible:ring-offset-slate-50'}
         focus-visible:ring-accent-500/40`}
       style={{ boxShadow: imaged ? `0 14px 30px -18px ${accent}b3` : '0 10px 24px -20px rgba(0,0,0,0.9)' }}
-      aria-label={imaged
+      aria-label={inFrameHost
+        ? t('catalogTile.inFrameAriaLabel', { id: object.id, name: object.name, host: inFrameHost })
+        : imaged
         ? t('catalogTile.imagedAriaLabel', { id: object.id, name: object.name })
         : t('catalogTile.notImagedAriaLabel', { id: object.id, name: object.name })}
     >
@@ -165,6 +170,12 @@ export const CatalogTile = memo(function CatalogTile({ object, isDark, accent, f
         <div className={`mt-1 truncate text-[11px] leading-tight ${imaged ? 'text-white/85' : 'text-white/55'}`}>
           {subtitle}
         </div>
+        {inFrameHost && (
+          <div className="mt-1 flex items-center gap-1 truncate text-[11px] font-medium text-white/85">
+            <Layers className="w-3 h-3 shrink-0" style={{ color: accent }} aria-hidden="true" />
+            <span className="truncate">{t('catalogTile.inFrame', { host: inFrameHost })}</span>
+          </div>
+        )}
         {imaged && object.sessionCount > 0 && (
           <div className="mt-1 text-[10px] tabular-nums text-white/45">
             {t('catalogTile.sessionCount', { count: object.sessionCount })}

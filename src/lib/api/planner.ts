@@ -128,6 +128,8 @@ export interface DsoEntry {
   majorAxisArcmin: number | null;
   commonNames: string[];
   messier: number | null;
+  /** Other catalog designations (M/NGC/IC/Caldwell/Sharpless); search results only. */
+  aliases?: string[];
 }
 
 export const getPlannerTargets = (opts?: {

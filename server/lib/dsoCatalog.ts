@@ -10,7 +10,7 @@
  */
 // Inlined at bundle time by tsup/esbuild — no runtime file access needed.
 import openNgcJson from '../data/openngc.json';
-import { expandSearchAliases, resolveCanonicalId, normalizeDesignation } from './catalogAliases.js';
+import { expandSearchAliases, resolveCanonicalId, normalizeDesignation, getAliasesFor } from './catalogAliases.js';
 import { getAllCuratedRecords } from './catalogStore.js';
 import { isRecord } from './typeGuards.js';
 import { raToHours, decToDegs, maxPossibleAltitude } from './astroCalc.js';
@@ -28,6 +28,9 @@ export interface DsoEntry {
   majorAxisArcmin: number | null;
   commonNames: string[];
   messier: number | null;
+  /** Every other catalog designation for this object (M/NGC/IC/Caldwell/Sharpless),
+   *  excluding `id`. Only populated on search results. */
+  aliases?: string[];
 }
 
 let _catalog: DsoEntry[] | null = null;
@@ -164,7 +167,21 @@ function loadCuratedExtras(): DsoEntry[] {
 
 /** OpenNGC catalog + curated extras: the full set search/getById see. */
 function loadSearchable(): DsoEntry[] {
-  if (!_searchable) _searchable = loadCatalog().concat(loadCuratedExtras());
+  if (!_searchable) {
+    // Curated extras can repeat an OpenNGC id (NGC4449 is in both). Keep one
+    // row per id, folding the curated common names into the OpenNGC entry.
+    const byId = new Map<string, DsoEntry>();
+    for (const e of loadCatalog().concat(loadCuratedExtras())) {
+      const prev = byId.get(e.id);
+      if (!prev) { byId.set(e.id, e); continue; }
+      // A bare-id name ("NGC5866") yields to the curated display name.
+      const merged = prev.name === prev.id && e.name !== e.id ? { ...prev, name: e.name } : prev;
+      const names = new Set([merged.name, ...merged.commonNames].map(n => n.toLowerCase()));
+      const extra = [e.name, ...e.commonNames].filter(n => !names.has(n.toLowerCase()) && n !== e.id);
+      byId.set(e.id, extra.length ? { ...merged, commonNames: [...merged.commonNames, ...extra] } : merged);
+    }
+    _searchable = Array.from(byId.values());
+  }
   return _searchable;
 }
 
@@ -225,6 +242,25 @@ export function getByName(name: string): DsoEntry | undefined {
   );
 }
 
+/** Every catalog designation for an entry besides its own id: the raw OpenNGC
+ *  name, its Messier number and each Caldwell/Sharpless/NGC alias. */
+export function designationsFor(entry: DsoEntry): string[] {
+  const out = new Map<string, string>();
+  const add = (d: string | null | undefined) => {
+    if (!d) return;
+    const norm = normalizeDesignation(d);
+    if (norm.toUpperCase() === entry.id.toUpperCase()) return;
+    if (!out.has(norm.toUpperCase())) out.set(norm.toUpperCase(), norm);
+  };
+  add(entry.ngcName);
+  if (entry.messier != null) add(`M${entry.messier}`);
+  for (const a of getAliasesFor(entry.id)) add(a);
+  return Array.from(out.values());
+}
+
+/** Query/designation comparison key: case, spaces and underscores ignored. */
+const designationKey = (s: string) => normalizeDesignation(s.replace(/_/g, ' ')).toUpperCase().replace(/[\s_]+/g, '');
+
 function typeMatches(entry: DsoEntry, type: string): boolean {
   return entry.type.toLowerCase().includes(type.toLowerCase()) || entry.typeCode === type;
 }
@@ -255,6 +291,7 @@ function scoreMatches(query: string, type?: string, lat?: number, minAlt?: numbe
 
   // Expand the query to include the canonical ID and all aliases so e.g. "C30"
   // finds NGC7331 and "NGC6611" finds M16.
+  const qKey = designationKey(query);
   const expandedTerms = expandSearchAliases(query.trim()).map(t => t.toLowerCase());
 
   const results: Array<{ entry: DsoEntry; score: number }> = [];
@@ -277,6 +314,15 @@ function scoreMatches(query: string, type?: string, lat?: number, minAlt?: numbe
     else if (idLower.includes(q)) score = 40;
     else if (entry.commonNames.some(n => n.toLowerCase().includes(q))) score = 30;
     else if ((entry.constellation ?? '').toLowerCase().includes(q)) score = 20;
+
+    // Any other designation (M/NGC/IC/Caldwell/Sharpless) — exact beats prefix.
+    if (score < 90 && qKey.length >= 2) {
+      for (const d of designationsFor(entry)) {
+        const dk = designationKey(d);
+        if (dk === qKey) { score = Math.max(score, 92); break; }
+        if (/\d/.test(qKey) && dk.startsWith(qKey)) score = Math.max(score, 60);
+      }
+    }
 
     // If no match yet, try alias-expanded terms (exact/prefix only to avoid noise)
     if (score === 0 && expandedTerms.length > 1) {
@@ -334,10 +380,11 @@ export function searchFiltered(query: string, opts: {
   offset?: number;
 } = {}): { entries: DsoEntry[]; total: number } {
   const matched = sortEntries(scoreMatches(query, opts.type, opts.lat, opts.minAlt).map(r => r.entry), opts.sort);
+  const withAliases = (e: DsoEntry): DsoEntry => ({ ...e, aliases: designationsFor(e) });
   const total = matched.length;
   const offset = opts.offset ?? 0;
   const limit = opts.limit ?? 30;
-  return { entries: matched.slice(offset, offset + limit), total };
+  return { entries: matched.slice(offset, offset + limit).map(withAliases), total };
 }
 
 export function filterCatalog(opts: {

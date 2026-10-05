@@ -281,6 +281,10 @@
       "groupByNight": {
         "label": "Nach Beobachtungsnacht gruppieren",
         "description": "Eine Sitzung von 23-1 Uhr zählt als eine Nacht, nicht als zwei Kalendertage."
+      },
+      "groupCompanions": {
+        "label": "Objekte im selben Bildfeld mitzählen",
+        "description": "Weitere Katalogobjekte, die im Bildfeld eines aufgenommenen Objekts lagen, zählen ebenfalls als aufgenommen. Beispiel: Wird M42 aufgenommen, zählt auch M43. Ausschalten, um nur die anvisierten Objekte zu zählen."
       }
     },
     "calibration": {
@@ -750,6 +754,12 @@
     "transportHelpAsiair": "WLAN liest die ASIAIR-Freigabe über das lokale Netzwerk. USB ist schneller: Stecke den ASIAIR-Stick oder dessen microSD-Karte in diesen Computer.",
     "transportHelpDefault": "WLAN liest Dateien über das lokale Netzwerk. USB ist schneller und funktioniert ohne Netzwerk, wenn das eMMC als externes Laufwerk eingebunden ist.",
     "hostnameLabel": "Hostname / IP-Adresse",
+    "findDevice": "Gerät suchen",
+    "findDeviceScanning": "Scanning…",
+    "findDeviceNone": "Kein SeeStar, ASIAIR oder Dwarf in {{subnets}} gefunden. Prüfe, ob das Gerät eingeschaltet und im selben WLAN wie dieser Computer ist, oder gib die Adresse ein.",
+    "findDeviceNoNetwork": "Dieser Computer hat kein lokales Netzwerk zum Scannen. Gib stattdessen die Adresse ein.",
+    "findDeviceFailed": "Scan fehlgeschlagen. Gib stattdessen die Adresse ein.",
+    "findDevicePick": "{{count}} gefunden. Tippe eines an, um es zu verwenden:",
     "hostnameHelp": "Für eine zuverlässige Verbindung eine statische IP oder DHCP-Reservierung vergeben.",
     "advancedConnectionSettings": "Erweiterte Verbindungseinstellungen",
     "advancedShareSettings": "Erweiterte Freigabeeinstellungen",
@@ -1377,6 +1387,11 @@
     "stale": {
       "title": "Fehlende Dateien",
       "detail": "Einträge für Dateien, die nicht mehr auf dem Datenträger sind, in {{objects}} Objekt(en).",
+      "fix": "Einträge entfernen"
+    },
+    "processed": {
+      "title": "Bearbeitete Bilder ohne Datei",
+      "detail": "Galerie-Karten für bearbeitete Bilder, deren Datei fehlt, in {{objects}} Objekt(en).",
       "fix": "Einträge entfernen"
     },
     "missing": {

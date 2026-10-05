@@ -16,6 +16,9 @@ import { SHARPLESS_CATALOG } from '../lib/sharplessCatalog.js';
 import { raToHours, decToDegs } from '../lib/astroCalc.js';
 import { computeBestImagingWindow, isUpTonight } from '../lib/bestImagingWindow.js';
 import { classOfType } from '../lib/objectCategories.js';
+import { hostsOf } from '../lib/companions.js';
+import { companionKey, frameRadiusDeg } from '../lib/companionGeometry.js';
+import { getAllProfiles, getSettingsData } from '../lib/telescopes.js';
 
 const router = Router();
 
@@ -79,9 +82,9 @@ export function classifyType(type: string | undefined): ObjectClass {
 
 // ── Library map helper ───────────────────────────────────────────────────────
 
-function loadLibraryMap(): Map<string, { objectId: string; sessionCount: number }> {
+function loadLibraryMap(localObjects: ReturnType<typeof getLocalObjects>): Map<string, { objectId: string; sessionCount: number }> {
   const map = new Map<string, { objectId: string; sessionCount: number }>();
-  for (const o of getLocalObjects()) {
+  for (const o of localObjects) {
     const catId = typeof o.catalogId === 'string' ? o.catalogId : null;
     if (catId) {
       const key = catId.toUpperCase().replace(/\s+/g, '');
@@ -96,6 +99,31 @@ function loadLibraryMap(): Map<string, { objectId: string; sessionCount: number 
   }
   return map;
 }
+
+interface FrameHost { objectId: string; name: string; sessionCount: number; kinds: Set<string> }
+
+/** Library objects by canonical catalog key, with the telescope kinds that imaged
+ *  each. A member's frame test needs the host's telescope (a Dwarf 3 frame holds
+ *  more than a S50 frame), so kinds ride along. Variants of one catalog id merge. */
+function loadFrameHosts(localObjects: ReturnType<typeof getLocalObjects>): Map<string, FrameHost> {
+  const kindByProfile = new Map(getAllProfiles().map(p => [p.id, p.kind as string]));
+  const hosts = new Map<string, FrameHost>();
+  for (const o of localObjects) {
+    const catId = typeof o.catalogId === 'string' ? o.catalogId : null;
+    if (!catId) continue;
+    const key = companionKey(catId);
+    const kinds = (Array.isArray(o.telescopeIds) ? o.telescopeIds : []).map(id => kindByProfile.get(id)).filter((k): k is string => !!k);
+    const existing = hosts.get(key);
+    if (existing) {
+      for (const k of kinds) existing.kinds.add(k);
+      continue;
+    }
+    hosts.set(key, { objectId: o.id, name: typeof o.name === 'string' ? o.name : catId, sessionCount: o.sessionCount, kinds: new Set(kinds) });
+  }
+  return hosts;
+}
+
+export interface ImagedViaEntry { objectId: string; name: string; sepDeg: number }
 
 // ── Route ────────────────────────────────────────────────────────────────────
 
@@ -133,7 +161,12 @@ router.get('/:catalog/progress', (req: Request, res: Response) => {
   }
 
   const ids = def.buildIds();
-  const libraryMap = loadLibraryMap();
+  const localObjects = getLocalObjects();
+  const libraryMap = loadLibraryMap(localObjects);
+  // Settings → Library → "Credit objects in the same frame" (default on). Off means
+  // only objects with a library object of their own count as imaged.
+  const creditCompanions = getSettingsData().groupCatalogCompanions !== false;
+  const frameHosts = creditCompanions ? loadFrameHosts(localObjects) : new Map<string, FrameHost>();
 
   type ByClass = { imaged: number; total: number };
   const byType: Record<ObjectClass, ByClass> = {
@@ -144,6 +177,7 @@ router.get('/:catalog/progress', (req: Request, res: Response) => {
   };
 
   let imagedCount = 0;
+  let imagedInFrameCount = 0;
 
   const objects = ids.map((rawId) => {
     const key = rawId.toUpperCase().replace(/\s+/g, '');
@@ -166,12 +200,27 @@ router.get('/:catalog/progress', (req: Request, res: Response) => {
     const cls = classifyType(type);
 
     const libEntry = libraryMap.get(key) ?? libraryMap.get(canonKey);
-    const isImaged = libEntry != null;
+
+    // Not imaged on its own, but sitting inside the frame of something that was:
+    // M43 when M42 was shot. Looked up in the precomputed companion table, so no
+    // geometry runs here. Direct imaging always wins and leaves this empty.
+    const imagedVia: ImagedViaEntry[] = [];
+    if (!libEntry && creditCompanions) {
+      for (const link of hostsOf(companionKey(canonKey))) {
+        const host = frameHosts.get(link.hostId);
+        if (host && link.sepDeg <= frameRadiusDeg([...host.kinds])) {
+          imagedVia.push({ objectId: host.objectId, name: host.name, sepDeg: link.sepDeg });
+        }
+      }
+    }
+    const inFrame = imagedVia.length > 0;
+    const isImaged = libEntry != null || inFrame;
 
     byType[cls].total++;
     if (isImaged) {
       imagedCount++;
       byType[cls].imaged++;
+      if (inFrame) imagedInFrameCount++;
     }
 
     // Resolve a user-friendly name: prefer the first common name, then the
@@ -200,8 +249,11 @@ router.get('/:catalog/progress', (req: Request, res: Response) => {
       ra: entry?.ra != null ? raToHours(entry.ra) : null,
       dec: entry?.dec != null ? decToDegs(entry.dec) : null,
       isImaged,
-      libraryObjectId: libEntry?.objectId ?? null,
+      // For an in-frame credit this is the host's object, so "View observations"
+      // opens the images the object is actually in.
+      libraryObjectId: libEntry?.objectId ?? imagedVia[0]?.objectId ?? null,
       sessionCount: libEntry?.sessionCount ?? 0,
+      imagedVia: inFrame ? imagedVia : null,
     };
   });
 
@@ -210,6 +262,9 @@ router.get('/:catalog/progress', (req: Request, res: Response) => {
     label: def.label,
     total: ids.length,
     imagedCount,
+    // How many of imagedCount come from another object's frame rather than a
+    // library object of their own.
+    imagedInFrameCount,
     byType,
     objects,
   });

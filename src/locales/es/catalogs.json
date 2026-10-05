@@ -49,7 +49,9 @@
     "stillToImage_one": "{{count}} pendiente de fotografiar",
     "stillToImage_other": "{{count}} pendientes de fotografiar",
     "planTonightTitle": "Planificar esta noche con objetos de {{label}} aún sin fotografiar",
-    "planTonight": "Planificar esta noche"
+    "planTonight": "Planificar esta noche",
+    "inFrameNote_one": "Incluye {{count}} en el encuadre de otro objeto",
+    "inFrameNote_other": "Incluye {{count}} en el encuadre de otros objetos"
   },
   "catalogPanel": {
     "ariaLabel": "Catálogo {{label}}, {{imaged}} de {{total}} objetos fotografiados",
@@ -71,7 +73,9 @@
     "addToWishlist": "Añadir a la lista de deseos",
     "removeFromWishlist": "Quitar de la lista de deseos",
     "addToWishlistAriaLabel": "Añadir {{name}} a la lista de deseos",
-    "removeFromWishlistAriaLabel": "Quitar {{name}} de la lista de deseos"
+    "removeFromWishlistAriaLabel": "Quitar {{name}} de la lista de deseos",
+    "inFrame": "En {{host}}",
+    "inFrameAriaLabel": "{{id}}, {{name}}, fotografiado en el mismo encuadre que {{host}}"
   },
   "catalogToolbar": {
     "filterAll": "Todos",
@@ -117,7 +121,8 @@
     "framingButton": "Encuadre y mosaico",
     "framingButtonTitle": "Previsualiza cómo encuadra este objeto en tu telescopio y planifica un mosaico",
     "addToWishlist": "Añadir a la lista de deseos",
-    "removeFromWishlist": "Quitar de la lista de deseos"
+    "removeFromWishlist": "Quitar de la lista de deseos",
+    "imagedInFrame": "Fotografiado en el encuadre de {{host}}"
   },
   "filterRecommendations": {
     "heading": "Recomendaciones de filtros",

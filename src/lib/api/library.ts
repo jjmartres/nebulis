@@ -1,4 +1,4 @@
-import type { AstroObject, Session, ProcessedImage, ProjectArchive, SessionCaptureSummary, ProcessingStatus } from '../../types';
+import type { AstroObject, Session, ProcessedImage, ProjectArchive, SessionCaptureSummary, ProcessingStatus, GalleryCrop } from '../../types';
 export type { ProcessedImage, ProjectArchive, ProcessingStatus };
 import { fetchJSON, authHeaders, BASE } from './client';
 import type { ConnectionType as TransportKind } from './telescopes';
@@ -903,8 +903,14 @@ export async function uploadFolderTemp(
 
 // Gallery image
 export const getGalleryImage = (objectId: string) =>
-  fetchJSON<{ objectId: string; galleryImage: string | null }>(
+  fetchJSON<{ objectId: string; galleryImage: string | null; galleryCrop?: GalleryCrop | null }>(
     `/library/objects/${encodeURIComponent(objectId)}/gallery-image`
+  );
+
+export const setGalleryCrop = (objectId: string, crop: GalleryCrop | null) =>
+  fetchJSON<{ objectId: string; galleryCrop: GalleryCrop | null }>(
+    `/library/objects/${encodeURIComponent(objectId)}/gallery-crop`,
+    { method: 'PUT', body: JSON.stringify({ crop }) }
   );
 
 export const setGalleryImage = (objectId: string, imagePath: string | null) =>

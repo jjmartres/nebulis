@@ -41,7 +41,7 @@ import { pickDefaultTarget } from '../lib/telescopes.js';
 import { logEvent } from '../lib/systemLog.js';
 import { isRecord } from '../lib/typeGuards.js';
 import { createManualDatabaseBackup } from '../lib/db.js';
-import { analyzeLibrary, fixStaleRecords, fixMissingObjects, fixLayoutDrift, LibraryUnreadableError } from '../lib/library/analyze.js';
+import { analyzeLibrary, fixStaleRecords, fixMissingObjects, fixLayoutDrift, fixMissingProcessed, LibraryUnreadableError } from '../lib/library/analyze.js';
 import { getSubframeUsage, purgeAllSubframes } from '../lib/library/cleanup.js';
 import { getCurrentVersion } from '../lib/appUpdate/platform.js';
 import os from 'os';
@@ -1010,7 +1010,7 @@ router.get('/analyze', requireAdmin, async (_req: Request, res: Response) => {
 router.post('/analyze/fix', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
   const body: Record<string, unknown> = isRecord(req.body) ? req.body : {};
   const category = body.category;
-  if (category !== 'staleRecords' && category !== 'missingObjects' && category !== 'layoutDrift') {
+  if (category !== 'staleRecords' && category !== 'missingObjects' && category !== 'layoutDrift' && category !== 'missingProcessed') {
     res.apiError(400, 'BAD_CATEGORY', 'Unknown repair category.');
     return;
   }
@@ -1028,6 +1028,7 @@ router.post('/analyze/fix', requireAdmin, strictRateLimiter, async (req: Request
     const result =
       category === 'staleRecords' ? await fixStaleRecords()
       : category === 'missingObjects' ? await fixMissingObjects()
+      : category === 'missingProcessed' ? await fixMissingProcessed()
       : fixLayoutDrift();
     logEvent({
       category: 'storage',

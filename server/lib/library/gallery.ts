@@ -14,7 +14,7 @@ import { getLibraryDir } from '../libraryPath.js';
 import { resolveLibraryFile } from './fileResolver.js';
 import { normalizeCatalogId } from '../telescopeFiles.js';
 import { listObjectFiles, getObjectLayout } from './libraryLayout.js';
-import { resolverFor } from './libraryFiles.js';
+import { resolverFor, sessionDateForRow, type LibraryFileRow } from './libraryFiles.js';
 import {
   stmts,
   getFolderName,
@@ -26,6 +26,7 @@ import { isRenderableProcessedName } from './processed.js';
 import { isDwarfThumbnailPreviewName } from './dwarfRestack.js';
 import { isDwarfInternalArtifact } from './importFilter.js';
 import { getImageFavorites } from './favorites.js';
+import { parseGalleryCrop, type GalleryCrop } from './galleryCrop.js';
 import { caldwellToNgcId } from '../caldwellCatalog.js';
 import { hubbleImagePath, wikiImagePath, imageCachePath, fovForEntry, findCachedMaster } from '../catalogPrefetch.js';
 import { prefetchSkyImage } from '../skyImage.js';
@@ -86,7 +87,44 @@ type LibraryImageBase = Omit<LibraryImageEntry, 'isFavorite'>;
  * are reflected immediately. Mirrors the planner's TTL cache.
  */
 const ALL_IMAGES_WALK_TTL_MS = 15_000;
-let allImagesWalkCache: { dir: string; entries: LibraryImageBase[]; expiresAt: number } | null = null;
+let allImagesWalkCache: { dir: string; linkedSig: string; entries: LibraryImageBase[]; expiresAt: number } | null = null;
+
+/** Changes whenever a linked source adds, drops or marks missing a file, so a
+ *  link / rescan / unlink (including a scheduled rescan) shows in the Gallery
+ *  immediately instead of after the TTL. Those paths live in librarySources.ts,
+ *  which doesn't import this module, so they can't call invalidateAllImagesCache. */
+function linkedFilesSignature(): string {
+  const r = db.prepare<[], { n: number; maxId: number | null; missing: number }>(
+    `SELECT COUNT(*) AS n, MAX(id) AS maxId, COUNT(missingSince) AS missing
+       FROM libraryFiles WHERE sourceId IS NOT NULL`,
+  ).get();
+  return r ? `${r.n}:${r.maxId ?? 0}:${r.missing}` : '';
+}
+
+/** The linked rows that belong in an image grid: renderable formats only, no
+ *  sub-frames or telescope previews (a linked night can hold hundreds of subs),
+ *  the same managed-name filters as the disk walk, and nothing the last rescan
+ *  found missing or whose source is disabled. */
+function linkedGalleryRows(objectId?: string): Array<{ objectId: string; relPath: string; fileName: string; date: string }> {
+  const rows = db.prepare<[], Pick<LibraryFileRow, 'objectId' | 'relPath' | 'fileName' | 'role' | 'captureDate' | 'captureTime' | 'sessionDateOverride' | 'sourceId'>>(
+    `SELECT f.objectId, f.relPath, f.fileName, f.role, f.captureDate, f.captureTime, f.sessionDateOverride, f.sourceId
+       FROM libraryFiles f JOIN librarySources s ON s.id = f.sourceId
+      WHERE f.sourceId IS NOT NULL AND f.missingSince IS NULL AND s.enabled = 1`,
+  ).all();
+  const out: Array<{ objectId: string; relPath: string; fileName: string; date: string }> = [];
+  for (const row of rows) {
+    if (objectId !== undefined && row.objectId !== objectId) continue;
+    if (row.role === 'sub' || row.role === 'thumbnail' || row.role === 'preview') continue;
+    const file = row.fileName;
+    if (!isRenderableProcessedName(file)) continue;
+    if (file.toLowerCase().includes('_thn.')) continue;
+    if (file.startsWith('sky_') || file.startsWith('gallery_')) continue;
+    if (isDwarfThumbnailPreviewName(file)) continue;
+    if (isDwarfInternalArtifact(file)) continue;
+    out.push({ objectId: row.objectId, relPath: row.relPath, fileName: file, date: sessionDateForRow(row) || 'unknown' });
+  }
+  return out;
+}
 
 /** Drop the cached walk so the next call re-scans disk (e.g. after an import). */
 export function invalidateAllImagesCache(): void {
@@ -99,6 +137,8 @@ function walkAllLibraryImages(LIBRARY_DIR: string): LibraryImageBase[] {
 
   for (const obj of objects) {
     const objDir = path.join(LIBRARY_DIR, obj.folderName);
+    // A purely linked object has no managed folder at all; its files come in
+    // through the linked pass below, so a missing dir only skips this walk.
     if (!fs.existsSync(objDir)) continue;
 
     // Layout-aware: a nested object's images live inside per-session
@@ -133,6 +173,28 @@ function walkAllLibraryImages(LIBRARY_DIR: string): LibraryImageBase[] {
     }
   }
 
+  // Linked (non-copied) source files exist only as libraryFiles rows, never
+  // under LIBRARY_DIR, so the walk above can't see them. Their relPath is the
+  // full `@src/<id>/...` form /library/file already resolves.
+  const objById = new Map(objects.map(o => [o.objectId, o]));
+  for (const row of linkedGalleryRows()) {
+    const obj = objById.get(row.objectId);
+    if (!obj) continue;
+    results.push({
+      name: row.fileName,
+      path: row.relPath,
+      date: row.date,
+      objectId: obj.objectId,
+      objectName: obj.objectName || obj.objectId,
+      objectType: obj.objectType,
+      distanceLy: obj.distanceLy ?? null,
+      downloadUrl: `${LIBRARY_API_BASE}/file?path=${encodeURIComponent(row.relPath)}`,
+      thumbUrl: `${LIBRARY_API_BASE}/file/thumbnail?path=${encodeURIComponent(row.relPath)}`,
+      previewUrl: `${LIBRARY_API_BASE}/file/thumbnail?w=2048&h=2048&path=${encodeURIComponent(row.relPath)}`,
+      isProcessed: false,
+    });
+  }
+
   // Processed images (sessionProcessedImages) live under `<folder>/processed/`,
   // which listObjectFiles deliberately never descends into (it's a reserved
   // dir — see isReservedObjectDir), so they need their own pass. `/library/file`
@@ -142,7 +204,6 @@ function walkAllLibraryImages(LIBRARY_DIR: string): LibraryImageBase[] {
   // so every processed image gets its own card, same as every raw one does.
   // Restricted to formats a browser can render inline: an XISF/FITS/PSD/RAW
   // deliverable can't go in an `<img>`, and has nowhere else to show here.
-  const objById = new Map(objects.map(o => [o.objectId, o]));
   for (const r of db.prepare<[], { objectId: string; date: string | null; filename: string }>(
     'SELECT objectId, date, filename FROM sessionProcessedImages',
   ).all()) {
@@ -192,12 +253,13 @@ export function getAllLibraryImages(
   ensureLibraryDir();
 
   const now = Date.now();
+  const linkedSig = linkedFilesSignature();
   let base: LibraryImageBase[];
-  if (allImagesWalkCache && allImagesWalkCache.dir === LIBRARY_DIR && allImagesWalkCache.expiresAt > now) {
+  if (allImagesWalkCache && allImagesWalkCache.dir === LIBRARY_DIR && allImagesWalkCache.linkedSig === linkedSig && allImagesWalkCache.expiresAt > now) {
     base = allImagesWalkCache.entries;
   } else {
     base = walkAllLibraryImages(LIBRARY_DIR);
-    allImagesWalkCache = { dir: LIBRARY_DIR, entries: base, expiresAt: now + ALL_IMAGES_WALK_TTL_MS };
+    allImagesWalkCache = { dir: LIBRARY_DIR, linkedSig, entries: base, expiresAt: now + ALL_IMAGES_WALK_TTL_MS };
   }
 
   // Favorite state is per-user and read fresh every call so toggles show up
@@ -237,12 +299,13 @@ export function getStackedImages(objectId: string): Array<{ name: string; path: 
   const objDir = resolveContainedObjectDir(objectId);
   if (!objDir) return [];
   const folderName = getFolderName(objectId);
-  if (!fs.existsSync(objDir)) return [];
 
   const results: Array<{ name: string; path: string; date: string; downloadUrl: string }> = [];
   const identity = resolverFor(objectId);
 
-  for (const entry of listObjectFiles(objDir, getObjectLayout(objectId))) {
+  // A purely linked object has no managed folder; it still has linked stacks below.
+  const managedEntries = fs.existsSync(objDir) ? listObjectFiles(objDir, getObjectLayout(objectId)) : [];
+  for (const entry of managedEntries) {
     const file = entry.fileName;
     const lower = file.toLowerCase();
     if (!lower.endsWith('.jpg') && !lower.endsWith('.jpeg') && !lower.endsWith('.png')) continue;
@@ -260,6 +323,17 @@ export function getStackedImages(objectId: string): Array<{ name: string; path: 
     });
   }
 
+  // Linked stacks, so a linked object can pick its own image as the cover.
+  for (const row of linkedGalleryRows(objectId)) {
+    if (!/\.(jpe?g|png)$/i.test(row.fileName)) continue; // same formats as the managed list above
+    results.push({
+      name: row.fileName,
+      path: row.relPath,
+      date: row.date,
+      downloadUrl: `${LIBRARY_API_BASE}/file?path=${encodeURIComponent(row.relPath)}`,
+    });
+  }
+
   // Sort newest first
   results.sort((a, b) => b.date.localeCompare(a.date));
   return results;
@@ -271,6 +345,20 @@ export function getStackedImages(objectId: string): Array<{ name: string; path: 
 export function getGalleryImageRow(objectId: string): { galleryImage: string | null; userSet: boolean } {
   const row = stmts.getGalleryImage.get(objectId);
   return { galleryImage: row?.galleryImage ?? null, userSet: Boolean(row?.galleryImageUserSet) };
+}
+
+/** The user's crop of the object's picture, or null. Only honoured while the
+ *  image is user-chosen: an auto-picked image can change under a stale crop. */
+export function getGalleryCrop(objectId: string): GalleryCrop | null {
+  const row = stmts.getGalleryImage.get(objectId);
+  return row?.galleryImageUserSet ? parseGalleryCrop(row.galleryCrop) : null;
+}
+
+/** Set (or clear, with null) the crop. Choosing a different image clears it
+ *  (see the setGalleryImage* statements), since the old window means nothing
+ *  on a new picture. */
+export function setGalleryCrop(objectId: string, crop: GalleryCrop | null): void {
+  stmts.setGalleryCrop.run(crop ? JSON.stringify(crop) : null, objectId);
 }
 
 /** Get the custom gallery image path for an object (null if none set). */
@@ -387,8 +475,12 @@ export function objectThumbnailDiskCacheKey(
   width: number,
   height: number,
   mtimeMs: number,
+  crop?: GalleryCrop | null,
 ): string {
-  return createHash('sha256').update(`${srcPath}:${width}x${height}:${mtimeMs}`).digest('base64url');
+  // The crop only joins the key when there is one, so an uncropped object keeps
+  // the exact key the import-time prewarm already wrote.
+  const c = crop ? `:crop${crop.x},${crop.y},${crop.zoom}${crop.rotated ? 'r' : ''}` : '';
+  return createHash('sha256').update(`${srcPath}:${width}x${height}:${mtimeMs}${c}`).digest('base64url');
 }
 
 /** Default square size the `/library/file/thumbnail` route renders when the

@@ -281,6 +281,10 @@
       "groupByNight": {
         "label": "Agrupar por noche de observación",
         "description": "Una sesión de 23:00 a 01:00 cuenta como una sola noche, no como dos fechas de calendario."
+      },
+      "groupCompanions": {
+        "label": "Contar objetos del mismo encuadre",
+        "description": "Los demás objetos del catálogo que estaban en el encuadre de algo fotografiado también cuentan como fotografiados. Ejemplo: fotografiar M42 también cuenta M43. Desactivar para contar solo los objetos apuntados."
       }
     },
     "calibration": {
@@ -750,6 +754,12 @@
     "transportHelpAsiair": "Wi-Fi lee el recurso compartido del ASIAIR por la red local. USB es más rápido: conecta el pendrive del ASIAIR o su tarjeta microSD a este equipo.",
     "transportHelpDefault": "Wi-Fi lee los archivos por la red local. USB es más rápido y funciona sin red, cuando la eMMC está montada como unidad externa.",
     "hostnameLabel": "Nombre de host / Dirección IP",
+    "findDevice": "Buscar dispositivo",
+    "findDeviceScanning": "Scanning…",
+    "findDeviceNone": "No se encontró ningún SeeStar, ASIAIR ni Dwarf en {{subnets}}. Comprueba que esté encendido y en la misma red Wi-Fi que este ordenador, o escribe la dirección.",
+    "findDeviceNoNetwork": "Este ordenador no tiene una red local que analizar. Escribe la dirección en su lugar.",
+    "findDeviceFailed": "Falló el análisis. Escribe la dirección en su lugar.",
+    "findDevicePick": "Se encontraron {{count}}. Toca uno para usarlo:",
     "hostnameHelp": "Para una conectividad fiable, asigna una IP estática o una reserva DHCP.",
     "advancedConnectionSettings": "Ajustes avanzados de conexión",
     "advancedShareSettings": "Ajustes avanzados de recurso compartido",
@@ -1377,6 +1387,11 @@
     "stale": {
       "title": "Archivos que faltan",
       "detail": "Registros de archivos que ya no están en disco, en {{objects}} objeto(s).",
+      "fix": "Quitar registros"
+    },
+    "processed": {
+      "title": "Imágenes procesadas sin archivo",
+      "detail": "Tarjetas de la galería cuyo archivo de imagen procesada ya no existe, en {{objects}} objeto(s).",
       "fix": "Quitar registros"
     },
     "missing": {

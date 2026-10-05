@@ -123,14 +123,34 @@
     "importFromTelescope": "Vom Teleskop importieren",
     "uploadObservation": "Beobachtung hochladen",
     "configureSettings": "Einstellungen konfigurieren",
+    "gridSize": "Rastergröße",
+    "groupOptions": {
+      "none": "Keine Gruppierung",
+      "catalog": "Nach Katalog",
+      "type": "Nach Typ",
+      "constellation": "Nach Sternbild"
+    },
     "sortOptions": {
+      "catalogAsc": "Katalognummer (M1, M2…)",
       "nameAsc": "Name (A–Z)",
       "nameDesc": "Name (Z–A)",
       "latestObservation": "Neueste Beobachtung",
       "oldestObservation": "Älteste Beobachtung",
       "mostSessions": "Meiste Sitzungen",
       "recentlyImported": "Zuletzt importiert"
-    }
+    },
+    "view": "Ansicht",
+    "add": "Hinzufügen",
+    "filterType": "Typ",
+    "filterScope": "Bereich",
+    "filterStatus": "Status",
+    "groupBy": "Gruppieren nach",
+    "sortBy": "Sortieren nach",
+    "removeFilter": "Filter {{name}} entfernen",
+    "clearFilters": "Filter löschen",
+    "moreTypes": "Weitere Typen ({{count}})",
+    "fewerTypes": "Weniger Typen",
+    "reset": "Auf Standard zurücksetzen"
   },
   "objectCard": {
     "removeFromFavorites": "Aus Favoriten entfernen",
@@ -420,7 +440,15 @@
     "noImagesInLibrary": "Keine Bilder in der Bibliothek",
     "starToFavorite": "Markiere ein Bild mit einem Stern, um es zu deinen Favoriten hinzuzufügen.",
     "uploadProcessedHint": "Lade ein bearbeitetes Bild von einer Beobachtungsseite hoch, um es hier zu sehen.",
-    "importFromTelescopeHint": "Importiere Bilder von deinem SeeStar-Teleskop, um sie hier zu sehen."
+    "importFromTelescopeHint": "Importiere Bilder von deinem SeeStar-Teleskop, um sie hier zu sehen.",
+    "filters": "Filter",
+    "filterType": "Typ",
+    "filterShow": "Anzeigen",
+    "moreTypes": "Weitere Typen ({{count}})",
+    "fewerTypes": "Weniger Typen",
+    "removeFilter": "Filter {{name}} entfernen",
+    "clearFilters": "Filter löschen",
+    "reset": "Auf Standard zurücksetzen"
   },
   "galleryHero": {
     "title": "Bildergalerie",
@@ -898,7 +926,23 @@
     "noObservationImages": "Noch keine Beobachtungsbilder verfügbar",
     "cancel": "Abbrechen",
     "save": "Speichern",
-    "previewAlt": "Vorschau"
+    "previewAlt": "Vorschau",
+    "framingHeading": "Ausschnitt",
+    "framingPickFirst": "Wähle ein bestimmtes Bild (eine Referenzquelle, einen Upload oder eine deiner Beobachtungen), um den Ausschnitt festzulegen. Auto kann nicht zugeschnitten werden, weil es sich ändern kann.",
+    "framingHint": "Ziehe den Rahmen, um ihn zu verschieben, und ziehe eine Ecke, um die Größe zu ändern. Alles im Rahmen zeigen die Bibliothekskarte und die Objektkopfzeile.",
+    "framePortrait": "Zum Hochformat wechseln",
+    "frameLandscape": "Zum Querformat wechseln",
+    "framedTag": "Zugeschnitten",
+    "framedPortraitSuffix": "(gedreht)",
+    "frameButton": "Bild zuschneiden",
+    "framedBadge": "Zugeschnitten {{zoom}}×",
+    "framingBack": "Zurück",
+    "framingApply": "Diesen Ausschnitt verwenden",
+    "framingUnavailable": "Für dieses Bild ist keine Vorschau zum Zuschneiden möglich.",
+    "zoom": "Zoom",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "resetFraming": "Ausschnitt zurücksetzen"
   },
   "imageCompareModal": {
     "title": "Bilder vergleichen",

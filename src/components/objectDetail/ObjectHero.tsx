@@ -57,6 +57,10 @@ interface Props {
    *  Null while the source is still being resolved, which renders as the mat
    *  with a spinner rather than as "no image". */
   imageSrc: string | null;
+  /** Scale the picture up to the frame height. A framed crop is cut from a
+   *  small region and comes back at its own pixel size, which would otherwise
+   *  draw as a thumbnail-sized image. */
+  imageFill?: boolean;
   /** True once the source resolved to nothing, or failed twice. */
   imageFailed: boolean;
   /** The picture 404'd. The page owns what happens next (one silent refetch, in
@@ -137,7 +141,7 @@ const FRAME_MAX_HEIGHT = 'max-h-[240px] sm:max-h-[300px] lg:max-h-[360px]';
 const FRAME_PLACEHOLDER = `${FRAME_HEIGHT} aspect-square`;
 
 export function ObjectHero({
-  displayName, eyebrow, imageSrc, imageFailed, onImageError, onEditImage,
+  displayName, eyebrow, imageSrc, imageFill = false, imageFailed, onImageError, onEditImage,
   telescopes, metrics, accent,
   filterRecommendations = null,
   isFavorite, onToggleFavorite,
@@ -262,7 +266,7 @@ export function ObjectHero({
                     // or gives up and imageFailed flips true, which routes
                     // rendering to the "No image yet" branch instead.
                     onError={onImageError}
-                    className={`${FRAME_MAX_HEIGHT} max-w-full rounded-xl object-contain`}
+                    className={`${imageFill ? FRAME_HEIGHT : FRAME_MAX_HEIGHT} max-w-full rounded-xl object-contain`}
                     // A hard rectangle with a drop shadow read as a photo pasted
                     // onto the panel. This dissolves the picture's own edges into
                     // it instead: the ambient blurred copy behind the whole hero

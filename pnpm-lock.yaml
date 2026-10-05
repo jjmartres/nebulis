@@ -18,6 +18,7 @@ overrides:
   browserslist: ^4.28.7
   nanoid: ^3.3.18
   undici: ^7.29.1
+  basic-ftp@<=6.2.0: '>=6.2.1'
 
 importers:
 
@@ -36,8 +37,8 @@ importers:
         specifier: ^7.0.1
         version: 7.0.1
       basic-ftp:
-        specifier: ^6.0.2
-        version: 6.0.2
+        specifier: '>=6.2.1'
+        version: 6.2.2
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -1666,8 +1667,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  basic-ftp@6.0.2:
-    resolution: {integrity: sha512-R6+2Z0XWky9zW2iGyUC8OYG91rwSU+zWS1Iiai9lC31vC1nuHOUbBMeOG5yv5+oZOqnqKvggVkE+UbAoJWWuAg==}
+  basic-ftp@6.2.2:
+    resolution: {integrity: sha512-LIkJcf/F6bTTfvE3k2YcTxrJsLKKVXiEpHZYkQP6JoqTb7khng7c13ckRTDQbqRh5IkehVH3F00sSlAa2F6DwA==}
     engines: {node: '>=10.0.0'}
 
   bcryptjs@3.0.3:
@@ -5051,7 +5052,7 @@ snapshots:
 
   baseline-browser-mapping@2.11.21: {}
 
-  basic-ftp@6.0.2: {}
+  basic-ftp@6.2.2: {}
 
   bcryptjs@3.0.3: {}
 

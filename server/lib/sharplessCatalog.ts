@@ -79,8 +79,11 @@ export function getSharplessEntry(id: string): SharplessEntry | undefined {
 
 /**
  * Convert a SharplessEntry to a CatalogEntry for the catalog lookup chain.
- * RA/Dec are stored as decimal degree strings matching how catalog.ts stores
- * OpenNGC coords (raToDegs/decToDegs can parse plain decimal strings).
+ * Matches how catalog.ts stores OpenNGC coords: RA as decimal HOURS, Dec as
+ * decimal degrees. A bare decimal RA string means hours everywhere in this
+ * codebase (raToHours/raToDegs both read it that way), so the catalog's
+ * `raDeg` must be divided by 15 here. It used to be passed through as degrees,
+ * which put every bare Sharpless entry's RA 15x too large on the boards.
  */
 export function sharplessToCatalogEntry(
   entry: SharplessEntry,
@@ -92,7 +95,7 @@ export function sharplessToCatalogEntry(
     type: 'Emission Nebula',
     constellation: '',
     description: '',
-    ra: String(entry.raDeg),
+    ra: String(entry.raDeg / 15),
     dec: String(entry.decDeg),
     majorAxisArcmin: entry.sizeArcmin > 0 ? entry.sizeArcmin : null,
   };

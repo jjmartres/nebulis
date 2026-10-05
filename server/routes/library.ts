@@ -75,6 +75,8 @@ import {
   getGalleryImageRow,
   setGalleryImage,
   setGalleryImageUserChosen,
+  getGalleryCrop,
+  setGalleryCrop,
   setProcessingStatus,
   isCatalogSourceSentinel,
   findFallbackObservationImage,
@@ -110,6 +112,7 @@ import {
   objectThumbnailDiskCacheKey,
   fileThumbnailDiskCacheKey,
 } from '../lib/localLibrary.js';
+import { parseGalleryCrop, cropRegion } from '../lib/library/galleryCrop.js';
 import { getArchiveDir, listArchivedFolders, listArchiveScopes } from '../lib/library/archiveFolders.js';
 import { listCalibrationLibrary, findCalibrationBundle, calibrationBundleName, deleteCalibrationBundle, resolveFrameType } from '../lib/library/calibrationScan.js';
 import {
@@ -330,6 +333,10 @@ const SubframesBodySchema = z.object({
   // folder structure. Makes the archive drop-in ready for Siril's sequence
   // conversion, which wants all lights in one folder.
   sirilLayout: z.boolean().optional(),
+});
+
+const GalleryCropBodySchema = z.object({
+  crop: z.object({ x: z.number(), y: z.number(), zoom: z.number(), rotated: z.boolean().optional() }).nullable(),
 });
 
 const GalleryImageBodySchema = z.object({
@@ -1588,7 +1595,8 @@ router.get('/objects/:objectId/thumbnail', async (req: Request, res: Response) =
       respondFsGuardError(res, err);
       return;
     }
-    const cacheKey = objectThumbnailDiskCacheKey(srcPath, w, h, mtimeMs);
+    const crop = getGalleryCrop(objectId);
+    const cacheKey = objectThumbnailDiskCacheKey(srcPath, w, h, mtimeMs, crop);
     const cachePath = path.join(THUMBNAILS_DIR, `${cacheKey}.jpg`);
 
     if (!fs.existsSync(cachePath)) {
@@ -1596,10 +1604,17 @@ router.get('/objects/:objectId/thumbnail', async (req: Request, res: Response) =
         fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
         // Capped so a dashboard/calendar fan-out of cold thumbnails can't
         // saturate the threadpool and time out sibling requests.
-        await runRender(() => sharp(srcPath)
-          .resize(w, h, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 80, progressive: true })
-          .toFile(cachePath));
+        await runRender(async () => {
+          let pipeline = sharp(srcPath);
+          if (crop) {
+            const meta = await sharp(srcPath).metadata();
+            if (meta.width && meta.height) pipeline = pipeline.extract(cropRegion(crop, meta.width, meta.height));
+          }
+          await pipeline
+            .resize(w, h, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 80, progressive: true })
+            .toFile(cachePath);
+        });
       } catch (sharpErr) {
         // A source sharp cannot decode is SKIPPED, never deleted. This route is
         // public (see the auth bypass list in middleware/auth.ts), and `srcPath`
@@ -2931,7 +2946,7 @@ router.get('/objects/:objectId/gallery-image', async (req: Request, res: Respons
     prefetchObjectHubble(resolvedId).catch(() => {});
   }
 
-  res.apiSuccess({ objectId, galleryImage });
+  res.apiSuccess({ objectId, galleryImage, galleryCrop: getGalleryCrop(objectId) });
 });
 
 /** Set the gallery image for an object (from an existing library file path).
@@ -2983,6 +2998,24 @@ router.put('/objects/:objectId/gallery-image', requireAdmin, (req: Request, res:
   } catch (err) {
     res.apiError(500, 'SET_FAILED', err instanceof Error ? err.message : 'Failed');
   }
+});
+
+/** Set (or clear, with `crop: null`) the zoom/pan crop of the object's picture.
+ *  Only meaningful once the user has chosen an image, so it 409s otherwise. */
+router.put('/objects/:objectId/gallery-crop', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const parsed = GalleryCropBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(400, 'INVALID_CROP', 'crop must be {x, y, zoom} or null');
+    return;
+  }
+  const crop = parsed.data.crop === null ? null : parseGalleryCrop(parsed.data.crop);
+  if (!getGalleryImageRow(objectId).userSet) {
+    res.apiError(409, 'NO_CHOSEN_IMAGE', 'Choose an image for this object before framing it');
+    return;
+  }
+  setGalleryCrop(objectId, crop);
+  res.apiSuccess({ objectId, galleryCrop: crop });
 });
 
 /**

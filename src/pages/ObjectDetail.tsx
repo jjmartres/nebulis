@@ -25,7 +25,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { AlertTriangle, ArrowLeft, RotateCcw, RotateCw } from 'lucide-react';
 import {
   getLibrarySessions, requestObjectDownloadUrl, deleteLibraryObject, deleteLibrarySession,
-  getGalleryImage, getLibraryFileUrl, getLibraryObjects, getObjectCapture, toggleFavorite,
+  getGalleryImage, getLibraryFileUrl, getLibraryObjectThumbnailUrl, getLibraryObjects, getObjectCapture, toggleFavorite,
   getDeletedObjects, getDeletedSessions, restoreLibraryObject, restoreLibrarySession,
   setProcessingStatus,
 } from '../lib/api/library';
@@ -359,8 +359,16 @@ export function ObjectDetail() {
   // inputs, so retrying them is not a second attempt, it is the same 404
   // again — see handleHeaderImgError below.
   const headerImgHealable = !headerPinnedSource && !!galleryData?.galleryImage;
+  const headerCrop = galleryData?.galleryCrop ?? null;
   const headerImgSrc = galleryData === undefined
     ? null
+    // A framed image comes from the object thumbnail route, which applies the
+    // crop server-side; the unframed branches below load the whole picture.
+    : headerCrop && galleryData.galleryImage
+      ? getLibraryObjectThumbnailUrl(
+          activeObjectId, HERO_IMAGE_SIZE, HERO_IMAGE_SIZE,
+          `${galleryData.galleryImage}#${headerCrop.x},${headerCrop.y},${headerCrop.zoom}${headerCrop.rotated ? 'r' : ''}`,
+        )
     : headerPinnedSource
       ? getCatalogSourceThumbnailUrl(catalogEntry?.id || baseObjectId, headerPinnedSource, HERO_IMAGE_SIZE, HERO_IMAGE_SIZE)
       : galleryData.galleryImage
@@ -578,6 +586,7 @@ export function ObjectDetail() {
         displayName={displayName}
         eyebrow={eyebrow}
         imageSrc={headerImgSrc}
+        imageFill={!!headerCrop}
         imageFailed={headerImgError}
         onImageError={handleHeaderImgError}
         onEditImage={isAdmin ? () => setGalleryModalOpen(true) : null}
@@ -731,6 +740,7 @@ export function ObjectDetail() {
           objectId={activeObjectId}
           catalogId={catalogEntry?.id || baseObjectId}
           currentGalleryImage={galleryData?.galleryImage ?? null}
+          currentCrop={galleryData?.galleryCrop ?? null}
           onClose={() => setGalleryModalOpen(false)}
           isDark={isDark}
         />

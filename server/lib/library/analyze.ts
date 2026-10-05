@@ -24,6 +24,8 @@ import { findLayoutDrift, reconcileLayoutFromDisk } from './libraryLayout.js';
 import { countFlatObjects } from './libraryRenest.js';
 import { deleteLibraryFileRow } from './libraryFiles.js';
 import { refreshObjectFileCount } from './observations.js';
+import { invalidateAllImagesCache } from './gallery.js';
+import { deleteProcessedImage } from './processed.js';
 
 export interface MissingObject {
   objectId: string;
@@ -39,6 +41,8 @@ export interface LibraryAnalysis {
   missingObjectCount: number;
   layoutDrift: number;
   flatObjects: number;
+  /** Processed-image records (the Gallery's "Processed" cards) whose file is gone. */
+  missingProcessed: { count: number; objects: number };
   /** Paths that could not be checked, so are excluded from every count above. A
    *  non-zero value means a repair will refuse until it is resolved. */
   unreadable: number;
@@ -105,8 +109,37 @@ async function findMissingObjects(): Promise<{ missing: MissingObject[]; unreada
   return { missing, unreadable };
 }
 
+interface ProcessedRow { id: string; objectId: string; filename: string; folderName: string | null }
+
+/** Processed-image records whose file is no longer under `<object>/processed/`.
+ *  They still render as Gallery cards, but with nothing behind them to open. */
+async function findMissingProcessed(): Promise<{ missing: ProcessedRow[]; unreadable: number }> {
+  const rows = db
+    .prepare<[], ProcessedRow>(
+      `SELECT p.id, p.objectId, p.filename, o.folderName
+       FROM sessionProcessedImages p LEFT JOIN libraryObjects o ON o.objectId = p.objectId`,
+    )
+    .all();
+  const root = getLibraryDir();
+  const missing: ProcessedRow[] = [];
+  let unreadable = 0;
+  for (let i = 0; i < rows.length; i += STAT_BATCH) {
+    const batch = rows.slice(i, i + STAT_BATCH);
+    const results = await Promise.all(
+      batch.map(r => probePath(path.join(root, r.folderName || r.objectId, 'processed', r.filename))),
+    );
+    batch.forEach((r, j) => {
+      if (results[j] === 'missing') missing.push(r);
+      else if (results[j] === 'error') unreadable++;
+    });
+  }
+  return { missing, unreadable };
+}
+
 export async function analyzeLibrary(): Promise<LibraryAnalysis> {
-  const [staleResult, missingResult] = await Promise.all([findStaleRows(), findMissingObjects()]);
+  const [staleResult, missingResult, processedResult] = await Promise.all([
+    findStaleRows(), findMissingObjects(), findMissingProcessed(),
+  ]);
   const { stale } = staleResult;
   const { missing } = missingResult;
   return {
@@ -115,7 +148,11 @@ export async function analyzeLibrary(): Promise<LibraryAnalysis> {
     missingObjectCount: missing.length,
     layoutDrift: findLayoutDrift().length,
     flatObjects: countFlatObjects(),
-    unreadable: staleResult.unreadable + missingResult.unreadable,
+    missingProcessed: {
+      count: processedResult.missing.length,
+      objects: new Set(processedResult.missing.map(r => r.objectId)).size,
+    },
+    unreadable: staleResult.unreadable + missingResult.unreadable + processedResult.unreadable,
     ranAt: new Date().toISOString(),
   };
 }
@@ -130,6 +167,17 @@ export async function fixStaleRecords(): Promise<{ removed: number }> {
   })();
   for (const id of touched) refreshObjectFileCount(id);
   return { removed: stale.length };
+}
+
+/** Drop processed-image records whose file is gone. */
+export async function fixMissingProcessed(): Promise<{ removed: number }> {
+  const { missing, unreadable } = await findMissingProcessed();
+  if (unreadable > 0) throw new LibraryUnreadableError(unreadable);
+  db.transaction(() => {
+    for (const r of missing) deleteProcessedImage(r.id);
+  })();
+  invalidateAllImagesCache();
+  return { removed: missing.length };
 }
 
 /** Move objects whose folder is gone to the trash. Restorable from there, and

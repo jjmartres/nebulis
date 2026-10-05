@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { X, RotateCw, HelpCircle, Telescope as TelescopeIcon, Check, Wifi, WifiOff, Usb, Network, Settings2, ChevronDown, Frame, Pin, Pencil, Trash2, Plus, ArrowLeft, ArrowRight } from 'lucide-react';
+import { X, RotateCw, HelpCircle, Telescope as TelescopeIcon, Check, Wifi, WifiOff, Usb, Network, Settings2, ChevronDown, Frame, Radar, Pin, Pencil, Trash2, Plus, ArrowLeft, ArrowRight } from 'lucide-react';
 import { HelpBlockText } from './HelpBlockText';
 import {
   createTelescope,
   updateTelescope,
   testTelescopeConnection,
   probeTransportIdentity,
+  scanForDevices,
+  type FoundDevice,
   addProfileTransport,
   listTelescopes,
   addTelescopeOpticalConfig,
@@ -131,6 +133,13 @@ export function AddTelescopeModal({
   const [pickedDrive, setPickedDrive] = useState<DetectedDrive | null>(null);
   // Merge prompt state. When probe-identity finds an existing profile owning
   // this device, we present a confirm modal before creating a duplicate.
+  // "Find device": sweeps the server's LAN and lists what looks like a
+  // SeeStar / ASIAIR / Dwarf. Picking one fills the address (and the type).
+  const scanMutation = useMutation({ mutationFn: scanForDevices });
+  const pickFound = (d: FoundDevice) => {
+    setHostname(d.host);
+    if (!isEdit) setKind(toTelescopeKind(d.kind));
+  };
   const [mergeCandidate, setMergeCandidate] = useState<{ profileId: string; profileName: string } | null>(null);
 
   // Advanced share settings disclosure (shareName + username + password). Most
@@ -616,15 +625,58 @@ export function AddTelescopeModal({
           <>
           <div>
             <label className={labelClass}>{t('addTelescopeModal.hostnameLabel')}</label>
-            <input
-              type="text"
-              placeholder={preset.defaultHostname || '192.168.1.100'}
-              value={hostname}
-              onChange={e => setHostname(e.target.value)}
-              className={inputClass}
-              autoFocus={!isEdit}
-              aria-invalid={!!hostError}
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder={preset.defaultHostname || '192.168.1.100'}
+                value={hostname}
+                onChange={e => setHostname(e.target.value)}
+                className={inputClass}
+                autoFocus={!isEdit}
+                aria-invalid={!!hostError}
+              />
+              <button
+                type="button"
+                onClick={() => scanMutation.mutate()}
+                disabled={scanMutation.isPending}
+                className={`shrink-0 inline-flex items-center gap-2 px-3 rounded-lg border text-sm font-medium disabled:opacity-60 ${
+                  isDark ? 'border-slate-700 text-slate-200 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <Radar className={`w-4 h-4 ${scanMutation.isPending ? 'animate-pulse' : ''}`} />
+                {scanMutation.isPending ? t('addTelescopeModal.findDeviceScanning') : t('addTelescopeModal.findDevice')}
+              </button>
+            </div>
+            {scanMutation.isError && (
+              <p className={`text-xs mt-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>{t('addTelescopeModal.findDeviceFailed')}</p>
+            )}
+            {scanMutation.data && scanMutation.data.devices.length === 0 && (
+              <p className={helperClass}>
+                {scanMutation.data.subnets.length === 0
+                  ? t('addTelescopeModal.findDeviceNoNetwork')
+                  : t('addTelescopeModal.findDeviceNone', { subnets: scanMutation.data.subnets.join(', ') })}
+              </p>
+            )}
+            {scanMutation.data && scanMutation.data.devices.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className={helperClass}>{t('addTelescopeModal.findDevicePick', { count: scanMutation.data.devices.length })}</p>
+                {scanMutation.data.devices.map(d => (
+                  <button
+                    key={d.host}
+                    type="button"
+                    onClick={() => pickFound(d)}
+                    className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-sm text-left ${
+                      hostname.trim() === d.host
+                        ? (isDark ? 'border-sky-500 bg-sky-500/10 text-white' : 'border-sky-500 bg-sky-50 text-slate-900')
+                        : (isDark ? 'border-slate-700 text-slate-200 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100')
+                    }`}
+                  >
+                    <span className="font-medium">{d.label}</span>
+                    <span className="opacity-70 tabular-nums">{d.name ?? d.host}{d.name ? ` · ${d.host}` : ''}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {hostError
               ? <p className={`text-xs mt-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>{hostError}</p>
               : (

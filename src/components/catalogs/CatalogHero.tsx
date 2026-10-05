@@ -24,6 +24,8 @@ interface Props {
   label: string;
   total: number;
   imagedCount: number;
+  /** Part of imagedCount credited through another object's frame. */
+  imagedInFrameCount?: number;
   byType: ByTypeStats;
   accent: string;
   typeFilter: ObjectClass | null;
@@ -86,7 +88,7 @@ const RING_RADIUS = 52;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 export function CatalogHero({
-  meta, label, total, imagedCount, byType,
+  meta, label, total, imagedCount, imagedInFrameCount = 0, byType,
   accent, typeFilter, onTypeFilterChange, onPlan,
 }: Props) {
   const { t } = useTranslation('catalogs');
@@ -197,6 +199,11 @@ export function CatalogHero({
             <div className="mt-2 text-[13px] text-white/65">
               {remaining === 0 ? t('catalogHero.programComplete') : t('catalogHero.stillToImage', { count: remaining })}
             </div>
+            {imagedInFrameCount > 0 && (
+              <div className="mt-1 text-[12px] text-white/45">
+                {t('catalogHero.inFrameNote', { count: imagedInFrameCount })}
+              </div>
+            )}
 
             {onPlan && (
               <button

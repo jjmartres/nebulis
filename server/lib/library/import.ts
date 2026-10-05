@@ -92,6 +92,7 @@ import { RESTACKED_FOLDER, isRestackedFolder, resolveRestackTargetId, mimeTypeFo
 import { addProcessedImage, hasRestackedImage, isRenderableProcessedName, isStoredOnlyProcessedName } from './processed.js';
 import {
   sessionFolderFor,
+  canonicalSessionFolder,
   layoutForImport,
   getObjectLayout,
   setObjectLayout,
@@ -4073,6 +4074,12 @@ export function createManualObservation(
   const objDir = safeObjectDir(folderName);
   if (!objDir) throw new Error(`Cannot create an observation for "${objectName}": the resolved folder name is unsafe.`);
 
+  // A brand-new object is nested like every other new object; one that already
+  // exists keeps its shape. Writing this file at the object root of a new object
+  // would register it as flat, and the "your library needs a one-time update"
+  // prompt would then fire on a library that has never been in the old layout.
+  const layout = layoutForImport(objectId, !!existingRow && !existingRow.deleted);
+
   ensureLibraryDir();
   if (!fs.existsSync(objDir)) {
     fs.mkdirSync(objDir, { recursive: true });
@@ -4094,7 +4101,12 @@ export function createManualObservation(
       String(now.getSeconds()).padStart(2, '0')}`;
     const ts = `${dateMatch[1]}${dateMatch[2]}${dateMatch[3]}-${clampToNightSafeTime(rawHms)}`;
     const filename = `${objectId}_${ts}.${ext}`;
-    fs.writeFileSync(path.join(objDir, filename), imageBuffer);
+    let writeDir = objDir;
+    if (layout === 'nested') {
+      writeDir = path.join(objDir, canonicalSessionFolder(date, clampToNightSafeTime(rawHms)));
+      fs.mkdirSync(writeDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(writeDir, filename), imageBuffer);
   }
 
   // Update library DB: ensure object + date are tracked. Capture each
@@ -4109,10 +4121,10 @@ export function createManualObservation(
 
   let fileCount = 0;
   try {
-    const allLocal = fs.readdirSync(objDir).filter(f => {
-      const night = sessionNightFor(parseFilename(f));
+    const allLocal = listObjectFiles(objDir, layout).filter(e => {
+      const night = sessionNightFor(parseFilename(e.fileName));
       if (night) sessionSet.add(night);
-      return isRealFile(f);
+      return isRealFile(e.fileName);
     });
     fileCount = allLocal.length;
   } catch {
@@ -4124,6 +4136,8 @@ export function createManualObservation(
   stmts.upsertObject.run(objectId, folderName, fileCount, now, 0, null,
     cat.catalogId, cat.objectName, cat.objectType, cat.constellation,
     cat.description, cat.magnitude, cat.ra, cat.dec, cat.distanceLy);
+  // After the upsert: setObjectLayout is an UPDATE and needs the row to exist.
+  if (layout === 'nested') setObjectLayout(objectId, layout);
   stmts.clearSessions.run(objectId);
   for (const d of sessionSet) {
     const stampId = (d === date ? telescopeId : null) ?? telescopeIdByDate.get(d) ?? null;

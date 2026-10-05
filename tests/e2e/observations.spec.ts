@@ -50,7 +50,8 @@ test.describe('Observations Calendar', () => {
     // now opens the Log Observation modal from the Library (the standalone
     // /observations/new page still exists for deep links).
     await page.goto('/');
-    await page.getByRole('button', { name: /new observation/i }).click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('menuitem', { name: /new observation/i }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Log Observation' });
     await expect(dialog).toBeVisible();

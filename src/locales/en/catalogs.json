@@ -49,7 +49,9 @@
     "stillToImage_one": "{{count}} still to image",
     "stillToImage_other": "{{count}} still to image",
     "planTonightTitle": "Plan tonight from un-imaged {{label}} objects",
-    "planTonight": "Plan tonight"
+    "planTonight": "Plan tonight",
+    "inFrameNote_one": "Includes {{count}} imaged in another object's frame",
+    "inFrameNote_other": "Includes {{count}} imaged in other objects' frames"
   },
   "catalogPanel": {
     "ariaLabel": "{{label}} catalog, {{imaged}} of {{total}} objects imaged",
@@ -71,7 +73,9 @@
     "addToWishlist": "Add to wishlist",
     "removeFromWishlist": "Remove from wishlist",
     "addToWishlistAriaLabel": "Add {{name}} to wishlist",
-    "removeFromWishlistAriaLabel": "Remove {{name}} from wishlist"
+    "removeFromWishlistAriaLabel": "Remove {{name}} from wishlist",
+    "inFrame": "In {{host}}",
+    "inFrameAriaLabel": "{{id}}, {{name}}, imaged in the same frame as {{host}}"
   },
   "catalogToolbar": {
     "filterAll": "All",
@@ -117,7 +121,8 @@
     "framingButton": "Framing & Mosaic",
     "framingButtonTitle": "Preview how this object frames in your telescope, and plan a mosaic",
     "addToWishlist": "Add to wishlist",
-    "removeFromWishlist": "Remove from wishlist"
+    "removeFromWishlist": "Remove from wishlist",
+    "imagedInFrame": "Imaged in the frame of {{host}}"
   },
   "filterRecommendations": {
     "heading": "Filter recommendations",

@@ -569,6 +569,28 @@ function renderSection(id: SectionId, isDark: boolean, navigate: (id: SectionId)
               },
             ]}
           />
+          <div className="mt-8">
+            <p className={`px-1 pb-3 text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              {t('tourPlanner.rankingIntro')}
+            </p>
+            <Terms
+              isDark={isDark}
+              label={t('tourPlanner.rankingLabel')}
+              items={[
+                { t: t('tourPlanner.rankAltitudeTerm'), d: t('tourPlanner.rankAltitudeBody') },
+                { t: t('tourPlanner.rankHoursTerm'), d: t('tourPlanner.rankHoursBody') },
+                { t: t('tourPlanner.rankBrightnessTerm'), d: t('tourPlanner.rankBrightnessBody') },
+                { t: t('tourPlanner.rankPeakTerm'), d: t('tourPlanner.rankPeakBody') },
+                { t: t('tourPlanner.rankSizeTerm'), d: t('tourPlanner.rankSizeBody') },
+              ]}
+            />
+            <p className={`px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              {t('tourPlanner.moonLabel')}
+            </p>
+            <p className={`px-1 text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              {t('tourPlanner.moonBody')}
+            </p>
+          </div>
           <Note isDark={isDark}>
             {t('tourPlanner.note')}
           </Note>

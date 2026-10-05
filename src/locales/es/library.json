@@ -123,14 +123,34 @@
     "importFromTelescope": "Importar desde el telescopio",
     "uploadObservation": "Subir observación",
     "configureSettings": "Configurar ajustes",
+    "gridSize": "Tamaño de la cuadrícula",
+    "groupOptions": {
+      "none": "Sin agrupar",
+      "catalog": "Por catálogo",
+      "type": "Por tipo",
+      "constellation": "Por constelación"
+    },
     "sortOptions": {
+      "catalogAsc": "Número de catálogo (M1, M2…)",
       "nameAsc": "Nombre (A–Z)",
       "nameDesc": "Nombre (Z–A)",
       "latestObservation": "Observación más reciente",
       "oldestObservation": "Observación más antigua",
       "mostSessions": "Más sesiones",
       "recentlyImported": "Importados recientemente"
-    }
+    },
+    "view": "Vista",
+    "add": "Añadir",
+    "filterType": "Tipo",
+    "filterScope": "Ámbito",
+    "filterStatus": "Estado",
+    "groupBy": "Agrupar por",
+    "sortBy": "Ordenar por",
+    "removeFilter": "Quitar el filtro {{name}}",
+    "clearFilters": "Borrar filtros",
+    "moreTypes": "Más tipos ({{count}})",
+    "fewerTypes": "Menos tipos",
+    "reset": "Restablecer valores predeterminados"
   },
   "objectCard": {
     "removeFromFavorites": "Quitar de favoritos",
@@ -420,7 +440,15 @@
     "noImagesInLibrary": "No hay imágenes en la biblioteca",
     "starToFavorite": "Marca una imagen con una estrella para añadirla a tus favoritos.",
     "uploadProcessedHint": "Sube una imagen procesada desde una página de observación para verla aquí.",
-    "importFromTelescopeHint": "Importa imágenes desde tu telescopio SeeStar para verlas aquí."
+    "importFromTelescopeHint": "Importa imágenes desde tu telescopio SeeStar para verlas aquí.",
+    "filters": "Filtros",
+    "filterType": "Tipo",
+    "filterShow": "Mostrar",
+    "moreTypes": "Más tipos ({{count}})",
+    "fewerTypes": "Menos tipos",
+    "removeFilter": "Quitar el filtro {{name}}",
+    "clearFilters": "Borrar filtros",
+    "reset": "Restablecer valores predeterminados"
   },
   "galleryHero": {
     "title": "Galería de imágenes",
@@ -773,7 +801,7 @@
       "deleteSelectedText": "Eliminar texto seleccionado"
     },
     "fonts": {
-      "sansSerif": "Sans-serif",
+      "sansSerif": "Sin serifa",
       "serif": "Serif",
       "monospace": "Monoespaciada",
       "impact": "Impact"
@@ -898,7 +926,23 @@
     "noObservationImages": "Todavía no hay imágenes de observación disponibles",
     "cancel": "Cancelar",
     "save": "Guardar",
-    "previewAlt": "Vista previa"
+    "previewAlt": "Vista previa",
+    "framingHeading": "Encuadre",
+    "framingPickFirst": "Elige una imagen concreta (una fuente de referencia, una subida o una de tus observaciones) para encuadrarla. Auto no se puede encuadrar porque puede cambiar.",
+    "framingHint": "Arrastra el recuadro para moverlo y arrastra una esquina para cambiar su tamaño. Lo que quede dentro es lo que mostrarán la tarjeta de la biblioteca y la cabecera del objeto.",
+    "framePortrait": "Cambiar a recuadro vertical",
+    "frameLandscape": "Cambiar a recuadro horizontal",
+    "framedTag": "Encuadrada",
+    "framedPortraitSuffix": "(girado)",
+    "frameButton": "Encuadrar imagen",
+    "framedBadge": "Encuadrada {{zoom}}×",
+    "framingBack": "Atrás",
+    "framingApply": "Usar este encuadre",
+    "framingUnavailable": "No se puede previsualizar esta imagen para encuadrarla.",
+    "zoom": "Zoom",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "resetFraming": "Restablecer encuadre"
   },
   "imageCompareModal": {
     "title": "Comparar imágenes",

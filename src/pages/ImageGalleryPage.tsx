@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  Star, Images, AlertCircle, Search, Filter, ArrowUpDown, Check, Sparkles,
+  Star, Images, AlertCircle, Search, Filter, ArrowUpDown, Check, Sparkles, X,
 } from 'lucide-react';
 import { getAllLibraryImages, toggleImageFavorite, getLibraryObjectFilters, type LibraryImage } from '../lib/api/library';
 import { getSettings } from '../lib/api/settings';
@@ -14,10 +14,10 @@ import { ImageGalleryHero } from '../components/gallery/ImageGalleryHero';
 import { ImageViewer } from '../components/gallery/ImageViewer';
 import { ImageCard } from '../components/gallery/ImageCard';
 import { useClickOutside } from '../hooks/useClickOutside';
-import { useFilterChipPrefs } from '../hooks/useFilterChipPrefs';
-import { FilterCustomizeMenu } from '../components/filters/FilterCustomizeMenu';
+import { FilterSection, Pill, TypeFilterSection, ActiveFilterChips, PopoverResetButton } from '../components/filters/toolbarParts';
+import { TOOLBAR_BTN, POPOVER, popoverSurface } from '../components/filters/toolbarStyles';
 import { TourAnchor } from '../components/tour/TourAnchor';
-import { buildTypeFilters, matchesFilter, defaultEnabledIds, filterLabel, ALL_FILTER_ID, FAVORITES_FILTER_ID } from '../lib/objectTypeFilters';
+import { buildTypeFilters, countGroupChips, matchesFilter, filterLabel, ALL_FILTER_ID, FAVORITES_FILTER_ID } from '../lib/objectTypeFilters';
 import { isOptionValue } from '../lib/typeGuards';
 
 type SortKey = 'name-asc' | 'name-desc' | 'date-desc' | 'date-asc';
@@ -54,8 +54,8 @@ export function ImageGalleryPage() {
   const [sortKey, setSortKey] = useState<SortKey>(readStoredSort);
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [planetariumImages, setPlanetariumImages] = useState<LibraryImage[] | null>(null);
 
@@ -95,25 +95,12 @@ export function ImageGalleryPage() {
     () => buildTypeFilters((serverImages ?? []).map(i => i.objectType), objectFilters),
     [serverImages, objectFilters],
   );
-  const defaultIds = useMemo(() => defaultEnabledIds(objectFilters), [objectFilters]);
-  const { enabledIds, toggle: toggleChip, clearAll: clearAllChips } = useFilterChipPrefs(defaultIds);
-
-  // Clearing unpins every chip AND resets the active selection (Favorites
-  // isn't gated by enabledIds, so it needs an explicit reset too).
-  function handleClearAllFilters() {
-    clearAllChips();
-    setActiveFilterId(ALL_FILTER_ID);
-  }
-
-  const chips = useMemo(() => {
-    const groupChips = objectFilters
-      .filter(f => f.id !== ALL_FILTER_ID && enabledIds.has(f.id))
-      .map(f => ({ id: f.id, label: f.label }));
-    const typeChips = typeFilters
-      .filter(tf => enabledIds.has(tf.id))
-      .map(tf => ({ id: tf.id, label: tf.label }));
-    return [...groupChips, ...typeChips];
-  }, [objectFilters, typeFilters, enabledIds]);
+  // Curated groups that actually cover some image, with counts, so the Filters
+  // popover never offers a type that would show an empty grid.
+  const chips = useMemo(
+    () => countGroupChips(objectFilters, (serverImages ?? []).map(i => i.objectType)),
+    [serverImages, objectFilters],
+  );
 
   // If the active chip was removed via the customize menu (or no longer
   // corresponds to a visible chip, e.g. a type suppressed by the group-label
@@ -122,14 +109,12 @@ export function ImageGalleryPage() {
   const effectiveFilterId =
     activeFilterId === ALL_FILTER_ID ||
     activeFilterId === FAVORITES_FILTER_ID ||
-    chips.some(c => c.id === activeFilterId)
+    chips.some(c => c.id === activeFilterId) ||
+    typeFilters.some(tf => tf.id === activeFilterId)
       ? activeFilterId
       : ALL_FILTER_ID;
 
-  useClickOutside(filterMenuRef, () => setFilterMenuOpen(false), {
-    enabled: filterMenuOpen,
-    closeOnEscape: true,
-  });
+  useClickOutside(filtersRef, () => setFiltersOpen(false), { enabled: filtersOpen, closeOnEscape: true });
 
   const favMutation = useMutation({
     mutationKey: ['toggle-image-favorite'],
@@ -235,6 +220,25 @@ export function ImageGalleryPage() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [sortOpen]);
 
+  const activeChips: { key: string; label: string; clear: () => void }[] = [];
+  if (effectiveFilterId !== ALL_FILTER_ID && effectiveFilterId !== FAVORITES_FILTER_ID) {
+    activeChips.push({ key: 'type', label: filterLabel(effectiveFilterId, objectFilters, typeFilters), clear: () => setActiveFilterId(ALL_FILTER_ID) });
+  }
+  if (processedOnly) {
+    activeChips.push({ key: 'processed', label: t('galleryPage.processedOnly'), clear: () => setProcessedOnlyOverride(false) });
+  }
+  const activeFilterCount = activeChips.length;
+  function clearAllActive() {
+    setActiveFilterId(ALL_FILTER_ID);
+    setProcessedOnlyOverride(false);
+  }
+
+  // Back to defaults: the Settings default decides Processed only, so drop the override.
+  function resetFilters() {
+    setActiveFilterId(ALL_FILTER_ID);
+    setProcessedOnlyOverride(null);
+  }
+
   function applySort(key: SortKey) {
     setSortKey(key);
     setSortOpen(false);
@@ -281,141 +285,121 @@ export function ImageGalleryPage() {
           />
         </div>
 
-        <div ref={sortRef} className="relative shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <div ref={filtersRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(o => !o)}
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+              className={`${TOOLBAR_BTN} ${
+                activeFilterCount > 0
+                  ? isDark ? 'bg-accent-500/15 text-accent-400 ring-accent-500/30' : 'bg-accent-500 text-white ring-accent-500'
+                  : isDark ? 'bg-slate-900/70 text-slate-200 ring-slate-700/60 hover:bg-slate-800' : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              {t('galleryPage.filters')}
+              {activeFilterCount > 0 && (
+                <span className={`min-w-[1.25rem] px-1 rounded-full text-xs text-center ${isDark ? 'bg-accent-500/25' : 'bg-white/25'}`}>
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            {filtersOpen && (
+              <div className={`${POPOVER} w-[22rem] max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto p-4 space-y-4 ${popoverSurface(isDark)}`}>
+                <PopoverResetButton isDark={isDark} label={t('galleryPage.reset')} disabled={activeFilterCount === 0 && effectiveFilterId !== FAVORITES_FILTER_ID && processedOnlyOverride === null} onReset={resetFilters} />
+                <TypeFilterSection
+                  isDark={isDark}
+                  activeId={effectiveFilterId}
+                  allId={ALL_FILTER_ID}
+                  groups={chips}
+                  types={typeFilters}
+                  onSelect={setActiveFilterId}
+                  labels={{
+                    title: t('galleryPage.filterType'),
+                    all: t('galleryPage.all'),
+                    more: count => t('galleryPage.moreTypes', { count }),
+                    fewer: t('galleryPage.fewerTypes'),
+                  }}
+                />
+                {/* "Processed" is a different axis (kind of image) than object
+                    type, so it stacks with the type choice and Favorites. */}
+                <FilterSection title={t('galleryPage.filterShow')} isDark={isDark}>
+                  <Pill active={processedOnly} isDark={isDark} onClick={() => setProcessedOnlyOverride(!processedOnly)}>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {t('galleryPage.processedOnly')}
+                  </Pill>
+                </FilterSection>
+              </div>
+            )}
+          </div>
+
           <button
-            onClick={() => setSortOpen(o => !o)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap ring-1 ring-inset transition-colors ${
-              isDark
-                ? 'bg-slate-900/70 text-slate-300 ring-slate-700/60 hover:bg-slate-800'
-                : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-100'
+            type="button"
+            onClick={() => setActiveFilterId(effectiveFilterId === FAVORITES_FILTER_ID ? ALL_FILTER_ID : FAVORITES_FILTER_ID)}
+            aria-pressed={effectiveFilterId === FAVORITES_FILTER_ID}
+            aria-label={t('galleryPage.favorites')}
+            title={t('galleryPage.favorites')}
+            className={`flex items-center justify-center w-10 h-10 rounded-full ring-1 ring-inset transition-colors ${
+              effectiveFilterId === FAVORITES_FILTER_ID
+                ? isDark ? 'bg-amber-500/15 text-amber-400 ring-amber-500/30' : 'bg-amber-100 text-amber-700 ring-amber-300'
+                : isDark ? 'bg-slate-900/70 text-slate-400 ring-slate-700/60 hover:bg-slate-800' : 'bg-white text-slate-500 ring-slate-200 hover:bg-slate-100'
             }`}
           >
-            <ArrowUpDown className="w-4 h-4" />
-            {(() => {
-              const opt = SORT_OPTIONS.find(o => o.value === sortKey);
-              return opt ? t(opt.labelKey) : null;
-            })()}
+            <Star className={`w-4 h-4 ${effectiveFilterId === FAVORITES_FILTER_ID ? 'fill-current' : ''}`} />
           </button>
-          {sortOpen && (
-            <div className={`absolute right-0 top-full mt-1.5 z-20 w-44 rounded-2xl border shadow-lg overflow-hidden ${
-              isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-            }`}>
-              {SORT_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => applySort(opt.value)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors ${
-                    sortKey === opt.value
-                      ? isDark
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-slate-50 text-slate-900'
-                      : isDark
-                        ? 'text-slate-300 hover:bg-slate-800'
-                        : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {t(opt.labelKey)}
-                  {sortKey === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
-                </button>
-              ))}
-            </div>
-          )}
+
+          <div ref={sortRef} className="relative shrink-0">
+            <button
+              onClick={() => setSortOpen(o => !o)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap ring-1 ring-inset transition-colors ${
+                isDark
+                  ? 'bg-slate-900/70 text-slate-300 ring-slate-700/60 hover:bg-slate-800'
+                  : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <ArrowUpDown className="w-4 h-4" />
+              {(() => {
+                const opt = SORT_OPTIONS.find(o => o.value === sortKey);
+                return opt ? t(opt.labelKey) : null;
+              })()}
+            </button>
+            {sortOpen && (
+              <div className={`absolute right-0 top-full mt-1.5 z-20 w-44 rounded-2xl border shadow-lg overflow-hidden ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}>
+                {SORT_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => applySort(opt.value)}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors ${
+                      sortKey === opt.value
+                        ? isDark
+                          ? 'bg-slate-800 text-white'
+                          : 'bg-slate-50 text-slate-900'
+                        : isDark
+                          ? 'text-slate-300 hover:bg-slate-800'
+                          : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {t(opt.labelKey)}
+                    {sortKey === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className={`flex items-center gap-2 flex-wrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-        {/* Filter icon opens the customize menu (pick which chips show). */}
-        <div ref={filterMenuRef} className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setFilterMenuOpen(o => !o)}
-            aria-label={t('galleryPage.customizeFilters')}
-            aria-haspopup="menu"
-            aria-expanded={filterMenuOpen}
-            title={t('galleryPage.customizeFilters')}
-            className={`flex items-center justify-center w-8 h-8 rounded-full ring-1 ring-inset transition-colors ${
-              filterMenuOpen
-                ? isDark ? 'bg-slate-800 ring-slate-600 text-slate-200' : 'bg-slate-100 ring-slate-300 text-slate-700'
-                : isDark
-                  ? 'bg-slate-900/70 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-300'
-                  : 'bg-white ring-slate-200 hover:bg-slate-100 hover:text-slate-700'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-          </button>
-          {filterMenuOpen && (
-            <FilterCustomizeMenu
-              groups={objectFilters}
-              typeFilters={typeFilters}
-              enabledIds={enabledIds}
-              onToggle={toggleChip}
-              onClearAll={handleClearAllFilters}
-              isDark={isDark}
-            />
-          )}
-        </div>
-        <button
-          onClick={() => setActiveFilterId(effectiveFilterId === FAVORITES_FILTER_ID ? ALL_FILTER_ID : FAVORITES_FILTER_ID)}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-            effectiveFilterId === FAVORITES_FILTER_ID
-              ? isDark
-                ? 'bg-amber-500/15 text-amber-400 ring-1 ring-inset ring-amber-500/30'
-                : 'bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-300'
-              : isDark
-                ? 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-          }`}
-        >
-          <Star className={`w-3.5 h-3.5 ${effectiveFilterId === FAVORITES_FILTER_ID ? 'fill-current' : ''}`} />
-          {t('galleryPage.favorites')}
-        </button>
-        {/* Independent of the type/Favorites radio group above: a checkbox, not
-            a chip in that set, since "processed" is a different axis (kind of
-            image) than object type. */}
-        <button
-          onClick={() => setProcessedOnlyOverride(!processedOnly)}
-          aria-pressed={processedOnly}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-            processedOnly
-              ? isDark
-                ? 'bg-accent-500/15 text-accent-400 ring-1 ring-inset ring-accent-500/30'
-                : 'bg-accent-500 text-white'
-              : isDark
-                ? 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          {t('galleryPage.processedOnly')}
-        </button>
-        <button
-          onClick={() => setActiveFilterId(ALL_FILTER_ID)}
-          className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-            effectiveFilterId === ALL_FILTER_ID
-              ? isDark ? 'bg-accent-500/15 text-accent-400 ring-1 ring-inset ring-accent-500/30'
-                       : 'bg-accent-500 text-white'
-              : isDark ? 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
-                       : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-          }`}
-        >
-          {t('galleryPage.all')}
-        </button>
-        {chips.map(chip => (
-          <button
-            key={chip.id}
-            onClick={() => setActiveFilterId(chip.id)}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              effectiveFilterId === chip.id
-                ? isDark ? 'bg-accent-500/15 text-accent-400 ring-1 ring-inset ring-accent-500/30'
-                         : 'bg-accent-500 text-white'
-                : isDark ? 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
-                         : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-            }`}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
+      <ActiveFilterChips
+        chips={activeChips}
+        isDark={isDark}
+        removeLabel={name => t('galleryPage.removeFilter', { name })}
+        clearAllLabel={t('galleryPage.clearFilters')}
+        onClearAll={clearAllActive}
+      />
 
       {!isLoading && !error && images && (
         <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -467,6 +451,18 @@ export function ImageGalleryPage() {
                 : search || effectiveFilterId !== ALL_FILTER_ID ? t('galleryPage.noMatchFilters')
                 : t('galleryPage.noImagesInLibrary')}
             </p>
+            {(search || effectiveFilterId !== ALL_FILTER_ID || processedOnly) && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); clearAllActive(); }}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium ring-1 ring-inset transition-colors ${
+                  isDark ? 'bg-slate-900/70 text-slate-200 ring-slate-700/60 hover:bg-slate-800' : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <X className="w-4 h-4" />
+                {t('galleryPage.clearFilters')}
+              </button>
+            )}
             <p className="text-sm max-w-sm mx-auto">
               {effectiveFilterId === FAVORITES_FILTER_ID ? t('galleryPage.starToFavorite')
                 : processedOnly ? t('galleryPage.uploadProcessedHint')

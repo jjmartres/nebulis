@@ -40,7 +40,7 @@ export function LibraryHealthSection({ isDark }: { isDark: boolean }) {
     onSuccess: async res => {
       const n = res.removed ?? res.retired ?? res.fixed ?? 0;
       setNotice(t('libraryHealth.repaired', { count: n }));
-      for (const key of ['library-cleanup', 'library-objects', 'storage']) {
+      for (const key of ['library-cleanup', 'library-objects', 'storage', 'all-library-images']) {
         queryClient.invalidateQueries({ queryKey: [key] });
       }
       scan.mutate();
@@ -114,6 +114,10 @@ export function LibraryHealthSection({ isDark }: { isDark: boolean }) {
                 t('libraryHealth.stale.detail', { objects: result.staleRecords.objects }),
                 result.staleRecords.count,
                 { label: t('libraryHealth.stale.fix'), run: () => repair.mutate('staleRecords'), disabled: result.unreadable > 0 })}
+              {row('processed', t('libraryHealth.processed.title'),
+                t('libraryHealth.processed.detail', { objects: result.missingProcessed.objects }),
+                result.missingProcessed.count,
+                { label: t('libraryHealth.processed.fix'), run: () => repair.mutate('missingProcessed'), disabled: result.unreadable > 0 })}
               {row('missing', t('libraryHealth.missing.title'), t('libraryHealth.missing.detail'),
                 result.missingObjectCount,
                 { label: t('libraryHealth.missing.fix'), run: () => repair.mutate('missingObjects'), disabled: result.unreadable > 0 })}

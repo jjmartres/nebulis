@@ -20,6 +20,7 @@ import {
 import { resolveCanonicalId, expandSearchAliases, getAliasesForCanonical, normalizeDesignation, isDesignationShaped } from '../catalogAliases.js';
 import { getCatalogEntry } from '../../data/catalog.js';
 import { parseNicknames } from './nicknames.js';
+import { parseGalleryCrop } from './galleryCrop.js';
 import { SOLAR_SYSTEM_LOOKUP_KEYS } from '../../data/solar-system-catalog.js';
 import { parseFitsHeader } from '../fitsParser.js';
 import { log } from '../logger.js';
@@ -85,6 +86,8 @@ export interface LibraryObjectRow {
   deletedAt: string | null;
   galleryImage: string | null;
   galleryImageUserSet: number;
+  /** JSON `{x,y,zoom}` — see GalleryCrop in gallery.ts. Null = uncropped. */
+  galleryCrop: string | null;
   catalogId: string | null;
   objectName: string | null;
   objectType: string | null;
@@ -236,6 +239,7 @@ const migrationColumns: Array<{ column: string; sql: string }> = [
   { column: 'nicknames',          sql: 'ALTER TABLE libraryObjects ADD COLUMN nicknames TEXT' },
   { column: 'sizeArcmin',        sql: 'ALTER TABLE libraryObjects ADD COLUMN sizeArcmin TEXT' },
   { column: 'galleryImageUserSet', sql: 'ALTER TABLE libraryObjects ADD COLUMN galleryImageUserSet INTEGER NOT NULL DEFAULT 0' },
+  { column: 'galleryCrop', sql: 'ALTER TABLE libraryObjects ADD COLUMN galleryCrop TEXT' },
   // Negative cache for catalog enrichment. Without these, "needs enrichment" is
   // the *absence* of a result, so an object Wikipedia and SIMBAD cannot resolve
   // matches forever and is re-queried on every server start and every import.
@@ -995,11 +999,12 @@ export const stmts = {
   removeImageFavorite: db.prepare('DELETE FROM imageFavorites WHERE imagePath = ? AND userId = ?'),
 
   // Gallery image
-  getGalleryImage: db.prepare<[string], { galleryImage: string | null; galleryImageUserSet: number }>(
-    'SELECT galleryImage, galleryImageUserSet FROM libraryObjects WHERE objectId = ?',
+  getGalleryImage: db.prepare<[string], { galleryImage: string | null; galleryImageUserSet: number; galleryCrop: string | null }>(
+    'SELECT galleryImage, galleryImageUserSet, galleryCrop FROM libraryObjects WHERE objectId = ?',
   ),
-  setGalleryImage:         db.prepare('UPDATE libraryObjects SET galleryImage = ?, galleryImageUserSet = 0 WHERE objectId = ?'),
-  setGalleryImageUserSet:  db.prepare('UPDATE libraryObjects SET galleryImage = ?, galleryImageUserSet = 1 WHERE objectId = ?'),
+  setGalleryImage:         db.prepare('UPDATE libraryObjects SET galleryImage = ?, galleryImageUserSet = 0, galleryCrop = NULL WHERE objectId = ?'),
+  setGalleryCrop:          db.prepare('UPDATE libraryObjects SET galleryCrop = ? WHERE objectId = ?'),
+  setGalleryImageUserSet:  db.prepare('UPDATE libraryObjects SET galleryImage = ?, galleryImageUserSet = 1, galleryCrop = NULL WHERE objectId = ?'),
 
   // Session image (designated raw telescope image per session)
   getSessionImage: db.prepare<[string, string], { sessionImage: string | null }>(
@@ -1127,6 +1132,24 @@ export function getLibraryObjectNames() {
 
 // ─── Catalog metadata helpers ───────────────────────────────────────────────
 
+/**
+ * True when an object id reads as a comet designation. Comets are not in the
+ * deep-sky catalogs, so this folder-name shape is the only signal.
+ *
+ *   periodic   "161PHartley-IRAS", "10P Tempel", "220P_McNaught", bare "1P"
+ *   provisional "C/2023 A3", "C-2023 A3", "P/2010 H2", "C2023A3"
+ *
+ * Whole-string and strict on purpose: "3C273", "NGC7000", "M31_mosaic" and
+ * Caldwell "C14" must never match. C/D periodic forms require a trailing name
+ * so a bare "12C" is not claimed.
+ */
+export function looksLikeComet(objectId: string): boolean {
+  const id = objectId.trim();
+  if (/^\d{1,4}P(?:[\s_/-]*[A-Za-z][A-Za-z'-]*.*)?$/i.test(id)) return true;
+  if (/^\d{1,4}[CD][\s_/-]*[A-Za-z][A-Za-z'-]+/i.test(id)) return true;
+  return /^[CPDXI][\s/_-]?\d{4}[\s_]?[A-Z]{1,2}\d*/i.test(id) && !/^C\d{1,3}$/i.test(id);
+}
+
 /** Resolve catalog metadata for an object ID and persist it to the DB row. */
 export function resolveCatalogMeta(objectId: string): {
   catalogId: string; objectName: string; objectType: string;
@@ -1153,7 +1176,7 @@ export function resolveCatalogMeta(objectId: string): {
   return {
     catalogId: normalized,
     objectName: entry?.name || objectId,
-    objectType: entry?.type || (/^[CP]-\d{4}/i.test(objectId) ? 'Comet' : 'Unknown'),
+    objectType: entry?.type || (looksLikeComet(objectId) ? 'Comet' : 'Unknown'),
     constellation: entry?.constellation || 'Unknown',
     description,
     magnitude: entry?.magnitude ?? null,
@@ -1237,13 +1260,20 @@ export function reclassifyObject(
   const newId = resolveCanonicalId(normalizeDesignation(targetCatalogId));
   if (newId === objectId) throw new Error('Already classified as this object');
 
+  // Checked before the rekey, which moves the rows to the new id. Linked files
+  // stay in the user's folder under the old name, so a rescan would undo the
+  // move unless the redirect is kept, whatever `remember` says.
+  const hasLinkedFiles = !!db
+    .prepare('SELECT 1 FROM libraryFiles WHERE objectId = ? AND sourceId IS NOT NULL LIMIT 1')
+    .get(objectId);
+
   db.pragma('foreign_keys = OFF');
   let mode: 'rename' | 'merge' | 'noop';
   try {
     mode = db.transaction(() => {
       const result = rekeyLibraryObject(objectId, newId);
       applyCatalogMetaToLibraryObject(newId);
-      if (opts.remember) setDesignationRedirect(objectId, newId, opts.userId ?? undefined);
+      if (opts.remember || hasLinkedFiles) setDesignationRedirect(objectId, newId, opts.userId ?? undefined);
       return result;
     })();
   } finally {
@@ -1939,7 +1969,10 @@ export function getLocalObjects(userId = '', search = '') {
       isFavorite,
       galleryImage: exposedGalleryImage,
       galleryImageUserSet: Boolean(obj.galleryImageUserSet),
-      galleryImageVersion,
+      galleryImageVersion: obj.galleryImageUserSet && obj.galleryCrop
+        ? `${galleryImageVersion ?? ''}#${obj.galleryCrop}`
+        : galleryImageVersion,
+      galleryCrop: obj.galleryImageUserSet ? parseGalleryCrop(obj.galleryCrop) : null,
       primaryTelescopeId: obj.primaryTelescopeId ?? null,
       telescopeIds,
       aliases: getAliasesForCanonical(obj.objectId),

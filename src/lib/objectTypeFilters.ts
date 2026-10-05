@@ -120,3 +120,19 @@ export function filterLabel(
     activeId
   );
 }
+
+/**
+ * Curated groups that cover at least one of the given raw types, with counts.
+ * For lists that carry only an object type (the Image Gallery) rather than the
+ * Library's precomputed `filterTags`. Excludes `all`/`favorites` and any group
+ * that would match nothing, so a filter never leads to an empty grid.
+ */
+export function countGroupChips(
+  groups: LibraryObjectFilter[],
+  types: (string | null | undefined)[],
+): { id: string; label: string; count: number }[] {
+  return groups
+    .filter(g => g.id !== ALL_FILTER_ID && g.id !== FAVORITES_FILTER_ID)
+    .map(g => ({ id: g.id, label: g.label, count: types.filter(t => groupMatchesType(g, t)).length }))
+    .filter(g => g.count > 0);
+}

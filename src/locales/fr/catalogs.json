@@ -49,7 +49,9 @@
     "stillToImage_one": "{{count}} restant à photographier",
     "stillToImage_other": "{{count}} restants à photographier",
     "planTonightTitle": "Planifier ce soir avec des objets {{label}} non encore photographiés",
-    "planTonight": "Planifier ce soir"
+    "planTonight": "Planifier ce soir",
+    "inFrameNote_one": "Dont {{count}} dans le champ d'un autre objet",
+    "inFrameNote_other": "Dont {{count}} dans le champ d'autres objets"
   },
   "catalogPanel": {
     "ariaLabel": "Catalogue {{label}}, {{imaged}} objets photographiés sur {{total}}",
@@ -71,7 +73,9 @@
     "addToWishlist": "Ajouter à la liste de souhaits",
     "removeFromWishlist": "Retirer de la liste de souhaits",
     "addToWishlistAriaLabel": "Ajouter {{name}} à la liste de souhaits",
-    "removeFromWishlistAriaLabel": "Retirer {{name}} de la liste de souhaits"
+    "removeFromWishlistAriaLabel": "Retirer {{name}} de la liste de souhaits",
+    "inFrame": "Dans {{host}}",
+    "inFrameAriaLabel": "{{id}}, {{name}}, photographié dans le même champ que {{host}}"
   },
   "catalogToolbar": {
     "filterAll": "Tous",
@@ -117,7 +121,8 @@
     "framingButton": "Cadrage et mosaïque",
     "framingButtonTitle": "Prévisualisez le cadrage de cet objet dans votre télescope et planifiez une mosaïque",
     "addToWishlist": "Ajouter à la liste de souhaits",
-    "removeFromWishlist": "Retirer de la liste de souhaits"
+    "removeFromWishlist": "Retirer de la liste de souhaits",
+    "imagedInFrame": "Photographié dans le champ de {{host}}"
   },
   "filterRecommendations": {
     "heading": "Recommandations de filtres",
