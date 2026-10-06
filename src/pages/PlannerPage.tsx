@@ -588,15 +588,30 @@ export function PlannerPage() {
       // y=0 on the timeline corresponds to tStart (the extended window start).
       const rawStart = new Date(tStart.getTime() + Math.max(0, pointerY / pxPerMinuteRef.current) * 60000);
       const startSnapped = clampTime(snapToGrid(rawStart), tStart, tEnd);
-      const endRaw = new Date(startSnapped.getTime() + DEFAULT_BLOCK_MINUTES * 60000);
-      const endSnapped = clampTime(endRaw, tStart, tEnd);
-      if (minutesBetween(startSnapped, endSnapped) < MIN_BLOCK_MINUTES) return;
+      let blockStart = startSnapped;
+      let endSnapped = clampTime(new Date(startSnapped.getTime() + DEFAULT_BLOCK_MINUTES * 60000), tStart, tEnd);
+      // Dropped into an empty stretch: fit the block to it rather than running
+      // over the neighbour. A gap shorter than a default block is filled
+      // exactly; a longer one keeps a default block, slid to stay inside it.
+      const dropMs = startSnapped.getTime();
+      const gap = findGaps(sessions, tStart, tEnd, 1).find(g => dropMs >= g.start && dropMs < g.end);
+      if (gap) {
+        const defaultMs = DEFAULT_BLOCK_MINUTES * 60000;
+        if (gap.end - gap.start <= defaultMs) {
+          blockStart = new Date(gap.start);
+          endSnapped = new Date(gap.end);
+        } else {
+          blockStart = new Date(Math.min(Math.max(dropMs, gap.start), gap.end - defaultMs));
+          endSnapped = new Date(blockStart.getTime() + defaultMs);
+        }
+      }
+      if (minutesBetween(blockStart, endSnapped) < MIN_BLOCK_MINUTES) return;
       createMutate({
         objectId: data.objectId,
         objectName: data.objectName,
         ra: data.ra,
         dec: data.dec,
-        startTime: startSnapped.toISOString(),
+        startTime: blockStart.toISOString(),
         endTime: endSnapped.toISOString(),
       });
       return;
@@ -1904,10 +1919,21 @@ function SessionDetailsModal({
         {(FRAMING_MOSAIC_ENABLED || onQuickAdd || isScheduled || (isAlreadyImaged && libraryObjectId)) && (
           <div className={`shrink-0 flex flex-wrap gap-2 p-5 pt-3 border-t ${isDark ? 'border-slate-700/40' : 'border-slate-200'}`}>
             {isScheduled ? (
-              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                <Check className="w-4 h-4" />
-                {t('wishlistPanel.scheduled')}
-              </span>
+              <>
+                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                  <Check className="w-4 h-4" />
+                  {t('wishlistPanel.scheduled')}
+                </span>
+                {onQuickAdd && (
+                  <button
+                    onClick={onQuickAdd}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition border border-accent-500/50 text-accent-400 hover:bg-accent-500/10"
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                    {t('wishlistPanel.addAnother')}
+                  </button>
+                )}
+              </>
             ) : onQuickAdd ? (
               <button
                 onClick={onQuickAdd}

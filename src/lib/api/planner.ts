@@ -78,6 +78,8 @@ export interface PlannerTarget {
   ra: number;
   dec: number;
   commonNames: string[];
+  /** Other catalog designations (C39, M42...). */
+  aliases?: string[];
   altNow: number;
   azNow: number;
   maxAlt: number;

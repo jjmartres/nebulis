@@ -182,7 +182,10 @@ export function HelpPage() {
 
       {/* ── Body: left rail + one section ──────────────────────────── */}
       <div className="lg:flex lg:gap-10 lg:items-start">
-        <nav className="hidden lg:block sticky top-24 w-60 shrink-0">
+        {/* The rail is as tall as the guide list, which is taller than a laptop screen,
+            so it scrolls inside its own box (hidden scrollbar, and overscroll-contain
+            so reaching the end doesn't hand the wheel to the page). */}
+        <nav className="hidden lg:block sticky top-24 w-60 shrink-0 max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain no-scrollbar">
           <p className={`px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
             {t('page.guidesHeading')}
           </p>

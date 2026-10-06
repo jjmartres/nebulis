@@ -17,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useDraggable } from '@dnd-kit/core';
 import { Search, Eye, EyeOff, Info, MoonStar, ArrowUp, Check, Plus, Shuffle, Star, ChevronRight, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { matchesSearch } from '../../lib/dsoSearch';
+import { rankTargets, resultsWithoutTarget, serverResultKeys, targetMatches } from '../../lib/plannerSearch';
 import { getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import { useTheme } from '../../hooks/useTheme';
 import { formatObjectName } from '../../lib/utils';
@@ -169,16 +169,35 @@ export function LibraryPanel({
    *  popularDefault below. */
   const isNarrowing = deferredQuery.trim().length > 0 || filter !== 'all';
 
+  // Backfill from the full DSO catalog while searching. Objects that never
+  // clear the horizon tonight are absent from `targets` (the server drops
+  // them), so a text search would otherwise return nothing for them.
+  const trimmedQuery = deferredQuery.trim();
+  const dsoSearchQuery = useQuery({
+    // Limit is part of the key: other callers query ['dso-search', q] with
+    // smaller limits, and a shared key would serve this panel a truncated list.
+    queryKey: ['dso-search', trimmedQuery, 40],
+    queryFn: () => searchDsoCatalog(trimmedQuery, 40),
+    enabled: trimmedQuery.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  // Targets the server's results name, even where the browser's own match misses.
+  const serverKeys = useMemo(() => serverResultKeys(dsoSearchQuery.data?.results), [dsoSearchQuery.data]);
+
   const filtered = useMemo(() => {
     if (isNarrowing) {
-      return targets.filter(t => {
+      const matched = targets.filter(t => {
         if (filter === 'galaxies' && !typeInClass(t.type, 'galaxy')) return false;
         if (filter === 'nebulae' && !typeInClass(t.type, 'nebula')) return false;
         if (filter === 'clusters' && !typeInClass(t.type, 'cluster')) return false;
         if (filter === 'wishlist' && !wishlist.idSet.has(t.id)) return false;
-        if (deferredQuery && !matchesSearch(t, deferredQuery)) return false;
+        if (deferredQuery && !targetMatches(t, deferredQuery, serverKeys)) return false;
         return true;
       });
+      // An exact designation or name ("C39", "Eskimo Nebula") outranks objects
+      // that merely contain the text (NGC3900).
+      return deferredQuery ? rankTargets(matched, deferredQuery) : matched;
     }
     // Default view: already-imaged + top "popular" by best-tonight.
     // "Popular" = has at least one human-friendly common name (Messier, named
@@ -197,7 +216,7 @@ export function LibraryPanel({
       push(t);
     }
     return out;
-  }, [targets, filter, deferredQuery, isNarrowing, wishlist.idSet]);
+  }, [targets, filter, deferredQuery, isNarrowing, wishlist.idSet, serverKeys]);
 
   // Pre-compute per-row visibility against the sky map. Skipped when the
   // observer location or night window is missing.
@@ -228,19 +247,6 @@ export function LibraryPanel({
   const visibleRows = useMemo(() => ordered.slice(0, RESULT_CAP), [ordered]);
   const hiddenCount = Math.max(0, afterHide.length - visibleRows.length);
 
-  // Backfill from the full DSO catalog while searching. Objects that never
-  // clear the horizon tonight are absent from `targets` (the server drops
-  // them), so a text search would otherwise return nothing for them.
-  const trimmedQuery = deferredQuery.trim();
-  const dsoSearchQuery = useQuery({
-    // Limit is part of the key: other callers query ['dso-search', q] with
-    // smaller limits, and a shared key would serve this panel a truncated list.
-    queryKey: ['dso-search', trimmedQuery, 40],
-    queryFn: () => searchDsoCatalog(trimmedQuery, 40),
-    enabled: trimmedQuery.length > 0,
-    staleTime: 5 * 60_000,
-  });
-
   // Catalog matches that aren't in tonight's observable set, annotated with the
   // reason they're unobservable. Hidden when "Hide blocked" is on (these are the
   // most blocked of all) or when filtering by a category tab.
@@ -248,10 +254,10 @@ export function LibraryPanel({
     if (hideBlocked || filter !== 'all' || trimmedQuery.length === 0) return [];
     const results = dsoSearchQuery.data?.results;
     if (!results) return [];
-    const targetIds = new Set(targets.map(t => t.id));
     const out: UnobservableEntry[] = [];
-    for (const d of results) {
-      if (targetIds.has(d.id)) continue; // observable — already shown above
+    // Only results no target already stands for (by id or alias), so an object
+    // is never listed both as a target and as "not observable".
+    for (const d of resultsWithoutTarget(results, targets)) {
       let reason = t('libraryPanel.notObservableTonight');
       if (observerLat != null && observerLon != null && nightStart && nightEnd) {
         const curve = computeAltitudeCurve(d.ra, d.dec, observerLat, observerLon, nightStart, nightEnd, 15);

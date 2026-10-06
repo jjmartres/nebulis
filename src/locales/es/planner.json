@@ -198,6 +198,7 @@
     "addingAll": "Añadiendo...",
     "nothingToAddTonight": "Nada de tu lista de deseos está a la vez visible esta noche y sin programar",
     "scheduled": "Programado",
+    "addAnother": "Añadir otro",
     "schedule": "Programar",
     "scheduleAtHighest": "Programar en su punto más alto disponible",
     "scheduleAtHighestOn": "Programar en su punto más alto disponible, el {{date}}",

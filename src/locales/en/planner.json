@@ -198,6 +198,7 @@
     "addingAll": "Adding...",
     "nothingToAddTonight": "Nothing on your wishlist is both visible tonight and unscheduled",
     "scheduled": "Scheduled",
+    "addAnother": "Add another",
     "schedule": "Schedule",
     "scheduleAtHighest": "Schedule at its highest free point",
     "scheduleAtHighestOn": "Schedule at its highest free point on {{date}}",

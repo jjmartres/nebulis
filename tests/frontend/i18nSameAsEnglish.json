@@ -31,5 +31,6 @@
   "settings:addTelescopeModal.wifiFtp": "Connection type names",
   "settings:addTelescopeModal.wifiSmb": "Connection type names",
   "settings:transportEditor.kindLabel.ftp": "Connection type names",
-  "settings:archive.destinationPlaceholder": "Example path"
+  "settings:archive.destinationPlaceholder": "Example path",
+  "settings:usersSection.emailPlaceholder": "Example email address"
 }

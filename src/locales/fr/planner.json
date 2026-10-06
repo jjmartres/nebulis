@@ -198,6 +198,7 @@
     "addingAll": "Ajout en cours...",
     "nothingToAddTonight": "Rien dans votre liste de souhaits n'est à la fois visible ce soir et non programmé",
     "scheduled": "Programmé",
+    "addAnother": "Ajouter un autre",
     "schedule": "Programmer",
     "scheduleAtHighest": "Programmer à son point le plus haut disponible",
     "scheduleAtHighestOn": "Programmer à son point le plus haut disponible, le {{date}}",

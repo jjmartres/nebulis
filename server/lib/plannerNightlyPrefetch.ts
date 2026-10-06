@@ -11,7 +11,7 @@
  * prevents the job from firing more than once per calendar day.
  */
 
-import { getCatalog } from './dsoCatalog.js';
+import { getPlannerCatalog } from './dsoCatalog.js';
 import { getNightWindow, visibilityWindow } from './astroCalc.js';
 import { getSettingsData, updateSettingsData } from './telescopes.js';
 import { getActiveSite } from './observingSites.js';
@@ -202,7 +202,7 @@ export async function runPlannerNightlyPrefetch(): Promise<void> {
   }
 
   // Identify all catalog objects visible tonight from this location
-  const catalog = getCatalog();
+  const catalog = getPlannerCatalog();
   const visibleIds: string[] = [];
 
   for (let i = 0; i < catalog.length; i++) {

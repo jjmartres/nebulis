@@ -491,7 +491,7 @@
     "title": "Mobilgeräte",
     "lead": "iPhone-, iPad-, Apple-TV- und Android-Apps, die dieselbe Bibliothek über Ihr lokales Netzwerk lesen. Keine Cloud, kein Abonnement, kein separates Konto zu verwalten.",
     "step1Title": "Laden Sie die App für Ihr Gerät herunter",
-    "step1Body": "iPhone, iPad und Apple TV teilen sich eine App im App Store; Android hat seine eigene bei Google Play. Beide sind kostenlos und verbinden sich mit demselben Server, sodass alles, was Sie im Web aufnehmen, favorisieren oder bearbeiten, auch dort erscheint.",
+    "step1Body": "iPhone, iPad und Apple TV teilen sich eine App im App Store; Android hat seine eigene bei Google Play. Jede App kostet einmalig 4,99 $, der Nebulis-Server selbst bleibt kostenlos. Beide verbinden sich mit demselben Server, sodass alles, was Sie im Web aufnehmen, favorisieren oder bearbeiten, auch dort erscheint.",
     "appStoreLink": "Im App Store laden",
     "googlePlayLink": "Bei Google Play erhältlich",
     "step1Alt": "Das geöffnete Mobil-Menü in der oberen Leiste mit QR-Code scannen, Code eingeben und Download-Links für iPhone/iPad/Apple TV und Android",

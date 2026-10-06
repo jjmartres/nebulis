@@ -405,8 +405,8 @@ export const ScheduleTimeline = forwardRef<HTMLDivElement, ScheduleTimelineProps
                 disabled={!onFillGap}
                 className="group absolute flex items-center justify-center rounded-xl border border-dashed border-white/15 text-white/40 transition hover:border-accent-400/60 hover:bg-accent-400/[0.07] hover:text-accent-300 disabled:pointer-events-none"
                 style={{
-                  top: `${top + 3}px`,
-                  height: `${height - 6}px`,
+                  top: `${top + 8}px`,
+                  height: `${height - 16}px`,
                   left: `${TIMELINE_GUTTER_PX + 4}px`,
                   right: '12px',
                 }}

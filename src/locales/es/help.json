@@ -491,7 +491,7 @@
     "title": "Dispositivos móviles",
     "lead": "Aplicaciones para iPhone, iPad, Apple TV y Android que leen la misma biblioteca por tu red local. Sin nube, sin suscripción, sin una cuenta separada que gestionar.",
     "step1Title": "Descarga la aplicación para tu dispositivo",
-    "step1Body": "iPhone, iPad y Apple TV comparten una aplicación en la App Store; Android tiene la suya en Google Play. Ambas son gratuitas y se conectan a este mismo servidor, así que todo lo que captures, marques como favorito o proceses en la web también aparece ahí.",
+    "step1Body": "iPhone, iPad y Apple TV comparten una aplicación en la App Store; Android tiene la suya en Google Play. Cada una cuesta 4,99 $ en un pago único, mientras que el servidor de Nebulis sigue siendo gratuito. Ambas se conectan a este mismo servidor, así que todo lo que captures, marques como favorito o proceses en la web también aparece ahí.",
     "appStoreLink": "Descargar en App Store",
     "googlePlayLink": "Disponible en Google Play",
     "step1Alt": "El menú Móvil abierto en la barra superior, mostrando Escanear código QR, Introducir código y enlaces de descarga para iPhone/iPad/Apple TV y Android",
