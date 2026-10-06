@@ -1,5 +1,5 @@
 # Changelog
-## 2.1.2 (291) - October 5th, 2026
+## 2.1.2 (292) - October 5th, 2026
 ### New
 - Catalog: an object that sat inside the frame of something you imaged now counts as imaged too (exampleL Imaging M42 also counts M43, and imaging M51 also counts NGC 5195). These tiles show "In M42", the object popup says which object it was imaged with and opens it. How many objects count depends on your telescope's field of view, so a wider scope picks up more. Turn it off under Settings -> Library -> Credit objects in the same frame (on by default).
 - Add Telescope: a new Find device button looks for SeeStar, ASIAIR and Dwarf devices on your network. Pick one and Nebulis fills in its address and telescope type.

@@ -623,15 +623,23 @@ const LibraryRow = memo(function LibraryRow({
             type="button"
             onClick={(e) => { e.stopPropagation(); onQuickAdd(target); }}
             onPointerDown={(e) => e.stopPropagation()}
-            className={`flex h-7 w-7 items-center justify-center rounded-full transition ${
+            className={`relative flex h-7 w-7 items-center justify-center rounded-full transition ${
               isScheduled
-                ? isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-600/15 text-emerald-700'
+                ? isDark ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-emerald-600/15 text-emerald-700 hover:bg-emerald-600/25'
                 : 'bg-accent-500 text-white hover:bg-accent-600'
             }`}
             aria-label={t('libraryPanel.addToSchedule', { name: target.name })}
             title={isScheduled ? t('libraryPanel.alreadyScheduled') : t('libraryPanel.scheduleAtHighest')}
           >
             {isScheduled ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            {/* On the night already, but another block is one tap away. */}
+            {isScheduled && (
+              <span className={`absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full ring-2 ${
+                isDark ? 'bg-emerald-500 text-slate-950 ring-slate-900' : 'bg-emerald-600 text-white ring-white'
+              }`}>
+                <Plus className="h-2.5 w-2.5" strokeWidth={3} />
+              </span>
+            )}
           </button>
         )}
       </div>
