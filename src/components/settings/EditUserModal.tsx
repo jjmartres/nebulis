@@ -100,7 +100,7 @@ export function EditUserModal({
       </div>
 
       <div className="p-5 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t('usersSection.displayName')}</label>
             <input

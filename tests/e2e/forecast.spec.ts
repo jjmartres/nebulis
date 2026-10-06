@@ -33,7 +33,10 @@ test.describe('Forecast Page', () => {
 
   test('shows moon phase and illumination', async ({ page }) => {
     await expect(page.getByText(MOCK.forecast.tonight.moonPhase)).toBeVisible();
-    await expect(page.getByText(/50% illuminated/i)).toBeVisible();
+    // Exact: the page also renders a summary line ("Moon 50% illuminated. Up
+    // from 7:45 PM to 2:15 AM."), so the previous loose /50% illuminated/i
+    // matched two elements and tripped Playwright's strict mode.
+    await expect(page.getByText('50% illuminated', { exact: true })).toBeVisible();
   });
 
   test('renders the night ribbon', async ({ page }) => {

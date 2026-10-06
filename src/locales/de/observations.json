@@ -128,6 +128,10 @@
       "images": "Bilder",
       "subframes": "Subframes",
       "processed": "Bearbeitet",
+      "dropToMarkProcessed": "Zum Markieren als bearbeitet ablegen",
+      "markProcessedFailed": "Konnte nicht als bearbeitet markiert werden: {{message}}",
+      "markProcessedFailedFallback": "Konnte nicht als bearbeitet markiert werden",
+      "dismiss": "Schließen",
       "videos": "Videos"
     },
     "captureMetrics": {
@@ -238,7 +242,8 @@
       "removeFromFavorites": "Aus Favoriten entfernen",
       "addToFavorites": "Zu Favoriten hinzufügen",
       "showingRange": "{{from}}–{{to}} von {{total}} angezeigt",
-      "empty": "Keine Dateien gefunden"
+      "empty": "Keine Dateien gefunden",
+      "markAsProcessed": "Als bearbeitet markieren"
     },
     "processedImagesGrid": {
       "upload": "Hochladen",
@@ -251,7 +256,8 @@
       "setAsGalleryImage": "Als Galeriebild festlegen",
       "delete": "Löschen",
       "combinesNights": "Kombiniert {{count}} Nächte: {{list}}",
-      "addMore": "Weitere hinzufügen"
+      "addMore": "Weitere hinzufügen",
+      "moveToImages": "Als unbearbeitet markieren"
     },
     "hero": {
       "breadcrumb": "Brotkrumen",
@@ -301,7 +307,13 @@
       "deleteSubframes": "Subframes löschen",
       "compareImage1Alt": "Bild 1",
       "compareImage2Alt": "Bild 2",
-      "vs": "vs"
+      "vs": "vs",
+      "markProcessedTitle": "Als bearbeitet markieren?",
+      "markProcessedMessage": "Das Bild wird aus Bilder nach Bearbeitet verschoben. Es wird nichts gelöscht.",
+      "markProcessedConfirm": "Als bearbeitet markieren",
+      "unmarkProcessedTitle": "Als unbearbeitet markieren?",
+      "unmarkProcessedMessage": "Das Bild wird aus Bearbeitet zurück in die Bilder dieser Nacht verschoben. Es wird nichts gelöscht.",
+      "unmarkProcessedConfirm": "Als unbearbeitet markieren"
     },
     "fitsHeaderModal": {
       "title": "FITS-Header für {{fileName}}",

@@ -19,6 +19,8 @@ import {
 } from '../telescopeFiles.js';
 import { resolveCanonicalId, expandSearchAliases, getAliasesForCanonical, normalizeDesignation, isDesignationShaped } from '../catalogAliases.js';
 import { getCatalogEntry } from '../../data/catalog.js';
+import { parseNicknames } from './nicknames.js';
+import { parseGalleryCrop } from './galleryCrop.js';
 import { SOLAR_SYSTEM_LOOKUP_KEYS } from '../../data/solar-system-catalog.js';
 import { parseFitsHeader } from '../fitsParser.js';
 import { log } from '../logger.js';
@@ -27,6 +29,7 @@ import { getCuratedDescription } from '../curatedDescriptions.js';
 import { getLibraryObjectFilterTags } from './objectFilters.js';
 import { isEnrichmentCoolingDown } from './enrichmentCooldown.js';
 import { isReservedLibraryDir } from './archiveFolders.js';
+import { resolveLibraryFile, LinkedFileReadOnlyError } from './fileResolver.js';
 import {
   resolverFor,
   deleteLibraryFileRow,
@@ -83,6 +86,8 @@ export interface LibraryObjectRow {
   deletedAt: string | null;
   galleryImage: string | null;
   galleryImageUserSet: number;
+  /** JSON `{x,y,zoom}` — see GalleryCrop in gallery.ts. Null = uncropped. */
+  galleryCrop: string | null;
   catalogId: string | null;
   objectName: string | null;
   objectType: string | null;
@@ -94,6 +99,8 @@ export interface LibraryObjectRow {
   distanceLy: number | null;
   wikiUrl: string | null;
   sizeArcmin: string | null;
+  /** JSON array of extra names learned from folder names; see nicknames.ts. */
+  nicknames: string | null;
   primaryTelescopeId: string | null;
   /** See `ProcessingStatus` above. `NOT NULL DEFAULT 'unprocessed'` at the
    *  column level, so this is never actually NULL in practice — typed as the
@@ -229,8 +236,10 @@ const migrationColumns: Array<{ column: string; sql: string }> = [
   { column: 'dec',          sql: 'ALTER TABLE libraryObjects ADD COLUMN dec TEXT' },
   { column: 'distanceLy',  sql: 'ALTER TABLE libraryObjects ADD COLUMN distanceLy REAL' },
   { column: 'wikiUrl',            sql: 'ALTER TABLE libraryObjects ADD COLUMN wikiUrl TEXT' },
+  { column: 'nicknames',          sql: 'ALTER TABLE libraryObjects ADD COLUMN nicknames TEXT' },
   { column: 'sizeArcmin',        sql: 'ALTER TABLE libraryObjects ADD COLUMN sizeArcmin TEXT' },
   { column: 'galleryImageUserSet', sql: 'ALTER TABLE libraryObjects ADD COLUMN galleryImageUserSet INTEGER NOT NULL DEFAULT 0' },
+  { column: 'galleryCrop', sql: 'ALTER TABLE libraryObjects ADD COLUMN galleryCrop TEXT' },
   // Negative cache for catalog enrichment. Without these, "needs enrichment" is
   // the *absence* of a result, so an object Wikipedia and SIMBAD cannot resolve
   // matches forever and is re-queried on every server start and every import.
@@ -990,11 +999,12 @@ export const stmts = {
   removeImageFavorite: db.prepare('DELETE FROM imageFavorites WHERE imagePath = ? AND userId = ?'),
 
   // Gallery image
-  getGalleryImage: db.prepare<[string], { galleryImage: string | null; galleryImageUserSet: number }>(
-    'SELECT galleryImage, galleryImageUserSet FROM libraryObjects WHERE objectId = ?',
+  getGalleryImage: db.prepare<[string], { galleryImage: string | null; galleryImageUserSet: number; galleryCrop: string | null }>(
+    'SELECT galleryImage, galleryImageUserSet, galleryCrop FROM libraryObjects WHERE objectId = ?',
   ),
-  setGalleryImage:         db.prepare('UPDATE libraryObjects SET galleryImage = ?, galleryImageUserSet = 0 WHERE objectId = ?'),
-  setGalleryImageUserSet:  db.prepare('UPDATE libraryObjects SET galleryImage = ?, galleryImageUserSet = 1 WHERE objectId = ?'),
+  setGalleryImage:         db.prepare('UPDATE libraryObjects SET galleryImage = ?, galleryImageUserSet = 0, galleryCrop = NULL WHERE objectId = ?'),
+  setGalleryCrop:          db.prepare('UPDATE libraryObjects SET galleryCrop = ? WHERE objectId = ?'),
+  setGalleryImageUserSet:  db.prepare('UPDATE libraryObjects SET galleryImage = ?, galleryImageUserSet = 1, galleryCrop = NULL WHERE objectId = ?'),
 
   // Session image (designated raw telescope image per session)
   getSessionImage: db.prepare<[string, string], { sessionImage: string | null }>(
@@ -1122,6 +1132,24 @@ export function getLibraryObjectNames() {
 
 // ─── Catalog metadata helpers ───────────────────────────────────────────────
 
+/**
+ * True when an object id reads as a comet designation. Comets are not in the
+ * deep-sky catalogs, so this folder-name shape is the only signal.
+ *
+ *   periodic   "161PHartley-IRAS", "10P Tempel", "220P_McNaught", bare "1P"
+ *   provisional "C/2023 A3", "C-2023 A3", "P/2010 H2", "C2023A3"
+ *
+ * Whole-string and strict on purpose: "3C273", "NGC7000", "M31_mosaic" and
+ * Caldwell "C14" must never match. C/D periodic forms require a trailing name
+ * so a bare "12C" is not claimed.
+ */
+export function looksLikeComet(objectId: string): boolean {
+  const id = objectId.trim();
+  if (/^\d{1,4}P(?:[\s_/-]*[A-Za-z][A-Za-z'-]*.*)?$/i.test(id)) return true;
+  if (/^\d{1,4}[CD][\s_/-]*[A-Za-z][A-Za-z'-]+/i.test(id)) return true;
+  return /^[CPDXI][\s/_-]?\d{4}[\s_]?[A-Z]{1,2}\d*/i.test(id) && !/^C\d{1,3}$/i.test(id);
+}
+
 /** Resolve catalog metadata for an object ID and persist it to the DB row. */
 export function resolveCatalogMeta(objectId: string): {
   catalogId: string; objectName: string; objectType: string;
@@ -1148,7 +1176,7 @@ export function resolveCatalogMeta(objectId: string): {
   return {
     catalogId: normalized,
     objectName: entry?.name || objectId,
-    objectType: entry?.type || (/^[CP]-\d{4}/i.test(objectId) ? 'Comet' : 'Unknown'),
+    objectType: entry?.type || (looksLikeComet(objectId) ? 'Comet' : 'Unknown'),
     constellation: entry?.constellation || 'Unknown',
     description,
     magnitude: entry?.magnitude ?? null,
@@ -1232,13 +1260,20 @@ export function reclassifyObject(
   const newId = resolveCanonicalId(normalizeDesignation(targetCatalogId));
   if (newId === objectId) throw new Error('Already classified as this object');
 
+  // Checked before the rekey, which moves the rows to the new id. Linked files
+  // stay in the user's folder under the old name, so a rescan would undo the
+  // move unless the redirect is kept, whatever `remember` says.
+  const hasLinkedFiles = !!db
+    .prepare('SELECT 1 FROM libraryFiles WHERE objectId = ? AND sourceId IS NOT NULL LIMIT 1')
+    .get(objectId);
+
   db.pragma('foreign_keys = OFF');
   let mode: 'rename' | 'merge' | 'noop';
   try {
     mode = db.transaction(() => {
       const result = rekeyLibraryObject(objectId, newId);
       applyCatalogMetaToLibraryObject(newId);
-      if (opts.remember) setDesignationRedirect(objectId, newId, opts.userId ?? undefined);
+      if (opts.remember || hasLinkedFiles) setDesignationRedirect(objectId, newId, opts.userId ?? undefined);
       return result;
     })();
   } finally {
@@ -1719,7 +1754,29 @@ export function loadIndex(): LibraryIndex {
  * Excludes `sky_` and `gallery_` prefixed files so we don't loop on a
  * previous fallback.
  */
+/**
+ * A viewable image among a linked source's files for this object, as the
+ * `@src/<id>/...` path the file resolver serves. Without it a linked-only
+ * object with no catalog image had no thumbnail at all: the managed folder it
+ * would be read from does not exist. Prefers a finished stack, then a small
+ * preview, then any image.
+ */
+function findLinkedFallbackImage(objectId: string): string | null {
+  const rows = db.prepare<[string], { relPath: string; fileName: string; role: string }>(
+    `SELECT relPath, fileName, role FROM libraryFiles
+      WHERE objectId = ? AND sourceId IS NOT NULL AND missingSince IS NULL`,
+  ).all(objectId).filter(r => /\.(jpe?g|png)$/i.test(r.fileName));
+  const rank = (r: { fileName: string; role: string }): number =>
+    r.role === 'stacked' && !r.fileName.includes('_thn.') ? 0 : r.fileName.includes('_thn.') ? 1 : 2;
+  rows.sort((a, b) => rank(a) - rank(b) || a.relPath.localeCompare(b.relPath));
+  return rows[0]?.relPath ?? null;
+}
+
 export function findFallbackObservationImage(objectId: string): string | null {
+  return findManagedFallbackImage(objectId) ?? findLinkedFallbackImage(objectId);
+}
+
+function findManagedFallbackImage(objectId: string): string | null {
   const objDir = resolveContainedObjectDir(objectId);
   if (!objDir || !fs.existsSync(objDir)) return null;
 
@@ -1912,10 +1969,14 @@ export function getLocalObjects(userId = '', search = '') {
       isFavorite,
       galleryImage: exposedGalleryImage,
       galleryImageUserSet: Boolean(obj.galleryImageUserSet),
-      galleryImageVersion,
+      galleryImageVersion: obj.galleryImageUserSet && obj.galleryCrop
+        ? `${galleryImageVersion ?? ''}#${obj.galleryCrop}`
+        : galleryImageVersion,
+      galleryCrop: obj.galleryImageUserSet ? parseGalleryCrop(obj.galleryCrop) : null,
       primaryTelescopeId: obj.primaryTelescopeId ?? null,
       telescopeIds,
       aliases: getAliasesForCanonical(obj.objectId),
+      nicknames: parseNicknames(obj.nicknames ?? null),
       processingStatus: isProcessingStatus(obj.processingStatus) ? obj.processingStatus : 'unprocessed',
     };
   });
@@ -1948,13 +2009,11 @@ export function getLocalThumbnail(objectId: string): Buffer | null {
 }
 
 export async function getLocalFile(relativePath: string): Promise<{ data: Buffer; name: string } | null> {
-  const LIBRARY_DIR = getLibraryDir();
-  // Resolve to an absolute path and confirm it stays inside the library root.
-  // path.normalize + ".." check is insufficient — absolute paths like /etc/passwd
-  // bypass it. path.resolve is the canonical guard used by the thumbnail handler.
-  const fullPath = path.resolve(LIBRARY_DIR, relativePath);
-  const libRoot = LIBRARY_DIR.endsWith(path.sep) ? LIBRARY_DIR : LIBRARY_DIR + path.sep;
-  if (!fullPath.startsWith(libRoot)) return null;
+  // Resolution + containment lives in fileResolver.ts now — see its header for
+  // why this used to be five separate inline copies across the library routes.
+  const resolved = resolveLibraryFile(relativePath);
+  if (!resolved) return null;
+  const fullPath = resolved.abs;
 
   const filename = path.basename(fullPath);
   if (!isRealFile(filename)) return null;
@@ -2110,10 +2169,14 @@ export function getLocalIntegrationStats(objectId: string) {
 // ─── FITS header (local file) ─────────────────────────────────────────────────
 
 export function getLocalFitsHeader(relativePath: string) {
-  const LIBRARY_DIR = getLibraryDir();
-  const normalized = path.normalize(relativePath);
-  if (normalized.includes('..')) return null;
-  const fullPath = path.join(LIBRARY_DIR, normalized);
+  // Resolution + containment lives in fileResolver.ts now — this used to be its
+  // own weaker inline check (normalize + a bare '..' substring test, no
+  // absolute-path or sibling-directory guard), found during the linked-library
+  // call-site audit. Switching it here fixes that latent gap and adds @src/
+  // support in the same move.
+  const resolved = resolveLibraryFile(relativePath);
+  if (!resolved) return null;
+  const fullPath = resolved.abs;
   if (!fs.existsSync(fullPath)) return null;
   try {
     const fd = fs.openSync(fullPath, 'r');
@@ -2129,6 +2192,18 @@ export function getLocalFitsHeader(relativePath: string) {
 // ─── Delete local file ────────────────────────────────────────────────────────
 
 export function deleteLocalFile(relativePath: string): void {
+  // This function never deletes a linked-source file: that is a separate, explicit
+  // action (`deleteLinkedFilesFromDisk`, reached only through the confirmed
+  // DELETE /library/file route). Refuse here so every other caller stays safe,
+  // before any of the managed-path logic below, which assumes a
+  // '<folderName>/...' shape a '@src/<sourceId>/...' value doesn't have. Only
+  // intercepts the linked case; a resolver refusal (null) or a managed file
+  // (sourceId null) falls through to the existing logic unchanged.
+  const linkedCheck = resolveLibraryFile(relativePath);
+  if (linkedCheck && linkedCheck.sourceId !== null) {
+    throw new LinkedFileReadOnlyError(relativePath);
+  }
+
   const LIBRARY_DIR = getLibraryDir();
   // Resolve and assert containment inside LIBRARY_DIR. Avoids the
   // `MyWorks/foo/../../etc/passwd` style bypass where normalize collapses the

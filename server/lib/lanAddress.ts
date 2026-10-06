@@ -26,3 +26,23 @@ export function isLoopbackHost(host: string): boolean {
   const h = host.toLowerCase();
   return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
 }
+
+/**
+ * True when a request's socket comes from this same machine: loopback, or one
+ * of the machine's own interface addresses (a browser on the server box that
+ * opened it by LAN IP). Reads the raw socket address, never X-Forwarded-For,
+ * so it cannot be spoofed and a reverse proxy or Docker port mapping reads as
+ * "another machine" — which is the right answer there, since a container sees
+ * a different filesystem than the browser's host.
+ */
+export function isSameMachineAddress(remote: string | undefined): boolean {
+  if (!remote) return false;
+  const addr = remote.replace(/^::ffff:/, '');
+  if (addr === '127.0.0.1' || addr === '::1') return true;
+  for (const iface of Object.values(os.networkInterfaces())) {
+    for (const a of iface ?? []) {
+      if (a.address === addr) return true;
+    }
+  }
+  return false;
+}

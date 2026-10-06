@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Usb, FolderOpen, RotateCw, Check } from 'lucide-react';
@@ -27,7 +27,10 @@ export function DwarfLocalPathPicker({
     queryFn: () => listDwarfMounts(),
     staleTime: 5_000,
   });
-  const mounts = data?.mounts ?? [];
+  // Memoized so the effect below only re-runs when the mount list actually
+  // changes, not on every render while `data` is still loading (`?? []`
+  // would otherwise hand back a fresh array reference each time).
+  const mounts = useMemo(() => data?.mounts ?? [], [data?.mounts]);
 
   useEffect(() => {
     if (!localPath && mounts.length > 0) {

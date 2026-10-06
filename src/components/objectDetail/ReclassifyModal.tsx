@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,52 @@ import { Modal } from '../ui/Modal';
 import { useTheme } from '../../hooks/useTheme';
 import { searchDsoCatalog, type DsoEntry } from '../../lib/api/planner';
 import { getLibraryObjects, reclassifyObject } from '../../lib/api/library';
+
+/** Every other name this object goes by, split so each kind gets its own pill
+ *  style: catalog designations (M/NGC/IC/Caldwell/Sharpless) and common names. */
+function otherNames(r: DsoEntry): { designations: string[]; common: string[] } {
+  const seen = new Set([r.id.toLowerCase(), r.name.toLowerCase()]);
+  const fresh = (n: string) => {
+    const k = n.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  };
+  return {
+    designations: (r.aliases ?? []).filter(fresh),
+    common: (r.commonNames ?? []).filter(fresh),
+  };
+}
+
+/** Title + pills for one catalog object. The id is a pill only when a common
+ *  name takes the title, so a bare "NGC5980" is never printed twice. */
+function ObjectNames({ entry, isDark }: { entry: DsoEntry; isDark: boolean }) {
+  const { designations, common } = otherNames(entry);
+  const hasName = entry.name.toLowerCase() !== entry.id.toLowerCase();
+  const pill = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-4';
+  const idCls = isDark ? 'bg-accent-500/15 text-accent-300' : 'bg-accent-500/10 text-accent-700';
+  const desigCls = isDark ? 'bg-slate-700/70 text-slate-300' : 'bg-slate-200 text-slate-700';
+  const commonCls = isDark ? 'bg-sky-500/15 text-sky-300' : 'bg-sky-100 text-sky-800';
+  return (
+    <>
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className={`text-sm font-medium ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+          {hasName ? entry.name : entry.id}
+        </span>
+        {hasName && <span className={`${pill} ${idCls}`}>{entry.id}</span>}
+        <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+          {entry.type}{entry.constellation ? ` · ${entry.constellation}` : ''}
+        </span>
+      </span>
+      {(designations.length > 0 || common.length > 0) && (
+        <span className="mt-1 flex flex-wrap gap-1">
+          {designations.map(n => <span key={`d-${n}`} className={`${pill} ${desigCls}`}>{n}</span>)}
+          {common.map(n => <span key={`c-${n}`} className={`${pill} ${commonCls}`}>{n}</span>)}
+        </span>
+      )}
+    </>
+  );
+}
 
 /**
  * "..." → Reclassify object. For when a target's designation was ambiguous
@@ -39,6 +85,14 @@ export function ReclassifyModal({
   const [picked, setPicked] = useState<DsoEntry | null>(null);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Modal focuses its first control (the close button) on open; take focus
+  // back so the user can type straight away.
+  useEffect(() => {
+    const id = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(id);
+  }, []);
 
   const onType = (q: string) => {
     setQuery(q);
@@ -118,9 +172,7 @@ export function ReclassifyModal({
           <div className={`rounded-xl border px-3.5 py-3 ${isDark ? 'border-slate-700 bg-slate-800/60' : 'border-slate-200 bg-slate-50'}`}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className={`truncate text-sm font-medium ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-                  {picked.id} <span className={mutedText}>{picked.name}</span>
-                </p>
+                <ObjectNames entry={picked} isDark={isDark} />
                 <p className={`mt-0.5 text-xs ${existingTarget ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600')}`}>
                   {existingTarget
                     ? t('reclassifyModal.resultMergesInto', { count: existingTarget.sessionCount ?? 0 })
@@ -140,6 +192,7 @@ export function ReclassifyModal({
             <div className="relative">
               <Search className={`absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 ${mutedText}`} />
               <input
+                ref={inputRef}
                 autoFocus
                 value={query}
                 onChange={e => onType(e.target.value)}
@@ -160,11 +213,7 @@ export function ReclassifyModal({
                     isDark ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-800 hover:bg-slate-100'
                   }`}
                 >
-                  <span className="font-medium">{r.id}</span>
-                  <span className={`ml-2 ${mutedText}`}>{r.name}</span>
-                  <span className={`ml-2 text-xs ${mutedText}`}>
-                    {r.type}{r.constellation ? ` · ${r.constellation}` : ''}
-                  </span>
+                  <ObjectNames entry={r} isDark={isDark} />
                 </button>
               ))}
             </div>

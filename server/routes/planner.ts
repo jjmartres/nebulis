@@ -28,7 +28,7 @@ import { z } from 'zod';
 import { resolveSite, getActiveSite } from '../lib/observingSites.js';
 import { getAll as getWishlistAll } from '../lib/wishlist.js';
 import { getLocalObjects } from '../lib/localLibrary.js';
-import { getCatalog, searchFiltered as searchDso, filterCatalog, getById, type DsoSort } from '../lib/dsoCatalog.js';
+import { getPlannerCatalog, searchFiltered as searchDso, filterCatalog, getById, plannerSearchFields, type DsoSort } from '../lib/dsoCatalog.js';
 import { altAz, getNightWindow, visibilityWindow, altitudeCurve, moonPhaseName } from '../lib/astroCalc.js';
 import { addDaysToDateKey, localDateKey, localParts, zonedDateTimeToUtc } from '../lib/timezone.js';
 import { observerTimezoneForCoordinates } from '../lib/observerTimezone.js';
@@ -261,7 +261,7 @@ router.get('/tonight', async (req: Request, res: Response) => {
   // Evaluate all catalog objects, yielding the event loop every 50 entries so
   // concurrent requests (e.g. POST /planned-sessions) are not queued behind
   // this CPU-bound loop.
-  const catalog = getCatalog();
+  const catalog = getPlannerCatalog();
   const targets = [];
 
   for (let i = 0; i < catalog.length; i++) {
@@ -279,17 +279,14 @@ router.get('/tonight', async (req: Request, res: Response) => {
     const nowAltAz = altAz(entry.ra, entry.dec, lat, lon, refTime);
 
     targets.push({
-      id: entry.id,
-      ngcName: entry.ngcName,
-      name: entry.name,
+      // id, ngcName, name, constellation, commonNames and aliases: see plannerSearchFields.
+      ...plannerSearchFields(entry),
       type: entry.type,
       typeCode: entry.typeCode,
-      constellation: entry.constellation,
       magnitude: entry.magnitude,
       majorAxisArcmin: entry.majorAxisArcmin,
       ra: entry.ra,
       dec: entry.dec,
-      commonNames: entry.commonNames,
       altNow: Math.round(nowAltAz.alt * 10) / 10,
       azNow: Math.round(nowAltAz.az * 10) / 10,
       maxAlt: Math.round(window.maxAlt * 10) / 10,

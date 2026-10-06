@@ -12,6 +12,7 @@
  * one window.
  */
 import { altAz, getNightWindow } from './astroCalc.js';
+import { OBSERVING_NIGHT_ROLLOVER_HOUR } from './telescopeFiles.js';
 
 export interface MonthlyAltSample {
   /** Month label: "Jan", "Feb", etc. */
@@ -129,10 +130,16 @@ export function isUpTonight(
   minAlt = 0,
   now: Date = new Date(),
 ): boolean | null {
-  // "Astronomer's today": before 07:00 local the relevant window began last
-  // evening. The route passes a plain Date; a few hours' slack either way does
-  // not change a whole-night visibility verdict, so anchor on the calendar day.
-  const anchor = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  // "Astronomer's today": before 07:00 local the relevant window is still the
+  // one that began last evening, exactly like plannerToday() in
+  // src/lib/nightWindow.ts (client) — including its use of the local wall
+  // clock rather than a threaded timezone, since isUpTonight takes no
+  // timeZone parameter on either side. This used to anchor on `now`'s own
+  // calendar day unconditionally, so a 2am call asked about the *next*
+  // evening's window instead of the one still running, and could disagree
+  // with the client's answer for the same instant.
+  const dayOffset = now.getHours() < OBSERVING_NIGHT_ROLLOVER_HOUR ? -1 : 0;
+  const anchor = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, 12, 0, 0);
   const night = nightWindowFor(anchor, lat, lon);
   if (!night) return null;
   const stepMs = 10 * 60 * 1000;

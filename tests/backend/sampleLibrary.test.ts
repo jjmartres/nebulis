@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import db from '../../server/lib/db';
@@ -32,6 +32,14 @@ const plantedId = () =>
 
 describe('tour demo object', () => {
   beforeEach(() => {
+    resetSampleState();
+  });
+
+  // The DB is shared across test files and Library Health scans every file
+  // record in it. The last test here leaves a record for a file that does not
+  // exist, which libraryHealthProbe.test.ts then counted as an extra stale
+  // file, but only when this file ran first (GitHub's order, not the local one).
+  afterAll(() => {
     resetSampleState();
   });
 

@@ -29,7 +29,13 @@ export interface SkyConditions {
  * way to most bars: clear is the good end. The three steps are the same
  * traffic-light the planner uses for a scheduled block.
  */
-function cloudVerdict(pct: number, t: (key: string) => string): { label: string; hex: string } {
+function cloudVerdict(pct: number, t: (key: string) => string, isNight: boolean): { label: string; hex: string } {
+  if (isNight) {
+    if (pct <= 15) return { label: t('observationDetail.conditionsPanel.cloudClear'), hex: '#cc3333' };
+    if (pct <= 40) return { label: t('observationDetail.conditionsPanel.cloudMostlyClear'), hex: '#a02828' };
+    if (pct <= 70) return { label: t('observationDetail.conditionsPanel.cloudBroken'), hex: '#882222' };
+    return { label: t('observationDetail.conditionsPanel.cloudOvercast'), hex: '#661a1a' };
+  }
   if (pct <= 15) return { label: t('observationDetail.conditionsPanel.cloudClear'), hex: '#10b981' };
   if (pct <= 40) return { label: t('observationDetail.conditionsPanel.cloudMostlyClear'), hex: '#34d399' };
   if (pct <= 70) return { label: t('observationDetail.conditionsPanel.cloudBroken'), hex: '#f59e0b' };
@@ -41,7 +47,7 @@ export function ConditionsPanel({ weather, sky, tempUnit }: {
   sky?: SkyConditions | null;
   tempUnit: 'celsius' | 'fahrenheit';
 }) {
-  const { isDark } = useTheme();
+  const { isDark, isNight } = useTheme();
   const { t } = useTranslation('observations');
 
   const temp = (c: number) =>
@@ -52,7 +58,7 @@ export function ConditionsPanel({ weather, sky, tempUnit }: {
     || sky.transparencyRating != null || !!sky.moonPhase
   );
   const cloud = weather?.cloudCover;
-  const verdict = cloud != null ? cloudVerdict(cloud, t) : null;
+  const verdict = cloud != null ? cloudVerdict(cloud, t, isNight) : null;
 
   const weatherFacts: { label: string; value: string }[] = [];
   if (weather?.temperature != null) weatherFacts.push({ label: t('observationDetail.conditionsPanel.airTemp'), value: temp(weather.temperature) });
@@ -106,7 +112,7 @@ export function ConditionsPanel({ weather, sky, tempUnit }: {
                   gives it something to be dark against in either theme. */}
               <div
                 className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
-                style={{ background: 'radial-gradient(circle, #1e293b 0%, #020617 100%)' }}
+                style={{ background: isNight ? 'radial-gradient(circle, #2a0808 0%, #000000 100%)' : 'radial-gradient(circle, #1e293b 0%, #020617 100%)' }}
               >
                 <MoonDisk
                   illumination={sky.moonIllumination ?? 0}

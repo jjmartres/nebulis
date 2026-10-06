@@ -69,6 +69,7 @@ export function SkippedNotice({
   excludedFolders,
   onInspect,
   onReviewDeletedSessions,
+  archiveHint = true,
 }: {
   skipped: ImportSkip[] | null | undefined;
   isDark: boolean;
@@ -83,6 +84,9 @@ export function SkippedNotice({
   /** Show a restore button on the "deleted sessions" line. Omitted where there
    *  is nothing to restore against. */
   onReviewDeletedSessions?: () => void;
+  /** Offer "Archive everything" as the way to bring skipped files across. Off for a linked folder, which has
+   *  no archive mode: nothing is copied, so there is nothing to archive. */
+  archiveHint?: boolean;
 }) {
   const { t } = useTranslation('library');
   if (!skipped || skipped.length === 0) return null;
@@ -143,7 +147,7 @@ export function SkippedNotice({
               );
             })}
           </ul>
-          {rescuableBytes > 0 && (
+          {archiveHint && rescuableBytes > 0 && (
             <p className={`pt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
               {rescuableCount === total ? (
                 <Trans

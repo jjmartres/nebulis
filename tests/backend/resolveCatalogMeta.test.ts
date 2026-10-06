@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveCatalogMeta } from '../../server/lib/library/objects';
+import { resolveCatalogMeta, looksLikeComet } from '../../server/lib/library/objects';
 
 describe('resolveCatalogMeta', () => {
   it('fills a curated description at import time from the catalog store', () => {
@@ -18,5 +18,17 @@ describe('resolveCatalogMeta', () => {
     expect(meta.objectType).toBe('Unknown');
     expect(meta.constellation).toBe('Unknown');
     expect(meta.description).toBe('');
+  });
+});
+
+describe('looksLikeComet', () => {
+  it.each(['161PHartley-IRAS', '161P Hartley-IRAS', '10PTempel', '220PMcNaught', '1P', '29P_Schwassmann',
+    'C/2023 A3', 'C-2023 A3', 'C2023A3', 'P/2010 H2', '12DWest'])('matches %s', id => {
+    expect(looksLikeComet(id)).toBe(true);
+  });
+  it.each(['M31', 'M31_mosaic', 'NGC7000', 'IC1795', 'C14', 'C5', '3C273', '12C', 'SH2-155', 'Moon', 'Pelican'])(
+    'rejects %s', id => { expect(looksLikeComet(id)).toBe(false); });
+  it('types a periodic comet as Comet', () => {
+    expect(resolveCatalogMeta('161PHartley-IRAS').objectType).toBe('Comet');
   });
 });

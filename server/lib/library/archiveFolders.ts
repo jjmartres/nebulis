@@ -29,6 +29,7 @@ import { isHiddenOrSystemFile } from '../telescopeFiles.js';
 import { getLibraryDir } from '../libraryPath.js';
 import { ILLEGAL_FS_CHARS } from './importNaming.js';
 import { isNonObjectFolder } from './objectDiscovery.js';
+import { sha256File } from '../archive/archiveDigest.js';
 
 /**
  * Reserved directory at the library root holding archived non-observation
@@ -58,10 +59,20 @@ export const ARCHIVE_UNSCOPED_DIR = '_unscoped';
  *  different-size-suffix rule still catches a genuine clash regardless. */
 export const RESTACKED_ROOT_DIR_NAME = 'RESTACKED';
 
+/** The reserved top-level segment of a linked (non-copied) library source's
+ *  synthetic relPath: `@src/<sourceId>/<relPath-inside-the-source>` — see
+ *  fileResolver.ts. Nothing is ever physically written to
+ *  `<library>/@src` on disk; this exists purely so the string space is
+ *  reserved and a real folder happening to be named "@src" can never collide
+ *  with it. `@` is not a legal leading character in any of the device folder
+ *  names this app has ever produced (SeeStar/Dwarf/ASIAIR all use plain
+ *  alphanumerics), so this can't collide with existing installs either. */
+export const LINKED_SOURCE_DIR_NAME = '@src';
+
 /** True for a library-root directory that is bookkeeping rather than an object.
  *  Every sweep over the library root must consult this. */
 export function isReservedLibraryDir(name: string): boolean {
-  return name === ARCHIVE_DIR_NAME || name === RESTACKED_ROOT_DIR_NAME;
+  return name === ARCHIVE_DIR_NAME || name === RESTACKED_ROOT_DIR_NAME || name === LINKED_SOURCE_DIR_NAME;
 }
 
 /** Library-root folder Dwarf restack leftovers land in. No telescope scoping
@@ -192,14 +203,40 @@ export async function migrateRestackedToSharedRootOnce(): Promise<void> {
       // take that still-present file with it. Only safe to remove once
       // nothing failed — a partial run leaves the leftovers for the next
       // boot's migration pass to retry, same as the outer catch below.
+      //
+      // Only EMPTY directories are removed, never the tree. The candidate walk
+      // skips dot-files, OS bookkeeping, symlinks, unreadable folders, anything
+      // deeper than MAX_DEPTH and anything past MAX_FILES, so a recursive delete
+      // here took files the migration had never looked at, let alone copied.
+      // Whatever it did not move stays where it is.
       if (result.failed === 0 && result.copied + result.alreadyPresent > 0) {
-        fs.rmSync(path.join(scopeDir, RESTACKED_ROOT_DIR_NAME), { recursive: true, force: true });
+        pruneEmptyDirs(path.join(scopeDir, RESTACKED_ROOT_DIR_NAME));
       }
     } catch {
       // Leave whatever didn't move in place rather than losing anything —
       // the next boot's migration pass tries again for what's left.
     }
   }
+}
+
+/**
+ * Remove `dir` and every directory under it that is empty, deepest first. Never
+ * removes a file, and never follows a symlink: a directory that still holds
+ * anything (or is not a real directory) is left exactly as it is.
+ */
+function pruneEmptyDirs(dir: string): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const ent of entries) {
+    if (ent.isDirectory()) pruneEmptyDirs(path.join(dir, ent.name));
+  }
+  try {
+    fs.rmdirSync(dir); // fails on a non-empty directory, which is the point
+  } catch { /* not empty, or not ours to remove */ }
 }
 
 /** Same bounds the object walk uses, so a symlink loop or a pathological tree
@@ -376,9 +413,28 @@ export async function copyToArchive(
   for (const candidate of candidates) {
     if (opts.shouldCancel?.()) break;
     try {
-      const { destPath, alreadyPresent } = await resolveArchiveDestination(
+      let { destPath, alreadyPresent } = await resolveArchiveDestination(
         archiveDir, candidate.relPath, candidate.size, candidate.absPath, opts.selfNestingGuardDir,
       );
+      if (alreadyPresent && opts.deleteSourceAfterCopy) {
+        // "Already present" is a name-and-size judgement, which is enough to skip
+        // a copy but not to justify deleting the source. Two things it can mean
+        // that must never cost the user a file:
+        //  - the source lives inside the archive itself, so it IS the archived
+        //    copy and deleting it deletes the only one;
+        //  - a different file of the same name and byte count sits at the
+        //    destination (fixed-size sidecars and same-sensor frames make that
+        //    ordinary), so the source holds bytes that exist nowhere else.
+        if (isAlreadyInsideArchive(candidate.absPath, opts.selfNestingGuardDir ?? archiveDir)) {
+          result.alreadyPresent++;
+          opts.onFile?.(candidate.size);
+          continue;
+        }
+        if (!(await sameContent(candidate.absPath, destPath))) {
+          destPath = uniquePath(destPath);
+          alreadyPresent = false;
+        }
+      }
       if (alreadyPresent) {
         result.alreadyPresent++;
         if (opts.deleteSourceAfterCopy) {
@@ -400,6 +456,15 @@ export async function copyToArchive(
     }
   }
   return result;
+}
+
+/** True only when both files read and hash identically. Any error is "not the same". */
+async function sameContent(a: string, b: string): Promise<boolean> {
+  try {
+    return (await sha256File(a)) === (await sha256File(b));
+  } catch {
+    return false;
+  }
 }
 
 async function statOrNull(p: string): Promise<fs.Stats | null> {

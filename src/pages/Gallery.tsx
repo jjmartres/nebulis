@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import { useQuery, useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Search, Telescope, AlertCircle, Filter, Download, RotateCw, Upload, PlusCircle, Star, ArrowUpDown, Check, ChevronDown, Workflow } from 'lucide-react';
+import { Search, Telescope, AlertCircle, Filter, Download, RotateCw, Upload, PlusCircle, Star, ChevronDown, LayoutGrid, Grid3x3, SlidersHorizontal, X } from 'lucide-react';
 import { getLibraryObjects, getLibraryObjectFilters, triggerImport, getImportStatus } from '../lib/api/library';
 import { listTelescopes } from '../lib/api/telescopes';
 import { ObjectCard } from '../components/ObjectCard';
@@ -11,21 +11,25 @@ import type { ProcessingStatus } from '../types';
 import { LibraryHero } from '../components/library/LibraryHero';
 import { ImportModal } from '../components/ImportModal';
 import { FolderImportWizard } from '../components/folderImport/FolderImportWizard';
+import { LinkFolderWizard } from '../components/folderImport/LinkFolderWizard';
 import { useTheme } from '../hooks/useTheme';
+import { nightSafeColor } from '../lib/nightSafeColor';
 import { useAuth } from '../contexts/AuthContext';
 import { useClickOutside } from '../hooks/useClickOutside';
-import { useFilterChipPrefs } from '../hooks/useFilterChipPrefs';
-import { FilterCustomizeMenu } from '../components/filters/FilterCustomizeMenu';
 import { NewObservationModal } from '../components/NewObservationModal';
 import { TourAnchor } from '../components/tour/TourAnchor';
-import { buildTypeFilters, matchesFilter, defaultEnabledIds, ALL_FILTER_ID, FAVORITES_FILTER_ID } from '../lib/objectTypeFilters';
+import { FilterSection, Pill, TypeFilterSection, ActiveFilterChips, PopoverResetButton } from '../components/filters/toolbarParts';
+import { TOOLBAR_BTN, POPOVER, popoverSurface } from '../components/filters/toolbarStyles';
+import { buildTypeFilters, countGroupChips, matchesFilter, ALL_FILTER_ID, FAVORITES_FILTER_ID } from '../lib/objectTypeFilters';
 import { isOptionValue } from '../lib/typeGuards';
+import { compareDesignations, catalogFamilyOf, CATALOG_FAMILY_ORDER, type CatalogFamily } from '../lib/designationSort';
 
-type SortKey = 'name-asc' | 'name-desc' | 'session-date-desc' | 'session-date-asc' | 'session-count-desc' | 'import-desc';
+type SortKey = 'catalog-asc' | 'name-asc' | 'name-desc' | 'session-date-desc' | 'session-date-asc' | 'session-count-desc' | 'import-desc';
 
 // labelKey rather than literal text: this array is built at module load,
 // before any component's useTranslation() hook exists.
 const SORT_OPTIONS: { value: SortKey; labelKey: string }[] = [
+  { value: 'catalog-asc',        labelKey: 'gallery.sortOptions.catalogAsc' },
   { value: 'name-asc',           labelKey: 'gallery.sortOptions.nameAsc' },
   { value: 'name-desc',          labelKey: 'gallery.sortOptions.nameDesc' },
   { value: 'session-date-desc',  labelKey: 'gallery.sortOptions.latestObservation' },
@@ -34,17 +38,70 @@ const SORT_OPTIONS: { value: SortKey; labelKey: string }[] = [
   { value: 'import-desc',        labelKey: 'gallery.sortOptions.recentlyImported' },
 ];
 
+const NAME_COLLATION: Intl.CollatorOptions = { numeric: true, sensitivity: 'base' };
+
 const SORT_STORAGE_KEY = 'nebulis-library-sort';
+const DEFAULT_SORT: SortKey = 'name-asc';
 
 function readStoredSort(): SortKey {
   try {
     const v = localStorage.getItem(SORT_STORAGE_KEY);
     if (v !== null && isOptionValue(SORT_OPTIONS, v)) return v;
   } catch { /* ignore */ }
-  return 'name-asc';
+  return DEFAULT_SORT;
 }
 
+type GroupKey = 'none' | 'catalog' | 'type' | 'constellation';
+const GROUP_OPTIONS: { value: GroupKey; labelKey: string }[] = [
+  { value: 'none',          labelKey: 'gallery.groupOptions.none' },
+  { value: 'catalog',       labelKey: 'gallery.groupOptions.catalog' },
+  { value: 'type',          labelKey: 'gallery.groupOptions.type' },
+  { value: 'constellation', labelKey: 'gallery.groupOptions.constellation' },
+];
+const GROUP_STORAGE_KEY = 'nebulis-library-group';
+const DEFAULT_GROUP: GroupKey = 'none';
+const COLLAPSED_STORAGE_KEY = 'nebulis-library-collapsed-groups';
+
+function readStoredGroup(): GroupKey {
+  try {
+    const v = localStorage.getItem(GROUP_STORAGE_KEY);
+    if (v !== null && isOptionValue(GROUP_OPTIONS, v)) return v;
+  } catch { /* ignore */ }
+  return DEFAULT_GROUP;
+}
+
+function readCollapsed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed)) return new Set(parsed.filter((x): x is string => typeof x === 'string'));
+  } catch { /* ignore */ }
+  return new Set();
+}
+
+// Grid size slider: number of columns on screens >= sm. Phones stay at 2.
+const COLUMNS_STORAGE_KEY = 'nebulis-library-columns';
+const COLUMNS_MIN = 2;
+const COLUMNS_MAX = 10;
+const COLUMNS_DEFAULT = 4;
+/** From this many columns the cards switch to their compact layout. */
+const COMPACT_FROM_COLUMNS = 6;
+
+function readStoredColumns(): number {
+  try {
+    const n = Number(localStorage.getItem(COLUMNS_STORAGE_KEY));
+    if (Number.isInteger(n) && n >= COLUMNS_MIN && n <= COLUMNS_MAX) return n;
+  } catch { /* ignore */ }
+  return COLUMNS_DEFAULT;
+}
+
+const CATALOG_FAMILY_LABELS: Record<CatalogFamily, string> = {
+  M: 'Messier', C: 'Caldwell', NGC: 'NGC', IC: 'IC', Sh2: 'Sharpless', Other: 'Other',
+};
+
 const ALL_TELESCOPES_FILTER = '__all__';
+// 2 columns on phones; from sm up the slider's --lib-cols takes over.
+const GRID_CLASS = 'grid grid-cols-2 sm:[grid-template-columns:repeat(var(--lib-cols),minmax(0,1fr))] gap-3 sm:gap-6';
 const ALL_PROCESSING_FILTER = '__all__';
 
 // Catalog "family" keywords. Searching a bare family name (e.g. "Messier")
@@ -70,6 +127,9 @@ export function Gallery() {
   const [telescopeFilter, setTelescopeFilter] = useState<string>(ALL_TELESCOPES_FILTER);
   const [processingFilter, setProcessingFilter] = useState<string>(ALL_PROCESSING_FILTER);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [linkTarget, setLinkTarget] = useState<{ path: string; subframes: boolean; fits: boolean } | null>(null);
+  // Set when the user steps back out of the link review: the import dialog reopens on its options step with these.
+  const [resumeLink, setResumeLink] = useState<{ path: string; includeSubframes: boolean } | null>(null);
   const [newObservationOpen, setNewObservationOpen] = useState(false);
   const [wizardPath, setWizardPath] = useState<string | null>(null);
   const [wizardSubframes, setWizardSubframes] = useState(false);
@@ -78,14 +138,15 @@ export function Gallery() {
   const [wizardTelescopeId, setWizardTelescopeId] = useState<string | null>(null);
   const [wizardTmpId, setWizardTmpId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>(readStoredSort);
-  const [sortOpen, setSortOpen] = useState(false);
-  const sortRef = useRef<HTMLDivElement>(null);
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
-  const [telescopeMenuOpen, setTelescopeMenuOpen] = useState(false);
-  const telescopeMenuRef = useRef<HTMLDivElement>(null);
-  const [processingMenuOpen, setProcessingMenuOpen] = useState(false);
-  const processingMenuRef = useRef<HTMLDivElement>(null);
+  const [groupKey, setGroupKey] = useState<GroupKey>(readStoredGroup);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const [viewOpen, setViewOpen] = useState(false);
+  const viewRef = useRef<HTMLDivElement>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const addRef = useRef<HTMLDivElement>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(readCollapsed);
+  const [columns, setColumns] = useState<number>(readStoredColumns);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -127,26 +188,23 @@ export function Gallery() {
     () => buildTypeFilters((objectsWithPendingFavorites ?? []).map(o => o.type), objectFilters),
     [objectsWithPendingFavorites, objectFilters],
   );
-  const defaultIds = useMemo(() => defaultEnabledIds(objectFilters), [objectFilters]);
-  const { enabledIds, toggle: toggleChip, clearAll: clearAllChips } = useFilterChipPrefs(defaultIds);
 
-  // Clearing unpins every chip AND resets the active selection (Favorites
-  // isn't gated by enabledIds, so it needs an explicit reset too).
-  function handleClearAllFilters() {
-    clearAllChips();
-    setActiveFilterId(ALL_FILTER_ID);
-  }
-
-  // The chips shown on the top row: enabled curated groups, then enabled types.
+  // Every curated group that actually has objects in the library, with counts,
+  // so the Filters popover never offers a type that would show an empty grid.
   const chips = useMemo(() => {
-    const groupChips = objectFilters
-      .filter(f => f.id !== ALL_FILTER_ID && enabledIds.has(f.id))
-      .map(f => ({ id: f.id, label: f.label }));
-    const typeChips = typeFilters
-      .filter(tf => enabledIds.has(tf.id))
-      .map(tf => ({ id: tf.id, label: tf.label }));
-    return [...groupChips, ...typeChips];
-  }, [objectFilters, typeFilters, enabledIds]);
+    const objs = objectsWithPendingFavorites ?? [];
+    const tagged = objs.filter(o => o.filterTags);
+    // Objects without precomputed filterTags are matched on their raw type, the
+    // same fallback matchesFilter uses, so counts agree with what filtering shows.
+    const fromTags = new Map<string, number>();
+    for (const o of tagged) for (const tag of o.filterTags ?? []) fromTags.set(tag, (fromTags.get(tag) ?? 0) + 1);
+    const untyped = countGroupChips(objectFilters, objs.filter(o => !o.filterTags).map(o => o.type));
+    const counts = new Map(fromTags);
+    for (const g of untyped) counts.set(g.id, (counts.get(g.id) ?? 0) + g.count);
+    return objectFilters
+      .filter(f => f.id !== ALL_FILTER_ID && f.id !== FAVORITES_FILTER_ID && (counts.get(f.id) ?? 0) > 0)
+      .map(f => ({ id: f.id, label: f.label, count: counts.get(f.id) ?? 0 }));
+  }, [objectFilters, objectsWithPendingFavorites]);
 
   // If the active chip was removed via the customize menu (or no longer
   // corresponds to a visible chip, e.g. a type suppressed by the group-label
@@ -155,22 +213,14 @@ export function Gallery() {
   const effectiveFilterId =
     activeFilterId === ALL_FILTER_ID ||
     activeFilterId === FAVORITES_FILTER_ID ||
-    chips.some(c => c.id === activeFilterId)
+    chips.some(c => c.id === activeFilterId) ||
+    typeFilters.some(tf => tf.id === activeFilterId)
       ? activeFilterId
       : ALL_FILTER_ID;
 
-  useClickOutside(filterMenuRef, () => setFilterMenuOpen(false), {
-    enabled: filterMenuOpen,
-    closeOnEscape: true,
-  });
-  useClickOutside(telescopeMenuRef, () => setTelescopeMenuOpen(false), {
-    enabled: telescopeMenuOpen,
-    closeOnEscape: true,
-  });
-  useClickOutside(processingMenuRef, () => setProcessingMenuOpen(false), {
-    enabled: processingMenuOpen,
-    closeOnEscape: true,
-  });
+  useClickOutside(filtersRef, () => setFiltersOpen(false), { enabled: filtersOpen, closeOnEscape: true });
+  useClickOutside(viewRef, () => setViewOpen(false), { enabled: viewOpen, closeOnEscape: true });
+  useClickOutside(addRef, () => setAddOpen(false), { enabled: addOpen, closeOnEscape: true });
 
   const { data: telescopes = [] } = useQuery({
     queryKey: ['telescopes'],
@@ -185,23 +235,35 @@ export function Gallery() {
       ? telescopeFilter
       : ALL_TELESCOPES_FILTER;
 
-  useEffect(() => {
-    if (!sortOpen) return;
-    function handleClick(e: MouseEvent) {
-      // `target` is `EventTarget | null`; only a Node can be "inside" the menu.
-      const target = e.target;
-      if (!(target instanceof Node)) return;
-      if (sortRef.current && !sortRef.current.contains(target)) {
-        setSortOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [sortOpen]);
+
+  function applyGroup(key: GroupKey) {
+    setGroupKey(key);
+    try { localStorage.setItem(GROUP_STORAGE_KEY, key); } catch { /* ignore */ }
+  }
+
+  function toggleGroupCollapsed(id: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
+  function applyColumns(n: number) {
+    setColumns(n);
+    try { localStorage.setItem(COLUMNS_STORAGE_KEY, String(n)); } catch { /* ignore */ }
+  }
+
+  const viewIsCustom = groupKey !== DEFAULT_GROUP || sortKey !== DEFAULT_SORT || columns !== COLUMNS_DEFAULT;
+  function resetView() {
+    applyGroup(DEFAULT_GROUP);
+    applySort(DEFAULT_SORT);
+    applyColumns(COLUMNS_DEFAULT);
+  }
 
   function applySort(key: SortKey) {
     setSortKey(key);
-    setSortOpen(false);
     try { localStorage.setItem(SORT_STORAGE_KEY, key); } catch { /* ignore */ }
   }
 
@@ -264,7 +326,8 @@ export function Gallery() {
         obj.name.toLowerCase().includes(effectiveTerm) ||
         obj.catalogId.toLowerCase().includes(effectiveTerm) ||
         obj.constellation.toLowerCase().includes(effectiveTerm) ||
-        (obj.aliases ?? []).some(a => a.toLowerCase().startsWith(effectiveTerm));
+        (obj.aliases ?? []).some(a => a.toLowerCase().startsWith(effectiveTerm)) ||
+        (obj.nicknames ?? []).some(n => n.toLowerCase().includes(effectiveTerm));
 
       const matchesType = matchesFilter(
         effectiveFilterId,
@@ -287,10 +350,12 @@ export function Gallery() {
 
     return [...list].sort((a, b) => {
       switch (sortKey) {
+        case 'catalog-asc':
+          return compareDesignations(a.catalogId, b.catalogId) || a.name.localeCompare(b.name);
         case 'name-asc':
-          return a.name.localeCompare(b.name);
+          return a.name.localeCompare(b.name, undefined, NAME_COLLATION);
         case 'name-desc':
-          return b.name.localeCompare(a.name);
+          return b.name.localeCompare(a.name, undefined, NAME_COLLATION);
         case 'session-date-desc':
           return (b.lastSessionDate ?? '').localeCompare(a.lastSessionDate ?? '');
         case 'session-date-asc':
@@ -310,6 +375,38 @@ export function Gallery() {
     });
   }, [objectsWithPendingFavorites, deferredSearch, effectiveFilterId, effectiveTelescopeFilter, processingFilter, objectFilters, sortKey]);
 
+  // Sections for Group-by. Applied after filter + sort, so each section keeps
+  // the active sort order. Every object lands in exactly one section (M31 is
+  // "Messier" only, never also under NGC 224).
+  const groups = useMemo(() => {
+    if (!filtered || groupKey === 'none') return null;
+    const sections = new Map<string, { id: string; label: string; order: number; items: typeof filtered }>();
+    const put = (id: string, label: string, order: number, obj: (typeof filtered)[number]) => {
+      const sec = sections.get(id);
+      if (sec) sec.items.push(obj);
+      else sections.set(id, { id, label, order, items: [obj] });
+    };
+    const typeGroups = objectFilters.filter(f => f.id !== ALL_FILTER_ID && f.id !== FAVORITES_FILTER_ID);
+    for (const obj of filtered) {
+      if (groupKey === 'catalog') {
+        const fam = catalogFamilyOf(obj.catalogId);
+        put(`catalog:${fam}`, CATALOG_FAMILY_LABELS[fam], CATALOG_FAMILY_ORDER.indexOf(fam), obj);
+      } else if (groupKey === 'type') {
+        const idx = typeGroups.findIndex(g => obj.filterTags?.includes(g.id));
+        if (idx >= 0) put(`type:${typeGroups[idx].id}`, typeGroups[idx].label, idx, obj);
+        else put('type:other', 'Other', Number.MAX_SAFE_INTEGER, obj);
+      } else {
+        const c = obj.constellation?.trim();
+        put(`constellation:${c || 'unknown'}`, c || 'Unknown', c ? 0 : 1, obj);
+      }
+    }
+    return [...sections.values()].sort((a, b) =>
+      a.order - b.order || a.label.localeCompare(b.label));
+  }, [filtered, groupKey, objectFilters]);
+
+  const compact = columns >= COMPACT_FROM_COLUMNS;
+  const gridStyle = { '--lib-cols': columns } as React.CSSProperties;
+
   // The hero describes the whole library, so it ignores the search box and the
   // type chips. It does honor the telescope facet (a persistent lens on the
   // collection), and says so via filteredLabel when one is active.
@@ -323,6 +420,24 @@ export function Gallery() {
       : telescopes.find(scope => scope.id === effectiveTelescopeFilter)?.name ?? null;
 
   const isImporting = importStatus?.running ?? false;
+
+  // Favorites is its own toggle in the toolbar, so it isn't counted here.
+  const activeChips: { key: string; label: string; clear: () => void }[] = [];
+  const activeTypeChip = chips.find(c => c.id === effectiveFilterId) ?? typeFilters.find(tf => tf.id === effectiveFilterId);
+  if (activeTypeChip) activeChips.push({ key: 'type', label: activeTypeChip.label, clear: () => setActiveFilterId(ALL_FILTER_ID) });
+  if (effectiveTelescopeFilter !== ALL_TELESCOPES_FILTER) {
+    const scope = telescopes.find(sc => sc.id === effectiveTelescopeFilter);
+    if (scope) activeChips.push({ key: 'scope', label: scope.name, clear: () => setTelescopeFilter(ALL_TELESCOPES_FILTER) });
+  }
+  if (processingFilter !== ALL_PROCESSING_FILTER) {
+    activeChips.push({ key: 'status', label: processingStatusLabel(processingFilter as ProcessingStatus, t), clear: () => setProcessingFilter(ALL_PROCESSING_FILTER) });
+  }
+  const activeFilterCount = activeChips.length;
+  function clearAllActive() {
+    setActiveFilterId(ALL_FILTER_ID);
+    setTelescopeFilter(ALL_TELESCOPES_FILTER);
+    setProcessingFilter(ALL_PROCESSING_FILTER);
+  }
 
   return (
     <div className="space-y-6">
@@ -347,7 +462,10 @@ export function Gallery() {
         </div>
       )}
 
-      {/* Search and action buttons */}
+      {/* One toolbar row: search, Filters, Favorites, View, Add. Everything
+          that narrows the list lives in the Filters popover; everything that
+          only changes how the list is laid out lives in View. Active filters
+          surface as removable chips underneath, and only while they exist. */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className={`relative flex-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 ${
@@ -366,293 +484,204 @@ export function Gallery() {
           />
         </div>
 
-        {/* Import buttons — admin only. Triggering a sync moved to the
-            telescope indicator's dropdown in the nav (one place for it,
-            reachable from every page), so only file-based import actions
-            live here now. */}
-        {!isImporting && isAdmin && (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setShowImportModal(true)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap ring-1 ring-inset transition-colors ${
-                isDark
-                  ? 'bg-slate-900/70 text-slate-200 ring-slate-700/60 hover:bg-slate-800'
-                  : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              <Upload className="w-4 h-4" />
-              {t('gallery.uploadFiles')}
-            </button>
-            <button
-              onClick={() => setNewObservationOpen(true)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-                isDark
-                  ? 'bg-accent-500/15 text-accent-400 hover:bg-accent-500/25 ring-1 ring-inset ring-accent-500/30'
-                  : 'bg-accent-500 text-white hover:bg-accent-600'
-              }`}
-            >
-              <PlusCircle className="w-4 h-4" />
-              {t('gallery.newObservation')}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Object type filter bar */}
-      {/*
-        Two grid columns, not a flex row: a nested flex-wrap child's preferred
-        (max-content) width is the width of ALL its chips laid out on one
-        line, so in a plain flex row it out-competes the telescope block for
-        space and both end up wrapping together. A grid column sized
-        `minmax(0, 1fr)` is genuinely constrained to the space left after the
-        `auto`-sized telescope column, so the chips wrap inside their own
-        column while the telescope column stays put at the top.
-      */}
-      <div
-        className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 ${
-          isDark ? 'text-slate-400' : 'text-slate-500'
-        }`}
-      >
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {/* Filter icon opens the customize menu (pick which chips show). */}
-          <div ref={filterMenuRef} className="relative shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Filters */}
+          <div ref={filtersRef} className="relative">
             <button
               type="button"
-              onClick={() => setFilterMenuOpen(o => !o)}
-              aria-label={t('gallery.customizeFilters')}
-              aria-haspopup="menu"
-              aria-expanded={filterMenuOpen}
-              title={t('gallery.customizeFilters')}
-              className={`flex items-center justify-center w-8 h-8 rounded-full ring-1 ring-inset transition-colors ${
-                filterMenuOpen
-                  ? isDark ? 'bg-slate-800 ring-slate-600 text-slate-200' : 'bg-slate-100 ring-slate-300 text-slate-700'
-                  : isDark
-                    ? 'bg-slate-900/70 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-300'
-                    : 'bg-white ring-slate-200 hover:bg-slate-100 hover:text-slate-700'
+              onClick={() => setFiltersOpen(o => !o)}
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+              className={`${TOOLBAR_BTN} ${
+                activeFilterCount > 0
+                  ? isDark ? 'bg-accent-500/15 text-accent-400 ring-accent-500/30' : 'bg-accent-500 text-white ring-accent-500'
+                  : isDark ? 'bg-slate-900/70 text-slate-200 ring-slate-700/60 hover:bg-slate-800' : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-100'
               }`}
             >
               <Filter className="w-4 h-4" />
+              {t('gallery.filters')}
+              {activeFilterCount > 0 && (
+                <span className={`min-w-[1.25rem] px-1 rounded-full text-xs text-center ${isDark ? 'bg-accent-500/25' : 'bg-white/25'}`}>
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
-            {filterMenuOpen && (
-              <FilterCustomizeMenu
-                groups={objectFilters}
-                typeFilters={typeFilters}
-                enabledIds={enabledIds}
-                onToggle={toggleChip}
-                onClearAll={handleClearAllFilters}
-                isDark={isDark}
-              />
+            {filtersOpen && (
+              <div className={`${POPOVER} w-[22rem] max-w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto p-4 space-y-4 ${popoverSurface(isDark)}`}>
+                <PopoverResetButton isDark={isDark} label={t('gallery.reset')} disabled={activeFilterCount === 0 && effectiveFilterId !== FAVORITES_FILTER_ID} onReset={clearAllActive} />
+                <TypeFilterSection
+                  isDark={isDark}
+                  activeId={effectiveFilterId}
+                  allId={ALL_FILTER_ID}
+                  groups={chips}
+                  types={typeFilters}
+                  onSelect={setActiveFilterId}
+                  labels={{
+                    title: t('gallery.filterType'),
+                    all: t('gallery.all'),
+                    more: count => t('gallery.moreTypes', { count }),
+                    fewer: t('gallery.fewerTypes'),
+                  }}
+                />
+                {showTelescopeUI && (
+                  <FilterSection title={t('gallery.filterScope')} isDark={isDark}>
+                    <Pill active={effectiveTelescopeFilter === ALL_TELESCOPES_FILTER} isDark={isDark} onClick={() => setTelescopeFilter(ALL_TELESCOPES_FILTER)}>
+                      {t('gallery.allScopes')}
+                    </Pill>
+                    {telescopes.map(scope => (
+                      <Pill key={scope.id} active={effectiveTelescopeFilter === scope.id} isDark={isDark} onClick={() => setTelescopeFilter(scope.id)}>
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: nightSafeColor(scope.color, isNight) }}
+                          aria-hidden="true"
+                        />
+                        {scope.name}
+                      </Pill>
+                    ))}
+                  </FilterSection>
+                )}
+                <FilterSection title={t('gallery.filterStatus')} isDark={isDark}>
+                  <Pill active={processingFilter === ALL_PROCESSING_FILTER} isDark={isDark} onClick={() => setProcessingFilter(ALL_PROCESSING_FILTER)}>
+                    {t('gallery.allStatuses')}
+                  </Pill>
+                  {PROCESSING_STATUS_ORDER.map(s => (
+                    <Pill key={s} active={processingFilter === s} isDark={isDark} onClick={() => setProcessingFilter(s)}>
+                      {processingStatusLabel(s, t)}
+                    </Pill>
+                  ))}
+                </FilterSection>
+              </div>
             )}
           </div>
-          {/* Favorites filter — special case that checks isFavorite */}
+
+          {/* Favorites: a single star toggle instead of a two-chip Favorites/All pair. */}
           <button
+            type="button"
             onClick={() => setActiveFilterId(effectiveFilterId === FAVORITES_FILTER_ID ? ALL_FILTER_ID : FAVORITES_FILTER_ID)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+            aria-pressed={effectiveFilterId === FAVORITES_FILTER_ID}
+            aria-label={t('gallery.favorites')}
+            title={t('gallery.favorites')}
+            className={`flex items-center justify-center w-10 h-10 rounded-full ring-1 ring-inset transition-colors ${
               effectiveFilterId === FAVORITES_FILTER_ID
-                ? isDark
-                  ? 'bg-amber-500/15 text-amber-400 ring-1 ring-inset ring-amber-500/30'
-                  : 'bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-300'
-                : isDark
-                  ? 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
-                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                ? isDark ? 'bg-amber-500/15 text-amber-400 ring-amber-500/30' : 'bg-amber-100 text-amber-700 ring-amber-300'
+                : isDark ? 'bg-slate-900/70 text-slate-400 ring-slate-700/60 hover:bg-slate-800' : 'bg-white text-slate-500 ring-slate-200 hover:bg-slate-100'
             }`}
           >
-            <Star className={`w-3.5 h-3.5 ${effectiveFilterId === FAVORITES_FILTER_ID ? 'fill-current' : ''}`} />
-            {t('gallery.favorites')}
+            <Star className={`w-4 h-4 ${effectiveFilterId === FAVORITES_FILTER_ID ? 'fill-current' : ''}`} />
           </button>
-          <button
-            onClick={() => setActiveFilterId(ALL_FILTER_ID)}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              effectiveFilterId === ALL_FILTER_ID
-                ? isDark
-                  ? 'bg-accent-500/15 text-accent-400 ring-1 ring-inset ring-accent-500/30'
-                  : 'bg-accent-500 text-white'
-                : isDark
-                  ? 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
-                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-            }`}
-          >
-            {t('gallery.all')}
-          </button>
-          {chips.map(chip => (
+
+          {/* View: layout only (grouping, sort, grid size). */}
+          <div ref={viewRef} className="relative">
             <button
-              key={chip.id}
-              onClick={() => setActiveFilterId(chip.id)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                effectiveFilterId === chip.id
-                  ? isDark
-                    ? 'bg-accent-500/15 text-accent-400 ring-1 ring-inset ring-accent-500/30'
-                    : 'bg-accent-500 text-white'
-                  : isDark
-                    ? 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                }`}
+              type="button"
+              onClick={() => setViewOpen(o => !o)}
+              aria-haspopup="dialog"
+              aria-expanded={viewOpen}
+              className={`${TOOLBAR_BTN} ${
+                isDark ? 'bg-slate-900/70 text-slate-200 ring-slate-700/60 hover:bg-slate-800' : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-100'
+              }`}
             >
-              {chip.label}
+              <SlidersHorizontal className="w-4 h-4" />
+              {t('gallery.view')}
+              {groupKey !== DEFAULT_GROUP && <span className="w-1.5 h-1.5 rounded-full bg-accent-400" aria-hidden="true" />}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${viewOpen ? 'rotate-180' : ''}`} />
             </button>
-          ))}
-        </div>
-        {/* Facet dropdowns — telescope (only when ≥2 configured) and
-            processing status (always). A sibling flex item (not part of the
-            chip row above) so this stays anchored in its own corner
-            regardless of how many rows the chips wrap to. */}
-        <div className="flex items-center gap-2 shrink-0">
-        {showTelescopeUI && (() => {
-          const selectedTelescope = effectiveTelescopeFilter === ALL_TELESCOPES_FILTER
-            ? null
-            : telescopes.find(scope => scope.id === effectiveTelescopeFilter) ?? null;
-          return (
-            <div ref={telescopeMenuRef} className="relative shrink-0">
+            {viewOpen && (
+              <div className={`${POPOVER} w-[22rem] max-w-[calc(100vw-2rem)] p-4 space-y-4 ${popoverSurface(isDark)}`}>
+                <PopoverResetButton isDark={isDark} label={t('gallery.reset')} disabled={!viewIsCustom} onReset={resetView} />
+                <FilterSection title={t('gallery.groupBy')} isDark={isDark}>
+                  {GROUP_OPTIONS.map(opt => (
+                    <Pill key={opt.value} active={groupKey === opt.value} isDark={isDark} onClick={() => applyGroup(opt.value)}>
+                      {t(opt.labelKey)}
+                    </Pill>
+                  ))}
+                </FilterSection>
+                <FilterSection title={t('gallery.sortBy')} isDark={isDark}>
+                  {SORT_OPTIONS.map(opt => (
+                    <Pill key={opt.value} active={sortKey === opt.value} isDark={isDark} onClick={() => applySort(opt.value)}>
+                      {t(opt.labelKey)}
+                    </Pill>
+                  ))}
+                </FilterSection>
+                <div className="hidden sm:block">
+                  <FilterSection title={t('gallery.gridSize')} isDark={isDark}>
+                    <div className="flex items-center gap-2 w-full">
+                      <Grid3x3 className={`w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                      <input
+                        type="range"
+                        min={COLUMNS_MIN}
+                        max={COLUMNS_MAX}
+                        step={1}
+                        value={COLUMNS_MIN + COLUMNS_MAX - columns}
+                        onChange={e => applyColumns(COLUMNS_MIN + COLUMNS_MAX - Number(e.target.value))}
+                        aria-label={t('gallery.gridSize')}
+                        className="flex-1 accent-amber-400 cursor-pointer"
+                      />
+                      <LayoutGrid className={`w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                    </div>
+                  </FilterSection>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add: file-based import actions, admin only. Triggering a sync
+              lives in the telescope indicator's dropdown in the nav. */}
+          {!isImporting && isAdmin && (
+            <div ref={addRef} className="relative">
               <button
-                onClick={() => setTelescopeMenuOpen(o => !o)}
+                type="button"
+                onClick={() => setAddOpen(o => !o)}
                 aria-haspopup="menu"
-                aria-expanded={telescopeMenuOpen}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ring-1 ring-inset transition-colors ${
-                  selectedTelescope
-                    ? isDark
-                      ? 'bg-accent-500/15 text-accent-400 ring-accent-500/30'
-                      : 'bg-accent-500 text-white ring-accent-500'
-                    : isDark
-                      ? 'bg-slate-900/70 ring-slate-700/60 text-slate-300 hover:bg-slate-800'
-                      : 'bg-white ring-slate-200 text-slate-600 hover:bg-slate-100'
+                aria-expanded={addOpen}
+                className={`${TOOLBAR_BTN} font-semibold ${
+                  isDark
+                    ? 'bg-accent-500/15 text-accent-400 hover:bg-accent-500/25 ring-accent-500/30'
+                    : 'bg-accent-500 text-white hover:bg-accent-600 ring-accent-500'
                 }`}
               >
-                {selectedTelescope ? (
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: selectedTelescope.color }}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <Telescope className="w-3.5 h-3.5 shrink-0" />
-                )}
-                <span className="truncate max-w-[9rem]">
-                  {selectedTelescope ? selectedTelescope.name : t('gallery.allScopes')}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 shrink-0 transition-transform ${telescopeMenuOpen ? 'rotate-180' : ''}`}
-                />
+                <PlusCircle className="w-4 h-4" />
+                {t('gallery.add')}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${addOpen ? 'rotate-180' : ''}`} />
               </button>
-              {telescopeMenuOpen && (
-                <div className={`absolute right-0 top-full mt-1.5 z-20 w-56 rounded-2xl border shadow-lg overflow-hidden ${
-                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-                }`}>
-                  <button
-                    onClick={() => { setTelescopeFilter(ALL_TELESCOPES_FILTER); setTelescopeMenuOpen(false); }}
-                    className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
-                      effectiveTelescopeFilter === ALL_TELESCOPES_FILTER
-                        ? isDark ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'
-                        : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Telescope className="w-3.5 h-3.5 shrink-0" />
-                      {t('gallery.allScopes')}
-                    </span>
-                    {effectiveTelescopeFilter === ALL_TELESCOPES_FILTER && <Check className="w-3.5 h-3.5 shrink-0" />}
-                  </button>
-                  {telescopes.map(scope => {
-                    const selected = effectiveTelescopeFilter === scope.id;
-                    return (
-                      <button
-                        key={scope.id}
-                        onClick={() => { setTelescopeFilter(scope.id); setTelescopeMenuOpen(false); }}
-                        className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
-                          selected
-                            ? isDark ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'
-                            : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2 min-w-0">
-                          <span
-                            className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: scope.color }}
-                            aria-hidden="true"
-                          />
-                          <span className="truncate">{scope.name}</span>
-                        </span>
-                        {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
-                      </button>
-                    );
-                  })}
+              {addOpen && (
+                <div role="menu" className={`${POPOVER} w-56 overflow-hidden ${popoverSurface(isDark)}`}>
+                  {[
+                    { icon: PlusCircle, label: t('gallery.newObservation'), onClick: () => setNewObservationOpen(true) },
+                    { icon: Upload, label: t('gallery.uploadFiles'), onClick: () => setShowImportModal(true) },
+                  ].map(item => (
+                    <button
+                      key={item.label}
+                      role="menuitem"
+                      type="button"
+                      onClick={() => { setAddOpen(false); item.onClick(); }}
+                      className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors ${
+                        isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <item.icon className="w-4 h-4 shrink-0" />
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
-          );
-        })()}
-        {(() => {
-          const selectedStatus = processingFilter === ALL_PROCESSING_FILTER ? null : (processingFilter as ProcessingStatus);
-          return (
-            <div ref={processingMenuRef} className="relative shrink-0">
-              <button
-                onClick={() => setProcessingMenuOpen(o => !o)}
-                aria-haspopup="menu"
-                aria-expanded={processingMenuOpen}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ring-1 ring-inset transition-colors ${
-                  selectedStatus
-                    ? isDark
-                      ? 'bg-accent-500/15 text-accent-400 ring-accent-500/30'
-                      : 'bg-accent-500 text-white ring-accent-500'
-                    : isDark
-                      ? 'bg-slate-900/70 ring-slate-700/60 text-slate-300 hover:bg-slate-800'
-                      : 'bg-white ring-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Workflow className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate max-w-[9rem]">
-                  {selectedStatus ? processingStatusLabel(selectedStatus, t) : t('gallery.allStatuses')}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 shrink-0 transition-transform ${processingMenuOpen ? 'rotate-180' : ''}`}
-                />
-              </button>
-              {processingMenuOpen && (
-                <div className={`absolute right-0 top-full mt-1.5 z-20 w-48 rounded-2xl border shadow-lg overflow-hidden ${
-                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-                }`}>
-                  <button
-                    onClick={() => { setProcessingFilter(ALL_PROCESSING_FILTER); setProcessingMenuOpen(false); }}
-                    className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
-                      processingFilter === ALL_PROCESSING_FILTER
-                        ? isDark ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'
-                        : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Workflow className="w-3.5 h-3.5 shrink-0" />
-                      {t('gallery.allStatuses')}
-                    </span>
-                    {processingFilter === ALL_PROCESSING_FILTER && <Check className="w-3.5 h-3.5 shrink-0" />}
-                  </button>
-                  {PROCESSING_STATUS_ORDER.map(s => {
-                    const selected = processingFilter === s;
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => { setProcessingFilter(s); setProcessingMenuOpen(false); }}
-                        className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
-                          selected
-                            ? isDark ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'
-                            : isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="truncate">{processingStatusLabel(s, t)}</span>
-                        {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+          )}
         </div>
       </div>
+
+      <ActiveFilterChips
+        chips={activeChips}
+        isDark={isDark}
+        removeLabel={name => t('gallery.removeFilter', { name })}
+        clearAllLabel={t('gallery.clearFilters')}
+        onClearAll={clearAllActive}
+      />
       </TourAnchor>
 
       {/* Content */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+        <div className={GRID_CLASS} style={gridStyle}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
@@ -660,7 +689,7 @@ export function Gallery() {
                 isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
               }`}
             >
-              <div className="h-48 img-placeholder" />
+              <div className="h-28 sm:h-48 img-placeholder" />
               <div className="p-5 space-y-3">
                 <div className={`h-5 rounded w-3/4 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`} />
                 <div className={`h-4 rounded w-1/2 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`} />
@@ -682,53 +711,44 @@ export function Gallery() {
         </div>
       ) : filtered && filtered.length > 0 ? (
         <>
-          <div className="flex items-center justify-between">
-            <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              {t('gallery.objectCount', { count: filtered.length })}
-            </p>
-            <div ref={sortRef} className="relative">
-              <button
-                onClick={() => setSortOpen(o => !o)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium ring-1 ring-inset transition-colors ${
-                  isDark
-                    ? 'bg-slate-900/70 ring-slate-700/60 text-slate-300 hover:bg-slate-800'
-                    : 'bg-white ring-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <ArrowUpDown className="w-3.5 h-3.5" />
-                {(() => { const opt = SORT_OPTIONS.find(o => o.value === sortKey); return opt ? t(opt.labelKey) : null; })()}
-              </button>
-              {sortOpen && (
-                <div className={`absolute right-0 top-full mt-1.5 z-20 w-52 rounded-2xl border shadow-lg overflow-hidden ${
-                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-                }`}>
-                  {SORT_OPTIONS.map(opt => (
+          <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            {t('gallery.objectCount', { count: filtered.length })}
+          </p>
+          {groups ? (
+            <div className="space-y-6">
+              {groups.map(g => {
+                const collapsed = collapsedGroups.has(g.id);
+                return (
+                  <section key={g.id}>
                     <button
-                      key={opt.value}
-                      onClick={() => applySort(opt.value)}
-                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors ${
-                        sortKey === opt.value
-                          ? isDark
-                            ? 'bg-slate-800 text-white'
-                            : 'bg-slate-50 text-slate-900'
-                          : isDark
-                            ? 'text-slate-300 hover:bg-slate-800'
-                            : 'text-slate-600 hover:bg-slate-50'
+                      onClick={() => toggleGroupCollapsed(g.id)}
+                      aria-expanded={!collapsed}
+                      className={`sticky top-0 z-10 w-full flex items-center gap-2 py-2 px-1 text-left backdrop-blur ${
+                        isDark ? 'bg-slate-950/85 text-slate-200' : 'bg-slate-50/90 text-slate-700'
                       }`}
                     >
-                      {t(opt.labelKey)}
-                      {sortKey === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
+                      <ChevronDown className={`w-4 h-4 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+                      <span className="font-display font-semibold">{g.label}</span>
+                      <span className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{g.items.length}</span>
                     </button>
-                  ))}
-                </div>
-              )}
+                    {!collapsed && (
+                      <div className={`${GRID_CLASS} mt-2`} style={gridStyle}>
+                        {g.items.map(obj => (
+                          <ObjectCard key={obj.id} object={obj} isDark={isDark} telescopes={telescopes} compact={compact} />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-            {filtered.map(obj => (
-              <ObjectCard key={obj.id} object={obj} isDark={isDark} telescopes={telescopes} />
-            ))}
-          </div>
+          ) : (
+            <div className={GRID_CLASS} style={gridStyle}>
+              {filtered.map(obj => (
+                <ObjectCard key={obj.id} object={obj} isDark={isDark} telescopes={telescopes} compact={compact} />
+              ))}
+            </div>
+          )}
         </>
       ) : (
         <div className={`text-center py-20 space-y-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -747,6 +767,18 @@ export function Gallery() {
               <p className="text-sm max-w-sm mx-auto">
                 {t('gallery.noFavoritesHint')}
               </p>
+            )}
+            {(search || effectiveFilterId !== ALL_FILTER_ID || effectiveTelescopeFilter !== ALL_TELESCOPES_FILTER || processingFilter !== ALL_PROCESSING_FILTER) && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); clearAllActive(); setActiveFilterId(ALL_FILTER_ID); }}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium ring-1 ring-inset transition-colors ${
+                  isDark ? 'bg-slate-900/70 text-slate-200 ring-slate-700/60 hover:bg-slate-800' : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <X className="w-4 h-4" />
+                {t('gallery.clearFilters')}
+              </button>
             )}
             {!search && effectiveFilterId === ALL_FILTER_ID && processingFilter === ALL_PROCESSING_FILTER && (
               <p className="text-sm max-w-sm mx-auto">
@@ -794,7 +826,8 @@ export function Gallery() {
       {/* Import modal — drop zone → review wizard */}
       {showImportModal && (
         <ImportModal
-          onClose={() => setShowImportModal(false)}
+          resume={resumeLink ?? undefined}
+          onClose={() => { setShowImportModal(false); setResumeLink(null); }}
           onReview={(folderPath, includeSubframes, includeFits, telescopeId, archiveAll, tmpId) => {
             setShowImportModal(false);
             setWizardSubframes(includeSubframes);
@@ -803,6 +836,11 @@ export function Gallery() {
             setWizardTelescopeId(telescopeId);
             setWizardTmpId(tmpId);
             setWizardPath(folderPath);
+          }}
+          onLink={(folderPath, includeSubframes, includeFits) => {
+            setShowImportModal(false);
+            setResumeLink(null);
+            setLinkTarget({ path: folderPath, subframes: includeSubframes, fits: includeFits });
           }}
         />
       )}
@@ -816,6 +854,22 @@ export function Gallery() {
           navigate(`/observations/${encodeURIComponent(result.objectId)}/${encodeURIComponent(result.date)}`);
         }}
       />
+
+      {/* Link a folder in place: nothing is copied into the library */}
+      {linkTarget && (
+        <LinkFolderWizard
+          rootPath={linkTarget.path}
+          includeSubframes={linkTarget.subframes}
+          includeFits={linkTarget.fits}
+          onClose={() => setLinkTarget(null)}
+          onBack={() => {
+            setResumeLink({ path: linkTarget.path, includeSubframes: linkTarget.subframes });
+            setLinkTarget(null);
+            setShowImportModal(true);
+          }}
+          onDone={() => queryClient.invalidateQueries({ queryKey: ['library-objects'] })}
+        />
+      )}
 
       {/* Guided folder-import wizard (scan → review sessions → commit) */}
       {wizardPath && (

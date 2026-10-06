@@ -196,9 +196,9 @@ export function BackupStatus() {
             }`}>
               {lastFailure.error}
             </p>
-            {lastFailure.lastRun && (
+            {(lastFailure.startedAt ?? lastFailure.lastRun) && (
               <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-                {t('backupStatus.attempted', { time: formatRelativeTime(lastFailure.lastRun) })}
+                {t('backupStatus.attempted', { time: formatRelativeTime((lastFailure.startedAt ?? lastFailure.lastRun) as string) })}
               </p>
             )}
           </div>

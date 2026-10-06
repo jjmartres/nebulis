@@ -49,8 +49,10 @@ import { systemLogRouter } from './routes/systemLog.js';
 import { pixinsightRepoRouter } from './routes/pixinsightRepo.js';
 import { startPackUpdateChecker } from './lib/catalogPack/updater.js';
 import { startPlannerNightlyScheduler } from './lib/plannerNightlyPrefetch.js';
+import { startArchiveScheduler } from './lib/archive/archiveScheduler.js';
 import { prewarmSessionThumbnails } from './lib/library/sessionThumbnailPrewarm.js';
 import { startForecastRefresh } from './lib/forecastCache.js';
+import { startLinkedSourceScheduler } from './lib/library/linkedSourceScheduler.js';
 import { startAppUpdateChecker } from './lib/appUpdate/updater.js';
 import { prewarmThumbnails } from './lib/catalogPrefetch.js';
 import { satelliteCatalog } from './lib/satelliteCatalog.js';
@@ -82,6 +84,9 @@ reconcilePinnedLibraryConfig();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+// Set by the Import Lab (tests/e2e-real, docker/lab): a throwaway server must not advertise itself
+// on the LAN, bind the discovery port, or phone home. Unset in every real deployment.
+const TEST_MODE = process.env.NEBULIS_TEST_MODE === '1';
 
 // Trust only the immediately upstream proxy (e.g. a Docker gateway or a
 // reverse proxy the operator puts in front of Nebulis) — and only when the
@@ -187,7 +192,12 @@ app.use((req, res, next) => {
   const requestPath = req.path;
   res.on('finish', () => {
     const ms = Date.now() - start;
-    if (ms > 500 || requestPath.startsWith('/api')) {
+    // Fast successful reads are polling noise (status, update and location
+    // checks every 15-30s per open tab) and bury the lines that matter. Keep
+    // errors, slow requests and anything that changes state.
+    const isRead = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
+    const notable = ms > 500 || res.statusCode >= 400 || !isRead;
+    if (notable && (ms > 500 || requestPath.startsWith('/api'))) {
       log.info(
         { method: req.method, path: requestPath, status: res.statusCode, ms },
         `${req.method} ${requestPath} ${res.statusCode} (${ms}ms)`,
@@ -720,10 +730,13 @@ function onListening(): void {
       console.warn('[library] libraryFiles backfill failed:', err instanceof Error ? err.message : err);
     }
   })();
-  startPackUpdateChecker(prewarmThumbnails);
-  startAppUpdateChecker();
-  startPlannerNightlyScheduler();
-  startForecastRefresh();
+  if (!TEST_MODE) {
+    startPackUpdateChecker(prewarmThumbnails);
+    startAppUpdateChecker();
+    startPlannerNightlyScheduler();
+    startForecastRefresh();
+    startLinkedSourceScheduler();
+  }
 
   // Warm the per-session (Nights calendar) thumbnail cache in the background,
   // deferred so it never competes with the rest of startup. Idempotent, so a
@@ -737,6 +750,7 @@ function onListening(): void {
   // Advertise via mDNS. Deferred by one tick (via the async IIFE) so it never
   // blocks the listen callback above.
   void (async () => {
+  if (TEST_MODE) return;
   // Advertise via mDNS so iOS/tvOS/Android clients can auto-discover this server.
   // Wraps in try/catch so a firewall block (common on Windows) never crashes the server.
   try {
@@ -901,6 +915,11 @@ scheduleImportTmpCleanup();
 
 // Start auto-import scheduler (checks settings on each tick)
 scheduleAutoImport();
+
+// Start the archive scheduler. Like the auto-import one it re-reads the archive
+// configuration on every tick, so changing the schedule in Settings takes effect
+// without a restart and nothing has to remember to re-arm it.
+startArchiveScheduler();
 
 
 // Pre-download TLE satellite catalog in background so it's ready for trail detection

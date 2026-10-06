@@ -1,11 +1,12 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { X, Image, Check, RotateCw, ImagePlus, RefreshCw } from 'lucide-react';
+import { X, Image, Check, Crop, ArrowLeft, RotateCw, ImagePlus, RefreshCw } from 'lucide-react';
 import {
   getStackedImages,
   getAllProcessedImagesForObject,
   setGalleryImage,
+  setGalleryCrop,
   uploadGalleryImage,
   getLibraryFileUrl,
   getLibraryFileThumbnailUrl,
@@ -20,11 +21,14 @@ import {
   parseSourceSentinel,
 } from '../lib/catalogImage';
 import { Modal } from './ui/Modal';
+import { ImageFramer } from './ImageFramer';
+import type { GalleryCrop } from '../types';
 
 interface GalleryImageModalProps {
   objectId: string;
   catalogId: string;
   currentGalleryImage: string | null;
+  currentCrop?: GalleryCrop | null;
   onClose: () => void;
   isDark: boolean;
 }
@@ -33,6 +37,7 @@ export function GalleryImageModal({
   objectId,
   catalogId,
   currentGalleryImage,
+  currentCrop = null,
   onClose,
   isDark,
 }: GalleryImageModalProps) {
@@ -94,19 +99,50 @@ export function GalleryImageModal({
     },
   });
 
+  // Framing of the highlighted image. Picking a different image starts it over
+  // (the server drops the old crop on a new image too).
+  const [crop, setCrop] = useState<GalleryCrop | null>(currentCrop);
+  const [cropDirty, setCropDirty] = useState(false);
+  const chooseImage = (selection: string | null) => {
+    setPendingSelection(selection);
+    setCrop(selection === currentGalleryImage ? currentCrop : null);
+    setCropDirty(false);
+  };
+  // 'frame' swaps the picker for a full-size framing view of the chosen image.
+  const [step, setStep] = useState<'pick' | 'frame'>('pick');
+  const [cropBeforeFraming, setCropBeforeFraming] = useState<GalleryCrop | null>(null);
+  const openFraming = () => { setCropBeforeFraming(crop); setStep('frame'); };
+  const cancelFraming = () => {
+    setCrop(cropBeforeFraming);
+    setCropDirty(cropBeforeFraming !== (pendingSelection === undefined || pendingSelection === currentGalleryImage ? currentCrop : null));
+    setStep('pick');
+  };
+  const changeCrop = (next: GalleryCrop | null) => {
+    setCrop(next);
+    setCropDirty(true);
+  };
+
   const selectMutation = useMutation({
-    mutationFn: (imagePath: string | null) => setGalleryImage(objectId, imagePath),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['gallery-image', objectId], data);
+    mutationFn: async () => {
+      let data: { objectId: string; galleryImage: string | null } = {
+        objectId, galleryImage: pendingSelection !== undefined ? pendingSelection : currentGalleryImage,
+      };
+      if (pendingSelection !== undefined) data = await setGalleryImage(objectId, pendingSelection);
+      // A new image clears the crop server-side, so only send one when there is
+      // something to set (or an existing crop to remove).
+      if (crop && (cropDirty || pendingSelection !== undefined)) await setGalleryCrop(objectId, crop);
+      else if (!crop && cropDirty) await setGalleryCrop(objectId, null);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gallery-image', objectId] });
       queryClient.invalidateQueries({ queryKey: ['library-objects'] });
       onClose();
     },
   });
 
   const handleSave = () => {
-    if (pendingSelection !== undefined) {
-      selectMutation.mutate(pendingSelection);
-    }
+    if (hasPendingChange) selectMutation.mutate();
   };
 
   const handleUpload = async (file: File) => {
@@ -153,7 +189,7 @@ export function GalleryImageModal({
   const effectivePinnedSource = parseSourceSentinel(effectiveSelection);
   // "Auto" tile is selected when galleryImage is null/empty AND no source is pinned.
   const isSkyAutoSelected = !effectiveSelection && !effectivePinnedSource;
-  const hasPendingChange = pendingSelection !== undefined;
+  const hasPendingChange = pendingSelection !== undefined || cropDirty;
   // Uploaded files are stored at `<folder>/gallery_<…>.{jpg,jpeg,png}` and are
   // explicitly excluded from `getStackedImages()`. Surface them here as a
   // "Custom Upload" tile so the user can see (and reselect) what's pinned.
@@ -167,12 +203,25 @@ export function GalleryImageModal({
     : null;
   const customUploadPath = uploadedPath ?? savedUploadedPath;
 
+  // Which tile carries a frame: the highlighted one follows the live framing,
+  // any other one shows the saved framing if it is the saved image.
+  const isFramed = (selected: boolean, key: string | null) =>
+    selected ? !!crop : !!currentCrop && currentGalleryImage === key;
+
+  // The picture the framer shows: the selected image at preview size. Null for
+  // Auto (no explicit pick), and while a freshly chosen upload is still saving.
+  const framingSrc = effectivePinnedSource
+    ? getCatalogSourceThumbnailUrl(catalogId, effectivePinnedSource, 1200, 1200)
+    : effectiveSelection
+      ? getLibraryFileThumbnailUrl(effectiveSelection, 1200, 1200)
+      : null;
+
   return (
     <Modal
       isOpen
       onClose={onClose}
       title={t('galleryImageModal.title')}
-      className={`w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden ${
+      className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden ${
         isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white shadow-xl'
       }`}
     >
@@ -193,8 +242,13 @@ export function GalleryImageModal({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {step === 'frame' && framingSrc ? (
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
+            <ImageFramer key={effectiveSelection} src={framingSrc} crop={crop} onChange={changeCrop} isDark={isDark} />
+          </div>
+        ) : (
+        <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
           {/* Sky survey image — Auto tile + one tile per cached master */}
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -231,7 +285,7 @@ export function GalleryImageModal({
                 isSelected={isSkyAutoSelected}
                 isDark={isDark}
                 disabled={selectMutation.isPending}
-                onClick={() => setPendingSelection(null)}
+                onClick={() => chooseImage(null)}
                 onLoadError={() => setSkyImageFailed(true)}
                 showFailedFallback={skyImageFailed}
               />
@@ -243,9 +297,10 @@ export function GalleryImageModal({
                   label={s.label}
                   sublabel={formatSourceSize(s)}
                   isSelected={effectivePinnedSource === s.source}
+                  framed={isFramed(effectivePinnedSource === s.source, makeSourceSentinel(s.source))}
                   isDark={isDark}
                   disabled={selectMutation.isPending}
-                  onClick={() => setPendingSelection(makeSourceSentinel(s.source))}
+                  onClick={() => chooseImage(makeSourceSentinel(s.source))}
                 />
               ))}
             </div>
@@ -266,9 +321,10 @@ export function GalleryImageModal({
                   label={t('galleryImageModal.customUploadLabel')}
                   sublabel={t('galleryImageModal.customUploadSublabel')}
                   isSelected={effectiveSelection === customUploadPath}
+                  framed={isFramed(effectiveSelection === customUploadPath, customUploadPath)}
                   isDark={isDark}
                   disabled={selectMutation.isPending || uploading}
-                  onClick={() => setPendingSelection(customUploadPath)}
+                  onClick={() => chooseImage(customUploadPath)}
                 />
               )}
               <button
@@ -335,9 +391,10 @@ export function GalleryImageModal({
                       : img.name
                     }
                     isSelected={effectiveSelection === img.path}
+                    framed={isFramed(effectiveSelection === img.path, img.path)}
                     isDark={isDark}
                     disabled={selectMutation.isPending}
-                    onClick={() => setPendingSelection(img.path)}
+                    onClick={() => chooseImage(img.path)}
                   />
                 ))}
                 {processedImages.map(img => (
@@ -346,9 +403,10 @@ export function GalleryImageModal({
                     src={img.thumbUrl ?? img.previewUrl ?? getLibraryFileThumbnailUrl(img.path)}
                     label={img.title || img.originalName}
                     isSelected={effectiveSelection === img.path}
+                    framed={isFramed(effectiveSelection === img.path, img.path)}
                     isDark={isDark}
                     disabled={selectMutation.isPending}
-                    onClick={() => setPendingSelection(img.path)}
+                    onClick={() => chooseImage(img.path)}
                   />
                 ))}
               </div>
@@ -360,30 +418,86 @@ export function GalleryImageModal({
             </div>
           )}
         </div>
+        </div>
+        )}
 
         {/* Footer */}
-        <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${
+        {step === 'frame' ? (
+          <div className={`flex items-center justify-between gap-3 px-6 py-4 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            <button
+              onClick={cancelFraming}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${
+                isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {t('galleryImageModal.framingBack')}
+            </button>
+            <button
+              onClick={() => setStep('pick')}
+              className="px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition"
+            >
+              {t('galleryImageModal.framingApply')}
+            </button>
+          </div>
+        ) : (
+        <div className={`flex items-center justify-between gap-3 px-6 py-4 border-t ${
           isDark ? 'border-slate-800' : 'border-slate-200'
         }`}>
-          <button
-            onClick={onClose}
-            disabled={selectMutation.isPending}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-              isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
-            }`}
-          >
-            {t('galleryImageModal.cancel')}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!hasPendingChange || selectMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {selectMutation.isPending && <RotateCw className="w-4 h-4 animate-spin" />}
-            {t('galleryImageModal.save')}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={openFraming}
+              disabled={!framingSrc || selectMutation.isPending}
+              title={framingSrc ? undefined : t('galleryImageModal.framingPickFirst')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border-2 transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                isDark
+                  ? 'border-accent-500/70 text-accent-300 hover:bg-accent-500/15'
+                  : 'border-accent-500 text-accent-700 hover:bg-accent-50'
+              }`}
+            >
+              <Crop className="w-4 h-4" />
+              {t('galleryImageModal.frameButton')}
+            </button>
+            {crop && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-500/15 px-2.5 py-1 text-xs font-medium text-accent-400">
+                <Crop className="w-3 h-3" />
+                {t('galleryImageModal.framedBadge', { zoom: crop.zoom.toFixed(1) })}
+                {crop.rotated ? ` ${t('galleryImageModal.framedPortraitSuffix')}` : ''}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              disabled={selectMutation.isPending}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
+              {t('galleryImageModal.cancel')}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!hasPendingChange || selectMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {selectMutation.isPending && <RotateCw className="w-4 h-4 animate-spin" />}
+              {t('galleryImageModal.save')}
+            </button>
+          </div>
         </div>
+        )}
     </Modal>
+  );
+}
+
+function FramedBadge() {
+  const { t } = useTranslation('library');
+  return (
+    <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-accent-300">
+      <Crop className="w-3 h-3" />
+      {t('galleryImageModal.framedTag')}
+    </div>
   );
 }
 
@@ -391,6 +505,7 @@ function ImageOption({
   src,
   label,
   isSelected,
+  framed = false,
   isDark,
   disabled,
   onClick,
@@ -398,6 +513,7 @@ function ImageOption({
   src: string;
   label: string;
   isSelected: boolean;
+  framed?: boolean;
   isDark: boolean;
   disabled: boolean;
   onClick: () => void;
@@ -450,6 +566,7 @@ function ImageOption({
         <span className="text-[10px] text-white/90 font-medium">{label}</span>
       </div>
 
+      {framed && <FramedBadge />}
       {isSelected && (
         <div className="absolute top-1.5 right-1.5 p-0.5 rounded-full bg-accent-500 text-white">
           <Check className="w-3 h-3" />
@@ -477,6 +594,7 @@ function SkySourceTile({
   label,
   sublabel,
   isSelected,
+  framed = false,
   isDark,
   disabled,
   onClick,
@@ -487,6 +605,7 @@ function SkySourceTile({
   label: string;
   sublabel: string;
   isSelected: boolean;
+  framed?: boolean;
   isDark: boolean;
   disabled: boolean;
   onClick: () => void;
@@ -527,6 +646,7 @@ function SkySourceTile({
         <div className="text-[11px] text-white font-semibold leading-tight">{label}</div>
         {sublabel && <div className="text-[9px] text-white/70 leading-tight mt-0.5">{sublabel}</div>}
       </div>
+      {framed && <FramedBadge />}
       {isSelected && (
         <div className="absolute top-1.5 right-1.5 p-0.5 rounded-full bg-accent-500 text-white">
           <Check className="w-3 h-3" />

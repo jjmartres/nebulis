@@ -316,7 +316,7 @@ export function AutoPlanModal({
               {/* Split mode */}
               <section className="space-y-3">
                 <div className="text-sm font-medium">{t('autoPlanModal.howToSplit')}</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <SplitButton
                     active={splitMode === 'perObject'}
                     icon={<Clock className="w-4 h-4" />}

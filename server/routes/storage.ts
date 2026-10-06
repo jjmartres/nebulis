@@ -8,14 +8,31 @@ import { cachedSmbListDir as smbListDir, BASE_PATH, isTelescopeOnline } from '..
 import { isObjectFolder, isSubFolder, getObjectFromSubFolder, normalizeCatalogId, getFileCategory } from '../lib/telescopeFiles.js';
 import { getCatalogEntry } from '../data/catalog.js';
 import { DATA_DIR } from '../lib/paths.js';
-import { getLibraryDir, describeLibraryLocation, getLibraryLocationInfo, isLibraryAvailable, isDefaultLocation, isNetworkLocation, isLibraryPinned, setLibraryPath, withTimeout, LIBRARY_IO_TIMEOUT_MS, LIBRARY_STATS_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
+import { getLibraryDir, isOnSameDeviceAsLibrary, describeLibraryLocation, getLibraryLocationInfo, isLibraryAvailable, isDefaultLocation, isNetworkLocation, isLibraryPinned, setLibraryPath, withTimeout, LIBRARY_IO_TIMEOUT_MS, LIBRARY_STATS_IO_TIMEOUT_MS } from '../lib/libraryPath.js';
 import { isLibraryMigrating } from '../lib/libraryMaintenance.js';
+import { acquireLibraryLock, isLibraryBusy, libraryBusyMessage, libraryBusyRefusal } from '../lib/libraryBusy.js';
 import { listVolumes, listDirectories, normalizeUserPath } from '../lib/volumes.js';
 import { locateFolderOnDisk, validateLocateInput, type LocateSample } from '../lib/folderLocate.js';
 import { startMigration, getMigrationStatus } from '../lib/libraryMigration.js';
 import { renestObject, renestLibrary, getRenestStatus, countFlatObjects } from '../lib/library/libraryRenest.js';
-import { getImportStatus } from '../lib/library/import.js';
 import { testNetworkLibraryConnection, NETWORK_MOUNT_DIR, type NetworkLibraryConfig } from '../lib/libraryNetwork.js';
+import {
+  ARCHIVE_NETWORK_MOUNT_DIR,
+  ensureArchiveShareReady,
+  networkArchiveSupported,
+  networkDisplayPath,
+  resolveNetworkArchiveRoot,
+  testArchiveNetworkConnection,
+  uncRootOf,
+  type ShareAddress,
+} from '../lib/archive/archiveNetwork.js';
+import {
+  connectArchiveDestination,
+  DESTINATION_REJECTION_MESSAGE,
+  ensureArchiveDestinationReady,
+} from '../lib/archive/archiveDestination.js';
+import { isOnSameDevice, isWithinRoot } from '../lib/archive/archivePath.js';
+import { retireArchiveManifest } from '../lib/archive/archiveManifest.js';
 import zlib from 'zlib';
 import { requireAdmin } from '../middleware/auth.js';
 import { strictRateLimiter } from '../middleware/rateLimit.js';
@@ -24,7 +41,29 @@ import { pickDefaultTarget } from '../lib/telescopes.js';
 import { logEvent } from '../lib/systemLog.js';
 import { isRecord } from '../lib/typeGuards.js';
 import { createManualDatabaseBackup } from '../lib/db.js';
+import { analyzeLibrary, fixStaleRecords, fixMissingObjects, fixLayoutDrift, fixMissingProcessed, LibraryUnreadableError } from '../lib/library/analyze.js';
+import { getSubframeUsage, purgeAllSubframes } from '../lib/library/cleanup.js';
 import { getCurrentVersion } from '../lib/appUpdate/platform.js';
+import os from 'os';
+import { isSameMachineAddress } from '../lib/lanAddress.js';
+import { resolveArchiveRoot } from '../lib/archive/archivePath.js';
+import { newArchiveId, readArchiveMarker, writeArchiveMarker } from '../lib/archive/archiveMarker.js';
+import {
+  ArchiveConfigError,
+  getArchiveConfig,
+  getArchiveNetworkCredentials,
+  setArchiveConfig,
+  type ArchiveConfig,
+  type ArchiveConfigPatch,
+  type ArchiveNetworkConfig,
+  type ArchiveNetworkCredentials,
+} from '../lib/archive/archiveConfig.js';
+import { getArchiveRunProgress, isArchiveRunning } from '../lib/archive/archiveCopy.js';
+import { cancelArchiveRun, clearLastArchiveRun, getLastArchiveRun, runArchivePipeline } from '../lib/archive/archivePipeline.js';
+import { archiveBlockedByLibraryWork } from '../lib/archive/archiveScheduler.js';
+import { applyArchiveRetention, planArchiveRetention } from '../lib/archive/archiveRetention.js';
+import { listArchivedFiles, listArchivedObjects } from '../lib/archive/archiveBrowse.js';
+import { restoreArchivedFiles } from '../lib/archive/archiveRestore.js';
 import {
   BACKUPS_DIR,
   MAX_RETAINED,
@@ -366,17 +405,26 @@ async function diskResponse(targetPath: string) {
   };
 }
 
+/**
+ * Directories under DATA_DIR that hold a mounted network share.
+ *
+ * Both are skipped by the sync walks below. A walk that descended into one would
+ * recurse into a network share, blocking the event loop on every Settings load, and
+ * would count the share's bytes as local data. A set rather than a comparison
+ * because there are two of them now and the next one should not need a second edit
+ * at each site.
+ */
+const NETWORK_MOUNT_DIRS = new Set([NETWORK_MOUNT_DIR, ARCHIVE_NETWORK_MOUNT_DIR]);
+
 /** Recursively count files and total byte size under a directory. Sync — only
- *  used for DATA_DIR (a local disk). The mounted network library lives at
- *  NETWORK_MOUNT_DIR under DATA_DIR; it is skipped so a sync walk never
- *  recurses into a network share (which would block the event loop) and so it
- *  isn't double-counted into the local-data figures. */
+ *  used for DATA_DIR (a local disk). The mounted network shares under DATA_DIR are
+ *  skipped; see NETWORK_MOUNT_DIRS. */
 function dirStats(dir: string): { size: number; files: number } {
   let size = 0, files = 0;
   try {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, e.name);
-      if (full === NETWORK_MOUNT_DIR) continue;
+      if (NETWORK_MOUNT_DIRS.has(full)) continue;
       if (e.isDirectory()) {
         const sub = dirStats(full);
         size += sub.size; files += sub.files;
@@ -432,7 +480,7 @@ function dataDirBreakdown(dir: string): DataDirEntry[] {
   try {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, e.name);
-      if (full === NETWORK_MOUNT_DIR) continue;
+      if (NETWORK_MOUNT_DIRS.has(full)) continue;
       if (e.isDirectory()) {
         const s = dirStats(full);
         entries.push({ name: e.name, size: s.size, files: s.files, sizeFormatted: formatBytes(s.size) });
@@ -572,6 +620,18 @@ router.get('/library', (_req: Request, res: Response) => {
 // ─── Library location & migration ────────────────────────────────────────────
 
 // GET /api/v1/storage/volumes — mounted drives the user can store the library on
+/**
+ * Is the browser making this request running on the same computer as the
+ * server? The import dialog uses it to stop asking people to tell "this
+ * device" from "the server" when, for them, those are one machine.
+ */
+router.get('/client-locality', requireAdmin, (req: Request, res: Response) => {
+  res.apiSuccess({
+    sameMachine: isSameMachineAddress(req.socket.remoteAddress),
+    serverName: os.hostname().replace(/\.local$/i, ''),
+  });
+});
+
 router.get('/volumes', requireAdmin, async (_req: Request, res: Response) => {
   try {
     res.apiSuccess({ volumes: await listVolumes() });
@@ -844,8 +904,9 @@ router.post('/renest', requireAdmin, async (req: Request, res: Response) => {
     res.apiError(409, 'RENEST_RUNNING', 'A reorganize is already running.');
     return;
   }
-  if (getImportStatus().running) {
-    res.apiError(409, 'IMPORT_RUNNING', 'An import or sync is running. Wait for that to finish first.');
+  if (isLibraryBusy()) {
+    const refusal = libraryBusyRefusal('An import or sync is running. Wait for that to finish first.');
+    res.apiError(409, refusal.code, refusal.message);
     return;
   }
 
@@ -884,6 +945,113 @@ router.post('/renest', requireAdmin, async (req: Request, res: Response) => {
       return;
     }
     res.apiError(500, 'RENEST_FAILED', message);
+  }
+});
+
+// ─── Library cleanup ────────────────────────────────────────────────────────
+
+// GET /api/v1/storage/cleanup — space held by removable extras (sub-frames).
+router.get('/cleanup', requireAdmin, async (_req: Request, res: Response) => {
+  // Unreachable library = every file looks missing, so refuse rather than mislead.
+  if (!(await isLibraryAvailable())) {
+    res.apiError(503, 'LIBRARY_UNAVAILABLE', 'The library location is not reachable.');
+    return;
+  }
+  res.apiSuccess({ subframes: await getSubframeUsage() });
+});
+
+// DELETE /api/v1/storage/cleanup/subframes — purge every managed sub-frame.
+router.delete('/cleanup/subframes', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
+  if (!(await isLibraryAvailable())) {
+    res.apiError(503, 'LIBRARY_UNAVAILABLE', 'The library location is not reachable.');
+    return;
+  }
+  const releaseLock = acquireLibraryLock('purge');
+  if (releaseLock === null) {
+    const refusal = libraryBusyRefusal('An import is running. Wait for it to finish, then purge.');
+    res.apiError(409, refusal.code, refusal.message);
+    return;
+  }
+  try {
+    const result = await purgeAllSubframes();
+    logEvent({
+      category: 'storage',
+      event: 'subframes_purged',
+      level: 'warning',
+      message: `Purged all sub-frames: ${result.deleted} files, ${result.freedBytes} bytes freed, ${result.staleRemoved} stale records removed.`,
+      userId: req.userId,
+      username: req.username,
+      ip: req.ip ?? req.socket.remoteAddress,
+      metadata: { ...result },
+    });
+    res.apiSuccess(result);
+  } catch (err) {
+    console.error('[storage] subframe purge failed:', err instanceof Error ? err.message : err);
+    res.apiError(500, 'PURGE_FAILED', err instanceof Error ? err.message : 'Could not purge sub-frames');
+  } finally {
+    releaseLock();
+  }
+});
+
+// GET /api/v1/storage/analyze — read-only scan for records that no longer match disk.
+router.get('/analyze', requireAdmin, async (_req: Request, res: Response) => {
+  if (!(await isLibraryAvailable())) {
+    res.apiError(503, 'LIBRARY_UNAVAILABLE', 'The library location is not reachable.');
+    return;
+  }
+  try {
+    res.apiSuccess(await analyzeLibrary());
+  } catch (err) {
+    res.apiError(500, 'ANALYZE_FAILED', err instanceof Error ? err.message : 'Analysis failed');
+  }
+});
+
+// POST /api/v1/storage/analyze/fix — repair one category the analysis reported.
+router.post('/analyze/fix', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
+  const body: Record<string, unknown> = isRecord(req.body) ? req.body : {};
+  const category = body.category;
+  if (category !== 'staleRecords' && category !== 'missingObjects' && category !== 'layoutDrift' && category !== 'missingProcessed') {
+    res.apiError(400, 'BAD_CATEGORY', 'Unknown repair category.');
+    return;
+  }
+  if (!(await isLibraryAvailable())) {
+    res.apiError(503, 'LIBRARY_UNAVAILABLE', 'The library location is not reachable.');
+    return;
+  }
+  const releaseLock = acquireLibraryLock('repair');
+  if (releaseLock === null) {
+    const refusal = libraryBusyRefusal('An import is running. Wait for it to finish, then repair.');
+    res.apiError(409, refusal.code, refusal.message);
+    return;
+  }
+  try {
+    const result =
+      category === 'staleRecords' ? await fixStaleRecords()
+      : category === 'missingObjects' ? await fixMissingObjects()
+      : category === 'missingProcessed' ? await fixMissingProcessed()
+      : fixLayoutDrift();
+    logEvent({
+      category: 'storage',
+      event: 'library_repair',
+      level: 'warning',
+      message: `Library repair "${category}" completed.`,
+      userId: req.userId,
+      username: req.username,
+      ip: req.ip ?? req.socket.remoteAddress,
+      metadata: { category, ...result },
+    });
+    res.apiSuccess({ category, ...result });
+  } catch (err) {
+    if (err instanceof LibraryUnreadableError) {
+      // Some paths could not be checked, so "missing" cannot be told from "unreadable"
+      // and repairing would risk dropping records for files that are still there.
+      res.apiError(409, 'LIBRARY_UNREADABLE', err.message);
+      return;
+    }
+    console.error('[storage] library repair failed:', err instanceof Error ? err.message : err);
+    res.apiError(500, 'REPAIR_FAILED', err instanceof Error ? err.message : 'Repair failed');
+  } finally {
+    releaseLock();
   }
 });
 
@@ -963,6 +1131,748 @@ router.delete('/db-backups/:name', requireAdmin, (req: Request, res: Response) =
     metadata: { backupName: name },
   });
   res.apiSuccess({ deleted: true, name });
+});
+
+// ─── External archive ────────────────────────────────────────────────────────
+//
+// Configuring and adopting are deliberately separate actions, so that saving a
+// preference can never create anything on a disk.
+//
+// `PUT /archive` validates a destination and stores it, and writes nothing at it.
+// A destination that is, contains, or is contained by the library or DATA_DIR is
+// refused rather than saved, because the retention pass deletes files under
+// whatever root is configured and a destination overlapping the library would
+// eventually prune it.
+//
+// `POST /archive/adopt` is the only thing that writes a marker, and therefore the
+// only thing that claims a disk. An empty disk is adopted directly: there is
+// nothing to destroy. A disk already carrying a marker is refused unless the
+// caller echoes back the exact id the status endpoint reported, which is both an
+// explicit confirmation of what is being taken over and a guard against the disk
+// being swapped between the two requests.
+
+/** Everything the settings page needs to describe the destination. `network` never
+ *  carries a password: `getArchiveConfig` has no field for one, so this payload
+ *  cannot leak it by accident. */
+interface ArchiveDestinationView {
+  state:
+    | 'unconfigured'
+    | 'invalid-path'
+    | 'offline'
+    | 'match'
+    | 'absent'
+    | 'foreign'
+    | 'invalid'
+    | 'unreadable';
+  path: string;
+  foundArchiveId: string | null;
+  locationType: ArchiveConfig['locationType'];
+  network: ArchiveNetworkConfig;
+  /** False on Linux/Docker, where a share cannot be mounted in process. The picker
+   *  hides the network tab there rather than offering something that cannot work. */
+  networkSupported: boolean;
+  /** The archive shares a disk with the library or the data folder, so it would not
+   *  survive that disk failing. A warning only; local destinations only. */
+  sameDiskAsLibrary: boolean;
+}
+
+/**
+ * Where the destination stands right now. Reads only; never writes.
+ *
+ * Connects first where that applies, for the same reason the library location's status
+ * route does: "not connected" is a state the user has to be able to see. An unmounted
+ * share's directory under DATA_DIR is an ordinary empty folder, and reporting it as
+ * `absent` would offer to adopt it, which is the accident this whole feature is
+ * arranged to prevent.
+ *
+ * Always computes a fresh answer. Called directly by every route that just took, or
+ * is about to take, a real action (saving the config, adopting a disk) so those
+ * responses can never show a stale state. Also refreshes `destinationViewCache`
+ * below as a side effect, so a save or an adopt is reflected on the very next
+ * passive read instead of waiting out that cache's TTL.
+ */
+async function archiveDestinationState(config: ArchiveConfig): Promise<ArchiveDestinationView> {
+  const base = {
+    path: config.path,
+    foundArchiveId: null as string | null,
+    locationType: config.locationType,
+    network: config.network,
+    networkSupported: networkArchiveSupported(),
+    sameDiskAsLibrary: false,
+  };
+
+  const value = await (async (): Promise<ArchiveDestinationView> => {
+    if (config.locationType === 'network') {
+      // Shown as the share the user configured, not as the directory it is mounted at.
+      const display = networkDisplayPath(config.network);
+      const connected = await connectArchiveDestination(config);
+      if (!connected.ok) return { ...base, state: 'offline', path: display };
+
+      const marker = readArchiveMarker(connected.root, config.archiveId);
+      const foundArchiveId = marker.state === 'match' || marker.state === 'foreign' ? marker.marker.archiveId : null;
+      return { ...base, state: marker.state, path: display, foundArchiveId };
+    }
+
+    if (config.path === '') {
+      return { ...base, state: 'unconfigured', path: '' };
+    }
+
+    const resolved = resolveArchiveRoot(config.path);
+    if (!resolved.ok) {
+      // Reachable if the database was edited by hand, or if a later release
+      // tightens the rules. Reporting the disk's marker state here would be
+      // misleading, so the path itself is reported as the problem.
+      return { ...base, state: 'invalid-path', path: config.path };
+    }
+
+    const marker = readArchiveMarker(resolved.root, config.archiveId);
+    const foundArchiveId = marker.state === 'match' || marker.state === 'foreign' ? marker.marker.archiveId : null;
+    const sameDiskAsLibrary =
+      isOnSameDeviceAsLibrary(resolved.root) || isOnSameDevice(resolved.root, DATA_DIR);
+    return { ...base, state: marker.state, path: resolved.root, foundArchiveId, sameDiskAsLibrary };
+  })();
+
+  destinationViewCache = { key: destinationViewCacheKey(config), computedAt: Date.now(), value };
+  return value;
+}
+
+/**
+ * Cache for `archiveDestinationStateForView` below, a passive-read-only path.
+ * `archiveDestinationState` (above) keeps it warm as a side effect of every real
+ * check it does, so this only ever serves an answer that was genuinely computed,
+ * never a guess.
+ */
+interface DestinationViewCacheEntry {
+  key: string;
+  computedAt: number;
+  value: ArchiveDestinationView;
+}
+let destinationViewCache: DestinationViewCacheEntry | null = null;
+
+// Long enough that opening or reloading Settings -> Storage -> Archive repeatedly
+// does not repeat an expensive network mount attempt on every single page view: a
+// share that fails to mount can take several seconds to time out doing so, and that
+// used to run unconditionally on every GET. Short enough that reconnecting the
+// actual share still shows up within one page navigation for anyone who leaves the
+// tab open and comes back.
+const DESTINATION_VIEW_TTL_MS = 20_000;
+
+function destinationViewCacheKey(config: ArchiveConfig): string {
+  return config.locationType === 'network'
+    ? `network:${config.archiveId}:${config.network.host}:${config.network.share}:${config.network.domain}:${config.network.username}:${config.network.subpath}`
+    : `local:${config.archiveId}:${config.path}`;
+}
+
+/** Test-only: clears the view cache so a test starts from a real, fresh check. */
+export function invalidateArchiveDestinationView(): void {
+  destinationViewCache = null;
+}
+
+/**
+ * The destination's state for a passive read: opening or reloading the settings
+ * page, not an action the user is waiting on. A local destination is answered by
+ * `archiveDestinationState` directly, uncached: it is a plain `fs.stat`, cheap
+ * enough that caching it would only risk staleness for no real benefit. A network
+ * destination reuses a recent result instead, because answering accurately means
+ * actually mounting the share, and a share that is not currently reachable can take
+ * several seconds to fail to do that on every request.
+ */
+async function archiveDestinationStateForView(config: ArchiveConfig): Promise<ArchiveDestinationView> {
+  if (config.locationType !== 'network') return archiveDestinationState(config);
+
+  const cached = destinationViewCache;
+  const key = destinationViewCacheKey(config);
+  if (cached && cached.key === key && Date.now() - cached.computedAt < DESTINATION_VIEW_TTL_MS) {
+    return cached.value;
+  }
+  return archiveDestinationState(config);
+}
+
+/**
+ * Whether the feature's acting routes may run, answering the request itself when not.
+ *
+ * The master switch is a promise to the user: with it off, the section is inert and
+ * nothing touches their disk. A scheduler tick that still ran, or a route that still
+ * pruned, would make that promise false, so every route that writes to the disk or
+ * deletes from the library comes through here. Reads do not: "what is on that disk"
+ * and "can this share be reached" have to stay answerable while the feature is off.
+ *
+ * Usage: `if (!archiveIsEnabled(res)) return;`
+ */
+function archiveIsEnabled(res: Response): boolean {
+  if (getArchiveConfig().enabled) return true;
+  res.apiError(409, 'ARCHIVE_DISABLED', 'The archive is turned off, so nothing was written or deleted. Turn it on in Settings, on the Archive tab.');
+  return false;
+}
+
+// GET /api/v1/storage/archive — configuration plus the destination's state.
+// Read-only, like the other storage status routes, so it needs no admin. A
+// passive read, so it goes through the view cache rather than
+// archiveDestinationState directly: see archiveDestinationStateForView's comment.
+router.get('/archive', async (_req: Request, res: Response) => {
+  const config = getArchiveConfig();
+  res.apiSuccess({ config, destination: await archiveDestinationStateForView(config) });
+});
+
+// PUT /api/v1/storage/archive — save configuration. Writes nothing to the disk.
+router.put('/archive', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
+  if (!isRecord(req.body)) {
+    res.apiError(400, 'ARCHIVE_INVALID_CONFIG', 'Expected an object of archive settings.');
+    return;
+  }
+
+  const { path: rawPath, ...rest } = req.body;
+  // `locationType` and `network` travel in `rest` and are validated by
+  // setArchiveConfig, which requires a server and a share for a network destination
+  // and refuses a subpath that could climb out of the share.
+  // Safe to hand the remaining keys straight to setArchiveConfig: it rejects
+  // unknown keys and type-checks every value, so nothing is trusted merely
+  // because it arrived in a request body.
+  const patch = { ...rest } as ArchiveConfigPatch;
+
+  if ('path' in req.body) {
+    if (typeof rawPath !== 'string') {
+      res.apiError(400, 'ARCHIVE_INVALID_CONFIG', 'path must be a string.');
+      return;
+    }
+    if (rawPath.trim() === '') {
+      // Explicitly clearing the destination is allowed; it stops archiving.
+      patch.path = '';
+    } else {
+      const resolved = resolveArchiveRoot(rawPath);
+      if (!resolved.ok) {
+        res.apiError(
+          400,
+          'ARCHIVE_INVALID_DESTINATION',
+          DESTINATION_REJECTION_MESSAGE[resolved.reason] ?? 'That destination cannot be used.',
+        );
+        return;
+      }
+      patch.path = resolved.root;
+    }
+  }
+
+  try {
+    // Validates everything before writing anything, so a patch rejected on its
+    // last field cannot leave the earlier ones stored.
+    setArchiveConfig(patch);
+  } catch (err) {
+    if (err instanceof ArchiveConfigError) {
+      res.apiError(400, 'ARCHIVE_INVALID_CONFIG', err.message);
+      return;
+    }
+    res.apiError(500, 'ARCHIVE_SAVE_FAILED', err instanceof Error ? err.message : 'Could not save the archive settings.');
+    return;
+  }
+
+  const config = getArchiveConfig();
+  res.apiSuccess({ config, destination: await archiveDestinationState(config) });
+});
+
+// POST /api/v1/storage/archive/adopt — claim a disk as this install's archive.
+router.post('/archive/adopt', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
+  // Adopting writes a marker to the user's disk, which is a disk write the master
+  // switch covers.
+  if (!archiveIsEnabled(res)) return;
+  const config = getArchiveConfig();
+  if (config.locationType === 'local' && config.path === '') {
+    res.apiError(400, 'ARCHIVE_NO_DESTINATION', 'Configure an archive destination first.');
+    return;
+  }
+
+  // Connecting first is what stops this from ever adopting an unmounted share's
+  // empty directory, and it is also where a local destination's containment rule is
+  // applied: both go through the same resolver the write paths use.
+  const connected = await connectArchiveDestination(config);
+  if (!connected.ok) {
+    // "The destination is wrong" and "the destination is fine but not here right now"
+    // are different answers, and the code says which: a bad path or subpath is not
+    // something plugging the disk in will fix.
+    if (connected.reason && DESTINATION_REJECTION_MESSAGE[connected.reason]) {
+      res.apiError(400, 'ARCHIVE_INVALID_DESTINATION', DESTINATION_REJECTION_MESSAGE[connected.reason]);
+      return;
+    }
+    res.apiError(400, 'ARCHIVE_DESTINATION_UNUSABLE', connected.warning);
+    return;
+  }
+  const root = connected.root;
+
+  // The picker may name a folder that does not exist yet. Creating it belongs here
+  // and not in the save route: adopting is already the explicit action that writes to
+  // the disk, and saving must stay incapable of creating anything.
+  if (isRecord(req.body) && req.body.createFolder === true) {
+    try {
+      fs.mkdirSync(root, { recursive: true });
+    } catch (err) {
+      res.apiError(
+        500,
+        'ARCHIVE_ADOPT_FAILED',
+        err instanceof Error ? err.message : 'Could not create the archive folder.',
+      );
+      return;
+    }
+  }
+
+  const marker = readArchiveMarker(root, config.archiveId);
+
+  if (marker.state === 'match') {
+    // Already ours; adopting again is a no-op rather than a second identity.
+    res.apiSuccess({ config, destination: await archiveDestinationState(config) });
+    return;
+  }
+
+  if (marker.state === 'invalid' || marker.state === 'unreadable') {
+    // Never overwrite a marker we cannot read. It may be a newer format or
+    // another product's file, and it is the only record of what is on the disk.
+    res.apiError(
+      409,
+      'ARCHIVE_MARKER_UNREADABLE',
+      'The marker file on that disk cannot be read, so it will not be overwritten. Remove it by hand if you are sure.',
+    );
+    return;
+  }
+
+  if (marker.state === 'foreign') {
+    const confirm = isRecord(req.body) ? req.body.confirmArchiveId : undefined;
+    if (typeof confirm !== 'string' || confirm !== marker.marker.archiveId) {
+      res.apiError(
+        409,
+        'ARCHIVE_FOREIGN_CONFIRMATION_REQUIRED',
+        `That disk already holds an archive (${marker.marker.archiveId}). Confirm that id to take it over.`,
+      );
+      return;
+    }
+  }
+
+  if (!fs.existsSync(root)) {
+    res.apiError(400, 'ARCHIVE_DESTINATION_MISSING', 'That folder does not exist. Plug the disk in and try again.');
+    return;
+  }
+
+  const archiveId = newArchiveId();
+  try {
+    writeArchiveMarker(root, archiveId);
+  } catch (err) {
+    res.apiError(
+      500,
+      'ARCHIVE_ADOPT_FAILED',
+      err instanceof Error ? err.message : 'Could not write the archive marker.',
+    );
+    return;
+  }
+  // The record on a disk describes another install's history. Set it aside so this
+  // install starts its own: the files stay, but nothing here can prune them.
+  const previousRecordSetAside = retireArchiveManifest(root);
+  setArchiveConfig({ archiveId });
+
+  const replacedId = marker.state === 'foreign' ? marker.marker.archiveId : null;
+  logEvent({
+    category: 'storage',
+    event: 'archive_adopted',
+    // Taking over someone else's marker is worth a warning in the log: the
+    // previous archive is now unreachable through this install.
+    level: replacedId ? 'warning' : 'info',
+    message: replacedId
+      ? `Adopted ${root} as the archive destination, replacing marker ${replacedId}.`
+      : `Adopted ${root} as the archive destination.`,
+    userId: req.userId,
+    username: req.username,
+    ip: req.ip ?? req.socket.remoteAddress,
+    metadata: { path: root, replacedArchiveId: replacedId, previousRecordSetAside },
+  });
+
+  const updated = getArchiveConfig();
+  res.apiSuccess({ config: updated, destination: await archiveDestinationState(updated) });
+});
+
+// POST /api/v1/storage/archive/destination/test — try a share with credentials that
+// are not saved yet, for the picker's Test connection button. Writes nothing.
+//
+// An empty or absent password falls back to the stored one, so testing a share the
+// user has already configured does not require retyping the password it already has.
+router.post('/archive/destination/test', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
+  const network = isRecord(req.body) ? req.body.network : undefined;
+  if (!isRecord(network)) {
+    res.apiError(400, 'ARCHIVE_INVALID_CONFIG', 'Expected a network object describing the share.');
+    return;
+  }
+
+  const stored = getArchiveNetworkCredentials();
+  const str = (key: string, fallback: string): string =>
+    typeof network[key] === 'string' ? (network[key] as string) : fallback;
+  const typedPassword = typeof network.password === 'string' ? network.password : '';
+
+  const result = await testArchiveNetworkConnection({
+    host: str('host', ''),
+    share: str('share', ''),
+    domain: str('domain', ''),
+    username: str('username', ''),
+    subpath: str('subpath', ''),
+    // An empty password means "use the stored one", which is what makes re-testing a
+    // share you configured earlier possible without retyping it. `clearPassword` is the
+    // client saying it means it, so the fallback is skipped and the test is honest
+    // about the credential the user just asked to forget.
+    password: network.clearPassword === true ? typedPassword : typedPassword || stored.password,
+  });
+
+  res.apiSuccess({ ok: result.ok, reason: result.reason ?? null });
+});
+
+/**
+ * The directory a browse request may walk: the share's own root, and nothing else.
+ *
+ * On macOS that is the mount directory, on Windows the UNC root. The route exists so
+ * the picker can offer the folders inside a share, so it deliberately cannot be used
+ * to walk the machine's filesystem through an admin endpoint.
+ */
+function browsableShareRoot(network: ShareAddress): string {
+  return process.platform === 'darwin' ? ARCHIVE_NETWORK_MOUNT_DIR : uncRootOf(network);
+}
+
+/**
+ * POST /api/v1/storage/archive/destination/browse — the folders inside a share.
+ *
+ * A POST that only reads, because it takes credentials. The picker has to list the
+ * folders of a share the user has typed but not saved yet, so the request may carry
+ * the candidate `network` object; without it, the saved destination is browsed, which
+ * is what the settings section does when it reopens the picker on a configured share.
+ *
+ * POST rather than GET for the same reason `POST /library-location/network/test` is:
+ * a password must not travel in a URL, where it lands in logs and history.
+ */
+router.post('/archive/destination/browse', requireAdmin, async (req: Request, res: Response) => {
+  const body = isRecord(req.body) ? req.body : {};
+  const candidate = isRecord(body.network) ? body.network : null;
+  const config = getArchiveConfig();
+
+  let shareRoot: string;
+
+  if (candidate === null) {
+    if (config.locationType !== 'network') {
+      res.apiError(400, 'ARCHIVE_NOT_NETWORK', 'The archive destination is not a network share.');
+      return;
+    }
+    const connected = await connectArchiveDestination(config);
+    if (!connected.ok) {
+      res.apiError(503, 'ARCHIVE_DESTINATION_UNUSABLE', connected.warning);
+      return;
+    }
+    shareRoot = browsableShareRoot(config.network);
+  } else {
+    // The picker's case: the share the user is describing, not the one that is saved.
+    const stored = getArchiveNetworkCredentials();
+    const str = (key: string, fallback: string): string =>
+      typeof candidate[key] === 'string' ? (candidate[key] as string) : fallback;
+    const typedPassword = typeof candidate.password === 'string' ? candidate.password : '';
+    const network: ArchiveNetworkCredentials = {
+      host: str('host', ''),
+      share: str('share', ''),
+      domain: str('domain', ''),
+      username: str('username', ''),
+      subpath: str('subpath', ''),
+      // `clearPassword` is the client saying it means no password, so the fallback to
+      // the stored one is skipped.
+      password: candidate.clearPassword === true ? typedPassword : typedPassword || stored.password,
+    };
+
+    const resolved = resolveNetworkArchiveRoot(network);
+    if (!resolved.ok) {
+      res.apiError(
+        400,
+        'ARCHIVE_INVALID_DESTINATION',
+        DESTINATION_REJECTION_MESSAGE[resolved.reason] ?? 'That network destination cannot be used.',
+      );
+      return;
+    }
+    if (!(await ensureArchiveShareReady(network))) {
+      res.apiError(503, 'ARCHIVE_DESTINATION_UNUSABLE', 'The archive share is not connected.');
+      return;
+    }
+    shareRoot = browsableShareRoot(network);
+  }
+
+  const requestedPath = typeof body.path === 'string' && body.path.trim() !== '' ? body.path : shareRoot;
+  // Containment before any listing: the request may name any directory, and the
+  // answer must be no unless it is the share or inside it.
+  if (requestedPath !== shareRoot && !isWithinRoot(shareRoot, requestedPath)) {
+    res.apiError(400, 'ARCHIVE_PATH_OUTSIDE_SHARE', 'That folder is not inside the archive share.');
+    return;
+  }
+
+  try {
+    const directories = await listDirectories(requestedPath);
+    // `root` is the share's own root, so the client can show a path relative to the
+    // share rather than an absolute one, and can tell when it is already at the top.
+    res.apiSuccess({ path: requestedPath, root: shareRoot, directories });
+  } catch (err) {
+    res.apiError(500, 'ARCHIVE_BROWSE_FAILED', err instanceof Error ? err.message : 'Could not read that folder.');
+  }
+});
+
+// ─── External archive: actions ───────────────────────────────────────────────
+//
+// The engines for these live in server/lib/archive/*. This is the surface that
+// invokes them, and it is where the guards have to hold, because these are the
+// endpoints an operator actually calls.
+//
+// Authority follows the existing storage routes: reads are unguarded (the global
+// apiAuth still requires a token) and everything that writes to a disk, deletes, or
+// writes into the library is `requireAdmin` with `strictRateLimiter`.
+
+/** A restore request is a list of items, not an unbounded payload. */
+const MAX_RESTORE_ITEMS = 500;
+
+/** 409 for an archive action that cannot start because other library work is running. */
+function sendArchiveBusy(res: Response): void {
+  res.apiError(
+    409,
+    'ARCHIVE_LIBRARY_BUSY',
+    isLibraryMigrating()
+      ? 'The library is being moved. Try again when it finishes.'
+      : libraryBusyMessage(),
+  );
+}
+
+// GET /api/v1/storage/archive/run/status — how a run is going, and how the last one ended.
+// `lastRun` is what a background run leaves behind once it finishes, including a refusal
+// that only shows itself after selection (a full disk), because the POST has already
+// answered by then.
+router.get('/archive/run/status', (_req: Request, res: Response) => {
+  res.apiSuccess({ progress: getArchiveRunProgress(), running: isArchiveRunning(), lastRun: getLastArchiveRun() });
+});
+
+// POST /api/v1/storage/archive/run — archive now, without waiting for the schedule.
+//
+// Answers 202 as soon as the run has been accepted and carries on in the background. A
+// run over a large library takes minutes to hours, far past what an HTTP request should
+// be held open for, and the settings page already polls /archive/run/status. Every
+// refusal that can be decided up front (disabled, busy, no or wrong destination) is
+// still a synchronous 4xx; what only shows up later is reported through `lastRun`.
+router.post('/archive/run', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
+  if (!archiveIsEnabled(res)) return;
+  if (isArchiveRunning()) {
+    res.apiError(409, 'ARCHIVE_ALREADY_RUNNING', 'An archive run is already in progress.');
+    return;
+  }
+  if (archiveBlockedByLibraryWork()) {
+    sendArchiveBusy(res);
+    return;
+  }
+  // Reading a disconnected library selects nothing and would report a clean run over
+  // zero files, which reads as success. Refuse instead, so "archived 0 files" always
+  // means what it says.
+  if (!(await isLibraryAvailable())) {
+    res.apiError(503, 'LIBRARY_UNAVAILABLE', 'Your library is not connected. Reconnect it and try again.');
+    return;
+  }
+
+  // Held for the whole run, so an import or scan cannot start halfway through it.
+  const releaseLock = acquireLibraryLock('archive');
+  if (releaseLock === null) {
+    sendArchiveBusy(res);
+    return;
+  }
+
+  const config = getArchiveConfig();
+  let started = false;
+  try {
+    const readiness = await ensureArchiveDestinationReady(config);
+    if (!readiness.ok) {
+      if (readiness.kind === 'unconfigured') {
+        res.apiError(409, 'ARCHIVE_NO_DESTINATION', 'Configure an archive destination first.');
+      } else {
+        res.apiError(409, 'ARCHIVE_DESTINATION_UNUSABLE', 'That disk is not this install\u2019s archive.');
+      }
+      return;
+    }
+
+    clearLastArchiveRun();
+    const actor = { userId: req.userId, username: req.username, ip: req.ip ?? req.socket.remoteAddress };
+
+    void runArchivePipeline(config, new Date(), 'manual')
+      .then(result => {
+        if (!result.ran) return;
+        logEvent({
+          category: 'storage',
+          event: 'archive_run',
+          level: result.failures.length > 0 ? 'warning' : 'info',
+          message: `Archive run: ${result.copied} copied, ${result.skipped} already present, ${result.failures.length} failed${result.cancelled ? ' (cancelled)' : ''}.`,
+          ...actor,
+          metadata: { copied: result.copied, skipped: result.skipped, failures: result.failures.length, cancelled: result.cancelled },
+        });
+      })
+      .catch(err => {
+        console.error('[archive] manual run failed:', err instanceof Error ? err.message : err);
+      })
+      .finally(() => {
+        releaseLock();
+      });
+    started = true;
+
+    res.status(202);
+    res.apiSuccess({ started: true });
+  } finally {
+    // Only a run that never started still holds the lock here; a started one
+    // releases it itself when the pipeline finishes.
+    if (!started) releaseLock();
+  }
+});
+
+// POST /api/v1/storage/archive/run/cancel — stop the run in progress, however it started.
+//
+// Takes effect at the next file boundary. Files already copied stay on the disk and in
+// the record; local removal and pruning are skipped for a cancelled run.
+router.post('/archive/run/cancel', requireAdmin, strictRateLimiter, (_req: Request, res: Response) => {
+  if (!isArchiveRunning() || !cancelArchiveRun()) {
+    res.apiError(409, 'ARCHIVE_NOT_RUNNING', 'There is no archive run to cancel.');
+    return;
+  }
+  res.status(202);
+  res.apiSuccess({ cancelling: true });
+});
+
+// GET /api/v1/storage/archive/retention — what retention would remove. Read-only:
+// this is the dry run, and it is the same code path the apply below uses.
+router.get('/archive/retention', async (_req: Request, res: Response) => {
+  res.apiSuccess({ plan: await planArchiveRetention(getArchiveConfig(), new Date()) });
+});
+
+// POST /api/v1/storage/archive/retention/apply — prune the archive.
+router.post('/archive/retention/apply', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
+  // Deleting from the archive is the most destructive thing this feature does, so it
+  // is behind the master switch as well as behind its own retention switch.
+  if (!archiveIsEnabled(res)) return;
+  const config = getArchiveConfig();
+  if (!config.retentionEnabled) {
+    res.apiError(
+      409,
+      'ARCHIVE_RETENTION_DISABLED',
+      'Pruning is turned off, so nothing was deleted. Turn it on in the archive settings.',
+    );
+    return;
+  }
+  if (archiveBlockedByLibraryWork()) {
+    sendArchiveBusy(res);
+    return;
+  }
+  const releaseLock = acquireLibraryLock('retention');
+  if (releaseLock === null) {
+    sendArchiveBusy(res);
+    return;
+  }
+  let plan: Awaited<ReturnType<typeof planArchiveRetention>>;
+  let result: Awaited<ReturnType<typeof applyArchiveRetention>>;
+  try {
+    plan = await planArchiveRetention(config, new Date());
+    result = await applyArchiveRetention(config, plan);
+  } finally {
+    releaseLock();
+  }
+
+  if (result.removed > 0 || result.failures.length > 0) {
+    logEvent({
+      category: 'storage',
+      event: 'archive_retention',
+      // Deleting from an archive is worth a warning in the log even when it is
+      // exactly what the user configured.
+      level: result.failures.length > 0 ? 'warning' : 'info',
+      message: `Archive retention removed ${result.removed} files (${result.bytesRemoved} bytes).`,
+      userId: req.userId,
+      username: req.username,
+      ip: req.ip ?? req.socket.remoteAddress,
+      metadata: { removed: result.removed, bytesRemoved: result.bytesRemoved, failures: result.failures.length },
+    });
+  }
+
+  res.apiSuccess({ ...result, plan: { mode: plan.mode, filesTotal: plan.filesTotal, warnings: plan.warnings } });
+});
+
+// GET /api/v1/storage/archive/contents[?folder=] — browse the archive.
+router.get('/archive/contents', async (req: Request, res: Response) => {
+  const config = getArchiveConfig();
+  const folder = typeof req.query.folder === 'string' ? req.query.folder : '';
+  // A query parameter rather than a path segment: archive folder names are object
+  // names, which routinely contain spaces.
+  if (folder !== '') {
+    res.apiSuccess({ ...(await listArchivedFiles(config, folder)) });
+    return;
+  }
+  res.apiSuccess({ ...(await listArchivedObjects(config)) });
+});
+
+// POST /api/v1/storage/archive/restore — write archived files back into the library.
+router.post('/archive/restore', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
+  // Restoring writes into the library, so it is a feature action like the others and
+  // stops with the feature rather than writing while the section says it is off.
+  if (!archiveIsEnabled(res)) return;
+  const body = isRecord(req.body) ? req.body : {};
+  const items = body.items;
+
+  if (!Array.isArray(items)) {
+    res.apiError(400, 'ARCHIVE_INVALID_REQUEST', 'Expected an "items" list of { folderName, relPath }.');
+    return;
+  }
+  if (items.length > MAX_RESTORE_ITEMS) {
+    res.apiError(400, 'ARCHIVE_INVALID_REQUEST', `At most ${MAX_RESTORE_ITEMS} items can be restored at once.`);
+    return;
+  }
+
+  const requests: Array<{ folderName: string; relPath: string }> = [];
+  for (const item of items) {
+    if (
+      !isRecord(item) ||
+      typeof item.folderName !== 'string' ||
+      item.folderName === '' ||
+      typeof item.relPath !== 'string' ||
+      item.relPath === ''
+    ) {
+      res.apiError(400, 'ARCHIVE_INVALID_REQUEST', 'Every item needs a folderName and a relPath.');
+      return;
+    }
+    requests.push({ folderName: item.folderName, relPath: item.relPath });
+  }
+
+  // A restore writes files and library rows into the library, which makes it a fourth
+  // library write path. Every other one checks both of these, and a new write path must not skip them: with the library relocated to a
+  // disconnected drive, getLibraryDir() still returns the old mount point, so writing
+  // there would put files somewhere the user cannot see and record rows for a library
+  // that is not mounted; a restore during a migration would mutate the migration's own
+  // source while it is being copied.
+  if (archiveBlockedByLibraryWork()) {
+    sendArchiveBusy(res);
+    return;
+  }
+  if (!(await isLibraryAvailable())) {
+    res.apiError(503, 'LIBRARY_UNAVAILABLE', 'Your library is not connected. Reconnect it and try again.');
+    return;
+  }
+
+  // Overwriting is off unless it is explicitly and literally true: this is the
+  // confirmation that lets a restore replace a file the user may have edited.
+  const releaseLock = acquireLibraryLock('restore');
+  if (releaseLock === null) {
+    sendArchiveBusy(res);
+    return;
+  }
+  let result: Awaited<ReturnType<typeof restoreArchivedFiles>>;
+  try {
+    result = await restoreArchivedFiles(getArchiveConfig(), requests, { overwrite: body.overwrite === true });
+  } finally {
+    releaseLock();
+  }
+
+  logEvent({
+    category: 'storage',
+    event: 'archive_restore',
+    level: result.conflicts.length > 0 || result.failures.length > 0 ? 'warning' : 'info',
+    message: `Archive restore: ${result.restored} restored, ${result.skipped} already present, ${result.conflicts.length} conflicts.`,
+    userId: req.userId,
+    username: req.username,
+    ip: req.ip ?? req.socket.remoteAddress,
+    metadata: { restored: result.restored, conflicts: result.conflicts.length, failures: result.failures.length },
+  });
+
+  res.apiSuccess({ ...result });
 });
 
 export { router as storageRouter };

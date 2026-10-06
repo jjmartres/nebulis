@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Columns, Crown, Download, Heart, ChevronLeft, ChevronRight, FileImage } from 'lucide-react';
+import { Columns, Crown, Download, Heart, ChevronLeft, ChevronRight, FileImage, FolderInput } from 'lucide-react';
 import { FitsThumbnail } from '../FitsThumbnail';
 import { useTheme } from '../../hooks/useTheme';
 import type { SessionFile } from '../../types';
@@ -8,6 +8,8 @@ import type { CompareFile } from '../ImageCompareModal';
 import { thumbSrcFor, canPreviewImage } from '../../lib/sessionImageSrc';
 import { processedFormatLabel as formatLabel } from '../../lib/processedFormats';
 import { formatDate } from '../../lib/formatLocale';
+import { formatBytes } from '../../lib/utils';
+import { SESSION_FILE_DRAG_TYPE } from './ObservationTabs';
 
 const GALLERY_PAGE_SIZE = 12; // 3 rows × 4 columns (md breakpoint)
 
@@ -33,6 +35,9 @@ export function SessionFileGrid({
   date,
   openGallery,
   isAdmin,
+  onMarkProcessed,
+  draggingPath,
+  onDragPathChange,
 }: {
   files: SessionFile[];
   viewMode: 'all' | 'fits' | 'image';
@@ -52,6 +57,11 @@ export function SessionFileGrid({
   date: string;
   openGallery: (index: number) => void;
   isAdmin: boolean;
+  /** Admin action: mark this image as processed (moves it to the Processed tab). */
+  onMarkProcessed: (path: string) => void;
+  /** Path of the tile currently being dragged, so it can dim while in flight. */
+  draggingPath: string | null;
+  onDragPathChange: (path: string | null) => void;
 }) {
   const { isDark } = useTheme();
   const { t } = useTranslation('observations');
@@ -111,7 +121,17 @@ export function SessionFileGrid({
               return (
                 <div
                   key={file.path}
-                  className={`group rounded-xl overflow-hidden border cursor-pointer ${
+                  // An admin can drag a finished image onto the Processed tab to
+                  // mark it processed (see ObservationTabs). Not in compare mode,
+                  // where a click selects instead.
+                  draggable={isAdmin && isImageFile && !compareMode}
+                  onDragStart={e => {
+                    e.dataTransfer.setData(SESSION_FILE_DRAG_TYPE, file.path);
+                    e.dataTransfer.effectAllowed = 'move';
+                    onDragPathChange(file.path);
+                  }}
+                  onDragEnd={() => onDragPathChange(null)}
+                  className={`group rounded-xl overflow-hidden border cursor-pointer transition-opacity ${draggingPath === file.path ? 'opacity-40' : ''} ${
                     compareSlot === 1
                       ? 'border-accent-500 ring-2 ring-accent-500/40'
                       : compareSlot === 2
@@ -147,6 +167,7 @@ export function SessionFileGrid({
                         <img
                           src={thumbSrcFor(file)}
                           alt={file.name}
+                          draggable={false}
                           className="w-full h-full object-cover"
                           onError={e => { if (e.target instanceof HTMLImageElement) e.target.style.display = 'none'; }}
                         />
@@ -155,8 +176,8 @@ export function SessionFileGrid({
 
                     {/* Session image crown badge */}
                     {isSessionImage && isImageFile && (
-                      <div className="absolute top-1 left-1 p-1 rounded-md bg-amber-400/90 text-white pointer-events-none">
-                        <Crown className="w-3 h-3" />
+                      <div className="absolute top-1 left-1 p-1.5 rounded-lg bg-amber-400/90 text-white pointer-events-none">
+                        <Crown className="w-3.5 h-3.5" />
                       </div>
                     )}
 
@@ -165,10 +186,24 @@ export function SessionFileGrid({
                       <button
                         onClick={e => { e.stopPropagation(); handleSetSessionImage(file.path); }}
                         disabled={settingSessionImage}
-                        className="absolute top-1 left-1 p-1 rounded-md bg-black/60 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 hover:text-amber-400"
+                        className="absolute top-1 left-1 p-1.5 rounded-lg bg-black/50 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 hover:text-amber-400"
                         title={t('observationDetail.sessionFileGrid.setAsSessionImage')}
                       >
-                        <Crown className="w-3 h-3" />
+                        <Crown className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {/* Mark as processed (admin, images only, on hover). Beside the crown
+                        so it reads as another per-image action; the drag onto the
+                        Processed tab is the shortcut for the same thing. */}
+                    {isImageFile && isAdmin && !compareMode && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onMarkProcessed(file.path); }}
+                        className="absolute top-1 left-9 p-1.5 rounded-lg bg-black/50 text-white/70 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:bg-black/70 hover:text-accent-400"
+                        title={t('observationDetail.sessionFileGrid.markAsProcessed')}
+                        aria-label={t('observationDetail.sessionFileGrid.markAsProcessed')}
+                      >
+                        <FolderInput className="w-3.5 h-3.5" />
                       </button>
                     )}
 
@@ -234,10 +269,13 @@ export function SessionFileGrid({
                     <p className={`text-xs font-medium truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                       {file.name}
                     </p>
-                    <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                      {date && date !== 'unknown'
-                        ? formatDate(new Date(date + 'T12:00:00'), { month: 'short', day: 'numeric', year: 'numeric' })
-                        : ''}
+                    <p className={`flex items-center justify-between gap-2 text-[10px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+                      <span>
+                        {date && date !== 'unknown'
+                          ? formatDate(new Date(date + 'T12:00:00'), { month: 'short', day: 'numeric', year: 'numeric' })
+                          : ''}
+                      </span>
+                      {file.size > 0 && <span className="tabular-nums">{formatBytes(file.size)}</span>}
                     </p>
                   </div>
                 </div>

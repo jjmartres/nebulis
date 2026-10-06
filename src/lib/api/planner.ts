@@ -78,6 +78,8 @@ export interface PlannerTarget {
   ra: number;
   dec: number;
   commonNames: string[];
+  /** Other catalog designations (C39, M42...). */
+  aliases?: string[];
   altNow: number;
   azNow: number;
   maxAlt: number;
@@ -128,6 +130,8 @@ export interface DsoEntry {
   majorAxisArcmin: number | null;
   commonNames: string[];
   messier: number | null;
+  /** Other catalog designations (M/NGC/IC/Caldwell/Sharpless); search results only. */
+  aliases?: string[];
 }
 
 export const getPlannerTargets = (opts?: {

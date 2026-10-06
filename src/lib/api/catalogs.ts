@@ -17,6 +17,9 @@ export interface CatalogProgressObject {
   isImaged: boolean;
   libraryObjectId: string | null;
   sessionCount: number;
+  /** Set when the object was not imaged itself but sits inside the frame of one
+   *  that was (M43 when M42 was shot). `libraryObjectId` is then the host's. */
+  imagedVia: Array<{ objectId: string; name: string; sepDeg: number }> | null;
 }
 
 export type ByTypeStats = Record<ObjectClass, { imaged: number; total: number }>;
@@ -26,6 +29,8 @@ interface CatalogProgress {
   label: string;
   total: number;
   imagedCount: number;
+  /** Part of imagedCount credited through another object's frame. */
+  imagedInFrameCount: number;
   byType: ByTypeStats;
   objects: CatalogProgressObject[];
 }

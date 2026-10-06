@@ -92,11 +92,11 @@ export function ImageGalleryHero({ images, accent, onLaunchPlanetarium, canLaunc
       <div className="relative flex hero-min-h flex-col justify-center gap-6 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              <Images className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
+            <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+              <Images className="h-5 w-5 sm:h-7 sm:w-7" style={{ color: accent }} />
               {t('galleryHero.title')}
             </h1>
-            <p className="mt-2 text-[13px] text-white/55">
+            <p className="mt-2 hidden text-[13px] text-white/55 sm:block">
               {empty ? t('galleryHero.empty') : (
                 <>
                   {t('galleryHero.everyFrame')}
@@ -109,7 +109,7 @@ export function ImageGalleryHero({ images, accent, onLaunchPlanetarium, canLaunc
           {canLaunchPlanetarium && (
             <button
               onClick={onLaunchPlanetarium}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:brightness-110"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-slate-950 transition hover:brightness-110 sm:px-4 sm:py-2.5 sm:text-sm"
               style={{ background: accent, boxShadow: `0 8px 24px -12px ${accent}` }}
             >
               <Clapperboard className="h-4 w-4" />
@@ -119,7 +119,7 @@ export function ImageGalleryHero({ images, accent, onLaunchPlanetarium, canLaunc
         </div>
 
         {!empty && (
-          <div className="flex flex-wrap gap-x-8 gap-y-4">
+          <div className="hidden flex-wrap gap-x-8 gap-y-4 sm:flex">
             {stats.map(({ value, label }) => (
               <div key={label} className="min-w-0">
                 <div className="font-display text-2xl font-bold leading-none tracking-tight text-white tabular-nums">

@@ -217,15 +217,18 @@ export function WishlistObjectModal({
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
       onClick={onClose}
     >
-      <div className="flex items-center gap-3 w-full max-w-[820px]" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-1.5 sm:gap-3 w-full max-w-[820px]" onClick={(e) => e.stopPropagation()}>
+        {/* Smaller and tighter on a phone: at a 375px viewport, two full-size
+            circular buttons plus their gaps were eating a quarter of the
+            width the card itself needed. */}
         <button
           onClick={onPrev}
-          className={`shrink-0 p-2.5 rounded-full text-white border border-white/20 transition-all ${
+          className={`shrink-0 p-1.5 sm:p-2.5 rounded-full text-white border border-white/20 transition-all ${
             hasPrev ? 'bg-black/50 hover:bg-black/70' : 'invisible pointer-events-none'
           }`}
           aria-label={t('wishlistObjectModal.previousObject')}
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
 
         <div
@@ -293,10 +296,10 @@ export function WishlistObjectModal({
               so they're always reachable without hunting for a scrollbar
               (macOS hides them by default). */}
           <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
-            <div className="flex gap-4 items-start">
+            <div className="flex flex-col sm:flex-row gap-4 items-start">
               <button
                 onClick={() => setLightboxOpen(true)}
-                className={`w-36 h-36 shrink-0 rounded-xl overflow-hidden border group relative cursor-pointer ${
+                className={`w-24 h-24 sm:w-36 sm:h-36 shrink-0 rounded-xl overflow-hidden border group relative cursor-pointer ${
                   isDark ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-slate-100'
                 }`}
                 aria-label={t('wishlistObjectModal.viewLargerImage')}
@@ -307,7 +310,9 @@ export function WishlistObjectModal({
                   loading="lazy"
                   className="w-full h-full object-cover transition-opacity group-hover:opacity-75"
                 />
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* No hover on a touchscreen, so this hint stays visible there
+                    rather than only on the mouse-driven `group-hover`. */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                   <div className="bg-black/50 rounded-full p-1.5">
                     <ZoomIn className="w-4 h-4 text-white" />
                   </div>
@@ -499,12 +504,12 @@ export function WishlistObjectModal({
 
         <button
           onClick={onNext}
-          className={`shrink-0 p-2.5 rounded-full text-white border border-white/20 transition-all ${
+          className={`shrink-0 p-1.5 sm:p-2.5 rounded-full text-white border border-white/20 transition-all ${
             hasNext ? 'bg-black/50 hover:bg-black/70' : 'invisible pointer-events-none'
           }`}
           aria-label={t('wishlistObjectModal.nextObject')}
         >
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
       </div>
 

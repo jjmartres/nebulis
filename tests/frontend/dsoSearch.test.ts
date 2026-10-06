@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { normalizeSearch, matchesSearch } from '../../src/lib/dsoSearch';
+import { normalizeSearch, matchesSearch, isExactMatch } from '../../src/lib/dsoSearch';
 
 /**
  * Property and example tests for the search-canonicalization helpers.
@@ -110,5 +110,28 @@ describe('matchesSearch', () => {
 
   it('returns false for a clearly unrelated query', () => {
     expect(matchesSearch(entry, 'orion')).toBe(false);
+  });
+});
+
+describe('designation aliases', () => {
+  const eskimo = {
+    id: 'NGC2392', ngcName: 'NGC2392', name: 'Eskimo Nebula', constellation: 'Gemini',
+    commonNames: ['Eskimo Nebula'], aliases: ['C39'],
+  };
+  const ngc3900 = { id: 'NGC3900', ngcName: 'NGC3900', name: 'NGC 3900', constellation: 'Leo', commonNames: [] };
+
+  it('finds an object by its Caldwell number', () => {
+    expect(matchesSearch(eskimo, 'C39')).toBe(true);
+    expect(matchesSearch(eskimo, 'c 39')).toBe(true);
+    expect(matchesSearch({ ...eskimo, aliases: undefined }, 'C39')).toBe(false);
+  });
+
+  it('ranks the exact designation, not objects that merely contain the text', () => {
+    expect(isExactMatch(eskimo, 'C39')).toBe(true);
+    expect(isExactMatch(eskimo, 'C 39')).toBe(true);
+    expect(isExactMatch(ngc3900, 'C39')).toBe(false);
+    // "c39" is only inside "ngc3900" by coincidence, so a catalog number no longer matches it.
+    expect(matchesSearch(ngc3900, 'C39')).toBe(false);
+    expect(matchesSearch(ngc3900, 'ngc39')).toBe(true); // a name that STARTS with the number does
   });
 });

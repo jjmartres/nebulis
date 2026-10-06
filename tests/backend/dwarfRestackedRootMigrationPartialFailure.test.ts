@@ -67,3 +67,35 @@ describe('archive: RESTACKED shared-root migration — partial copy failure', ()
     expect(fs.existsSync(scopeArchiveDir)).toBe(true);
   });
 });
+
+describe('archive: RESTACKED shared-root migration — files it never copied', () => {
+  it('leaves a dot-file and a same-size different-content clash in place instead of deleting them', async () => {
+    // Fresh scope, because the once-per-process flag is already spent by the
+    // test above: call the copy helper directly with the same options the
+    // migration uses, then apply the migration's tidy-up rule by hand.
+    const { copyToArchive, collectArchiveCandidates } = await import('../../server/lib/library/archiveFolders');
+    const scopeDir = path.join(LIBRARY_DIR, ARCHIVE_DIR_NAME, 'telescope-c');
+    const src = path.join(scopeDir, RESTACKED_ROOT_DIR_NAME, 'M13');
+    fs.mkdirSync(src, { recursive: true });
+    fs.writeFileSync(path.join(src, 'shotsInfo.json'), '{"a":1}');
+    fs.writeFileSync(path.join(src, '.hidden-note'), 'never collected');
+
+    const shared = getRestackArchiveDir();
+    fs.mkdirSync(path.join(shared, 'M13'), { recursive: true });
+    // Same name, same byte count, different content, already in the shared root.
+    fs.writeFileSync(path.join(shared, 'M13', 'shotsInfo.json'), '{"b":2}');
+
+    const candidates = collectArchiveCandidates(scopeDir, [RESTACKED_ROOT_DIR_NAME]);
+    const result = await copyToArchive(candidates, LIBRARY_DIR, {
+      deleteSourceAfterCopy: true,
+      selfNestingGuardDir: shared,
+    });
+
+    expect(result.failed).toBe(0);
+    // The existing file is untouched, and the clashing source's bytes landed beside it.
+    expect(fs.readFileSync(path.join(shared, 'M13', 'shotsInfo.json'), 'utf8')).toBe('{"b":2}');
+    expect(fs.readFileSync(path.join(shared, 'M13', 'shotsInfo (2).json'), 'utf8')).toBe('{"a":1}');
+    // Never collected, so never deleted.
+    expect(fs.existsSync(path.join(src, '.hidden-note'))).toBe(true);
+  });
+});

@@ -269,7 +269,7 @@ export function WishlistList({
           </div>
         ) : (
           <div className="pt-3">
-            <div className={layout === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4' : 'space-y-2'}>
+            <div className={layout === 'grid' ? 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4' : 'space-y-2'}>
               {layout === 'grid' ? sorted.map(item => (
                 <WishlistCard
                   key={item.id}
@@ -383,9 +383,21 @@ export function WishlistList({
 
                             {target && (
                               isScheduled ? (
-                                <span className={`flex items-center gap-1 text-[10px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                                  <Check className="h-3 w-3" />
-                                  {t('wishlistPanel.scheduled')}
+                                <span className="flex items-center gap-2">
+                                  <span className={`flex items-center gap-1 text-[10px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                                    <Check className="h-3 w-3" />
+                                    {t('wishlistPanel.scheduled')}
+                                  </span>
+                                  {onQuickAdd && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); onQuickAdd(target); }}
+                                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border border-accent-500/50 text-accent-400 hover:bg-accent-500/10 transition"
+                                      title={scheduleNightLabel ? t('wishlistPanel.scheduleAtHighestOn', { date: scheduleNightLabel }) : t('wishlistPanel.scheduleAtHighest')}
+                                    >
+                                      <CalendarPlus className="h-2.5 w-2.5" />
+                                      {t('wishlistPanel.addAnother')}
+                                    </button>
+                                  )}
                                 </span>
                               ) : onQuickAdd ? (
                                 <button

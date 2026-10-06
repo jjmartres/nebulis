@@ -15,6 +15,7 @@ import {
   type DarkWindow,
 } from '../../lib/forecastScore';
 import { ScoreDial } from '../ui/ScoreDial';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   hour: ForecastHour;
@@ -65,7 +66,8 @@ export function HourDetail({
   hour, moonIllumination, isDark, onClose, tempUnit, windUnit, timeZone, darkWindow,
 }: Props) {
   const { t } = useTranslation('forecast');
-  const vis = calculateVisibilityScore(hour, moonIllumination, timeZone, darkWindow, t);
+  const { isNight } = useTheme();
+  const vis = calculateVisibilityScore(hour, moonIllumination, timeZone, darkWindow, t, isNight);
 
   return (
     <div

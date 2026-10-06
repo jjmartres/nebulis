@@ -128,6 +128,10 @@
       "images": "Images",
       "subframes": "Sous-poses",
       "processed": "Traitées",
+      "dropToMarkProcessed": "Déposer pour marquer comme traité",
+      "markProcessedFailed": "Impossible de marquer comme traité : {{message}}",
+      "markProcessedFailedFallback": "Impossible de marquer comme traité",
+      "dismiss": "Fermer",
       "videos": "Vidéos"
     },
     "captureMetrics": {
@@ -238,7 +242,8 @@
       "removeFromFavorites": "Retirer des favoris",
       "addToFavorites": "Ajouter aux favoris",
       "showingRange": "Affichage de {{from}}–{{to}} sur {{total}}",
-      "empty": "Aucun fichier trouvé"
+      "empty": "Aucun fichier trouvé",
+      "markAsProcessed": "Marquer comme traité"
     },
     "processedImagesGrid": {
       "upload": "Téléverser",
@@ -251,7 +256,8 @@
       "setAsGalleryImage": "Définir comme image de galerie",
       "delete": "Supprimer",
       "combinesNights": "Combine {{count}} nuits : {{list}}",
-      "addMore": "Ajouter d'autres"
+      "addMore": "Ajouter d'autres",
+      "moveToImages": "Marquer comme non traité"
     },
     "hero": {
       "breadcrumb": "Fil d'Ariane",
@@ -301,7 +307,13 @@
       "deleteSubframes": "Supprimer les sous-poses",
       "compareImage1Alt": "Image 1",
       "compareImage2Alt": "Image 2",
-      "vs": "vs"
+      "vs": "vs",
+      "markProcessedTitle": "Marquer comme traité ?",
+      "markProcessedMessage": "L'image quitte Images pour Traités. Rien n'est supprimé.",
+      "markProcessedConfirm": "Marquer comme traité",
+      "unmarkProcessedTitle": "Marquer comme non traité ?",
+      "unmarkProcessedMessage": "L'image quitte Traités pour revenir dans les Images de cette nuit. Rien n'est supprimé.",
+      "unmarkProcessedConfirm": "Marquer comme non traité"
     },
     "fitsHeaderModal": {
       "title": "En-tête FITS pour {{fileName}}",

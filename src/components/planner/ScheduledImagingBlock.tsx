@@ -17,6 +17,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { AlertTriangle, ArrowUp, Frame, GripVertical, Info, Moon, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatHm, SNAP_MINUTES, TIMELINE_GUTTER_PX } from './scheduleGeometry';
+import { useTheme } from '../../hooks/useTheme';
 import type { PlannedSession } from '../../lib/api/plannedSessions';
 import type { VisibilityVerdict } from '../../lib/visibilityCheck';
 import type { MoonVerdict } from '../../lib/moonProximity';
@@ -97,6 +98,11 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
   observerTimezone,
 }: ScheduledImagingBlockProps) {
   const { t } = useTranslation('planner');
+  const { isNight } = useTheme();
+  // Which edge handle (if any) is hovered or mid-drag, so the block that owns it
+  // can light up when two blocks share a seam.
+  const [engaged, setEngaged] = useState<{ top: boolean; bottom: boolean }>({ top: false, bottom: false });
+  const resizing = engaged.top || engaged.bottom;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `block:${session.id}`,
     data: { kind: 'block', sessionId: session.id } satisfies BlockDragData,
@@ -117,11 +123,16 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
   const warn = !bad && (verdict === 'partial' || lowInSky || moonVerdict === 'caution' || hasOverlap);
 
   const stripeColor = bad ? 'bg-red-500' : warn ? 'bg-amber-500' : 'bg-emerald-500';
-  const edgeGlow = bad
-    ? 'rgba(239,68,68,0.35)'
-    : warn
-      ? 'rgba(245,158,11,0.32)'
-      : 'rgba(16,185,129,0.28)';
+  // Raw rgba, not a Tailwind class, so .night's CSS variable overrides can't
+  // reach it — it needs its own red-ladder branch like the traffic-light
+  // stripe above gets for free from those overrides.
+  const edgeGlow = isNight
+    ? (bad ? 'rgba(204,51,51,0.35)' : warn ? 'rgba(136,34,34,0.32)' : 'rgba(102,26,26,0.28)')
+    : bad
+      ? 'rgba(239,68,68,0.35)'
+      : warn
+        ? 'rgba(245,158,11,0.32)'
+        : 'rgba(16,185,129,0.28)';
 
   const start = new Date(session.startTime);
   const end = new Date(session.endTime);
@@ -150,17 +161,22 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
         height: `${height}px`,
         left: `calc(${leftPct}% + ${TIMELINE_GUTTER_PX * (1 - leftFrac) + 4}px)`,
         width: `calc(${widthPct}% - ${TIMELINE_GUTTER_PX * laneFrac + 14}px)`,
+        // Inline, not a ring-* class: the ring is also a box-shadow and this
+        // style would override it.
         boxShadow: isDragging
           ? `0 18px 40px -18px rgba(0,0,0,0.9), inset 0 0 0 1px ${edgeGlow}`
-          : `0 8px 22px -16px rgba(0,0,0,0.9), inset 0 0 0 1px ${edgeGlow}`,
+          : resizing
+            ? `0 8px 22px -16px rgba(0,0,0,0.9), 0 0 0 2px ${isNight ? '#dd3333' : '#fbbf24'}, 0 0 14px 1px ${isNight ? 'rgba(221,51,51,0.45)' : 'rgba(251,191,36,0.4)'}`
+            : `0 8px 22px -16px rgba(0,0,0,0.9), inset 0 0 0 1px ${edgeGlow}`,
       }}
-      className={`group absolute select-none overflow-hidden rounded-xl bg-slate-900/85 text-slate-100 backdrop-blur-sm transition-shadow ${
-        isDragging ? 'z-20 opacity-80 ring-2 ring-accent-400' : ''
+      className={`group absolute select-none rounded-xl bg-slate-900/85 text-slate-100 backdrop-blur-sm transition-shadow ${
+        isDragging ? 'z-20 opacity-80 ring-2 ring-accent-400' : resizing ? 'z-10' : ''
       } ${isSaving ? 'opacity-60' : ''}`}
     >
+      {/* Clipping lives on this inner layer so the resize handles below can
+          reach past the block's edge and still be grabbed from just outside it. */}
+      <div className="absolute inset-0 overflow-hidden rounded-xl">
       <div className={`absolute bottom-0 left-0 top-0 w-1.5 ${stripeColor}`} />
-
-      <ResizeHandle edge="top" pxPerMinute={pxPerMinute} onResize={(d, commit) => onResize(session.id, 'top', d, commit)} disabled={isSaving} />
 
       <div
         {...(isSaving ? {} : listeners)}
@@ -261,8 +277,10 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
           {t('scheduledImagingBlock.until', { time: formatHm(end, observerTimezone) })}
         </div>
       )}
+      </div>
 
-      <ResizeHandle edge="bottom" pxPerMinute={pxPerMinute} onResize={(d, commit) => onResize(session.id, 'bottom', d, commit)} disabled={isSaving} />
+      <ResizeHandle edge="top" pxPerMinute={pxPerMinute} onResize={(d, commit) => onResize(session.id, 'top', d, commit)} onEngage={(v) => setEngaged(e => (e.top === v ? e : { ...e, top: v }))} disabled={isSaving} />
+      <ResizeHandle edge="bottom" pxPerMinute={pxPerMinute} onResize={(d, commit) => onResize(session.id, 'bottom', d, commit)} onEngage={(v) => setEngaged(e => (e.bottom === v ? e : { ...e, bottom: v }))} disabled={isSaving} />
     </div>
   );
 });
@@ -285,12 +303,16 @@ interface ResizeHandleProps {
   edge: 'top' | 'bottom';
   pxPerMinute: number;
   onResize: (deltaMinutes: number, commit: boolean) => void;
+  /** True while the pointer is over the handle or dragging it. */
+  onEngage?: (engaged: boolean) => void;
   disabled?: boolean;
 }
 
-function ResizeHandle({ edge, pxPerMinute, onResize, disabled }: ResizeHandleProps) {
+function ResizeHandle({ edge, pxPerMinute, onResize, onEngage, disabled }: ResizeHandleProps) {
   const { t } = useTranslation('planner');
   const [active, setActive] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  useEffect(() => { onEngage?.(active || hovered); }, [active, hovered, onEngage]);
   const startYRef = useRef<number | null>(null);
   const lastSnappedRef = useRef(0);
   // Read the scale through a ref so the pointer-move listener never needs to
@@ -344,11 +366,18 @@ function ResizeHandle({ edge, pxPerMinute, onResize, disabled }: ResizeHandlePro
 
   return (
     <div
-      className={`absolute left-0 right-0 z-20 cursor-ns-resize ${edge === 'top' ? 'top-0' : 'bottom-0'} h-2 ${
-        active ? 'bg-accent-400/50' : 'hover:bg-accent-400/30'
-      }`}
+      className={`group/handle absolute left-0 right-0 z-20 flex cursor-ns-resize justify-center ${edge === 'top' ? '-top-1 items-end' : '-bottom-1 items-start'} h-4`}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       onPointerDown={handlePointerDown}
       aria-label={edge === 'top' ? t('scheduledImagingBlock.resizeTop') : t('scheduledImagingBlock.resizeBottom')}
-    />
+    >
+      {/* The hit area stays generous; only this slim pill is drawn. */}
+      <span
+        className={`mx-auto my-0.5 h-1 w-10 rounded-full transition ${
+          active ? 'bg-accent-400' : 'bg-accent-400/0 group-hover/handle:bg-accent-400/70'
+        }`}
+      />
+    </div>
   );
 }

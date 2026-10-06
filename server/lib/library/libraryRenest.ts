@@ -223,8 +223,12 @@ function renestObjectUnlocked(objectId: string): RenestObjectResult {
     return result;
   }
 
+  // Linked-source rows point at the user's own folder ('@src/...'), never at
+  // anything under this object's managed directory. They are not ours to move,
+  // and a stray match against a managed relPath must never happen.
+  const managedRows = getLibraryFilesForObject(objectId).filter(row => !row.sourceId);
   const rowsByRel = new Map<string, LibraryFileRow>();
-  for (const row of getLibraryFilesForObject(objectId)) {
+  for (const row of managedRows) {
     rowsByRel.set(objectRelativePath(row.relPath), row);
   }
 
@@ -245,7 +249,7 @@ function renestObjectUnlocked(objectId: string): RenestObjectResult {
   // already in its session directory is the fingerprint of a crash between the
   // rename and the row update. Driven by rows rather than by the directory
   // listing, because in that state there is no object-level file left to find.
-  for (const row of getLibraryFilesForObject(objectId)) {
+  for (const row of managedRows) {
     const rel = objectRelativePath(row.relPath);
     if (rel.includes('/')) continue; // already nested
     const toLibRel = `${folderName}/${targetDirFor(row)}/${row.fileName}`;
@@ -361,10 +365,22 @@ export function getRenestStatus(): RenestStatus {
   return { ...status };
 }
 
+/**
+ * Flat objects that actually have managed files to reorganize. An object made
+ * only of linked-source rows has nothing under the managed library to move, so
+ * counting it would show the upgrade prompt to someone with nothing to convert.
+ */
+const FLAT_OBJECT_FILTER = `
+  o.deleted = 0 AND (o.layout IS NULL OR o.layout != 'nested')
+  AND NOT (
+    EXISTS (SELECT 1 FROM libraryFiles f WHERE f.objectId = o.objectId AND f.sourceId IS NOT NULL)
+    AND NOT EXISTS (SELECT 1 FROM libraryFiles f WHERE f.objectId = o.objectId AND f.sourceId IS NULL)
+  )`;
+
 /** How many objects are still flat, for the "you have N to convert" prompt. */
 export function countFlatObjects(): number {
   return db.prepare<[], { n: number }>(
-    "SELECT COUNT(*) as n FROM libraryObjects WHERE deleted = 0 AND (layout IS NULL OR layout != 'nested')",
+    `SELECT COUNT(*) as n FROM libraryObjects o WHERE ${FLAT_OBJECT_FILTER}`,
   ).get()?.n ?? 0;
 }
 
@@ -393,7 +409,7 @@ export async function renestLibrary(): Promise<RenestSummary> {
   const results: RenestObjectResult[] = [];
   try {
     const objects = db.prepare<[], { objectId: string }>(
-      "SELECT objectId FROM libraryObjects WHERE deleted = 0 AND (layout IS NULL OR layout != 'nested')",
+      `SELECT o.objectId FROM libraryObjects o WHERE ${FLAT_OBJECT_FILTER}`,
     ).all();
 
     status = {

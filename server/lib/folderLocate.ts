@@ -1,5 +1,5 @@
 /**
- * Finds a dropped folder on the server's own disk by content fingerprint.
+ * Suggests where a dropped folder lives on the server's own disk.
  *
  * The browser can never reveal where a dragged folder lives (the File API
  * strips absolute paths by design), so the import modal sends what it does
@@ -9,30 +9,45 @@
  * certainly came from that directory, and the import can read it in place
  * instead of streaming the same bytes through an upload.
  *
- * Best-effort by construction: a bounded breadth-first walk with a hard
- * deadline. Local roots (home directory) are walked to completion first;
- * mounted volumes only get whatever budget remains, and every filesystem call
- * is individually timed out, because a mounted-but-dead network share (e.g. a
- * telescope SMB mount after the telescope powered off) can block stat/readdir
- * for many seconds. Returning null just means the caller falls back to a
- * normal upload, so a miss is never an error.
+ * This is a *hint*, never a requirement. The folder browser is what makes an
+ * in-place import always possible, so the search is built to be cheap and
+ * bounded, not exhaustive:
+ *   - it reads folder names only, never file listings of the whole disk;
+ *   - it is shallow (MAX_DEPTH levels below each root), because import data
+ *     lives at `E:\Astro\2025\M31`, not eight levels down;
+ *   - every root (home, each drive) is searched in parallel with its own
+ *     directory budget, so one huge drive or dead NAS mount cannot starve the
+ *     others;
+ *   - the whole request has a hard deadline, and every filesystem call is
+ *     individually timed out (a mounted-but-dead share can block for many
+ *     seconds).
+ * A miss simply means the caller shows the folder browser, so it is never an
+ * error and the cost of a miss is one extra click, never a wait.
  */
 import fsp from 'fs/promises';
 import type { Dirent } from 'fs';
 import path from 'path';
 import os from 'os';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { listVolumes } from './volumes.js';
+
+const execFileAsync = promisify(execFile);
 
 export interface LocateSample {
   relativePath: string;
   size: number;
 }
 
-const DEADLINE_MS = 2_500;
-const MAX_DIRS = 20_000;
+const DEADLINE_MS = 1_500;
+/** Levels searched below each root. Root children are depth 1. */
+const MAX_DEPTH = 5;
+/** Directory listings allowed per root, so one huge drive cannot run away. */
+const ROOT_MAX_DIRS = 4_000;
 const BATCH = 16;
 const FS_CALL_TIMEOUT_MS = 400;
-const VOLUME_LIST_TIMEOUT_MS = 600;
+const DRIVE_PROBE_TIMEOUT_MS = 300;
+const SPOTLIGHT_TIMEOUT_MS = 800;
 
 // Directory names that are never a sensible import source and are often huge.
 const SKIP_DIRS = new Set([
@@ -90,10 +105,25 @@ async function verifySamples(base: string, samples: LocateSample[]): Promise<boo
   return true;
 }
 
-async function volumeRoots(): Promise<string[]> {
-  // listVolumes stats every mount; a dead network mount can hang that, so the
-  // whole listing gets a budget of its own. No volumes is a fine outcome.
-  const vols = await withTimeout(listVolumes().catch(() => []), VOLUME_LIST_TIMEOUT_MS, []);
+/**
+ * Windows drive roots, found by probing each letter instead of asking
+ * PowerShell. Spawning PowerShell + CIM takes 1-3 s cold, which is longer than
+ * this whole search is allowed to run, so it used to return no drives at all.
+ * Probing A:..Z: in parallel with a short timeout takes milliseconds.
+ */
+async function windowsDriveRoots(): Promise<string[]> {
+  const letters = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i));
+  const found = await Promise.all(letters.map(async letter => {
+    const root = `${letter}:\\`;
+    const ok = await withTimeout(
+      fsp.access(root).then(() => true).catch(() => false), DRIVE_PROBE_TIMEOUT_MS, false);
+    return ok ? root : null;
+  }));
+  return found.filter((r): r is string => r !== null);
+}
+
+async function macVolumeRoots(): Promise<string[]> {
+  const vols = await withTimeout(listVolumes().catch(() => []), FS_CALL_TIMEOUT_MS * 2, []);
   const roots: string[] = [];
   for (const v of vols) {
     // The boot volume appears under /Volumes as a symlink to '/'. Walking it
@@ -107,46 +137,114 @@ async function volumeRoots(): Promise<string[]> {
   return roots;
 }
 
-interface WalkState {
-  visited: number;
-  deadline: number;
+async function searchRoots(): Promise<string[]> {
+  const roots = [os.homedir()];
+  if (process.platform === 'win32') roots.push(...await windowsDriveRoots());
+  else if (process.platform === 'darwin') roots.push('/Users/Shared', ...await macVolumeRoots());
+  else roots.push(...(await withTimeout(listVolumes().catch(() => []), FS_CALL_TIMEOUT_MS * 2, [])).map(v => v.path));
+  return [...new Set(roots)];
 }
 
-async function walk(
-  roots: string[],
-  state: WalkState,
+/**
+ * macOS only: Spotlight answers "where is a folder called X" from its index in
+ * milliseconds on a drive of any size. Non-indexed volumes (many USB drives and
+ * NAS mounts) return nothing, which is fine: this only ever adds candidates.
+ */
+async function spotlightCandidates(anchorName: string): Promise<string[]> {
+  if (process.platform !== 'darwin') return [];
+  try {
+    const { stdout } = await execFileAsync(
+      'mdfind',
+      ['-name', anchorName],
+      { timeout: SPOTLIGHT_TIMEOUT_MS },
+    );
+    return stdout.split('\n')
+      .filter(line => line && path.basename(line).toLowerCase() === anchorName.toLowerCase());
+  } catch {
+    return [];
+  }
+}
+
+interface SearchState {
+  deadline: number;
+  /** Set once any root has a verified match, so the other roots stop early. */
+  done: boolean;
+}
+
+async function walkRoot(
+  root: string,
+  state: SearchState,
   anchorLower: string,
   pathsIncludeAnchor: boolean,
   samples: LocateSample[],
 ): Promise<string | null> {
-  const queue = [...roots];
-  while (queue.length > 0) {
-    if (Date.now() > state.deadline || state.visited >= MAX_DIRS) return null;
-    const batch = queue.splice(0, BATCH);
-    state.visited += batch.length;
+  let queue: string[] = [root];
+  let visited = 0;
+  for (let depth = 1; depth <= MAX_DEPTH && queue.length > 0; depth++) {
+    const next: string[] = [];
+    while (queue.length > 0) {
+      if (state.done || Date.now() > state.deadline || visited >= ROOT_MAX_DIRS) return null;
+      const batch = queue.splice(0, BATCH);
+      visited += batch.length;
+      const listings = await Promise.all(
+        batch.map(async dir => ({ dir, entries: await readdirSafe(dir) })));
 
-    const listings = await Promise.all(
-      batch.map(async dir => ({ dir, entries: await readdirSafe(dir) })));
-
-    for (const { dir, entries } of listings) {
-      for (const entry of entries) {
-        // withFileTypes reflects lstat, so symlinked directories report as
-        // symlinks (not directories) and are skipped here: no cycles, no
-        // re-walking whole volumes through an alias.
-        if (!entry.isDirectory()) continue;
-        const name = entry.name;
-        if (name.startsWith('.') || SKIP_DIRS.has(name.toLowerCase())) continue;
-        const full = path.join(dir, name);
-
-        if (name.toLowerCase() === anchorLower) {
-          const scanRoot = pathsIncludeAnchor ? dir : full;
-          if (await verifySamples(scanRoot, samples)) return scanRoot;
+      for (const { dir, entries } of listings) {
+        for (const entry of entries) {
+          // withFileTypes reflects lstat, so symlinked directories report as
+          // symlinks (not directories) and are skipped here: no cycles, no
+          // re-walking whole volumes through an alias.
+          if (!entry.isDirectory()) continue;
+          const name = entry.name;
+          if (name.startsWith('.') || SKIP_DIRS.has(name.toLowerCase())) continue;
+          const full = path.join(dir, name);
+          if (name.toLowerCase() === anchorLower) {
+            const scanRoot = pathsIncludeAnchor ? dir : full;
+            if (await verifySamples(scanRoot, samples)) return scanRoot;
+          }
+          next.push(full);
         }
-        queue.push(full);
       }
     }
+    queue = next;
   }
   return null;
+}
+
+/**
+ * Search the given roots in parallel and return the first verified match.
+ * Exported so tests can point it at temp directories.
+ */
+export async function locateFolderInRoots(
+  roots: string[],
+  anchorName: string,
+  samples: LocateSample[],
+  deadlineMs: number = DEADLINE_MS,
+): Promise<string | null> {
+  if (!validateLocateInput(anchorName, samples)) return null;
+  const anchorLower = anchorName.toLowerCase();
+  const pathsIncludeAnchor = samples[0].relativePath.split('/')[0] === anchorName;
+  const state: SearchState = { deadline: Date.now() + deadlineMs, done: false };
+
+  const attempts = roots.map(root =>
+    walkRoot(root, state, anchorLower, pathsIncludeAnchor, samples)
+      .catch((): null => null)
+      .then(hit => {
+        if (hit) state.done = true;
+        return hit;
+      }));
+
+  // Resolve on the first hit rather than waiting for the slowest root.
+  return new Promise<string | null>(resolve => {
+    let pending = attempts.length;
+    if (pending === 0) resolve(null);
+    for (const attempt of attempts) {
+      void attempt.then(hit => {
+        if (hit) resolve(hit);
+        else if (--pending === 0) resolve(null);
+      });
+    }
+  });
 }
 
 /**
@@ -164,19 +262,11 @@ export async function locateFolderOnDisk(
 ): Promise<string | null> {
   if (!validateLocateInput(anchorName, samples)) return null;
 
-  const anchorLower = anchorName.toLowerCase();
   const pathsIncludeAnchor = samples[0].relativePath.split('/')[0] === anchorName;
-  const state: WalkState = { visited: 0, deadline: Date.now() + DEADLINE_MS };
-
-  // Local roots first, to completion: they are fast and cover the common case.
-  const localRoots = [os.homedir()];
-  if (process.platform === 'darwin') localRoots.push('/Users/Shared');
-  const localHit = await walk(localRoots, state, anchorLower, pathsIncludeAnchor, samples);
-  if (localHit) return localHit;
-
-  // Mounted volumes get the remaining budget only. A slow network mount can
-  // burn it, but each fs call is capped so it degrades to fewer dirs searched,
-  // never a hung request.
-  if (Date.now() > state.deadline || state.visited >= MAX_DIRS) return null;
-  return walk(await volumeRoots(), state, anchorLower, pathsIncludeAnchor, samples);
+  // Spotlight hits are checked first: they are exact and instant.
+  for (const candidate of await spotlightCandidates(anchorName)) {
+    const scanRoot = pathsIncludeAnchor ? path.dirname(candidate) : candidate;
+    if (await verifySamples(scanRoot, samples)) return scanRoot;
+  }
+  return locateFolderInRoots(await searchRoots(), anchorName, samples);
 }

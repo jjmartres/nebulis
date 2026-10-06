@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { detectSatelliteTrail, type SatelliteTrailResult } from '../lib/api/observations';
 import { deleteLibraryFile } from '../lib/api/library';
+import { isLinkedPath } from '../lib/linkedPaths';
 import { FitsViewer } from './FitsViewer';
 import { FitsThumbnail } from './FitsThumbnail';
 import type { SessionFile } from '../types';
@@ -86,9 +87,17 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
     // scan queue's worker slots running server-side detection (a full
     // Radon-projection FITS parse per subframe) with nowhere for the result
     // to land.
+    //
+    // abortControllersRef.current must be read live here, not copied at
+    // effect-setup time: this effect only re-runs on `isOpen`, but controllers
+    // are added to (and removed from) the set continuously as the scan
+    // progresses (see the `.add`/`.delete` calls below). Capturing the set's
+    // contents up front would close over whatever was in it when the modal
+    // opened — almost always empty — and abort nothing on the way out.
     return () => {
       cancelRef.current = true;
       abortControllersRef.current.forEach(controller => controller.abort());
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       abortControllersRef.current.clear();
     };
   }, [isOpen]);
@@ -164,10 +173,13 @@ export function SatelliteTrailScanModal({ isOpen, onClose, files, onFilesDeleted
   }, [fitsFiles]);
 
   const handleDelete = async (path: string) => {
+    // A linked file is the user's own original with no Nebulis copy, so this one-click delete asks first.
+    const linked = isLinkedPath(path);
+    if (linked && !window.confirm(t('galleryModal.deleteLinkedFileMessage', { name: path.split('/').pop() ?? path, ns: 'library' }))) return;
     const deletedIdx = visibleCards.findIndex(c => c.file.path === path);
     setDeletingPath(path);
     try {
-      await deleteLibraryFile(path);
+      await deleteLibraryFile(path, { deleteLinked: linked });
       setTrailCards(prev => prev.map(c => c.file.path === path ? { ...c, deleted: true } : c));
       onFilesDeleted();
       // Step back if we deleted the last card

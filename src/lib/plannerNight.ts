@@ -61,9 +61,18 @@ export function twilightGradientCss(
   startMs: number,
   totalMs: number,
   direction: 'to bottom' | 'to right' = 'to bottom',
+  isNight = false,
 ): string {
-  const DEEP = '#05070f';
-  const fallback = `linear-gradient(${direction}, #16233d 0%, ${DEEP} 22%, ${DEEP} 78%, #16233d 100%)`;
+  // This gradient is deliberately "night-side in every theme" — it never
+  // reads isDark, so a light/dark/space toggle never washes out the timeline
+  // it sits behind. The astronomy red-light theme is different in kind: it
+  // isn't a palette choice, it's protecting the viewer's actual dark
+  // adaptation, so it gets an explicit carve-out here rather than being
+  // swept up in that same "ignore the app theme" convention.
+  const DEEP = isNight ? '#000000' : '#05070f';
+  const fallback = isNight
+    ? `linear-gradient(${direction}, #1a0505 0%, ${DEEP} 22%, ${DEEP} 78%, #1a0505 100%)`
+    : `linear-gradient(${direction}, #16233d 0%, ${DEEP} 22%, ${DEEP} 78%, #16233d 100%)`;
   if (!marks || totalMs <= 0) return fallback;
 
   const pct = (d: Date | null): number | null => {
@@ -73,8 +82,20 @@ export function twilightGradientCss(
   };
 
   // Evening down, morning back up. Colours run from a lit horizon blue through
-  // the twilight phases into astronomical dark.
-  const phases: [number | null, string][] = [
+  // the twilight phases into astronomical dark (red-ladder equivalent in
+  // night mode, so the same shape reads without leaking blue).
+  const phases: [number | null, string][] = isNight ? [
+    [0, '#3a0f0f'],
+    [pct(marks.sunset), '#330d0d'],
+    [pct(marks.civilEnd), '#220a0a'],
+    [pct(marks.nauticalEnd), '#100404'],
+    [pct(marks.astroEnd), DEEP],
+    [pct(marks.astroStart), DEEP],
+    [pct(marks.nauticalStart), '#100404'],
+    [pct(marks.civilStart), '#220a0a'],
+    [pct(marks.sunrise), '#330d0d'],
+    [100, '#3a0f0f'],
+  ] : [
     [0, '#2a3d63'],
     [pct(marks.sunset), '#233958'],
     [pct(marks.civilEnd), '#152744'],

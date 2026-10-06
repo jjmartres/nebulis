@@ -65,8 +65,10 @@ test.describe('Backup Status', () => {
     await expect(page.getByRole('button', { name: /sync now/i })).toBeEnabled();
   });
 
-  test('Sync Now calls the import API', async ({ page }) => {
-    // Re-mock with an online telescope so the button is enabled
+  test('Sync Now calls the import API for every reachable telescope, not just one', async ({ page }) => {
+    // Re-mock with an online telescope so the button is enabled. Only one
+    // entry, so the page-level button must trigger the "no telescopeId"
+    // (sync everything reachable) request shape, not a single-telescope one.
     await page.route('**/api/telescopes/status/all', r =>
       r.fulfill({
         status: 200,
@@ -79,7 +81,9 @@ test.describe('Backup Status', () => {
       req => req.url().includes('/api/library/import') && req.method() === 'POST'
     );
     await page.getByRole('button', { name: /sync now/i }).click();
-    await importRequest;
+    const request = await importRequest;
+
+    expect(request.postDataJSON()).toEqual({});
   });
 
   test('shows import history entry', async ({ page }) => {

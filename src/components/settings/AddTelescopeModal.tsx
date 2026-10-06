@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { X, RotateCw, HelpCircle, Telescope as TelescopeIcon, Check, Wifi, WifiOff, Usb, Network, Settings2, ChevronDown, Frame, Pin, Pencil, Trash2, Plus } from 'lucide-react';
+import { X, RotateCw, HelpCircle, Telescope as TelescopeIcon, Check, Wifi, WifiOff, Usb, Network, Settings2, ChevronDown, Frame, Radar, Pin, Pencil, Trash2, Plus, ArrowLeft, ArrowRight } from 'lucide-react';
 import { HelpBlockText } from './HelpBlockText';
 import {
   createTelescope,
   updateTelescope,
   testTelescopeConnection,
   probeTransportIdentity,
+  scanForDevices,
+  type FoundDevice,
   addProfileTransport,
   listTelescopes,
   addTelescopeOpticalConfig,
@@ -62,6 +64,11 @@ export function AddTelescopeModal({
   const labelClass = getLabelClass(isDark);
   const helperClass = getHelperClass(isDark);
   const isEdit = !!existing;
+  // Adding walks through three short steps with Back / Next. Editing shows the
+  // same three parts as tabs, so any one setting is a single click away.
+  const wizard = !isEdit;
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const show = (n: 1 | 2 | 3) => step === n;
 
   const initialKind: TelescopeKind = existing
     ? (existing.kind ?? modelToKind(existing.model))
@@ -126,6 +133,13 @@ export function AddTelescopeModal({
   const [pickedDrive, setPickedDrive] = useState<DetectedDrive | null>(null);
   // Merge prompt state. When probe-identity finds an existing profile owning
   // this device, we present a confirm modal before creating a duplicate.
+  // "Find device": sweeps the server's LAN and lists what looks like a
+  // SeeStar / ASIAIR / Dwarf. Picking one fills the address (and the type).
+  const scanMutation = useMutation({ mutationFn: scanForDevices });
+  const pickFound = (d: FoundDevice) => {
+    setHostname(d.host);
+    if (!isEdit) setKind(toTelescopeKind(d.kind));
+  };
   const [mergeCandidate, setMergeCandidate] = useState<{ profileId: string; profileName: string } | null>(null);
 
   // Advanced share settings disclosure (shareName + username + password). Most
@@ -175,6 +189,18 @@ export function AddTelescopeModal({
     setAppliedKind(kindMemo);
   }
 
+  // Adding offers three presets instead of six switches. Thumbnails come only
+  // with Everything (Nebulis draws its own); videos stay a separate switch.
+  const importPreset: ImportPreset = archiveAllFiles ? 'everything' : importSubFrames ? 'subframes' : 'images';
+  const recommendedPreset: ImportPreset = isAsiairKind ? 'subframes' : 'images';
+  const chooseImportPreset = (id: ImportPreset) => {
+    setImportJpg(true);
+    setImportFits(true);
+    setImportSubFrames(id !== 'images');
+    setArchiveAllFiles(id === 'everything');
+    setImportThumbnails(id === 'everything');
+  };
+
   const createMutation = useMutation({
     mutationFn: () => createTelescope({
       // Never bake the raw local filesystem path into the default name — it
@@ -205,7 +231,7 @@ export function AddTelescopeModal({
       importThumbnails,
       importSubFrames,
       archiveAllFiles,
-      importVideos,
+      importVideos: importVideos || archiveAllFiles,
       trackDeviceIdentity,
     }),
     onSuccess: (created: TelescopeProfile) => {
@@ -435,9 +461,17 @@ export function AddTelescopeModal({
 
         {/* Body. Sections walk the user through three questions: what is this
             telescope, how do we reach it, and what should we do with it. */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* ── Identity ─────────────────────────────────────────── */}
-          <SectionHeading isDark={isDark}>{t('addTelescopeModal.identity')}</SectionHeading>
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
+          {wizard ? (
+            <StepIndicator step={step} isDark={isDark} />
+          ) : (
+            <EditTabs step={step} onChange={setStep} isDark={isDark} errorSteps={[hostError || shareError ? 2 : null]} />
+          )}
+
+          {/* ── Step 1: Identity ─────────────────────────────────── */}
+          {show(1) && (
+          <div className="space-y-6">
+          <StepHeading isDark={isDark} wizard={wizard} title={t('addTelescopeModal.step1Title')} />
 
           {/* Telescope kind */}
           <div>
@@ -492,8 +526,13 @@ export function AddTelescopeModal({
             <p className={helperClass}>{t('addTelescopeModal.badgeColorHelp')}</p>
           </div>
 
-          {/* ── Connection ───────────────────────────────────────── */}
-          <SectionHeading isDark={isDark}>{t('addTelescopeModal.connection')}</SectionHeading>
+          </div>
+          )}
+
+          {/* ── Step 2: Connection ───────────────────────────────── */}
+          {show(2) && (
+          <div className="space-y-6">
+          <StepHeading isDark={isDark} wizard={wizard} title={t('addTelescopeModal.step2Title')} />
 
           {/* Transport mode (network vs USB). "other" is SMB-only by
               convention so it skips the selector. The network option differs
@@ -586,15 +625,58 @@ export function AddTelescopeModal({
           <>
           <div>
             <label className={labelClass}>{t('addTelescopeModal.hostnameLabel')}</label>
-            <input
-              type="text"
-              placeholder={preset.defaultHostname || '192.168.1.100'}
-              value={hostname}
-              onChange={e => setHostname(e.target.value)}
-              className={inputClass}
-              autoFocus={!isEdit}
-              aria-invalid={!!hostError}
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder={preset.defaultHostname || '192.168.1.100'}
+                value={hostname}
+                onChange={e => setHostname(e.target.value)}
+                className={inputClass}
+                autoFocus={!isEdit}
+                aria-invalid={!!hostError}
+              />
+              <button
+                type="button"
+                onClick={() => scanMutation.mutate()}
+                disabled={scanMutation.isPending}
+                className={`shrink-0 inline-flex items-center gap-2 px-3 rounded-lg border text-sm font-medium disabled:opacity-60 ${
+                  isDark ? 'border-slate-700 text-slate-200 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <Radar className={`w-4 h-4 ${scanMutation.isPending ? 'animate-pulse' : ''}`} />
+                {scanMutation.isPending ? t('addTelescopeModal.findDeviceScanning') : t('addTelescopeModal.findDevice')}
+              </button>
+            </div>
+            {scanMutation.isError && (
+              <p className={`text-xs mt-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>{t('addTelescopeModal.findDeviceFailed')}</p>
+            )}
+            {scanMutation.data && scanMutation.data.devices.length === 0 && (
+              <p className={helperClass}>
+                {scanMutation.data.subnets.length === 0
+                  ? t('addTelescopeModal.findDeviceNoNetwork')
+                  : t('addTelescopeModal.findDeviceNone', { subnets: scanMutation.data.subnets.join(', ') })}
+              </p>
+            )}
+            {scanMutation.data && scanMutation.data.devices.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className={helperClass}>{t('addTelescopeModal.findDevicePick', { count: scanMutation.data.devices.length })}</p>
+                {scanMutation.data.devices.map(d => (
+                  <button
+                    key={d.host}
+                    type="button"
+                    onClick={() => pickFound(d)}
+                    className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-sm text-left ${
+                      hostname.trim() === d.host
+                        ? (isDark ? 'border-sky-500 bg-sky-500/10 text-white' : 'border-sky-500 bg-sky-50 text-slate-900')
+                        : (isDark ? 'border-slate-700 text-slate-200 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100')
+                    }`}
+                  >
+                    <span className="font-medium">{d.label}</span>
+                    <span className="opacity-70 tabular-nums">{d.name ?? d.host}{d.name ? ` · ${d.host}` : ''}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {hostError
               ? <p className={`text-xs mt-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>{hostError}</p>
               : (
@@ -651,7 +733,7 @@ export function AddTelescopeModal({
                       : preset.shareHelp && <HelpBlockText block={preset.shareHelp} className={helperClass} />}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>{t('addTelescopeModal.username')}</label>
                     <input
@@ -745,139 +827,6 @@ export function AddTelescopeModal({
           </>
           )}
 
-          {/* ── Import behavior ──────────────────────────────────── */}
-          <SectionHeading isDark={isDark}>{t('addTelescopeModal.importBehavior')}</SectionHeading>
-
-          {/* Auto-import toggle + interval */}
-          <div className="flex items-start gap-3">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={autoImportEnabled}
-              onClick={() => setAutoImportEnabled(v => !v)}
-              className={`mt-1 relative inline-flex h-5 w-9 items-center rounded-full transition ${
-                autoImportEnabled
-                  ? 'bg-teal-500'
-                  : isDark ? 'bg-slate-700' : 'bg-slate-300'
-              }`}
-            >
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${
-                autoImportEnabled ? 'translate-x-[18px]' : 'translate-x-1'
-              }`} />
-            </button>
-            <div className="flex-1">
-              <div className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                {kind === 'other' ? t('addTelescopeModal.autoImportOther') : t('addTelescopeModal.autoImportDefault')}
-              </div>
-              <p className={helperClass}>
-                {t('addTelescopeModal.autoImportHelp')}
-              </p>
-              {autoImportEnabled && (
-                <div className="mt-2.5 flex items-center gap-2">
-                  <label className={`text-xs whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {t('addTelescopeModal.checkEvery')}
-                  </label>
-                  <select
-                    value={autoImportInterval}
-                    onChange={e => setAutoImportInterval(Number(e.target.value))}
-                    className={`border rounded-lg px-2 py-1 text-xs outline-none transition ${inputClass}`}
-                  >
-                    <option value={5}>{t('addTelescopeModal.interval5')}</option>
-                    <option value={15}>{t('addTelescopeModal.interval15')}</option>
-                    <option value={30}>{t('addTelescopeModal.interval30')}</option>
-                    <option value={60}>{t('addTelescopeModal.interval60')}</option>
-                    <option value={120}>{t('addTelescopeModal.interval120')}</option>
-                    <option value={360}>{t('addTelescopeModal.interval360')}</option>
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Per-telescope file-type filters. Each scope decides which kinds
-              of files the importer pulls off it — useful when one telescope
-              has a big eMMC and you want everything, and another is on a
-              smaller disk where subframes would burn through storage. */}
-          <div className="space-y-1.5">
-            <div className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-              {t('addTelescopeModal.filesToImport')}
-            </div>
-            <p className={helperClass}>
-              {t('addTelescopeModal.filesToImportHelp')}
-            </p>
-            <div className="space-y-2 pt-1">
-              <FileTypeToggle
-                label={t('addTelescopeModal.fileTypes.stackedImages.label')}
-                description={t('addTelescopeModal.fileTypes.stackedImages.description')}
-                checked={importJpg}
-                onChange={setImportJpg}
-                isDark={isDark}
-              />
-              <FileTypeToggle
-                label={t('addTelescopeModal.fileTypes.thumbnails.label')}
-                description={t('addTelescopeModal.fileTypes.thumbnails.description')}
-                checked={importThumbnails}
-                onChange={setImportThumbnails}
-                isDark={isDark}
-              />
-              <FileTypeToggle
-                label={t('addTelescopeModal.fileTypes.stackedFits.label')}
-                description={t('addTelescopeModal.fileTypes.stackedFits.description')}
-                checked={importFits}
-                onChange={setImportFits}
-                isDark={isDark}
-              />
-              <FileTypeToggle
-                label={t('addTelescopeModal.fileTypes.subFrames.label')}
-                description={t('addTelescopeModal.fileTypes.subFrames.description')}
-                checked={importSubFrames}
-                onChange={setImportSubFrames}
-                isDark={isDark}
-              />
-              <FileTypeToggle
-                label={t('addTelescopeModal.fileTypes.videos.label')}
-                description={t('addTelescopeModal.fileTypes.videos.description')}
-                checked={importVideos}
-                onChange={setImportVideos}
-                isDark={isDark}
-              />
-              <FileTypeToggle
-                label={t('addTelescopeModal.fileTypes.archiveAll.label')}
-                description={t('addTelescopeModal.fileTypes.archiveAll.description')}
-                checked={archiveAllFiles}
-                onChange={setArchiveAllFiles}
-                isDark={isDark}
-              />
-            </div>
-          </div>
-
-          {/* Optical configurations — only for kinds with no known fixed field
-              of view. Lets the Framing & Mosaic FOV preview draw a real frame
-              for a bare camera/lens rig, including a named entry per optical
-              train (e.g. "Native" vs "0.8x Reducer") instead of only an
-              unsaved, ad-hoc "Custom" entry picked fresh every preview.
-              Configs attach to a profile id, so this only exists once one has
-              been saved — a brand-new "Add Telescope" flow shows a note
-              instead and picks up the full editor on the next Edit. */}
-          {showOptics && (
-            isEdit && existing ? (
-              <OpticalConfigsEditor
-                profile={existing}
-                isDark={isDark}
-                inputClass={inputClass}
-                labelClass={labelClass}
-                helperClass={helperClass}
-              />
-            ) : (
-              <div className={`rounded-xl border p-4 flex items-start gap-3 ${isDark ? 'border-slate-800 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}`}>
-                <Frame className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
-                <p className={helperClass}>
-                  {t('addTelescopeModal.opticalConfigsSaveFirst', { name: preset.label })}
-                </p>
-              </div>
-            )
-          )}
-
           {/* Custom layout help — only when kind is "other" */}
           {kind === 'other' && (
             <div className={`rounded-xl border ${isDark ? 'border-slate-800 bg-slate-950/50' : 'border-slate-200 bg-slate-50'}`}>
@@ -938,6 +887,180 @@ export function AddTelescopeModal({
             </div>
           )}
 
+          </div>
+          )}
+
+          {/* ── Step 3: Import behavior ──────────────────────────── */}
+          {show(3) && (
+          <div className="space-y-6">
+          <StepHeading isDark={isDark} wizard={wizard} title={t('addTelescopeModal.step3Title')} />
+
+          {/* Auto-import toggle + interval */}
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoImportEnabled}
+              onClick={() => setAutoImportEnabled(v => !v)}
+              className={`mt-1 relative inline-flex h-5 w-9 items-center rounded-full transition ${
+                autoImportEnabled
+                  ? 'bg-teal-500'
+                  : isDark ? 'bg-slate-700' : 'bg-slate-300'
+              }`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${
+                autoImportEnabled ? 'translate-x-[18px]' : 'translate-x-1'
+              }`} />
+            </button>
+            <div className="flex-1">
+              <div className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                {kind === 'other' ? t('addTelescopeModal.autoImportOther') : t('addTelescopeModal.autoImportDefault')}
+              </div>
+              <p className={helperClass}>
+                {t('addTelescopeModal.autoImportHelp')}
+              </p>
+              {autoImportEnabled && (
+                <div className="mt-2.5 flex items-center gap-2">
+                  <label className={`text-xs whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {t('addTelescopeModal.checkEvery')}
+                  </label>
+                  <select
+                    value={autoImportInterval}
+                    onChange={e => setAutoImportInterval(Number(e.target.value))}
+                    className={`border rounded-lg px-2 py-1 text-xs outline-none transition ${inputClass}`}
+                  >
+                    <option value={5}>{t('addTelescopeModal.interval5')}</option>
+                    <option value={15}>{t('addTelescopeModal.interval15')}</option>
+                    <option value={30}>{t('addTelescopeModal.interval30')}</option>
+                    <option value={60}>{t('addTelescopeModal.interval60')}</option>
+                    <option value={120}>{t('addTelescopeModal.interval120')}</option>
+                    <option value={360}>{t('addTelescopeModal.interval360')}</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Per-telescope file-type filters. Each scope decides which kinds
+              of files the importer pulls off it — useful when one telescope
+              has a big eMMC and you want everything, and another is on a
+              smaller disk where subframes would burn through storage. */}
+          <div className="space-y-1.5">
+            <div className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+              {t('addTelescopeModal.filesToImport')}
+            </div>
+            <p className={helperClass}>
+              {t('addTelescopeModal.filesToImportHelp')}
+            </p>
+            {wizard ? (
+              <div className="space-y-3 pt-1">
+                <div role="radiogroup" aria-label={t('addTelescopeModal.filesToImport')} className="space-y-2">
+                  {IMPORT_PRESETS.map(id => {
+                    const selected = importPreset === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => chooseImportPreset(id)}
+                        className={`w-full text-left rounded-xl border p-3.5 transition ${
+                          selected
+                            ? isDark ? 'border-accent-500 bg-accent-500/10' : 'border-accent-500 bg-accent-50'
+                            : isDark ? 'border-slate-700 hover:border-slate-600' : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-medium ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                            {t(`addTelescopeModal.presets.${id}.label`)}
+                          </span>
+                          {id === recommendedPreset && (
+                            <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${isDark ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>
+                              {t('addTelescopeModal.recommended')}
+                            </span>
+                          )}
+                        </div>
+                        <p className={helperClass}>{t(`addTelescopeModal.presets.${id}.description`)}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <FileTypeToggle
+                  label={t('addTelescopeModal.fileTypes.videos.label')}
+                  description={t('addTelescopeModal.fileTypes.videos.description')}
+                  checked={importVideos || archiveAllFiles}
+                  onChange={archiveAllFiles ? () => {} : setImportVideos}
+                  isDark={isDark}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1">
+                <FileTypeToggle
+                  label={t('addTelescopeModal.fileTypes.stackedImages.label')}
+                  description={t('addTelescopeModal.fileTypes.stackedImages.description')}
+                  checked={importJpg}
+                  onChange={setImportJpg}
+                  isDark={isDark}
+                />
+                <FileTypeToggle
+                  label={t('addTelescopeModal.fileTypes.thumbnails.label')}
+                  description={t('addTelescopeModal.fileTypes.thumbnails.description')}
+                  checked={importThumbnails}
+                  onChange={setImportThumbnails}
+                  isDark={isDark}
+                />
+                <FileTypeToggle
+                  label={t('addTelescopeModal.fileTypes.stackedFits.label')}
+                  description={t('addTelescopeModal.fileTypes.stackedFits.description')}
+                  checked={importFits}
+                  onChange={setImportFits}
+                  isDark={isDark}
+                />
+                <FileTypeToggle
+                  label={t('addTelescopeModal.fileTypes.subFrames.label')}
+                  description={t('addTelescopeModal.fileTypes.subFrames.description')}
+                  checked={importSubFrames}
+                  onChange={setImportSubFrames}
+                  isDark={isDark}
+                />
+                <FileTypeToggle
+                  label={t('addTelescopeModal.fileTypes.videos.label')}
+                  description={t('addTelescopeModal.fileTypes.videos.description')}
+                  checked={importVideos}
+                  onChange={setImportVideos}
+                  isDark={isDark}
+                />
+                <FileTypeToggle
+                  label={t('addTelescopeModal.fileTypes.archiveAll.label')}
+                  description={t('addTelescopeModal.fileTypes.archiveAll.description')}
+                  checked={archiveAllFiles}
+                  onChange={setArchiveAllFiles}
+                  isDark={isDark}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Optical configurations — only for kinds with no known fixed field
+              of view. Lets the Framing & Mosaic FOV preview draw a real frame
+              for a bare camera/lens rig, including a named entry per optical
+              train (e.g. "Native" vs "0.8x Reducer") instead of only an
+              unsaved, ad-hoc "Custom" entry picked fresh every preview.
+              Configs attach to a profile id, so this only exists once one has
+              been saved: the add flow leaves it out and the editor appears on
+              the next Edit. */}
+          {!wizard && showOptics && existing && (
+            <OpticalConfigsEditor
+              profile={existing}
+              isDark={isDark}
+              inputClass={inputClass}
+              labelClass={labelClass}
+              helperClass={helperClass}
+            />
+          )}
+          </div>
+          )}
+
           {mutation.isError && (
             <div className={`px-3 py-2 rounded-lg text-xs ${
               isDark ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-red-50 text-red-700 border border-red-100'
@@ -947,27 +1070,55 @@ export function AddTelescopeModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${
+        {/* Footer. Kept outside the scroll area so the way forward is always on
+            screen. Adding: Back / Next, then Add on the last step. */}
+        <div className={`shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t ${
           isDark ? 'border-slate-800' : 'border-slate-200'
         }`}>
-          <button
-            onClick={() => onClose()}
-            disabled={mutation.isPending}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50 ${
-              isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
-            }`}
-          >
-            {t('addTelescopeModal.cancel')}
-          </button>
-          <button
-            onClick={() => { if (isEdit) mutation.mutate(); else void handleAdd(); }}
-            disabled={!canSave || probing}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {(saveBusy || probing) && <RotateCw className="w-4 h-4 animate-spin" />}
-            {isEdit ? t('addTelescopeModal.saveChanges') : t('addTelescopeModal.addTelescopeButton')}
-          </button>
+          {wizard && step > 1 ? (
+            <button
+              type="button"
+              onClick={() => setStep(step === 3 ? 2 : 1)}
+              disabled={saveBusy || probing}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition disabled:opacity-50 ${
+                isDark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {t('addTelescopeModal.back')}
+            </button>
+          ) : (
+            <button
+              onClick={() => onClose()}
+              disabled={mutation.isPending}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50 ${
+                isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
+              {t('addTelescopeModal.cancel')}
+            </button>
+          )}
+
+          {wizard && step < 3 ? (
+            <button
+              type="button"
+              onClick={() => setStep(step === 1 ? 2 : 3)}
+              disabled={step === 2 && !canSave}
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {t('addTelescopeModal.next')}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => { if (isEdit) mutation.mutate(); else void handleAdd(); }}
+              disabled={!canSave || probing}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {(saveBusy || probing) && <RotateCw className="w-4 h-4 animate-spin" />}
+              {isEdit ? t('addTelescopeModal.saveChanges') : t('addTelescopeModal.addTelescopeButton')}
+            </button>
+          )}
         </div>
 
         {/* Merge prompt — appears when probe-identity finds this device is
@@ -1010,16 +1161,94 @@ export function AddTelescopeModal({
   );
 }
 
-/** Section heading inside the modal body. Three of these (Identity,
- *  Connection, Import behavior) walk the user through the form in order
- *  without making it feel like a wall of fields. */
-function SectionHeading({ isDark, children }: { isDark: boolean; children: React.ReactNode }) {
+/** Heading for one part of the form. Adding shows it as the step's question;
+ *  editing has the tab bar for that, so it renders nothing. */
+function StepHeading({ isDark, wizard, title }: {
+  isDark: boolean;
+  wizard: boolean;
+  title: string;
+}) {
+  if (!wizard) return null;
   return (
-    <div className={`text-xs font-semibold uppercase tracking-wider pb-1 border-b ${
-      isDark ? 'text-slate-500 border-slate-800/70' : 'text-slate-400 border-slate-200'
-    }`}>
-      {children}
+    <h3 className={`text-base font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+      {title}
+    </h3>
+  );
+}
+
+type ImportPreset = 'images' | 'subframes' | 'everything';
+const IMPORT_PRESETS: ImportPreset[] = ['images', 'subframes', 'everything'];
+
+const STEP_KEYS = ['step1Name', 'step2Name', 'step3Name'] as const;
+
+/** Edit mode's version of StepIndicator: the same three parts as free tabs. A
+ *  dot marks a tab that holds a validation error, since Save is disabled and
+ *  the offending field may be on another tab. */
+function EditTabs({ step, onChange, isDark, errorSteps }: {
+  step: 1 | 2 | 3;
+  onChange: (n: 1 | 2 | 3) => void;
+  isDark: boolean;
+  errorSteps: Array<1 | 2 | 3 | null>;
+}) {
+  const { t } = useTranslation('settings');
+  return (
+    <div role="tablist" className={`flex p-1 rounded-xl gap-1 ${isDark ? 'bg-slate-800/60' : 'bg-slate-100'}`}>
+      {STEP_KEYS.map((key, i) => {
+        const n = (i + 1) as 1 | 2 | 3;
+        const active = n === step;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(n)}
+            className={`relative flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+              active
+                ? isDark ? 'bg-slate-700 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm'
+                : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {t(`addTelescopeModal.${key}`)}
+            {errorSteps.includes(n) && (
+              <span aria-hidden className="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-red-500" />
+            )}
+          </button>
+        );
+      })}
     </div>
+  );
+}
+
+function StepIndicator({ step, isDark }: { step: 1 | 2 | 3; isDark: boolean }) {
+  const { t } = useTranslation('settings');
+  return (
+    <ol className="flex items-center justify-center gap-2" aria-label={t('addTelescopeModal.stepOf', { current: step, total: 3 })}>
+      {STEP_KEYS.map((key, i) => {
+        const n = i + 1;
+        const done = n < step;
+        const active = n === step;
+        return (
+          <li key={key} className="flex items-center gap-2" aria-current={active ? 'step' : undefined}>
+            <span
+              className={`flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-semibold ${
+                active
+                  ? 'bg-accent-500 text-white'
+                  : done
+                    ? isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
+                    : isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'
+              }`}
+            >
+              {done ? '✓' : n}
+            </span>
+            <span className={`text-xs ${active ? (isDark ? 'text-slate-200 font-medium' : 'text-slate-800 font-medium') : isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              {t(`addTelescopeModal.${key}`)}
+            </span>
+            {n < 3 && <span aria-hidden className={`w-6 h-px ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`} />}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

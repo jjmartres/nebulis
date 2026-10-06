@@ -80,6 +80,18 @@ export const ASIAIR_CALIBRATION_PATHS: readonly string[] = ASIAIR_MODE_FOLDERS.f
   mode => ['Dark', 'Flat', 'Bias', 'FlatDark'].map(type => `${mode}/${type}`),
 );
 
+/**
+ * Walk limits for sweeping `ASIAIR_CALIBRATION_PATHS`. After an interrupted
+ * capture run the ASIAIR's EMMC can present a phantom recursive tree: every
+ * entry under `Autorun/Dark/` holds a `Preview/` folder that holds the same
+ * nine entries again (`Plan`, `Autorun`, `Preview`, `Live`, `log`, …), forever.
+ * With nine branches per level, the default depth of 12 is billions of
+ * listings — a sync frozen for hours. Real calibration trees are one level
+ * deep (frames sit directly in `Dark/`, `Flat/`, …), and a path that repeats a
+ * folder name is never one of them, so cap the depth and refuse repeats.
+ */
+export const ASIAIR_CALIBRATION_WALK = { maxDepth: 3, skipRepeatedSegments: true } as const;
+
 /** Folder the ASIAIR writes at the root of removable storage. ZWO's docs note
  *  the device stops reading the stick if this is renamed, so it is a reliable
  *  marker that we are looking at ASIAIR media rather than a bare share. */

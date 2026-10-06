@@ -488,6 +488,12 @@ export function PlannerPage() {
   const [resizePreview, setResizePreview] = useState<Map<number, { edge: 'top' | 'bottom'; deltaMinutes: number }>>(new Map());
   const [copyingPrevNight, setCopyingPrevNight] = useState(false);
   const [copyPrevNightError, setCopyPrevNightError] = useState<string | null>(null);
+  // handleQuickAdd (the target list's "+" button, the only way to schedule on
+  // a phone where drag-and-drop isn't available) used to fail several of its
+  // checks in total silence: tap it with no free slot left tonight and
+  // nothing happened at all, with no way to tell that from the tap simply not
+  // registering. This surfaces exactly which of those checks failed.
+  const [quickAddNotice, setQuickAddNotice] = useState<string | null>(null);
   const [skyEditorOpen, setSkyEditorOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
@@ -582,15 +588,30 @@ export function PlannerPage() {
       // y=0 on the timeline corresponds to tStart (the extended window start).
       const rawStart = new Date(tStart.getTime() + Math.max(0, pointerY / pxPerMinuteRef.current) * 60000);
       const startSnapped = clampTime(snapToGrid(rawStart), tStart, tEnd);
-      const endRaw = new Date(startSnapped.getTime() + DEFAULT_BLOCK_MINUTES * 60000);
-      const endSnapped = clampTime(endRaw, tStart, tEnd);
-      if (minutesBetween(startSnapped, endSnapped) < MIN_BLOCK_MINUTES) return;
+      let blockStart = startSnapped;
+      let endSnapped = clampTime(new Date(startSnapped.getTime() + DEFAULT_BLOCK_MINUTES * 60000), tStart, tEnd);
+      // Dropped into an empty stretch: fit the block to it rather than running
+      // over the neighbour. A gap shorter than a default block is filled
+      // exactly; a longer one keeps a default block, slid to stay inside it.
+      const dropMs = startSnapped.getTime();
+      const gap = findGaps(sessions, tStart, tEnd, 1).find(g => dropMs >= g.start && dropMs < g.end);
+      if (gap) {
+        const defaultMs = DEFAULT_BLOCK_MINUTES * 60000;
+        if (gap.end - gap.start <= defaultMs) {
+          blockStart = new Date(gap.start);
+          endSnapped = new Date(gap.end);
+        } else {
+          blockStart = new Date(Math.min(Math.max(dropMs, gap.start), gap.end - defaultMs));
+          endSnapped = new Date(blockStart.getTime() + defaultMs);
+        }
+      }
+      if (minutesBetween(blockStart, endSnapped) < MIN_BLOCK_MINUTES) return;
       createMutate({
         objectId: data.objectId,
         objectName: data.objectName,
         ra: data.ra,
         dec: data.dec,
-        startTime: startSnapped.toISOString(),
+        startTime: blockStart.toISOString(),
         endTime: endSnapped.toISOString(),
       });
       return;
@@ -879,7 +900,11 @@ export function PlannerPage() {
    */
   const handleQuickAdd = useCallback(
     (target: PlannerTarget) => {
-      if (observerLat == null || observerLon == null || !timelineStartIso || !timelineEndIso) return;
+      setQuickAddNotice(null);
+      if (observerLat == null || observerLon == null || !timelineStartIso || !timelineEndIso) {
+        setQuickAddNotice(t('plannerPage.quickAddNoWindow'));
+        return;
+      }
       const tStart = new Date(timelineStartIso);
       const tEnd = new Date(timelineEndIso);
       const windowStart = darkStartIso ? new Date(darkStartIso) : tStart;
@@ -907,11 +932,17 @@ export function PlannerPage() {
         busy,
         moonIllumination: planner?.moonIllumination ?? undefined,
       });
-      if (!slot) return;
+      if (!slot) {
+        setQuickAddNotice(t('plannerPage.quickAddNoSlot', { name: target.name }));
+        return;
+      }
 
       const start = clampTime(snapToGrid(slot.start), tStart, tEnd);
       const end = clampTime(new Date(start.getTime() + DEFAULT_BLOCK_MINUTES * 60_000), tStart, tEnd);
-      if (minutesBetween(start, end) < MIN_BLOCK_MINUTES) return;
+      if (minutesBetween(start, end) < MIN_BLOCK_MINUTES) {
+        setQuickAddNotice(t('plannerPage.quickAddNoSlot', { name: target.name }));
+        return;
+      }
 
       createMutate({
         objectId: target.id,
@@ -923,7 +954,7 @@ export function PlannerPage() {
       });
       setMobilePane('schedule');
     },
-    [observerLat, observerLon, timelineStartIso, timelineEndIso, darkStartIso, darkEndIso, sessions, createMutate, planner?.moonIllumination],
+    [observerLat, observerLon, timelineStartIso, timelineEndIso, darkStartIso, darkEndIso, sessions, createMutate, planner?.moonIllumination, t],
   );
 
   /**
@@ -1291,6 +1322,12 @@ export function PlannerPage() {
       {copyPrevNightError && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/15 px-3 py-2 text-xs text-red-400">
           {copyPrevNightError}
+        </div>
+      )}
+
+      {quickAddNotice && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
+          {quickAddNotice}
         </div>
       )}
 
@@ -1882,10 +1919,21 @@ function SessionDetailsModal({
         {(FRAMING_MOSAIC_ENABLED || onQuickAdd || isScheduled || (isAlreadyImaged && libraryObjectId)) && (
           <div className={`shrink-0 flex flex-wrap gap-2 p-5 pt-3 border-t ${isDark ? 'border-slate-700/40' : 'border-slate-200'}`}>
             {isScheduled ? (
-              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                <Check className="w-4 h-4" />
-                {t('wishlistPanel.scheduled')}
-              </span>
+              <>
+                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                  <Check className="w-4 h-4" />
+                  {t('wishlistPanel.scheduled')}
+                </span>
+                {onQuickAdd && (
+                  <button
+                    onClick={onQuickAdd}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition border border-accent-500/50 text-accent-400 hover:bg-accent-500/10"
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                    {t('wishlistPanel.addAnother')}
+                  </button>
+                )}
+              </>
             ) : onQuickAdd ? (
               <button
                 onClick={onQuickAdd}

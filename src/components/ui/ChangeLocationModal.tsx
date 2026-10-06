@@ -11,6 +11,7 @@ import {
   type VolumeInfo, type DirectoryEntry, type LibraryLocation, type NetworkLibraryConfig,
 } from '../../lib/api/storage';
 import { getInputClass } from '../settings/SettingsUI';
+import { looksLikeShareAddress, parseShareAddress } from '../../lib/uncInput';
 import { formatBytes } from '../../lib/utils';
 import { Modal } from './Modal';
 
@@ -317,6 +318,28 @@ function NetworkShareForm({
   const body = isDark ? 'text-slate-300' : 'text-slate-600';
   const sub = isDark ? 'text-slate-500' : 'text-slate-400';
 
+  /** The same paste people make here: `\\host\share` into the server field. See
+   *  src/lib/uncInput.ts. */
+  function updateServer(value: string) {
+    if (!looksLikeShareAddress(value)) {
+      update('host', value);
+      return;
+    }
+    const parsed = parseShareAddress(value);
+    if (parsed === null) {
+      update('host', value);
+      return;
+    }
+    setCfg(c => ({
+      ...c,
+      host: parsed.host,
+      share: parsed.share === '' ? c.share : parsed.share,
+      subpath: parsed.subpath === '' ? c.subpath : parsed.subpath,
+    }));
+    setTestResult(null);
+    setError('');
+  }
+
   function update(field: keyof NetworkLibraryConfig, value: string) {
     setCfg(c => ({ ...c, [field]: value }));
     setTestResult(null);
@@ -361,7 +384,7 @@ function NetworkShareForm({
             <label className={`block text-xs font-medium uppercase tracking-wide mb-1.5 ${sub}`}>{t('changeLocationModal.network.serverAddress')}</label>
             <input
               value={cfg.host}
-              onChange={e => update('host', e.target.value)}
+              onChange={e => updateServer(e.target.value)}
               placeholder={t('changeLocationModal.network.serverAddressPlaceholder')}
               className={`${getInputClass(isDark)} w-full`}
             />

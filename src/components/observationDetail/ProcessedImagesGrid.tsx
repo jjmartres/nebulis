@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Upload, ImagePlus, Crown, Download, Star, Trash2, Loader2, FileDown, Layers } from 'lucide-react';
+import { Upload, ImagePlus, Crown, Download, Star, Trash2, Loader2, FileDown, Layers, FolderOutput } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { isRenderableProcessed, processedFormatLabel } from '../../lib/processedFormats';
 import { formatDate } from '../../lib/formatLocale';
@@ -24,6 +24,7 @@ export function ProcessedImagesGrid({
   settingGalleryId,
   deletingProcessedId,
   onRequestDelete,
+  onRequestUnmark,
   isDragging,
   setIsDragging,
   onUploadClick,
@@ -42,6 +43,8 @@ export function ProcessedImagesGrid({
   settingGalleryId: string | null;
   deletingProcessedId: string | null;
   onRequestDelete: (id: string) => void;
+  /** Ask to move a processed image back to the telescope Images tab. */
+  onRequestUnmark: (id: string) => void;
   isDragging: boolean;
   setIsDragging: (dragging: boolean) => void;
   onUploadClick: () => void;
@@ -216,6 +219,20 @@ export function ProcessedImagesGrid({
                           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           : <Star className="w-3.5 h-3.5" />
                         }
+                      </button>
+                    )}
+
+                    {/* Move back to Images — admin, single-night renderable images
+                        only. A combined-run or dateless image has no one night to
+                        return to, and a stored-only format isn't a picture. */}
+                    {isAdmin && canRender && img.date && !img.runDates && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onRequestUnmark(img.id); }}
+                        className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-white/30 transition"
+                        title={t('observationDetail.processedImagesGrid.moveToImages')}
+                        aria-label={t('observationDetail.processedImagesGrid.moveToImages')}
+                      >
+                        <FolderOutput className="w-3.5 h-3.5" />
                       </button>
                     )}
 

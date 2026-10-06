@@ -128,6 +128,10 @@
       "images": "Images",
       "subframes": "Subframes",
       "processed": "Processed",
+      "dropToMarkProcessed": "Drop to mark as processed",
+      "markProcessedFailed": "Could not mark as processed: {{message}}",
+      "markProcessedFailedFallback": "Could not mark as processed",
+      "dismiss": "Dismiss",
       "videos": "Videos"
     },
     "captureMetrics": {
@@ -238,7 +242,8 @@
       "removeFromFavorites": "Remove from favorites",
       "addToFavorites": "Add to favorites",
       "showingRange": "Showing {{from}}–{{to}} of {{total}}",
-      "empty": "No files found"
+      "empty": "No files found",
+      "markAsProcessed": "Mark as processed"
     },
     "processedImagesGrid": {
       "upload": "Upload",
@@ -251,7 +256,8 @@
       "setAsGalleryImage": "Set as gallery image",
       "delete": "Delete",
       "combinesNights": "Combines {{count}} nights: {{list}}",
-      "addMore": "Add more"
+      "addMore": "Add more",
+      "moveToImages": "Mark as unprocessed"
     },
     "hero": {
       "breadcrumb": "Breadcrumb",
@@ -301,7 +307,13 @@
       "deleteSubframes": "Delete Subframes",
       "compareImage1Alt": "Image 1",
       "compareImage2Alt": "Image 2",
-      "vs": "vs"
+      "vs": "vs",
+      "markProcessedTitle": "Mark as processed?",
+      "markProcessedMessage": "This moves the image out of Images and into Processed. Nothing is deleted.",
+      "markProcessedConfirm": "Mark as processed",
+      "unmarkProcessedTitle": "Mark as unprocessed?",
+      "unmarkProcessedMessage": "This moves the image out of Processed and back into this night's Images. Nothing is deleted.",
+      "unmarkProcessedConfirm": "Mark as unprocessed"
     },
     "fitsHeaderModal": {
       "title": "FITS Header for {{fileName}}",

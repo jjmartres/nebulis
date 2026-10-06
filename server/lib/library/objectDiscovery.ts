@@ -15,6 +15,7 @@
  */
 import { parseFilename } from '../telescopeFiles.js';
 import { isCalibrationFolderName } from './calibrationFolders.js';
+import { kindFromModel, type TelescopeKind } from '../types/telescopeKind.js';
 
 /** Folders that are purely containers: SeeStar dumps all planetary images here
  *  regardless of which planet was imaged. They must never appear as library
@@ -85,6 +86,56 @@ const NON_OBJECT_FOLDERS = new Set([
   'snapshot',
   'log',
 ]);
+
+/**
+ * A user's hand-organised library commonly numbers its folders for a fixed
+ * viewing order ("1. Seestar S50", "01 - Caldwell Objects", "3) Messier").
+ * Stripped before any exact-name folder classification below, so the ordering
+ * doesn't have to be enumerated alongside every name it might prefix. Object
+ * folders never need this: `identifyObjectFromFolderName` already matches a
+ * designation embedded anywhere in a longer name (see its own docs), so
+ * "1. M 1 - Crab Nebula" resolves to M1 without stripping anything.
+ */
+export function stripOrderingPrefix(name: string): string {
+  return name.replace(/^\s*\(?\d+[.)-]\s*/, '').trim();
+}
+
+/**
+ * Device-model folder names, for a hand-organised tree that groups captures by
+ * which telescope took them (e.g. "MyWorks/1. Seestar S50/1. Caldwell Objects/...").
+ * These name a telescope, never an object, and the linked-library attribution
+ * engine (treeAttribution.ts) climbs straight through them while noting the
+ * telescope kind to stamp on the files beneath. `kindFromModel`
+ * (telescopeKind.ts) is the canonical model-string -> kind mapping used for a
+ * telescope profile's own `model` field; this reuses the same literal strings
+ * case-insensitively, since a user's folder name may differ only in case
+ * ("Seestar S50" vs the canonical "SeeStar S50"). Keep this list in sync with
+ * `kindFromModel`'s switch if a new device model is ever added there.
+ */
+const DEVICE_MODEL_NAMES = [
+  'SeeStar S50', 'SeeStar S50 Pro', 'SeeStar S30', 'SeeStar S30 Pro',
+  'Dwarf 3', 'Dwarf II', 'Dwarf Mini', 'ASIAIR',
+];
+const DEVICE_MODEL_LOOKUP = new Map(DEVICE_MODEL_NAMES.map(n => [n.toLowerCase(), n]));
+
+/** The canonical model string a folder name (after stripping an ordering
+ *  prefix) names, or null when it names no known device model. */
+export function deviceModelFromFolderName(name: string): string | null {
+  return DEVICE_MODEL_LOOKUP.get(stripOrderingPrefix(name).toLowerCase()) ?? null;
+}
+
+export function isDeviceModelFolder(name: string): boolean {
+  return deviceModelFromFolderName(name) !== null;
+}
+
+/** The telescope kind a device-model folder name implies, or null when the
+ *  name doesn't identify a device model at all. Distinct from `kindFromModel`
+ *  returning `'other'`: that means "a model string, but not one we recognise";
+ *  this means "not a device-model folder in the first place". */
+export function telescopeKindFromFolderName(name: string): TelescopeKind | null {
+  const model = deviceModelFromFolderName(name);
+  return model ? kindFromModel(model) : null;
+}
 
 /** Calibration folder names (cali_frame, dwarf_dark, dark/darks, flat/flats,
  *  bias/biases, flatdark and its variants, ...) live in calibrationFolders.ts

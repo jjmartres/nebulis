@@ -88,12 +88,12 @@ export function ObservationsHero({
       <div className="relative flex flex-col gap-7 p-4 sm:p-6 lg:flex-row lg:items-center lg:gap-10">
         {/* The record */}
         <div className="min-w-0 lg:w-[38%] lg:shrink-0">
-          <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            <CalendarDays className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
+          <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+            <CalendarDays className="h-5 w-5 sm:h-7 sm:w-7" style={{ color: accent }} />
             {t('hero.title')}
           </h1>
 
-          <p className="mt-2 text-[13px] text-white/55">
+          <p className="mt-2 hidden text-[13px] text-white/55 sm:block">
             {totals.sessions === 0
               ? t('hero.emptyHint')
               : span}
@@ -103,7 +103,7 @@ export function ObservationsHero({
           </p>
 
           {totals.sessions > 0 && (
-            <div className="mt-5 flex flex-wrap gap-x-8 gap-y-4">
+            <div className="mt-5 hidden flex-wrap gap-x-8 gap-y-4 sm:flex">
               {stats.map(({ value, label }) => (
                 <div key={label} className="min-w-0">
                   <div className="font-display text-2xl font-bold leading-none tracking-tight text-white tabular-nums">

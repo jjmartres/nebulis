@@ -21,7 +21,7 @@
  * commit fallback and a unit test all get the same answer.
  */
 import { getCatalogEntry, findCatalogEntryByExactName, type CatalogEntry } from '../../data/catalog.js';
-import { normalizeCatalogId } from '../telescopeFiles.js';
+import { normalizeCatalogId, variantSuffix } from '../telescopeFiles.js';
 import { normalizeDesignation, resolveCanonicalId } from '../catalogAliases.js';
 
 export interface IdentifiedObject {
@@ -31,6 +31,12 @@ export interface IdentifiedObject {
   type: string;
   constellation: string | null;
   magnitude: number | null;
+  /**
+   * The id to store this under. `objectId` is the catalog object ("M31"); this keeps an imaging variant
+   * ("M31_mosaic", "M16_Ha") so it lands as its own object exactly as a telescope sync stores it, and the
+   * Library groups it under the base object's card. Equal to `objectId` for a plain name.
+   */
+  targetObjectId: string;
 }
 
 /**
@@ -47,6 +53,7 @@ const DESIGNATION_TOKEN_RE =
 function fromEntry(objectId: string, entry: CatalogEntry): IdentifiedObject {
   return {
     objectId,
+    targetObjectId: objectId,
     name: entry.name,
     type: entry.type,
     constellation: entry.constellation ?? null,
@@ -76,6 +83,13 @@ function designationTokens(folderName: string): string[] {
  *     spaces, and punctuation ("Bodes Galaxy" -> "Bode's Galaxy").
  */
 export function identifyObjectFromFolderName(folderName: string): IdentifiedObject | null {
+  const found = identifyBase(folderName);
+  if (!found) return null;
+  const suffix = variantSuffix(folderName.trim());
+  return suffix ? { ...found, targetObjectId: `${found.objectId}${suffix}` } : found;
+}
+
+function identifyBase(folderName: string): IdentifiedObject | null {
   const trimmed = folderName.trim();
   if (!trimmed) return null;
 

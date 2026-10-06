@@ -73,7 +73,15 @@ async function resolveHostBounded(host: string, timeoutMs: number): Promise<stri
   if (cached && Date.now() - cached.at < RESOLVED_HOST_TTL_MS) return cached.ip;
 
   let timer: NodeJS.Timeout | undefined;
-  const lookup = dns.lookup(host);
+  // Ask for IPv4 only, then fall back to a dual-stack lookup. mDNS devices (a
+  // Seestar's `seestar.local`) answer the A query in milliseconds but never
+  // answer AAAA, and a dual-stack getaddrinfo waits out a fixed ~5s for that
+  // missing answer — longer than our timeout, so the host was reported
+  // unreachable without a connect ever being attempted while ping and nc, which
+  // resolve IPv4 first, worked fine. SMB devices on a LAN are IPv4 in practice;
+  // the fallback keeps IPv6-only hosts working.
+  const lookup = dns.lookup(host, { family: 4 })
+    .catch(() => dns.lookup(host));
   // A lookup that loses the race is uncancellable and may still reject later;
   // swallow that so it doesn't surface as an unhandled rejection.
   lookup.catch(() => { /* ignored — handled via the race below */ });

@@ -294,6 +294,18 @@ export const probeTransportIdentity = (data: ProbeIdentityInput) =>
     body: JSON.stringify(data),
   });
 
+export interface FoundDevice {
+  host: string;
+  kind: string;
+  label: string;
+  protocol: 'smb' | 'ftp';
+  name: string | null;
+}
+
+/** Sweep the server's LAN for SeeStar / ASIAIR / Dwarf devices. Takes several seconds. */
+export const scanForDevices = () =>
+  fetchJSON<{ devices: FoundDevice[]; subnets: string[] }>('/telescopes/scan', { method: 'POST' });
+
 export const addProfileTransport = (
   profileId: string,
   data: Partial<Omit<TelescopeTransport, 'id' | 'profileId' | 'lastSeenAt' | 'createdAt'>>,

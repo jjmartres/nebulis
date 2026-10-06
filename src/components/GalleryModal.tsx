@@ -5,6 +5,7 @@ import {
   Loader2, Download, Trash2, FileImage, Image, Pencil, Contrast, Star, Share2,
 } from 'lucide-react';
 import { deleteLibraryFile } from '../lib/api/library';
+import { isLinkedPath } from '../lib/linkedPaths';
 import { FitsViewer } from './FitsViewer';
 import { FitsThumbnail } from './FitsThumbnail';
 import { ConfirmModal } from './ConfirmModal';
@@ -238,7 +239,7 @@ export function GalleryModal({
     setDeleting(true);
     try {
       if (target.kind === 'file') {
-        await deleteLibraryFile(target.file.path);
+        await deleteLibraryFile(target.file.path, { deleteLinked: isLinkedPath(target.file.path) });
         queryClient.invalidateQueries({ queryKey: ['observation-files', objectId, date] });
         queryClient.invalidateQueries({ queryKey: ['observation', objectId, date] });
         // The object's file counts and hero thumbnail are derived from this
@@ -522,7 +523,7 @@ export function GalleryModal({
           title={pendingDelete.kind === 'file' ? t('galleryModal.deleteFileTitle') : t('galleryModal.deleteImageTitle')}
           message={
             pendingDelete.kind === 'file'
-              ? t('galleryModal.deleteFileMessage', { name: pendingDelete.file.name })
+              ? t(isLinkedPath(pendingDelete.file.path) ? 'galleryModal.deleteLinkedFileMessage' : 'galleryModal.deleteFileMessage', { name: pendingDelete.file.name })
               : t('galleryModal.deleteImageMessage')
           }
           confirmLabel={deleting ? t('galleryModal.deleting') : t('objectDetail.processedSection.delete')}

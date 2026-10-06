@@ -12,13 +12,16 @@ import { getCurrentUser } from '../lib/api/auth';
 import { getUpdateStatus } from '../lib/api/update';
 import { clearAuthToken, getAuthToken } from '../lib/api/client';
 import { useClickOutside } from '../hooks/useClickOutside';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useAuth } from '../contexts/AuthContext';
 import { WhatsNewAutoPopup } from './help/WhatsNewAutoPopup';
+import { LayoutMigrationPrompt } from './library/LayoutMigrationPrompt';
 import { MobileMenu } from './MobileMenu';
 import { LibraryUnavailableBanner } from './LibraryUnavailableBanner';
 import { UpdateBanner } from './UpdateBanner';
 import { TourAnchor } from './tour/TourAnchor';
 import { useTour } from './tour/TourProvider';
+import { nightSafeColor } from '../lib/nightSafeColor';
 
 interface LayoutProps {
   children: ReactNode;
@@ -180,9 +183,33 @@ export function Layout({ children }: LayoutProps) {
 
   useClickOutside(dropdownRef, () => setProfileOpen(false));
 
+  // Hamburger drawer for phones/tablets. `hamburgerButtonRef` is passed
+  // alongside `mobileNavRef` (not just the drawer) because the button and the
+  // drawer are disconnected DOM subtrees — the button sits in the nav's right
+  // cluster, the drawer renders as the nav's sibling below it. Without the
+  // button in the "inside" set, useClickOutside's own mousedown listener saw
+  // every tap on the button as an outside click and closed the drawer a tick
+  // before the button's onClick reopened it, so it could never actually close
+  // from its own toggle.
+  const isDesktopNav = useMediaQuery('(min-width: 1024px)');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const mobileNavRef = useRef<HTMLDivElement>(null);
-  useClickOutside(mobileNavRef, () => setMobileNavOpen(false), { enabled: mobileNavOpen, closeOnEscape: true });
+  const hamburgerButtonRef = useRef<HTMLButtonElement>(null);
+  useClickOutside([hamburgerButtonRef, mobileNavRef], () => setMobileNavOpen(false), { enabled: mobileNavOpen, closeOnEscape: true });
+  // The drawer is only CSS-hidden (`lg:hidden`) above the breakpoint, not
+  // unmounted, so its open state survives a resize past 1024px. Without this,
+  // opening it narrow, widening past desktop, then narrowing again (rotate,
+  // fold/unfold, a devtools viewport change) brought it back already open.
+  // Adjusted during render (React's documented pattern for resetting state on
+  // a prop/derived-value change, using state rather than a ref so it works
+  // under the Compiler's render-purity rules) rather than in an effect, so
+  // there is no extra commit where the drawer is briefly still open at
+  // desktop width.
+  const [prevIsDesktopNav, setPrevIsDesktopNav] = useState(isDesktopNav);
+  if (prevIsDesktopNav !== isDesktopNav) {
+    setPrevIsDesktopNav(isDesktopNav);
+    if (isDesktopNav) setMobileNavOpen(false);
+  }
 
   // Sizing and placement pass for the nav strip. Runs in a layout effect so
   // the decision is applied before paint: on a narrow screen the strip renders
@@ -207,6 +234,9 @@ export function Layout({ children }: LayoutProps) {
       const logoRight = logo.getBoundingClientRect().right;
       const rightLeft = right.getBoundingClientRect().left;
       const needed = Math.ceil(strip.getBoundingClientRect().width);
+      // Below lg the strip is `hidden`, which zeroes its own measurement —
+      // treat that as "not measured yet" rather than a real full-size width of
+      // 0, or the compact/shift math below divides by nothing useful.
       if (needed === 0) return;
       // Every pixel between the logo and the status cluster is room the strip
       // can use. Judging it against the room mirrored about the bar's centre
@@ -301,6 +331,11 @@ export function Layout({ children }: LayoutProps) {
           null until it has both /meta/version and the user's lastSeenVersion
           and they differ. */}
       <WhatsNewAutoPopup />
+
+      {/* One-time prompt for libraries still in the old flat layout. Waits for
+          the What's New popup to settle and renders nothing once every object
+          is converted. */}
+      <LayoutMigrationPrompt />
 
       {/* Desktop auto-update banner. Renders null unless a signed update is
           available for this platform. */}
@@ -471,7 +506,7 @@ export function Layout({ children }: LayoutProps) {
                           </button>
                         )}
                       </div>
-                      {allStatus.map(s => {
+                      {allStatus.map((s, scopeIdx) => {
                         // The toolbar spinner is driven by import status, which is
                         // shared across all telescopes, so a per-row spinner needs
                         // its own signal: the status telescopeId once the server
@@ -490,9 +525,9 @@ export function Layout({ children }: LayoutProps) {
                           <span
                             className="w-2 h-2 rounded-full shrink-0"
                             style={{
-                              backgroundColor: s.online ? s.color : 'transparent',
-                              boxShadow: s.online ? `0 0 6px ${s.color}cc` : undefined,
-                              border: s.online ? 'none' : `1px dashed ${isDark ? '#475569' : '#cbd5e1'}`,
+                              backgroundColor: s.online ? nightSafeColor(s.color, isNight, scopeIdx) : 'transparent',
+                              boxShadow: s.online ? `0 0 6px ${nightSafeColor(s.color, isNight, scopeIdx)}cc` : undefined,
+                              border: s.online ? 'none' : `1px dashed ${isNight ? '#4d1414' : isDark ? '#475569' : '#cbd5e1'}`,
                             }}
                           />
                           <div className="flex-1 min-w-0">
@@ -552,6 +587,7 @@ export function Layout({ children }: LayoutProps) {
               {/* Hamburger — phones and tablets only (hidden on desktop).
                   Opens the slide-down drawer below the nav bar. */}
               <button
+                ref={hamburgerButtonRef}
                 onClick={() => setMobileNavOpen(o => !o)}
                 aria-label={mobileNavOpen ? t('layout.closeNavMenu') : t('layout.openNavMenu')}
                 aria-expanded={mobileNavOpen}

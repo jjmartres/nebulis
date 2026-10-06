@@ -27,6 +27,8 @@ import { useImageFocalPoint } from '../../hooks/useImageFocalPoint';
 import { FileLocationModal } from '../library/FileLocationModal';
 import { DownloadConfirmModal } from './DownloadConfirmModal';
 import { HeroBackdrop } from '../ui/HeroBackdrop';
+import { useTheme } from '../../hooks/useTheme';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 import { HERO_IMAGES } from '../../lib/heroImagery';
 import { CaptureRail } from '../ui/CaptureRail';
 import type { CaptureMetric } from '../../lib/captureMetrics';
@@ -55,6 +57,10 @@ interface Props {
    *  Null while the source is still being resolved, which renders as the mat
    *  with a spinner rather than as "no image". */
   imageSrc: string | null;
+  /** Scale the picture up to the frame height. A framed crop is cut from a
+   *  small region and comes back at its own pixel size, which would otherwise
+   *  draw as a thumbnail-sized image. */
+  imageFill?: boolean;
   /** True once the source resolved to nothing, or failed twice. */
   imageFailed: boolean;
   /** The picture 404'd. The page owns what happens next (one silent refetch, in
@@ -135,7 +141,7 @@ const FRAME_MAX_HEIGHT = 'max-h-[240px] sm:max-h-[300px] lg:max-h-[360px]';
 const FRAME_PLACEHOLDER = `${FRAME_HEIGHT} aspect-square`;
 
 export function ObjectHero({
-  displayName, eyebrow, imageSrc, imageFailed, onImageError, onEditImage,
+  displayName, eyebrow, imageSrc, imageFill = false, imageFailed, onImageError, onEditImage,
   telescopes, metrics, accent,
   filterRecommendations = null,
   isFavorite, onToggleFavorite,
@@ -145,6 +151,7 @@ export function ObjectHero({
   objectId, hideTargetActions = false,
 }: Props) {
   const { t } = useTranslation('library');
+  const { isNight } = useTheme();
   const [showLocation, setShowLocation] = useState(false);
   const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -259,7 +266,7 @@ export function ObjectHero({
                     // or gives up and imageFailed flips true, which routes
                     // rendering to the "No image yet" branch instead.
                     onError={onImageError}
-                    className={`${FRAME_MAX_HEIGHT} max-w-full rounded-xl object-contain`}
+                    className={`${imageFill ? FRAME_HEIGHT : FRAME_MAX_HEIGHT} max-w-full rounded-xl object-contain`}
                     // A hard rectangle with a drop shadow read as a photo pasted
                     // onto the panel. This dissolves the picture's own edges into
                     // it instead: the ambient blurred copy behind the whole hero
@@ -368,9 +375,9 @@ export function ObjectHero({
                     {/* Which telescopes have been on this target. A target shot on
                         two rigs is worth knowing about before comparing nights. */}
                     <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-                      {telescopes.map(tel => (
+                      {telescopes.map((tel, i) => (
                         <span key={tel.id} className="inline-flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: tel.color }} />
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: nightSafeColor(tel.color, isNight, i) }} />
                           {tel.name}
                         </span>
                       ))}

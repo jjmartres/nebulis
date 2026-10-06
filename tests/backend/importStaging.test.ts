@@ -20,7 +20,6 @@ import {
   isValidTmpId,
   isStagedPath,
   isImportStagingBase,
-  getImportTmpUsage,
   purgeImportTmp,
   purgeImportTmpSession,
   checkFreeSpace,
@@ -101,24 +100,6 @@ describe('isValidTmpId', () => {
   });
 });
 
-describe('getImportTmpUsage', () => {
-  it('reports zero when the staging area does not exist', () => {
-    expect(getImportTmpUsage()).toMatchObject({ bytes: 0, files: 0, sessions: 0, oldestAt: null });
-  });
-
-  it('totals bytes and files across nested session directories', () => {
-    stage('a', { 'M42/light.fit': 'x'.repeat(100), 'M42/sub/other.fit': 'x'.repeat(20) });
-    stage('b', { 'stacked.jpg': 'x'.repeat(30) });
-
-    const usage = getImportTmpUsage();
-
-    expect(usage.sessions).toBe(2);
-    expect(usage.files).toBe(3);
-    expect(usage.bytes).toBe(150);
-    expect(usage.oldestAt).not.toBeNull();
-  });
-});
-
 describe('purgeImportTmp', () => {
   it('deletes sessions past the age floor and leaves recent ones alone', () => {
     stage('old', { 'a.fit': 'x'.repeat(10) }, 60 * 60 * 1000);
@@ -139,7 +120,7 @@ describe('purgeImportTmp', () => {
 
     expect(result.deleted).toBe(2);
     expect(result.skippedActive).toBe(0);
-    expect(getImportTmpUsage().sessions).toBe(0);
+    expect(fs.readdirSync(IMPORT_TMP_BASE)).toHaveLength(0);
   });
 });
 

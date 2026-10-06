@@ -49,7 +49,9 @@
     "stillToImage_one": "noch {{count}} aufzunehmen",
     "stillToImage_other": "noch {{count}} aufzunehmen",
     "planTonightTitle": "Heute Nacht aus nicht aufgenommenen {{label}}-Objekten planen",
-    "planTonight": "Heute Nacht planen"
+    "planTonight": "Heute Nacht planen",
+    "inFrameNote_one": "Enthält {{count}} im Bildfeld eines anderen Objekts",
+    "inFrameNote_other": "Enthält {{count}} im Bildfeld anderer Objekte"
   },
   "catalogPanel": {
     "ariaLabel": "Katalog {{label}}, {{imaged}} von {{total}} Objekten aufgenommen",
@@ -71,7 +73,9 @@
     "addToWishlist": "Zur Wunschliste hinzufügen",
     "removeFromWishlist": "Von der Wunschliste entfernen",
     "addToWishlistAriaLabel": "{{name}} zur Wunschliste hinzufügen",
-    "removeFromWishlistAriaLabel": "{{name}} von der Wunschliste entfernen"
+    "removeFromWishlistAriaLabel": "{{name}} von der Wunschliste entfernen",
+    "inFrame": "In {{host}}",
+    "inFrameAriaLabel": "{{id}}, {{name}}, im selben Bildfeld wie {{host}} aufgenommen"
   },
   "catalogToolbar": {
     "filterAll": "Alle",
@@ -117,7 +121,8 @@
     "framingButton": "Framing & Mosaik",
     "framingButtonTitle": "Vorschau, wie dieses Objekt im Bildfeld Ihres Teleskops aussieht, und ein Mosaik planen",
     "addToWishlist": "Zur Wunschliste hinzufügen",
-    "removeFromWishlist": "Von der Wunschliste entfernen"
+    "removeFromWishlist": "Von der Wunschliste entfernen",
+    "imagedInFrame": "Im Bildfeld von {{host}} aufgenommen"
   },
   "filterRecommendations": {
     "heading": "Filterempfehlungen",

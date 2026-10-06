@@ -10,8 +10,9 @@
  */
 // Inlined at bundle time by tsup/esbuild — no runtime file access needed.
 import openNgcJson from '../data/openngc.json';
-import { expandSearchAliases, resolveCanonicalId, normalizeDesignation } from './catalogAliases.js';
+import { expandSearchAliases, resolveCanonicalId, normalizeDesignation, getAliasesFor } from './catalogAliases.js';
 import { getAllCuratedRecords } from './catalogStore.js';
+import { SHARPLESS_CATALOG } from './sharplessCatalog.js';
 import { isRecord } from './typeGuards.js';
 import { raToHours, decToDegs, maxPossibleAltitude } from './astroCalc.js';
 
@@ -28,6 +29,9 @@ export interface DsoEntry {
   majorAxisArcmin: number | null;
   commonNames: string[];
   messier: number | null;
+  /** Every other catalog designation for this object (M/NGC/IC/Caldwell/Sharpless),
+   *  excluding `id`. Only populated on search results. */
+  aliases?: string[];
 }
 
 let _catalog: DsoEntry[] | null = null;
@@ -162,14 +166,93 @@ function loadCuratedExtras(): DsoEntry[] {
   return extras;
 }
 
-/** OpenNGC catalog + curated extras: the full set search/getById see. */
+let _sharplessExtras: DsoEntry[] | null = null;
+
+/**
+ * The Sharpless HII regions that are not already an OpenNGC or curated object.
+ * sharpless.json holds 313; about 60 of them are objects the other two lists
+ * carry under an NGC/Messier/curated id (Sh2-6 is NGC 6302), and the other ~250
+ * were in neither search nor the Planner, so "Sh2-1" found nothing. They have
+ * coordinates and sizes but no constellation or magnitude, which the app treats
+ * as unknown.
+ */
+function loadSharplessExtras(): DsoEntry[] {
+  if (_sharplessExtras) return _sharplessExtras;
+  const out: DsoEntry[] = [];
+  for (const e of SHARPLESS_CATALOG) {
+    const id = e.id.toUpperCase().replace(/\s+/g, '');
+    // An alias of another object (ngcRef / messierRef) is that object, not a new one.
+    if (resolveCanonicalId(id).toUpperCase().replace(/\s+/g, '') !== id) continue;
+    out.push({
+      id,
+      ngcName: id,
+      name: e.commonName || `Sh2-${id.replace(/^SH2-/, '')}`,
+      type: 'Emission Nebula',
+      typeCode: typeCodeForLabel('Emission Nebula'),
+      constellation: null,
+      ra: e.raDeg / 15,
+      dec: e.decDeg,
+      magnitude: null,
+      majorAxisArcmin: e.sizeArcmin > 0 ? e.sizeArcmin : null,
+      commonNames: [],
+      messier: null,
+    });
+  }
+  _sharplessExtras = out;
+  return out;
+}
+
+/** OpenNGC catalog + curated extras + the remaining Sharpless objects: the full set search/getById see. */
 function loadSearchable(): DsoEntry[] {
-  if (!_searchable) _searchable = loadCatalog().concat(loadCuratedExtras());
+  if (!_searchable) {
+    // Curated extras can repeat an OpenNGC id (NGC4449 is in both). Keep one
+    // row per id, folding the curated common names into the OpenNGC entry.
+    const byId = new Map<string, DsoEntry>();
+    for (const e of loadCatalog().concat(loadCuratedExtras(), loadSharplessExtras())) {
+      const prev = byId.get(e.id);
+      if (!prev) { byId.set(e.id, e); continue; }
+      // A bare-id name ("NGC5866") yields to the curated display name.
+      const merged = prev.name === prev.id && e.name !== e.id ? { ...prev, name: e.name } : prev;
+      const names = new Set([merged.name, ...merged.commonNames].map(n => n.toLowerCase()));
+      const extra = [e.name, ...e.commonNames].filter(n => !names.has(n.toLowerCase()) && n !== e.id);
+      byId.set(e.id, extra.length ? { ...merged, commonNames: [...merged.commonNames, ...extra] } : merged);
+    }
+    _searchable = Array.from(byId.values());
+  }
   return _searchable;
 }
 
 export function getCatalog(): DsoEntry[] {
   return loadCatalog();
+}
+
+let _plannable: DsoEntry[] | null = null;
+
+/**
+ * Every object the Planner can schedule: the OpenNGC catalog plus the curated
+ * objects OpenNGC does not carry (most of the Sharpless catalog, the Horsehead
+ * as B33, Sadr, the Witch Head), each listed once.
+ *
+ * An object already present under an OpenNGC id keeps that id. The Cave Nebula
+ * is OpenNGC's "C9" and the curated "SH2-155"; the Planner keeps "C9" so that
+ * wishlist items, plans and thumbnails saved under it keep working, and the
+ * curated twin is dropped. `getCatalog()` stays OpenNGC-only for the callers
+ * that mean exactly that (the catalog download job).
+ */
+export function getPlannerCatalog(): DsoEntry[] {
+  if (_plannable) return _plannable;
+  const canon = (id: string) => resolveCanonicalId(id).toUpperCase().replace(/\s+/g, '');
+  const base = loadCatalog();
+  const have = new Set(base.map(e => canon(e.id)));
+  const extras: DsoEntry[] = [];
+  for (const e of loadSearchable()) {
+    const key = canon(e.id);
+    if (have.has(key)) continue;
+    have.add(key);
+    extras.push(e);
+  }
+  _plannable = base.concat(extras);
+  return _plannable;
 }
 
 export function getById(id: string): DsoEntry | undefined {
@@ -225,6 +308,80 @@ export function getByName(name: string): DsoEntry | undefined {
   );
 }
 
+/** Every catalog designation for an entry besides its own id: the raw OpenNGC
+ *  name, its Messier number and each Caldwell/Sharpless/NGC alias. */
+export function designationsFor(entry: DsoEntry): string[] {
+  const out = new Map<string, string>();
+  const add = (d: string | null | undefined) => {
+    if (!d) return;
+    const norm = normalizeDesignation(d);
+    if (norm.toUpperCase() === entry.id.toUpperCase()) return;
+    if (!out.has(norm.toUpperCase())) out.set(norm.toUpperCase(), norm);
+  };
+  add(entry.ngcName);
+  if (entry.messier != null) add(`M${entry.messier}`);
+  for (const a of getAliasesFor(entry.id)) add(a);
+  // An entry stored under a non-canonical id (OpenNGC's own "C9" row for the
+  // Cave Nebula, whose canonical id is Sh2-155) is still the same object.
+  add(resolveCanonicalId(entry.id));
+  return Array.from(out.values());
+}
+
+/** The fields a client needs to match a search against an object by any of its
+ *  names: its own id, the raw catalog name, every other designation (Messier,
+ *  Caldwell, NGC/IC, Sharpless, Melotte) and every common name. The Planner's
+ *  target list is built from this so its search box and the server's catalog
+ *  search can never disagree about what an object is called. */
+export function plannerSearchFields(entry: DsoEntry): {
+  id: string; ngcName: string; name: string; constellation: string | null; commonNames: string[]; aliases: string[];
+} {
+  return {
+    id: entry.id,
+    ngcName: entry.ngcName,
+    name: entry.name,
+    constellation: entry.constellation,
+    commonNames: entry.commonNames,
+    aliases: designationsFor(entry),
+  };
+}
+
+/** Query/designation comparison key: case, spaces and underscores ignored. */
+const designationKey = (s: string) =>
+  normalizeDesignation(s.replace(/_/g, ' ')).toUpperCase().replace(/[\s_]+/g, '')
+    .replace(/^MELOTTE-?(\d)/, 'MEL$1')
+    // "Mel022" and "Mel 22" are one cluster; normalizeDesignation only unpads NGC/IC.
+    .replace(/^([A-Z]+)0+(\d)/, '$1$2');
+
+/** "Caldwell" / "sharpless" / "cald" on their own: the short designation prefix of
+ *  that catalog ("c", "sh2"), or null. Mirrors catalogPrefix in src/lib/dsoSearch.ts. */
+function catalogWordPrefix(query: string): string | null {
+  const word = query.toLowerCase().replace(/[^a-z]/g, '');
+  if (word.length < 4 || !/^[a-z\s]+$/i.test(query.trim())) return null;
+  const words: Array<[string, string]> = [['messier', 'm'], ['caldwell', 'c'], ['sharpless', 'sh2'], ['melotte', 'mel'], ['barnard', 'b']];
+  return words.find(([name]) => name.startsWith(word))?.[1] ?? null;
+}
+
+/** The entry's number in the catalog with this short prefix, or null. */
+function catalogNumberOf(entry: DsoEntry, prefix: string): number | null {
+  const re = new RegExp(`^${prefix.toUpperCase()}(\\d+)[A-Z]?$`);
+  let best: number | null = null;
+  for (const d of [entry.id, entry.ngcName, ...designationsFor(entry), ...entry.commonNames, ...(entry.messier != null ? [`M${entry.messier}`] : [])]) {
+    const m = re.exec(designationKey(d).replace(/-/g, ''));
+    if (m) best = best === null ? Number(m[1]) : Math.min(best, Number(m[1]));
+  }
+  return best;
+}
+
+/** Name comparison key: case, spaces, hyphens and apostrophes ignored, so
+ *  "Bodes Galaxy", "Bode's Galaxy" and "bodesgalaxy" are one name. */
+const textKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+const _nameKeys = new WeakMap<DsoEntry, { name: string; common: string[] }>();
+function nameKeysFor(entry: DsoEntry): { name: string; common: string[] } {
+  let k = _nameKeys.get(entry);
+  if (!k) { k = { name: textKey(entry.name), common: entry.commonNames.map(textKey) }; _nameKeys.set(entry, k); }
+  return k;
+}
+
 function typeMatches(entry: DsoEntry, type: string): boolean {
   return entry.type.toLowerCase().includes(type.toLowerCase()) || entry.typeCode === type;
 }
@@ -248,13 +405,26 @@ function everVisibleFrom(entry: DsoEntry, lat?: number, minAlt?: number): boolea
  *  override, and offset pagination over the matched set) doesn't duplicate
  *  the scoring rules. Pure and side-effect free: callers decide how to
  *  slice/order the result. */
-function scoreMatches(query: string, type?: string, lat?: number, minAlt?: number): Array<{ entry: DsoEntry; score: number }> {
+/** A pasted Dwarf session folder ("DWARF3_C_20_2026-05-20_03-44-24-334_C_20")
+ *  reduces to the target part ("C_20"); anything else is left alone. */
+function stripDwarfFolderName(query: string): string {
+  const m = query.trim().match(/^dwarf\w*?_(.+?)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}/i);
+  return m ? m[1] : query;
+}
+
+function scoreMatches(rawQuery: string, type?: string, lat?: number, minAlt?: number): Array<{ entry: DsoEntry; score: number }> {
+  const query = stripDwarfFolderName(rawQuery);
   const q = query.toLowerCase().trim();
   if (!q) return [];
   const catalog = loadSearchable();
 
   // Expand the query to include the canonical ID and all aliases so e.g. "C30"
   // finds NGC7331 and "NGC6611" finds M16.
+  const qKey = designationKey(query);
+  const qText = textKey(query);
+  const catalogWord = catalogWordPrefix(query);
+  // "c39", "m8", "ngc2392", "sh2-155": a catalog number rather than a word.
+  const qIsNumber = /^[a-z]{1,4}\d+[a-z]?$/.test(designationKey(query).toLowerCase().replace(/-/g, ''));
   const expandedTerms = expandSearchAliases(query.trim()).map(t => t.toLowerCase());
 
   const results: Array<{ entry: DsoEntry; score: number }> = [];
@@ -268,15 +438,40 @@ function scoreMatches(query: string, type?: string, lat?: number, minAlt?: numbe
     const nameLower = entry.name.toLowerCase();
     const ngcLower = entry.ngcName.toLowerCase().replace(/^0+/, ''); // strip leading zeros
 
-    // Score against the original query first
+    // Score against the original query first. A catalog number ("C39") only
+    // matches names that start with it: finding it inside "NGC 3913" or "IC 391"
+    // is a coincidence of letters, not a result.
     if (idLower === q || nameLower === q) score = 100;
     else if (idLower.startsWith(q) || nameLower.startsWith(q)) score = 80;
     else if (ngcLower.startsWith(q.replace(/^ngc\s*/i, 'ngc'))) score = 75;
     else if (entry.commonNames.some(n => n.toLowerCase().startsWith(q))) score = 70;
-    else if (nameLower.includes(q)) score = 50;
-    else if (idLower.includes(q)) score = 40;
-    else if (entry.commonNames.some(n => n.toLowerCase().includes(q))) score = 30;
+    else if (!qIsNumber && nameLower.includes(q)) score = 50;
+    else if (!qIsNumber && idLower.includes(q)) score = 40;
+    else if (!qIsNumber && entry.commonNames.some(n => n.toLowerCase().includes(q))) score = 30;
     else if ((entry.constellation ?? '').toLowerCase().includes(q)) score = 20;
+
+    // The same names compared with punctuation and spacing folded away, for
+    // "Bodes Galaxy" / "AndromedaGalaxy". Only raises a score, never lowers it.
+    if (score < 100 && qText.length >= 3 && !qIsNumber) {
+      const nk = nameKeysFor(entry);
+      let alt = 0;
+      if (nk.name === qText) alt = 100;
+      else if (nk.common.some(c => c === qText)) alt = 98;
+      else if (nk.name.startsWith(qText)) alt = 80;
+      else if (nk.common.some(c => c.startsWith(qText))) alt = 70;
+      else if (nk.name.includes(qText)) alt = 50;
+      else if (nk.common.some(c => c.includes(qText))) alt = 30;
+      if (alt > score) score = alt;
+    }
+
+    // Any other designation (M/NGC/IC/Caldwell/Sharpless) — exact beats prefix.
+    if (score < 99 && qKey.length >= 2) {
+      for (const d of [entry.id, ...designationsFor(entry)]) {
+        const dk = designationKey(d);
+        if (dk === qKey) { score = Math.max(score, 99); break; }
+        if (/\d/.test(qKey) && dk.startsWith(qKey)) score = Math.max(score, 60);
+      }
+    }
 
     // If no match yet, try alias-expanded terms (exact/prefix only to avoid noise)
     if (score === 0 && expandedTerms.length > 1) {
@@ -287,10 +482,32 @@ function scoreMatches(query: string, type?: string, lat?: number, minAlt?: numbe
       }
     }
 
+    // A catalog name on its own ("Caldwell", "sharpless") means every object in
+    // that catalog, in catalog order: 60 for C1, a hair less for each later one.
+    if (catalogWord && score < 60) {
+      const n = catalogNumberOf(entry, catalogWord);
+      if (n !== null) score = 60 - Math.min(n, 5000) / 100000;
+    }
+
     if (score > 0) results.push({ entry, score });
   }
 
-  return results.sort((a, b) => b.score - a.score);
+  return dedupeByCanonical(results.sort((a, b) => b.score - a.score));
+}
+
+/** One row per object: two entries that are the same object under different ids
+ *  (OpenNGC's "C9" and the curated "SH2-155", both the Cave Nebula) collapse to
+ *  the canonical one, in the position of whichever ranked higher. */
+function dedupeByCanonical(rows: Array<{ entry: DsoEntry; score: number }>): Array<{ entry: DsoEntry; score: number }> {
+  const seen = new Map<string, number>();
+  const out: Array<{ entry: DsoEntry; score: number }> = [];
+  for (const row of rows) {
+    const canon = resolveCanonicalId(row.entry.id).toUpperCase().replace(/\s+/g, '');
+    const at = seen.get(canon);
+    if (at === undefined) { seen.set(canon, out.length); out.push(row); continue; }
+    if (row.entry.id.toUpperCase().replace(/\s+/g, '') === canon) out[at] = { entry: row.entry, score: out[at]!.score };
+  }
+  return out;
 }
 
 export function search(query: string, limit = 30): DsoEntry[] {
@@ -334,10 +551,11 @@ export function searchFiltered(query: string, opts: {
   offset?: number;
 } = {}): { entries: DsoEntry[]; total: number } {
   const matched = sortEntries(scoreMatches(query, opts.type, opts.lat, opts.minAlt).map(r => r.entry), opts.sort);
+  const withAliases = (e: DsoEntry): DsoEntry => ({ ...e, aliases: designationsFor(e) });
   const total = matched.length;
   const offset = opts.offset ?? 0;
   const limit = opts.limit ?? 30;
-  return { entries: matched.slice(offset, offset + limit), total };
+  return { entries: matched.slice(offset, offset + limit).map(withAliases), total };
 }
 
 export function filterCatalog(opts: {
@@ -352,7 +570,7 @@ export function filterCatalog(opts: {
   limit?: number;
   offset?: number;
 }): { entries: DsoEntry[]; total: number } {
-  const catalog = loadCatalog();
+  const catalog = getPlannerCatalog();
   const filtered = sortEntries(catalog.filter(e => {
     if (opts.type && !typeMatches(e, opts.type)) return false;
     if (opts.constellation && (e.constellation ?? '').toLowerCase() !== opts.constellation.toLowerCase()) return false;

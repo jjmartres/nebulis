@@ -1405,10 +1405,8 @@
     ]
   },
   "Sh2-1": {
-    "canonical": "IC1470",
-    "aliases": [
-      "Sh2-1"
-    ]
+    "canonical": "SH2-1",
+    "aliases": []
   },
   "Sh2-10": {
     "canonical": "SH2-10",

@@ -174,6 +174,17 @@ export function LibrarySection({
             onChange={v => setForm(f => ({ ...f, groupObservingNights: v }))}
           />
         </Row>
+        <Row
+          label={t('librarySection.organization.groupCompanions.label')}
+          description={t('librarySection.organization.groupCompanions.description')}
+          isDark={isDark}
+        >
+          <Toggle
+            checked={form.groupCatalogCompanions ?? true}
+            onChange={v => setForm(f => ({ ...f, groupCatalogCompanions: v }))}
+            label={t('librarySection.organization.groupCompanions.label')}
+          />
+        </Row>
       </Sec>
 
       <Sec

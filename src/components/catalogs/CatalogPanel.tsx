@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import type { ByTypeStats, ObjectClass } from '../../lib/api/catalogs';
 import type { CatalogMeta } from '../../lib/catalogMeta';
 import { CatalogHeroImage } from './CatalogHeroImage';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   meta: CatalogMeta;
@@ -26,6 +27,16 @@ const TYPE_META: Record<ObjectClass, { labelKey: string; dot: string }> = {
   other:   { labelKey: 'objectClass.other',   dot: '#94a3b8' },
 };
 
+/** Same category dots, collapsed to a brightness-only red ladder for
+ *  red-light mode — raw hex in a `style` prop, so .night's CSS variable
+ *  overrides in index.css can't reach it. */
+const NIGHT_TYPE_DOT: Record<ObjectClass, string> = {
+  galaxy: '#dd3333',
+  nebula: '#a02828',
+  cluster: '#661a1a',
+  other: '#4d1414',
+};
+
 const TYPE_ORDER: ObjectClass[] = ['galaxy', 'nebula', 'cluster', 'other'];
 
 /** Poster-sized crop of the catalog's signature object. */
@@ -34,6 +45,7 @@ const HERO_HEIGHT = 1140;
 
 export function CatalogPanel({ meta, progress, isLoading, accent }: Props) {
   const { t } = useTranslation('catalogs');
+  const { isNight } = useTheme();
   const imaged = progress?.imagedCount ?? 0;
   const pct = meta.total > 0 ? Math.round((imaged / meta.total) * 100) : 0;
   const remaining = meta.total - imaged;
@@ -151,7 +163,7 @@ export function CatalogPanel({ meta, progress, isLoading, accent }: Props) {
                 key={cls}
                 className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-2.5 py-1 text-[11px] text-white/75 ring-1 ring-inset ring-white/10 backdrop-blur-md"
               >
-                <span className="w-1.5 h-1.5 shrink-0 rounded-full" style={{ background: dot }} />
+                <span className="w-1.5 h-1.5 shrink-0 rounded-full" style={{ background: isNight ? NIGHT_TYPE_DOT[cls] : dot }} />
                 {t(labelKey)}
                 <span className="ml-auto tabular-nums text-white/50">{stats.imaged}/{stats.total}</span>
               </span>

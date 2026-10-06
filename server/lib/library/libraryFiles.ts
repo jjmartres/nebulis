@@ -81,6 +81,14 @@ export interface LibraryFileRow {
   bytes: number;
   sourcePath: string | null;
   importedAt: string;
+  /** Which linked (non-copied) library source owns this file, or null for a
+   *  file the app itself copied into the managed library. See
+   *  fileResolver.ts. */
+  sourceId: string | null;
+  /** Linked-source bookkeeping for incremental rescans (null for a managed
+   *  row, which is never rescanned this way). */
+  mtimeMs: number | null;
+  missingSince: string | null;
 }
 
 /** Everything needed to record one imported file. `fileName` is what landed on
@@ -151,10 +159,14 @@ export function roleForFile(
  * to the object but to no particular night.
  */
 export function sessionDateForRow(
-  row: Pick<LibraryFileRow, 'captureDate' | 'captureTime' | 'sessionDateOverride'>,
+  row: Pick<LibraryFileRow, 'captureDate' | 'captureTime' | 'sessionDateOverride'> & { sourceId?: string | null },
 ): string | null {
   if (row.sessionDateOverride) return row.sessionDateOverride;
   if (!row.captureDate) return null;
+  // A linked file's captureDate is already its observing night: the linker resolves the night once, when it
+  // reads the file (librarySources.ts buildLinkedInput), and keeps the raw time beside it. Rolling that date
+  // again moved every frame shot after midnight back a second night and invented a phantom session.
+  if (row.sourceId) return row.captureDate;
   return observingNightDate(row.captureDate, row.captureTime);
 }
 
@@ -229,6 +241,104 @@ export function recordLibraryFiles(inputs: RecordFileInput[]): void {
 /** Single-file convenience — the backfill and one-off callers. */
 export function recordLibraryFile(input: RecordFileInput): void {
   insertOneFileRow(input);
+}
+
+/**
+ * Record (or refresh, on a rescan) a batch of linked-source files. A separate
+ * path from `recordLibraryFiles` rather than an extension of `RecordFileInput`:
+ * a linked file's relPath is `@src/<sourceId>/<sourcePath>` (already fully
+ * formed by the attribution engine, see treeAttribution.ts), not built here
+ * from a `folderName`/`sessionFolder`/`fileName` triple the way a managed
+ * file's is — the two write shapes have too little in common to share one
+ * input type without one side growing fields that are always ignored.
+ *
+ * Same upsert-by-relPath behaviour as the managed path: re-committing an
+ * unchanged file on rescan updates it in place rather than duplicating it,
+ * and clears `missingSince` — a file a rescan finds again is no longer missing.
+ */
+export interface RecordLinkedFileInput {
+  objectId: string;
+  /** The full '@src/<sourceId>/<sourcePath>' identifier — the file's relPath. */
+  relPath: string;
+  sourceId: string;
+  /** Path relative to the source's own rootPath — see fileResolver.ts. */
+  sourcePath: string;
+  fileName: string;
+  originalName?: string;
+  role: LibraryFileRole;
+  captureDate: string | null;
+  captureTime: string | null;
+  telescopeId: string | null;
+  bytes: number;
+  mtimeMs: number;
+}
+
+const insertLinkedFileStmt = db.prepare(
+  `INSERT INTO libraryFiles
+     (objectId, relPath, fileName, originalName, role, captureDate, captureTime,
+      telescopeId, bytes, sourceId, sourcePath, mtimeMs, missingSince, importedAt)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+   ON CONFLICT(relPath) DO UPDATE SET
+     objectId = excluded.objectId,
+     fileName = excluded.fileName,
+     role = excluded.role,
+     captureDate = excluded.captureDate,
+     captureTime = excluded.captureTime,
+     telescopeId = excluded.telescopeId,
+     bytes = excluded.bytes,
+     sourceId = excluded.sourceId,
+     sourcePath = excluded.sourcePath,
+     mtimeMs = excluded.mtimeMs,
+     missingSince = NULL,
+     originalName = COALESCE(libraryFiles.originalName, excluded.originalName)`,
+);
+
+const recordLinkedFilesTxn = db.transaction((inputs: RecordLinkedFileInput[]) => {
+  for (const input of inputs) {
+    insertLinkedFileStmt.run(
+      input.objectId, input.relPath, input.fileName, input.originalName ?? input.fileName,
+      input.role, input.captureDate, input.captureTime, input.telescopeId, input.bytes,
+      input.sourceId, input.sourcePath, input.mtimeMs, new Date().toISOString(),
+    );
+  }
+});
+
+export function recordLinkedLibraryFiles(inputs: RecordLinkedFileInput[]): void {
+  if (inputs.length === 0) return;
+  recordLinkedFilesTxn(inputs);
+}
+
+/** Mark a linked file missing on the first rescan that can't find it, or
+ *  delete its row on the second consecutive miss (contract Open Question 2's
+ *  two-strikes rule). Returns the relPaths actually deleted, so a caller can
+ *  fold an object's file-count/session state.  */
+export function markLinkedFilesMissing(
+  relPaths: readonly string[],
+  /** A row already flagged is deleted only once it has been flagged this long. 0
+   *  deletes on the second miss regardless of how soon it came. */
+  minMissingMs = 0,
+  nowMs: number = Date.now(),
+): { markedMissing: string[]; deleted: string[] } {
+  const markedMissing: string[] = [];
+  const deleted: string[] = [];
+  const tx = db.transaction(() => {
+    for (const relPath of relPaths) {
+      const row = selectByRelPathStmt.get(relPath);
+      if (!row || !row.sourceId) continue;
+      if (row.missingSince) {
+        const since = Date.parse(row.missingSince);
+        // An unparseable stamp counts as "just flagged": keep the row.
+        if (!Number.isFinite(since) || nowMs - since < minMissingMs) continue;
+        deleteByRelPathStmt.run(relPath);
+        deleted.push(relPath);
+      } else {
+        db.prepare('UPDATE libraryFiles SET missingSince = ? WHERE relPath = ?').run(new Date(nowMs).toISOString(), relPath);
+        markedMissing.push(relPath);
+      }
+    }
+  });
+  tx();
+  return { markedMissing, deleted };
 }
 
 const selectByObjectStmt = db.prepare<[string], LibraryFileRow>(
@@ -506,6 +616,12 @@ function parseManifestFile(value: unknown): ManifestFile | null {
     bytes: typeof bytes === 'number' && Number.isFinite(bytes) ? bytes : 0,
     sourcePath: optionalString(value.sourcePath),
     importedAt: typeof importedAt === 'string' ? importedAt : new Date().toISOString(),
+    // Always null: writeObjectManifest never writes a linked row (see its own
+    // comment), so a row restored from a manifest is always managed, whatever
+    // a hand-edited or older-version manifest file might otherwise claim.
+    sourceId: null,
+    mtimeMs: null,
+    missingSince: null,
   };
 }
 
@@ -536,13 +652,23 @@ function parseManifest(text: string): ManifestShape | null {
 export function writeObjectManifest(objectId: string, folderName: string): void {
   const objDir = path.join(getLibraryDir(), folderName);
   if (!fs.existsSync(objDir)) return;
-  const rows = getLibraryFilesForObject(objectId);
+  // Linked (non-copied) rows are excluded: a manifest is a "rebuild this
+  // managed folder's DB rows from disk" recovery mechanism written *into*
+  // that folder, but a linked row's file doesn't live in it — its source of
+  // truth is a rescan against the linked source, not a sidecar sitting next
+  // to files it doesn't describe. An object can have both kinds (contract:
+  // "linked and imported files coexist"); only the managed half is manifested.
+  const rows = getLibraryFilesForObject(objectId).filter(row => row.sourceId === null);
   const manifest: ManifestShape = {
     version: 1,
     objectId,
     updatedAt: new Date().toISOString(),
     // id and objectId are omitted: id is a local autoincrement that means
     // nothing on another machine, and objectId is already on the envelope.
+    // sourceId/mtimeMs/missingSince are omitted too: every row here is
+    // managed (filtered above), so they are always null and restoring one
+    // from this manifest always produces a managed row — see
+    // parseManifestFile's matching hard-coded nulls.
     files: rows.map(row => ({
       relPath: row.relPath,
       fileName: row.fileName,
@@ -555,6 +681,9 @@ export function writeObjectManifest(objectId: string, folderName: string): void 
       bytes: row.bytes,
       sourcePath: row.sourcePath,
       importedAt: row.importedAt,
+      sourceId: null,
+      mtimeMs: null,
+      missingSince: null,
     })),
   };
   const dest = path.join(objDir, MANIFEST_NAME);

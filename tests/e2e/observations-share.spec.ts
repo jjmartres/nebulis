@@ -93,8 +93,16 @@ test.describe('Observations Share', () => {
     // Capture resolves against the real tile CDN in this environment; give it
     // room, then expect either a successful preview or the graceful error
     // state — never an unhandled crash of the modal itself.
+    //
+    // `.first()` because both can be on screen at once: the failure message sits above
+    // the Save image button, which stays rendered but disabled when the capture fails.
+    // Without it this assertion is a strict-mode violation in exactly the case it was
+    // written to tolerate, so the test went red wherever the tile CDN is unreachable.
     await expect(
-      page.getByRole('button', { name: 'Save image' }).or(page.getByText("Couldn't capture the map."))
+      page
+        .getByRole('button', { name: 'Save image' })
+        .or(page.getByText("Couldn't capture the map."))
+        .first()
     ).toBeVisible({ timeout: 15_000 });
   });
 

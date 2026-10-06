@@ -98,13 +98,18 @@ export function CombineSubframesModal({ objectId, onClose }: Props) {
   });
 
   const availableFilters = filtersData?.filters ?? [];
+  const availableFiltersKey = availableFilters.join(',');
 
-  // Keep selectedFilters in sync when available filters change
+  // Keep selectedFilters in sync when available filters change. Keyed on the
+  // joined content, not the array itself: `?? []` hands back a fresh array
+  // reference every render even when the underlying filters have not changed,
+  // which would otherwise re-run this and stomp the user's own selection.
   useEffect(() => {
     if (availableFilters.length > 0) {
       setSelectedFilters(new Set(availableFilters));
     }
-  }, [availableFilters.join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableFiltersKey]);
 
   // Stop polling AND the server-side build on unmount — otherwise the ZIP of
   // tens of GB keeps being written to the tmp dir after the modal is gone.

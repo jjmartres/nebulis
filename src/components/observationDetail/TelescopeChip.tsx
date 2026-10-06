@@ -14,6 +14,8 @@ import { CheckCircle2, Pencil } from 'lucide-react';
 import { reassignSessionTelescope } from '../../lib/api/telescopes';
 import type { TelescopeProfile } from '../../lib/api/telescopes';
 import { useClickOutside } from '../../hooks/useClickOutside';
+import { useTheme } from '../../hooks/useTheme';
+import { nightSafeColor } from '../../lib/nightSafeColor';
 
 export function TelescopeChip({
   objectId,
@@ -29,6 +31,7 @@ export function TelescopeChip({
   isAdmin: boolean;
 }) {
   const { t } = useTranslation('observations');
+  const { isNight } = useTheme();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -57,7 +60,7 @@ export function TelescopeChip({
       >
         <span
           className="h-1.5 w-1.5 shrink-0 rounded-full"
-          style={{ backgroundColor: telescope.color }}
+          style={{ backgroundColor: nightSafeColor(telescope.color, isNight) }}
           aria-hidden="true"
         />
         {telescope.name}
@@ -81,7 +84,7 @@ export function TelescopeChip({
           <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             {t('observationDetail.telescopeChip.reassignTo')}
           </div>
-          {telescopes.map(scope => (
+          {telescopes.map((scope, i) => (
             <button
               key={scope.id}
               onClick={() => reassign.mutate(scope.id)}
@@ -89,7 +92,7 @@ export function TelescopeChip({
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs
                 text-slate-300 transition hover:bg-slate-800 disabled:opacity-50"
             >
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: scope.color }} />
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: nightSafeColor(scope.color, isNight, i) }} />
               <span className="flex-1 truncate">{scope.name}</span>
               {scope.id === telescope.id && <CheckCircle2 className="h-3 w-3 text-teal-500" />}
             </button>

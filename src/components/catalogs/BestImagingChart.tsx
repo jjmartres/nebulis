@@ -84,11 +84,11 @@ export function BestImagingChart({ months, windowStart, windowEnd, minAlt, isDar
               <g key={alt}>
                 <line
                   x1={PAD.left} y1={y} x2={W - PAD.right} y2={y}
-                  stroke={isDark ? '#334155' : '#e2e8f0'}
+                  stroke={isNight ? '#2a0808' : isDark ? '#334155' : '#e2e8f0'}
                   strokeWidth="0.5"
                   strokeDasharray="3,3"
                 />
-                <text x={PAD.left - 4} y={y + 3.5} textAnchor="end" fontSize="7" fill={isDark ? '#64748b' : '#94a3b8'}>
+                <text x={PAD.left - 4} y={y + 3.5} textAnchor="end" fontSize="7" fill={isNight ? '#661a1a' : isDark ? '#64748b' : '#94a3b8'}>
                   {alt}°
                 </text>
               </g>
@@ -98,7 +98,7 @@ export function BestImagingChart({ months, windowStart, windowEnd, minAlt, isDar
           {/* Min-alt threshold line */}
           <line
             x1={PAD.left} y1={minAltY} x2={W - PAD.right} y2={minAltY}
-            stroke={isDark ? '#ef4444' : '#f87171'}
+            stroke={isNight ? '#882222' : isDark ? '#ef4444' : '#f87171'}
             strokeWidth={compact ? 0.75 : 1}
             strokeDasharray={compact ? '3,2' : '4,2'}
             opacity="0.6"
@@ -115,9 +115,11 @@ export function BestImagingChart({ months, windowStart, windowEnd, minAlt, isDar
             // they are the whole answer. The full-size chart's near-background
             // greys disappear at card size, worst in light mode, so the compact
             // chart steps both themes up one shade.
-            const belowColor = compact
-              ? (isDark ? '#475569' : '#94a3b8')
-              : (isDark ? '#334155' : '#cbd5e1');
+            const belowColor = isNight
+              ? (compact ? '#661a1a' : '#3a0f0f')
+              : compact
+                ? (isDark ? '#475569' : '#94a3b8')
+                : (isDark ? '#334155' : '#cbd5e1');
             const fillColor = m.aboveMinAlt ? accentColor : belowColor;
             const belowOpacity = compact ? 0.55 : 0.3;
             const opacity = m.aboveMinAlt ? (isHovered ? 1 : 0.8) : (isHovered ? 0.5 : belowOpacity);
@@ -147,7 +149,7 @@ export function BestImagingChart({ months, windowStart, windowEnd, minAlt, isDar
                     y={H - 5}
                     textAnchor="middle"
                     fontSize={compact ? 7.5 : 7}
-                    fill={isDark ? '#64748b' : '#94a3b8'}
+                    fill={isNight ? '#661a1a' : isDark ? '#64748b' : '#94a3b8'}
                   >
                     {m.label}
                   </text>

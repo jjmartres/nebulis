@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import SunCalc from 'suncalc';
 import { useTranslation } from 'react-i18next';
 import { altAz } from '../../lib/altaz';
+import { useTheme } from '../../hooks/useTheme';
 import { moonThresholdForIllumination } from '../../lib/moonProximity';
 import {
   SKY_STARS,
@@ -85,17 +86,18 @@ function drawMoonGlyph(
   fraction: number,
   phase: number,
   isDark: boolean,
+  isNight: boolean,
 ) {
-  const lit = '#eef2f8';
-  const dark = isDark ? 'rgba(15,23,42,0.92)' : 'rgba(51,65,85,0.9)';
+  const lit = isNight ? '#cc3333' : '#eef2f8';
+  const dark = isNight ? 'rgba(0,0,0,0.92)' : isDark ? 'rgba(15,23,42,0.92)' : 'rgba(51,65,85,0.9)';
 
   ctx.save();
   ctx.translate(mx, my);
 
   // Soft glow scaled by how lit the Moon is — it's the brightest thing up there.
   const glow = ctx.createRadialGradient(0, 0, R, 0, 0, R * 2.6);
-  glow.addColorStop(0, `rgba(226,232,240,${0.18 + 0.22 * fraction})`);
-  glow.addColorStop(1, 'rgba(226,232,240,0)');
+  glow.addColorStop(0, isNight ? `rgba(204,51,51,${0.18 + 0.22 * fraction})` : `rgba(226,232,240,${0.18 + 0.22 * fraction})`);
+  glow.addColorStop(1, isNight ? 'rgba(204,51,51,0)' : 'rgba(226,232,240,0)');
   ctx.fillStyle = glow;
   ctx.beginPath();
   ctx.arc(0, 0, R * 2.6, 0, Math.PI * 2);
@@ -122,13 +124,14 @@ function drawMoonGlyph(
   // Outline so the full disc always reads, even at new moon.
   ctx.beginPath();
   ctx.arc(mx, my, R, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(203,213,225,0.6)';
+  ctx.strokeStyle = isNight ? 'rgba(153,42,42,0.6)' : 'rgba(203,213,225,0.6)';
   ctx.lineWidth = 1;
   ctx.stroke();
 }
 
 export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyChartProps) {
   const { t } = useTranslation('planner');
+  const { isNight } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -185,7 +188,10 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
 
       // ── Sky + ground background ──
       const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
-      if (isDark) {
+      if (isNight) {
+        skyGrad.addColorStop(0, '#0a0000');
+        skyGrad.addColorStop(1, '#1a0505');
+      } else if (isDark) {
         skyGrad.addColorStop(0, '#0a1326');
         skyGrad.addColorStop(1, '#142544');
       } else {
@@ -194,11 +200,11 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
       }
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, W, horizonY);
-      ctx.fillStyle = isDark ? '#0a0f0a' : '#14210f';
+      ctx.fillStyle = isNight ? '#000000' : isDark ? '#0a0f0a' : '#14210f';
       ctx.fillRect(0, horizonY, W, H - horizonY);
 
       // ── Altitude gridlines (30°, 60°) ──
-      ctx.strokeStyle = 'rgba(148,163,184,0.16)';
+      ctx.strokeStyle = isNight ? 'rgba(153,42,42,0.16)' : 'rgba(148,163,184,0.16)';
       ctx.lineWidth = 1;
       ctx.setLineDash([3, 4]);
       for (const a of [30, 60]) {
@@ -208,14 +214,14 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
         ctx.moveTo(0, y);
         ctx.lineTo(W, y);
         ctx.stroke();
-        ctx.fillStyle = 'rgba(148,163,184,0.55)';
+        ctx.fillStyle = isNight ? 'rgba(153,42,42,0.55)' : 'rgba(148,163,184,0.55)';
         ctx.font = '10px system-ui, sans-serif';
         ctx.fillText(`${a}°`, 4, y - 3);
       }
       ctx.setLineDash([]);
 
       // ── Constellation lines ──
-      ctx.strokeStyle = isDark ? 'rgba(96,165,250,0.40)' : 'rgba(125,211,252,0.45)';
+      ctx.strokeStyle = isNight ? 'rgba(153,42,42,0.35)' : isDark ? 'rgba(96,165,250,0.40)' : 'rgba(125,211,252,0.45)';
       ctx.lineWidth = 1;
       for (const line of SKY_CONSTELLATION_LINES) {
         for (let i = 0; i + 3 < line.length; i += 2) {
@@ -247,13 +253,13 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
         const r = Math.max(0.6, 2.7 - 0.42 * mag);
         const alpha = Math.max(0.35, Math.min(1, 1.15 - mag * 0.12));
         ctx.beginPath();
-        ctx.fillStyle = isDark ? `rgba(255,255,255,${alpha})` : `rgba(241,245,249,${alpha})`;
+        ctx.fillStyle = isNight ? `rgba(204,51,51,${alpha})` : isDark ? `rgba(255,255,255,${alpha})` : `rgba(241,245,249,${alpha})`;
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
       }
 
       // ── Constellation labels (prominent ones only) ──
-      ctx.fillStyle = isDark ? 'rgba(148,163,184,0.55)' : 'rgba(203,213,225,0.7)';
+      ctx.fillStyle = isNight ? 'rgba(153,42,42,0.55)' : isDark ? 'rgba(148,163,184,0.55)' : 'rgba(203,213,225,0.7)';
       ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'center';
       for (const c of SKY_CONSTELLATION_LABELS) {
@@ -274,8 +280,8 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
           const my = horizonY - moon.alt * pxPerDeg;
           // Real Moon is ~0.5°, a sub-pixel dot at this FOV — draw it exaggerated
           // so the phase is legible, like other finder charts do.
-          drawMoonGlyph(ctx, mx, my, 11, moon.fraction, moon.phase, isDark);
-          ctx.fillStyle = isDark ? 'rgba(226,232,240,0.85)' : 'rgba(241,245,249,0.95)';
+          drawMoonGlyph(ctx, mx, my, 11, moon.fraction, moon.phase, isDark, isNight);
+          ctx.fillStyle = isNight ? 'rgba(204,51,51,0.85)' : isDark ? 'rgba(226,232,240,0.85)' : 'rgba(241,245,249,0.95)';
           ctx.font = '10px system-ui, sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText(t('skyChart.moon'), mx, my + 24);
@@ -284,7 +290,7 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
       }
 
       // ── Horizon line ──
-      ctx.strokeStyle = isDark ? 'rgba(74,222,128,0.7)' : 'rgba(34,197,94,0.8)';
+      ctx.strokeStyle = isNight ? 'rgba(204,51,51,0.7)' : isDark ? 'rgba(74,222,128,0.7)' : 'rgba(34,197,94,0.8)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(0, horizonY);
@@ -297,7 +303,7 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
         const daz = angleDiff(card.az, centerAz);
         if (Math.abs(daz) > HFOV / 2) continue;
         const x = cx + daz * pxPerDeg;
-        ctx.strokeStyle = isDark ? 'rgba(74,222,128,0.6)' : 'rgba(34,197,94,0.7)';
+        ctx.strokeStyle = isNight ? 'rgba(153,42,42,0.6)' : isDark ? 'rgba(74,222,128,0.6)' : 'rgba(34,197,94,0.7)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x, horizonY);
@@ -305,7 +311,7 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
         ctx.stroke();
         const cardLabel = t(`compass8.${card.key}`, { ns: 'common' });
         const major = cardLabel.length === 1;
-        ctx.fillStyle = isDark ? (major ? '#86efac' : 'rgba(134,239,172,0.7)') : '#16a34a';
+        ctx.fillStyle = isNight ? (major ? '#cc3333' : 'rgba(153,42,42,0.7)') : isDark ? (major ? '#86efac' : 'rgba(134,239,172,0.7)') : '#16a34a';
         ctx.font = `${major ? 'bold ' : ''}${major ? 12 : 10}px system-ui, sans-serif`;
         ctx.fillText(cardLabel, x, horizonY + 20);
       }
@@ -313,7 +319,9 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
       // ── Target reticle ──
       const reticle = project(target.alt, target.az);
       const aboveHorizon = target.alt > 0;
-      ctx.strokeStyle = aboveHorizon ? '#34d399' : 'rgba(251,191,36,0.9)';
+      ctx.strokeStyle = isNight
+        ? (aboveHorizon ? '#cc3333' : 'rgba(153,42,42,0.9)')
+        : aboveHorizon ? '#34d399' : 'rgba(251,191,36,0.9)';
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.arc(reticle.x, reticle.y, 10, 0, Math.PI * 2);
@@ -326,7 +334,7 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
       ctx.moveTo(reticle.x + 13, reticle.y); ctx.lineTo(reticle.x + 16, reticle.y);
       ctx.stroke();
       // label
-      ctx.fillStyle = aboveHorizon ? '#6ee7b7' : '#fbbf24';
+      ctx.fillStyle = isNight ? (aboveHorizon ? '#dd3333' : '#882222') : aboveHorizon ? '#6ee7b7' : '#fbbf24';
       ctx.font = 'bold 11px system-ui, sans-serif';
       ctx.textAlign = 'center';
       const labelY = reticle.y < 28 ? reticle.y + 26 : reticle.y - 16;
@@ -338,7 +346,7 @@ export function SkyChart({ objectName, ra, dec, lat, lon, time, isDark }: SkyCha
     const ro = new ResizeObserver(draw);
     ro.observe(wrap);
     return () => ro.disconnect();
-  }, [target, moon, ra, dec, lat, lon, time, isDark, objectName, t]);
+  }, [target, moon, ra, dec, lat, lon, time, isDark, isNight, objectName, t]);
 
   const dirText = t('skyChart.dirText', { compass: azToCompass(target.az, t), az: Math.round(target.az), alt: Math.round(target.alt) });
 

@@ -8,7 +8,7 @@ import noUnguardedTimezone from './eslint-rules/no-unguarded-timezone.js'
 import noHardcodedJsxText from './eslint-rules/no-hardcoded-jsx-text.js'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'coverage', 'server/dist']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -48,6 +48,16 @@ export default defineConfig([
     files: ['tests/**/*.{ts,tsx}'],
     rules: {
       'local/no-unguarded-timezone': 'off',
+
+      // `require()` is the correct and only tool inside `vi.hoisted()`: that
+      // callback is hoisted above the module's own ESM imports and must run
+      // synchronously, so it cannot `await import()`. Redirecting DATA_DIR /
+      // LIBRARY_DIR there, before any server module captures them at import
+      // time, is the established pattern across tests/backend. Every one of
+      // these was previously counted as an error, which buried the real
+      // violations under ~220 false positives. `scripts/**` keeps the rule:
+      // nothing there needs a hoisted synchronous require.
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {

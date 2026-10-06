@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { X, ExternalLink, Telescope, CalendarDays, MapPin, ChevronLeft, ChevronRight, ZoomIn, EyeOff, Frame, Star } from 'lucide-react';
+import { X, ExternalLink, Telescope, CalendarDays, MapPin, ChevronLeft, ChevronRight, ZoomIn, EyeOff, Frame, Star, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { CatalogProgressObject } from '../../lib/api/catalogs';
 import { getCatalogObjectInfo } from '../../lib/api/catalog';
@@ -132,6 +132,16 @@ export function CatalogObjectModal({
 
   const accentBg = isNight ? 'bg-red-500' : isSpace ? 'bg-violet-500' : 'bg-amber-500';
   const accentText = isNight ? 'text-red-400' : isSpace ? 'text-violet-400' : 'text-amber-400';
+  // Imaged through another object's frame: an outlined, tinted pill rather than the
+  // solid one, so it reads as "credited via" and not "imaged directly". Light text on
+  // a dark tint (and dark text on a light one) keeps contrast well above 4.5:1.
+  const inFrameBadge = isNight
+    ? 'border-red-400/60 bg-red-500/15 text-red-200'
+    : isSpace
+      ? 'border-violet-400/60 bg-violet-500/15 text-violet-200'
+      : isDark
+        ? 'border-amber-400/60 bg-amber-500/15 text-amber-200'
+        : 'border-amber-600/50 bg-amber-100 text-amber-900';
   const borderColor = isDark ? 'border-slate-700/40' : 'border-slate-200';
 
   function handleGoToObservations() {
@@ -187,11 +197,16 @@ export function CatalogObjectModal({
                   {object.name}
                 </span>
               )}
-              {object.isImaged && (
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-white ${accentBg}`}>
+              {object.isImaged && (object.imagedVia?.[0] ? (
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-semibold leading-none ${inFrameBadge}`}>
+                  <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  {t('catalogObjectModal.imagedInFrame', { host: object.imagedVia[0].name })}
+                </span>
+              ) : (
+                <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-semibold leading-none text-slate-950 ${accentBg}`}>
                   {t('catalogObjectModal.imagedSessions', { count: object.sessionCount })}
                 </span>
-              )}
+              ))}
               {fit && fitStrings && (
                 <FitBadge tag={fit.tag} label={fitStrings.short} title={fitStrings.label} isDark={isDark} />
               )}

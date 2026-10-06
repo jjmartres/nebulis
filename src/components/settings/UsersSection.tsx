@@ -97,7 +97,7 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
         {/* Create user form */}
         {showCreateUser && (
           <div className={`p-5 rounded-xl border space-y-3 ${isDark ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200'}`}>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>{t('usersSection.displayName')}</label>
                 <input
@@ -119,7 +119,7 @@ export function UsersSection({ isDark }: { isDark: boolean }) {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>{t('usersSection.email')}</label>
                 <input

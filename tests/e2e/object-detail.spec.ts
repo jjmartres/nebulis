@@ -61,10 +61,15 @@ test.describe('Object Detail', () => {
 
   test('primary actions are present', async ({ page }) => {
     await expect(page.getByRole('button', { name: /add observation/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /compare/i })).toBeVisible();
     // Download is a HeroAction button (it mints a signed URL then triggers the
     // download), not an <a>, so it is not a link any more.
     await expect(page.getByRole('button', { name: 'Download', exact: true })).toBeVisible();
+    // Compare is a secondary action now, so it lives in the hero's overflow
+    // menu with the rest of them rather than as a top-level button. Assert it
+    // is absent before opening the menu so this cannot pass on an empty menu.
+    await expect(page.getByRole('menuitem', { name: /^compare$/i })).toHaveCount(0);
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /^compare$/i })).toBeVisible();
   });
 
   test('destructive actions live behind the overflow menu', async ({ page }) => {

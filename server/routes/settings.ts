@@ -89,6 +89,9 @@ const SettingsUpdateBodySchema = z.object({
   // Settings → Library → "Dark/bias validity". Days an archived bias/dark
   // bundle stays valid before the Calibrations page flags it isExpired.
   calibrationExpiryDays: z.number().int().min(1).optional(),
+  // Settings → Library → "Credit objects in the same frame". Whether the catalog
+  // boards count an object as imaged when it sat inside another object's frame.
+  groupCatalogCompanions: z.boolean().optional(),
 });
 
 const ResetDatabaseBodySchema = z.object({
@@ -172,6 +175,7 @@ const SettingsSchema = z.object({
   nightlyHousekeepingLastRun: z.number().nullable(), // Unix ms, read-only
   nightlyForecastLastRun: z.number().nullable(), // Unix ms, read-only
   calibrationExpiryDays: z.number(),
+  groupCatalogCompanions: z.boolean(),
 });
 
 type Settings = z.infer<typeof SettingsSchema>;
@@ -222,6 +226,7 @@ const defaultSettings: Settings = {
   nightlyHousekeepingLastRun: null,
   nightlyForecastLastRun: null,
   calibrationExpiryDays: 180,
+  groupCatalogCompanions: true,
 };
 
 // The persistable field list is the request schema's own key set, read off the
@@ -563,7 +568,7 @@ router.delete('/api-key', (req: Request, res: Response) => {
 
 // Reset database — purge all data except settings
 router.delete('/reset-database', requireAdmin, strictRateLimiter, async (req: Request, res: Response) => {
-  const LIBRARY_DIR = getLibraryDir();
+  const libraryDir = getLibraryDir();
   const parsed = ResetDatabaseBodySchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     res.apiError(400, 'CONFIRMATION_REQUIRED', 'You must send { "confirmation": "delete" } to confirm');
@@ -593,7 +598,7 @@ router.delete('/reset-database', requireAdmin, strictRateLimiter, async (req: Re
     // avoid recursively removing an unrelated path.
     if (await isLibraryAvailable()) {
       try {
-        fs.rmSync(LIBRARY_DIR, { recursive: true });
+        fs.rmSync(libraryDir, { recursive: true });
       } catch { /* directory may not exist */ }
     }
     // The dirs below are always under DATA_DIR which the server controls.
@@ -635,8 +640,8 @@ router.delete('/reset-database', requireAdmin, strictRateLimiter, async (req: Re
     //    your drive" banner appears even though the drive was never disconnected.
     if (!isDefaultLocation()) {
       try {
-        fs.mkdirSync(LIBRARY_DIR, { recursive: true });
-        writeMarker(LIBRARY_DIR, getLibraryId());
+        fs.mkdirSync(libraryDir, { recursive: true });
+        writeMarker(libraryDir, getLibraryId());
       } catch { /* best effort — drive may have been removed between purge and here */ }
     }
 

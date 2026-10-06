@@ -627,13 +627,17 @@ export function clampToNightSafeTime(hms: string): string {
   return hms;
 }
 
+/** `M42_sub`, `IC 1318_subs`, and the hyphenated `Fish on the platter nebula-sub`
+ *  the SeeStar writes for targets with a custom name. */
+const SUB_FOLDER_RE = /[_-]subs?$/;
+
 /**
  * Determine if a folder name is an object folder (not _sub, Samples, etc.)
  */
 export function isObjectFolder(name: string): boolean {
   if (name === '.' || name === '..') return false;
   if (name === 'Samples') return false;
-  if (name.endsWith('_sub') || name.endsWith('_subs')) return false;
+  if (SUB_FOLDER_RE.test(name)) return false;
   if (name.startsWith('.')) return false;
   return true;
 }
@@ -642,7 +646,7 @@ export function isObjectFolder(name: string): boolean {
  * Determine if a folder is a sub-frames companion folder.
  */
 export function isSubFolder(name: string): boolean {
-  return name.endsWith('_sub') || name.endsWith('_subs');
+  return SUB_FOLDER_RE.test(name);
 }
 
 /**
@@ -650,7 +654,7 @@ export function isSubFolder(name: string): boolean {
  * "M42_sub" -> "M42", "IC 1318_subs" -> "IC 1318"
  */
 export function getObjectFromSubFolder(subFolderName: string): string {
-  return subFolderName.replace(/_(sub|subs)$/, '');
+  return subFolderName.replace(SUB_FOLDER_RE, '');
 }
 
 /**
@@ -671,6 +675,18 @@ export function normalizeCatalogId(folderId: string): string {
   return folderId
     .replace(/[_\s]+(mosai[ck]|mosiac|panel|ha|oiii|sii|sho|hoo|rgb|lrgb|nb|narrowband|broadband|luminance|lum|bicolor|tricolor|hargb|photo|video)\s*\d*$/i, '')
     .replace(/\s+/g, '');
+}
+
+/**
+ * The imaging-variant suffix of a folder or target name ("M31_mosaic" -> "_mosaic", "M16 Ha" -> "_Ha"),
+ * or '' when there is none. Same word list as normalizeCatalogId, minus `_photo` / `_video`: those are
+ * SeeStar capture modes of one target and collapse onto it, while a mosaic or a narrowband set is its
+ * own object that the Library groups under the base object's card.
+ */
+export function variantSuffix(name: string): string {
+  const withoutCaptureMode = name.replace(/_(photo|video)$/i, '');
+  const m = withoutCaptureMode.match(/[_\s]+(mosai[ck]|mosiac|panel|ha|oiii|sii|sho|hoo|rgb|lrgb|nb|narrowband|broadband|luminance|lum|bicolor|tricolor|hargb)\s*(\d*)$/i);
+  return m ? `_${m[1]}${m[2]}` : '';
 }
 
 /** Strip spaces from a folder name to produce the normalized DB primary key.

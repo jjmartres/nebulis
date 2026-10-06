@@ -160,7 +160,7 @@ export const WishlistCard = memo(function WishlistCard({
           <span className="min-w-0 truncate text-sm font-semibold">{formatObjectName(item.objectId, item.name)}</span>
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-            className={`shrink-0 rounded-lg p-1 opacity-0 transition group-hover:opacity-100 ${
+            className={`shrink-0 rounded-lg p-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 ${
               isDark ? 'text-slate-500 hover:text-red-400 hover:bg-white/5' : 'text-slate-400 hover:text-red-500 hover:bg-slate-100'
             }`}
             aria-label={t('wishlistPanel.remove', { name: item.name })}
@@ -207,9 +207,21 @@ export const WishlistCard = memo(function WishlistCard({
 
             <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
               {isScheduled ? (
-                <span className={`flex items-center gap-1 text-[10px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                  <Check className="h-3 w-3" />
-                  {t('wishlistPanel.scheduled')}
+                <span className="flex items-center gap-2">
+                  <span className={`flex items-center gap-1 text-[10px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                    <Check className="h-3 w-3" />
+                    {t('wishlistPanel.scheduled')}
+                  </span>
+                  {onQuickAdd && (
+                <button
+                  onClick={() => onQuickAdd(target)}
+                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border border-accent-500/50 text-accent-400 hover:bg-accent-500/10 transition"
+                  title={scheduleNightLabel ? t('wishlistPanel.scheduleAtHighestOn', { date: scheduleNightLabel }) : t('wishlistPanel.scheduleAtHighest')}
+                >
+                  <CalendarPlus className="h-2.5 w-2.5" />
+                  {t('wishlistPanel.addAnother')}
+                </button>
+                  )}
                 </span>
               ) : onQuickAdd ? (
                 <button

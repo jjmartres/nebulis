@@ -1,7 +1,10 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeAll } from 'vitest';
+import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import i18n from '../../src/i18n';
 import { ImagingWindow } from '../../src/components/forecast/ImagingWindow';
+import { ThemeProvider } from '../../src/hooks/useTheme';
 import enForecast from '../../src/locales/en/forecast.json';
 import type { ForecastHour } from '../../src/lib/api/planner';
 
@@ -13,6 +16,9 @@ import type { ForecastHour } from '../../src/lib/api/planner';
  * still being flagged at 04:00.
  */
 const COPY = enForecast.imagingWindow;
+
+/** ImagingWindow reads the night theme from context, so every render needs the provider. */
+const renderInTheme = (el: ReactElement) => renderToStaticMarkup(<ThemeProvider>{el}</ThemeProvider>);
 
 /** `at('20:00')` is 20:00 on the 14th; `at('02:00', '15')` is 02:00 the next day. */
 const at = (hhmm: string, day: '14' | '15' = '14') => `2026-03-${day}T${hhmm}:00.000Z`;
@@ -45,7 +51,7 @@ const BASE = {
 type Tonight = typeof BASE & { moonRise: string | null; moonSet: string | null };
 
 function render(tonight: Tonight): string {
-  return renderToStaticMarkup(
+  return renderInTheme(
     <ImagingWindow
       hours={nightHours()}
       tonight={tonight}
@@ -140,7 +146,7 @@ describe('ImagingWindow', () => {
   });
 
   it('renders nothing when the twilight window is inverted', () => {
-    const html = renderToStaticMarkup(
+    const html = renderInTheme(
       <ImagingWindow
         hours={nightHours()}
         tonight={{
@@ -163,7 +169,7 @@ describe('ImagingWindow', () => {
   });
 
   it('renders nothing when the window holds fewer than two hours', () => {
-    const html = renderToStaticMarkup(
+    const html = renderInTheme(
       <ImagingWindow
         hours={[nightHours()[0]]}
         tonight={{ ...BASE, moonRise: null, moonSet: null }}
@@ -178,7 +184,7 @@ describe('ImagingWindow', () => {
   });
 
   it('labels the nautical fallback as nautical, not astronomical', () => {
-    const html = renderToStaticMarkup(
+    const html = renderInTheme(
       <ImagingWindow
         hours={nightHours()}
         tonight={{

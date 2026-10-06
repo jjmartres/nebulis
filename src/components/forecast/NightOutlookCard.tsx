@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import type { ForecastHour, NightRating } from '../../lib/api/planner';
 import { formatWind, scoreHex, translateScoreRating } from '../../lib/forecastScore';
 import { formatDate } from '../../lib/formatLocale';
+import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
   night: NightRating;
@@ -33,7 +34,7 @@ function safeLocaleDateString(d: Date, timeZone: string | undefined, options: In
 }
 
 /** Cloud cover across the night, drawn top-down so more ink means more cloud. */
-function CloudSparkline({ hours, isDark }: { hours: ForecastHour[]; isDark: boolean }) {
+function CloudSparkline({ hours, isDark, isNight }: { hours: ForecastHour[]; isDark: boolean; isNight: boolean }) {
   if (hours.length < 2) return null;
   const W = 100;
   const H = 26;
@@ -46,11 +47,11 @@ function CloudSparkline({ hours, isDark }: { hours: ForecastHour[]; isDark: bool
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-7 w-full" aria-hidden="true">
-      <path d={area} fill={isDark ? 'rgba(148,163,184,0.28)' : 'rgba(100,116,139,0.20)'} />
+      <path d={area} fill={isNight ? 'rgba(153,42,42,0.28)' : isDark ? 'rgba(148,163,184,0.28)' : 'rgba(100,116,139,0.20)'} />
       <path
         d={line}
         fill="none"
-        stroke={isDark ? 'rgba(203,213,225,0.65)' : 'rgba(71,85,105,0.55)'}
+        stroke={isNight ? 'rgba(204,51,51,0.65)' : isDark ? 'rgba(203,213,225,0.65)' : 'rgba(71,85,105,0.55)'}
         strokeWidth="1.2"
         vectorEffect="non-scaling-stroke"
       />
@@ -82,7 +83,8 @@ function Metric({ icon, label, value, warn, isDark }: {
 
 export function NightOutlookCard({ night, hours, isDark, windUnit, timeZone }: Props) {
   const { t } = useTranslation('forecast');
-  const hex = scoreHex(night.score);
+  const { isNight } = useTheme();
+  const hex = scoreHex(night.score, isNight);
   const lowConfidence = night.confidence === 'low';
 
   const date = new Date(night.date + 'T12:00:00');
@@ -126,7 +128,7 @@ export function NightOutlookCard({ night, hours, isDark, windUnit, timeZone }: P
           <div className={`mb-1 text-[10.5px] font-medium uppercase tracking-[0.14em] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
             {t('nightOutlookCard.cloudCoverThroughNight')}
           </div>
-          <CloudSparkline hours={hours} isDark={isDark} />
+          <CloudSparkline hours={hours} isDark={isDark} isNight={isNight} />
         </div>
 
         <div className="mt-4 space-y-1.5 text-xs">

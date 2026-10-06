@@ -16,6 +16,11 @@ node_modules
 .claude/
 # AI agent memory bank — per-developer working notes, not project source.
 .ai-agents/
+# DeepSeek Harness state and its project-level skill roots. Local, per-machine links to
+# the private agent/ root, so they are never committed; the public sync excludes them by
+# name as well (rsync does not read .gitignore).
+.dsh/
+.agents/
 # Reasonix tool state/config — local-only, never for project source or public sync.
 .reasonix/
 reasonix.toml
@@ -42,7 +47,6 @@ releases/
 dist-ssr
 # NSSM binary — downloaded by scripts/download-nssm.mjs or CI
 installers/windows/installer/nssm.exe
-installers/windows/installer/caddy.exe
 *.local
 /data/
 
@@ -108,3 +112,13 @@ TestResults/
 # Legacy: older runs wrote these directly to the repo root. Kept ignored so any
 # stragglers from before the .test-tmp/ change don't show up in git.
 nebulis-*-test-*/
+
+# Verification ladder output (scripts/verify.mjs) — a per-run artifact bound to
+# one revision, regenerated on every `npm run verify`. Not project source.
+verify-report.json
+verify-report.html
+
+# Import Lab: generated fixtures and test reports
+tests/fixtures/import-lab/generated/
+tests/fixtures/import-lab/runtime/
+lab-report/

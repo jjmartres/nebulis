@@ -20,6 +20,7 @@ import {
   type DatabaseBackupInfo,
 } from './dbBackup.js';
 import { getCurrentVersion } from './appUpdate/platform.js';
+import { ensureArchiveColumns } from './archive/archiveColumns.js';
 
 const DB_PATH = path.join(DATA_DIR, 'nebulis.db');
 
@@ -136,7 +137,48 @@ db.exec(`
     -- Whether the background updater checks + pre-downloads automatically.
     -- OFF by default: the user must opt in. Manual "Check for updates" works
     -- regardless. Install is always an explicit click, never silent.
-    autoUpdateEnabled   INTEGER NOT NULL DEFAULT 0
+    autoUpdateEnabled   INTEGER NOT NULL DEFAULT 0,
+    -- ─── External archive ──────────────────────────────────────────────────
+    -- Destination root for archiving to an external disk. Empty = unconfigured.
+    -- The column set is defined once in server/lib/archive/archiveColumns.ts,
+    -- which also migrates it into existing databases; these mirror it for fresh
+    -- installs, and archiveConfig.test.ts asserts the two stay in step.
+    archivePath         TEXT    NOT NULL DEFAULT '',
+    -- Master switch for the whole feature. OFF by default, including on an
+    -- install that upgrades into the column.
+    archiveEnabled      INTEGER NOT NULL DEFAULT 0,
+    -- Id from the destination's .nebulisarchive marker. Empty = not adopted.
+    archiveId           TEXT    NOT NULL DEFAULT '',
+    archiveScope        TEXT    NOT NULL DEFAULT 'all',
+    archiveSelectedObjects TEXT NOT NULL DEFAULT '[]',
+    archiveIncludeSubframes INTEGER NOT NULL DEFAULT 0,
+    archiveCopyMinAgeDays INTEGER NOT NULL DEFAULT 0,
+    archiveCopyMinAgeEnabled INTEGER NOT NULL DEFAULT 0,
+    archiveScheduleEnabled INTEGER NOT NULL DEFAULT 0,
+    -- 'daily' | 'interval' | 'custom', plus the fields each mode reads.
+    archiveScheduleMode TEXT    NOT NULL DEFAULT 'daily',
+    archiveScheduleMinute INTEGER NOT NULL DEFAULT 0,
+    archiveScheduleIntervalHours INTEGER NOT NULL DEFAULT 24,
+    archiveScheduleCron TEXT    NOT NULL DEFAULT '',
+    -- The hour the 'daily' mode fires at, in the server's local time.
+    archiveScheduleHour INTEGER NOT NULL DEFAULT 2,
+    archiveRetentionDays INTEGER NOT NULL DEFAULT 0,
+    -- Pruning is armed only when this is 1. The migration backfills it from a
+    -- period that was already configured.
+    archiveRetentionEnabled INTEGER NOT NULL DEFAULT 0,
+    archiveRetentionSubframesOnly INTEGER NOT NULL DEFAULT 0,
+    archiveRemoveLocalAfter INTEGER NOT NULL DEFAULT 0,
+    archiveLastRunAt    TEXT    NOT NULL DEFAULT '',
+    archiveLastResult   TEXT    NOT NULL DEFAULT '',
+    -- 'local' or 'network'. See archiveConfig.ts: a network destination is a share
+    -- Nebulis mounts itself, described by the archiveNetwork* columns below.
+    archiveLocationType TEXT    NOT NULL DEFAULT 'local',
+    archiveNetworkHost  TEXT    NOT NULL DEFAULT '',
+    archiveNetworkShare TEXT    NOT NULL DEFAULT '',
+    archiveNetworkDomain TEXT   NOT NULL DEFAULT '',
+    archiveNetworkUsername TEXT NOT NULL DEFAULT '',
+    archiveNetworkPasswordSealed TEXT NOT NULL DEFAULT '',
+    archiveNetworkSubpath TEXT   NOT NULL DEFAULT ''
   );
   INSERT OR IGNORE INTO appSettings (id) VALUES (1);
 
@@ -362,6 +404,26 @@ db.exec(`
     ON libraryFiles(objectId, captureDate);
   CREATE INDEX IF NOT EXISTS idx_libraryFiles_role ON libraryFiles(objectId, role);
 
+  -- ─── Linked library sources (folders indexed in place, never copied) ─────
+  -- A folder the user already has on their own disk, indexed in place: rows in
+  -- libraryFiles can point at a source's files (sourceId set, relPath in the
+  -- reserved '@src/<id>/<relPath-in-source>' form — see fileResolver.ts) instead
+  -- of a file physically copied under the managed library. Nothing here is ever
+  -- copied, moved, or deleted by Nebulis; only indexed and re-scanned on demand.
+  CREATE TABLE IF NOT EXISTS librarySources (
+    id            TEXT PRIMARY KEY,
+    label         TEXT NOT NULL,
+    rootPath      TEXT NOT NULL,
+    -- Reserved for a later release's "drive letter changed, relink?" recovery
+    -- flow (a content fingerprint of a small stable file sample). Unused and
+    -- always NULL in this release; written so that release needs no migration.
+    fingerprint   TEXT,
+    enabled       INTEGER NOT NULL DEFAULT 1,
+    lastScanAt    TEXT,
+    lastScanStats TEXT,
+    createdAt     TEXT NOT NULL
+  );
+
   -- ─── Capture info parsed from device sidecars (shotsInfo.json) ───────
   -- The authoritative per-run record the device itself wrote: exposure, gain,
   -- filter, target coordinates, and how many frames were kept out of how many
@@ -585,10 +647,13 @@ db.exec(`
   --
   -- date = '' is the "whole object" sentinel (applies to every session of
   -- the object that has no more specific attachment of its own) rather than
-  -- NULL, so the unique index below actually enforces "at most one flat +
-  -- one flat-dark attachment per (object, date) slot" — SQLite treats every
-  -- NULL in a unique index as distinct from every other NULL, which would
-  -- silently defeat that constraint.
+  -- NULL, so the unique index below enforces "a given bundle is attached at
+  -- most once per (object, date, type) slot" — SQLite treats every NULL in a
+  -- unique index as distinct from every other NULL, which would silently
+  -- defeat that constraint. A slot can hold several *different* bundles (an
+  -- H-alpha flat set and an SII flat set for the same object), so the bundle's
+  -- own identity (scope, folderName, settingsKey) is part of the key; scope is
+  -- nullable, hence COALESCE for the same NULL-is-distinct reason.
   CREATE TABLE IF NOT EXISTS calibrationAttachments (
     id              TEXT PRIMARY KEY,
     objectId        TEXT NOT NULL REFERENCES libraryObjects(objectId) ON DELETE CASCADE,
@@ -599,8 +664,13 @@ db.exec(`
     settingsKey     TEXT NOT NULL,
     createdAt       TEXT NOT NULL
   );
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_calibrationAttachments_slot
-    ON calibrationAttachments(objectId, date, calibrationType);
+  -- The original index was (objectId, date, calibrationType), which allowed
+  -- one flat bundle per slot and silently replaced it on a second attach.
+  -- Superseded by the bundle-aware index below; every row the old index
+  -- accepted satisfies the new one, so the swap can't fail on existing data.
+  DROP INDEX IF EXISTS idx_calibrationAttachments_slot;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_calibrationAttachments_bundleSlot
+    ON calibrationAttachments(objectId, date, calibrationType, COALESCE(scope, ''), folderName, settingsKey);
   CREATE INDEX IF NOT EXISTS idx_calibrationAttachments_bundle
     ON calibrationAttachments(scope, folderName, settingsKey);
 `);
@@ -618,6 +688,47 @@ db.exec(`
   // old tokens are immediately rejected without waiting for their 30-day expiry.
   if (!userCols.some(c => c.name === 'tokenVersion')) {
     db.prepare('ALTER TABLE users ADD COLUMN tokenVersion INTEGER NOT NULL DEFAULT 0').run();
+  }
+}
+{
+  // Linked library sources (see librarySources above). sourceId NULL on every
+  // existing row is exactly right: it means "the managed library", which is
+  // every row that existed before this column did. mtimeMs/missingSince are
+  // read only by a linked source's rescan, so a pre-existing managed row never
+  // needing them is fine left NULL.
+  const fileCols = db.prepare<[], { name: string }>('PRAGMA table_info(libraryFiles)').all();
+  if (!fileCols.some(c => c.name === 'sourceId')) {
+    db.prepare('ALTER TABLE libraryFiles ADD COLUMN sourceId TEXT').run();
+  }
+  if (!fileCols.some(c => c.name === 'mtimeMs')) {
+    db.prepare('ALTER TABLE libraryFiles ADD COLUMN mtimeMs INTEGER').run();
+  }
+  if (!fileCols.some(c => c.name === 'missingSince')) {
+    db.prepare('ALTER TABLE libraryFiles ADD COLUMN missingSince TEXT').run();
+  }
+  // Unconditional and idempotent: by this point sourceId exists either way (a
+  // fresh install's CREATE TABLE, or the ALTER just above), so this is always
+  // safe, unlike putting it inside the `if` above — which would skip a fresh
+  // install entirely, since its column already existed and the branch never ran.
+  db.prepare('CREATE INDEX IF NOT EXISTS idx_libraryFiles_source ON libraryFiles(sourceId)').run();
+
+  // The import options a source was linked with (JSON: importSubFrames,
+  // importFits). A rescan must read the tree with the same options the link
+  // used, or files the wizard included read as "missing" the next time.
+  const sourceCols = db.prepare<[], { name: string }>('PRAGMA table_info(librarySources)').all();
+  if (!sourceCols.some(c => c.name === 'importOptions')) {
+    db.prepare('ALTER TABLE librarySources ADD COLUMN importOptions TEXT').run();
+  }
+  // The review screen's per-directory decisions (JSON array of { dirPath, action, objectId? }). A rescan
+  // applies them again; without them it would undo every folder the user assigned or ignored by hand.
+  if (!sourceCols.some(c => c.name === 'overrides')) {
+    db.prepare('ALTER TABLE librarySources ADD COLUMN overrides TEXT').run();
+  }
+  // How often the server rescans this source on its own, in minutes. NULL is a one-time link: the folder
+  // is indexed once and only re-read when someone presses Rescan. Every source that existed before this
+  // column keeps behaving exactly that way.
+  if (!sourceCols.some(c => c.name === 'refreshIntervalMin')) {
+    db.prepare('ALTER TABLE librarySources ADD COLUMN refreshIntervalMin INTEGER').run();
   }
 }
 {
@@ -808,6 +919,11 @@ db.exec(`
     db.prepare("ALTER TABLE appSettings ADD COLUMN sampleLocationSiteId TEXT NOT NULL DEFAULT ''").run();
     db.prepare("ALTER TABLE appSettings ADD COLUMN sampleLocationPrevName TEXT NOT NULL DEFAULT ''").run();
   }
+  // External archive settings. Defined and migrated by archiveColumns.ts rather
+  // than inline here, purely so the migration is exercisable by a test: the
+  // statements above run once at import and cannot be re-run against a database
+  // that lacks the columns, which is the only case that matters for an upgrade.
+  ensureArchiveColumns(db);
 }
 
 // ─── Multi-telescope columns (added in Phase 1 of multi-telescope-support) ──
@@ -1010,6 +1126,16 @@ db.exec(`
   const asExpiryCols = db.prepare<[], { name: string }>('PRAGMA table_info(appSettings)').all();
   if (!asExpiryCols.some(c => c.name === 'calibrationExpiryDays')) {
     db.prepare('ALTER TABLE appSettings ADD COLUMN calibrationExpiryDays INTEGER NOT NULL DEFAULT 180').run();
+  }
+}
+
+// Settings → Library → "Credit objects in the same frame". On by default for
+// existing and fresh installs alike: it only changes what the catalog boards
+// count as imaged, and never touches a file or a library object.
+{
+  const companionCols = db.prepare<[], { name: string }>('PRAGMA table_info(appSettings)').all();
+  if (!companionCols.some(c => c.name === 'groupCatalogCompanions')) {
+    db.prepare('ALTER TABLE appSettings ADD COLUMN groupCatalogCompanions INTEGER NOT NULL DEFAULT 1').run();
   }
 }
 

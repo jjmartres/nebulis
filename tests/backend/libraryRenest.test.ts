@@ -21,6 +21,7 @@ import {
 } from '../../server/lib/library/libraryRenest';
 import {
   recordLibraryFile,
+  recordLinkedLibraryFiles,
   getLibraryFileRow,
   getLibraryFilesForObject,
 } from '../../server/lib/library/libraryFiles';
@@ -297,6 +298,62 @@ describe('renestLibrary', () => {
     } finally {
       releaseImportLock();
     }
+  });
+});
+
+describe('linked sources', () => {
+  /** A file the user already had on their own disk, indexed in place. */
+  function seedLinkedFile(objectId: string, sourcePath: string): string {
+    const relPath = `@src/src1/${sourcePath}`;
+    recordLinkedLibraryFiles([{
+      objectId,
+      relPath,
+      sourceId: 'src1',
+      sourcePath,
+      fileName: path.basename(sourcePath),
+      role: 'light',
+      captureDate: '2026-07-05',
+      captureTime: '220000',
+      telescopeId: null,
+      bytes: 1,
+      mtimeMs: 1,
+    }]);
+    return relPath;
+  }
+
+  it('does not count an object made only of linked files as needing conversion', () => {
+    seedObject('M31', 'M31');
+    seedLinkedFile('M31', 'Astro/M31/a.fits');
+    expect(countFlatObjects()).toBe(0);
+  });
+
+  it('still counts an object that has managed files alongside linked ones', () => {
+    seedObject();
+    seedFlatFile('a_20260705-220000.jpg', '2026-07-05', '220000');
+    seedLinkedFile(OBJECT_ID, 'Astro/M31/b.fits');
+    expect(countFlatObjects()).toBe(1);
+  });
+
+  it('leaves linked rows exactly as they were when converting a mixed object', () => {
+    seedObject();
+    seedFlatFile('a_20260705-220000.jpg', '2026-07-05', '220000');
+    const linkedRel = seedLinkedFile(OBJECT_ID, 'Astro/M31/b.fits');
+
+    const result = renestObject(OBJECT_ID);
+    expect(result.error).toBeUndefined();
+    expect(result.moved).toBe(1);
+
+    const linked = getLibraryFileRow(linkedRel);
+    expect(linked?.sourceId).toBe('src1');
+    expect(linked?.relPath).toBe(linkedRel);
+    expect(getLibraryFileRow('M31/2026-07-05/a_20260705-220000.jpg')).toBeDefined();
+  });
+
+  it('a whole-library run skips objects that hold only linked files', async () => {
+    seedObject('M31', 'M31');
+    seedLinkedFile('M31', 'Astro/M31/a.fits');
+    const summary = await renestLibrary();
+    expect(summary.objects).toBe(0);
   });
 });
 

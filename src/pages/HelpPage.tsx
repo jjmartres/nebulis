@@ -19,6 +19,8 @@ import {
   Smartphone,
   HardDrive,
   UserCog,
+  Link2,
+  Archive as ArchiveIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
@@ -72,6 +74,18 @@ import mobileEnterCodeShot from '../assets/help/mobile/enter-code.webp';
 import manualImportDropZoneShot from '../assets/help/manual-import/drop-zone.webp';
 import manualImportFolderPickerShot from '../assets/help/manual-import/folder-picker.webp';
 import manualImportUncPathShot from '../assets/help/manual-import/unc-path.webp';
+import linkedChooseWayShot from '../assets/help/linked-folders/choose-way.webp';
+import linkedChooseFolderShot from '../assets/help/linked-folders/choose-folder.webp';
+import linkedReviewShot from '../assets/help/linked-folders/review.webp';
+import linkedKeepUpdatedShot from '../assets/help/linked-folders/keep-updated.webp';
+import linkedSettingsShot from '../assets/help/linked-folders/settings.webp';
+import archiveChooseDiskShot from '../assets/help/archive/choose-disk.webp';
+import archiveWhatToCopyShot from '../assets/help/archive/what-to-copy.webp';
+import archiveScheduleShot from '../assets/help/archive/schedule.webp';
+import archiveCleanupShot from '../assets/help/archive/cleanup.webp';
+import archiveOverviewShot from '../assets/help/archive/overview.webp';
+import archiveBrowseShot from '../assets/help/archive/browse.webp';
+import archiveRestoreShot from '../assets/help/archive/restore.webp';
 
 /**
  * Help: a hero banner, a left rail, and one guide shown at a time.
@@ -101,6 +115,8 @@ type SectionId =
   | 'importing'
   | 'uploading'
   | 'manual-import'
+  | 'linked-folders'
+  | 'archive'
   | 'mobile-devices'
   | 'pixinsight'
   | 'troubleshooting';
@@ -123,6 +139,8 @@ const NAV: ({ id: SectionId; labelKey: string; icon?: LucideIcon; indent?: boole
   { id: 'importing', labelKey: 'nav.importing', icon: Download },
   { id: 'uploading', labelKey: 'nav.uploading', icon: Upload },
   { id: 'manual-import', labelKey: 'nav.manualImport', icon: HardDrive },
+  { id: 'linked-folders', labelKey: 'nav.linkedFolders', icon: Link2 },
+  { id: 'archive', labelKey: 'nav.archive', icon: ArchiveIcon },
   { id: 'mobile-devices', labelKey: 'nav.mobileDevices', icon: Smartphone },
   { id: 'pixinsight', labelKey: 'nav.pixinsight', icon: Layers },
   { id: 'troubleshooting', labelKey: 'nav.troubleshooting', icon: AlertTriangle },
@@ -167,7 +185,10 @@ export function HelpPage() {
 
       {/* ── Body: left rail + one section ──────────────────────────── */}
       <div className="lg:flex lg:gap-10 lg:items-start">
-        <nav className="hidden lg:block sticky top-24 w-60 shrink-0">
+        {/* The rail is as tall as the guide list, which is taller than a laptop screen,
+            so it scrolls inside its own box (hidden scrollbar, and overscroll-contain
+            so reaching the end doesn't hand the wheel to the page). */}
+        <nav className="hidden lg:block sticky top-24 w-60 shrink-0 max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain no-scrollbar">
           <p className={`px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
             {t('page.guidesHeading')}
           </p>
@@ -227,11 +248,11 @@ function HelpHero({ accent, onStartTour, t }: { accent: string; onStartTour: () 
       <div className="relative flex hero-min-h flex-col justify-center p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-5">
           <div className="min-w-0 lg:max-w-[56%]">
-            <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              <HelpCircle className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
+            <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+              <HelpCircle className="h-5 w-5 sm:h-7 sm:w-7" style={{ color: accent }} />
               {t('page.title')}
             </h1>
-            <p className="mt-2 text-[13px] text-white/55">
+            <p className="mt-2 hidden text-[13px] text-white/55 sm:block">
               {t('page.subtitle')}
             </p>
           </div>
@@ -554,6 +575,28 @@ function renderSection(id: SectionId, isDark: boolean, navigate: (id: SectionId)
               },
             ]}
           />
+          <div className="mt-8">
+            <p className={`px-1 pb-3 text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              {t('tourPlanner.rankingIntro')}
+            </p>
+            <Terms
+              isDark={isDark}
+              label={t('tourPlanner.rankingLabel')}
+              items={[
+                { t: t('tourPlanner.rankAltitudeTerm'), d: t('tourPlanner.rankAltitudeBody') },
+                { t: t('tourPlanner.rankHoursTerm'), d: t('tourPlanner.rankHoursBody') },
+                { t: t('tourPlanner.rankBrightnessTerm'), d: t('tourPlanner.rankBrightnessBody') },
+                { t: t('tourPlanner.rankPeakTerm'), d: t('tourPlanner.rankPeakBody') },
+                { t: t('tourPlanner.rankSizeTerm'), d: t('tourPlanner.rankSizeBody') },
+              ]}
+            />
+            <p className={`px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              {t('tourPlanner.moonLabel')}
+            </p>
+            <p className={`px-1 text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              {t('tourPlanner.moonBody')}
+            </p>
+          </div>
           <Note isDark={isDark}>
             {t('tourPlanner.note')}
           </Note>
@@ -899,6 +942,250 @@ function renderSection(id: SectionId, isDark: boolean, navigate: (id: SectionId)
             {t('giveAccess.note')}
           </Note>
         </GuideCard>
+        </div>
+      );
+
+    case 'linked-folders':
+      return (
+        <div className="space-y-6">
+          <GuideCard icon={Link2} title={t('linkedFolders.title')} lead={t('linkedFolders.lead')} isDark={isDark}>
+            <Steps
+              isDark={isDark}
+              steps={[
+                {
+                  title: t('linkedFolders.step1Title'),
+                  body: (
+                    <>
+                      <p>{t('linkedFolders.step1Body')}</p>
+                      <Screenshot
+                        src={linkedChooseWayShot}
+                        alt={t('linkedFolders.step1Alt')}
+                        caption={t('linkedFolders.step1Caption')}
+                        isDark={isDark}
+                        width="max-w-sm"
+                      />
+                    </>
+                  ),
+                },
+                {
+                  title: t('linkedFolders.step2Title'),
+                  body: (
+                    <>
+                      <p>{t('linkedFolders.step2Body')}</p>
+                      <Screenshot
+                        src={linkedChooseFolderShot}
+                        alt={t('linkedFolders.step2Alt')}
+                        caption={t('linkedFolders.step2Caption')}
+                        isDark={isDark}
+                        width="max-w-md"
+                      />
+                    </>
+                  ),
+                },
+                { title: t('linkedFolders.step3Title'), body: t('linkedFolders.step3Body') },
+                {
+                  title: t('linkedFolders.step4Title'),
+                  body: (
+                    <>
+                      <p>{t('linkedFolders.step4Body')}</p>
+                      <Screenshot
+                        src={linkedReviewShot}
+                        alt={t('linkedFolders.step4Alt')}
+                        caption={t('linkedFolders.step4Caption')}
+                        isDark={isDark}
+                        width="max-w-md"
+                      />
+                    </>
+                  ),
+                },
+                {
+                  title: t('linkedFolders.step5Title'),
+                  body: (
+                    <>
+                      <p>{t('linkedFolders.step5Body')}</p>
+                      <Screenshot
+                        src={linkedKeepUpdatedShot}
+                        alt={t('linkedFolders.step5Alt')}
+                        caption={t('linkedFolders.step5Caption')}
+                        isDark={isDark}
+                        width="max-w-md"
+                      />
+                    </>
+                  ),
+                },
+              ]}
+            />
+            <Note isDark={isDark}>{t('linkedFolders.note')}</Note>
+          </GuideCard>
+
+          <GuideCard
+            icon={Link2}
+            title={t('linkedFoldersManage.title')}
+            lead={t('linkedFoldersManage.lead')}
+            isDark={isDark}
+          >
+            <Terms
+              isDark={isDark}
+              items={[
+                { t: t('linkedFoldersManage.rescanTerm'), d: t('linkedFoldersManage.rescanDesc') },
+                { t: t('linkedFoldersManage.editTerm'), d: t('linkedFoldersManage.editDesc') },
+                { t: t('linkedFoldersManage.unlinkTerm'), d: t('linkedFoldersManage.unlinkDesc') },
+                { t: t('linkedFoldersManage.offlineTerm'), d: t('linkedFoldersManage.offlineDesc') },
+                { t: t('linkedFoldersManage.missingTerm'), d: t('linkedFoldersManage.missingDesc') },
+              ]}
+            />
+            <Screenshot
+              src={linkedSettingsShot}
+              alt={t('linkedFoldersManage.settingsAlt')}
+              caption={t('linkedFoldersManage.settingsCaption')}
+              isDark={isDark}
+              width="max-w-2xl"
+            />
+            <Note isDark={isDark}>{t('linkedFoldersManage.note')}</Note>
+          </GuideCard>
+        </div>
+      );
+
+    case 'archive':
+      return (
+        <div className="space-y-6">
+          <GuideCard icon={ArchiveIcon} title={t('archive.title')} lead={t('archive.lead')} isDark={isDark}>
+            <Steps
+              isDark={isDark}
+              steps={[
+                {
+                  title: t('archive.step1Title'),
+                  body: (
+                    <>
+                      <p>{t('archive.step1Body')}</p>
+                      <Screenshot
+                        src={archiveChooseDiskShot}
+                        alt={t('archive.step1Alt')}
+                        caption={t('archive.step1Caption')}
+                        isDark={isDark}
+                        width="max-w-sm"
+                      />
+                    </>
+                  ),
+                },
+                {
+                  title: t('archive.step2Title'),
+                  body: (
+                    <>
+                      <p>{t('archive.step2Body')}</p>
+                      <Screenshot
+                        src={archiveWhatToCopyShot}
+                        alt={t('archive.step2Alt')}
+                        caption={t('archive.step2Caption')}
+                        isDark={isDark}
+                        width="max-w-2xl"
+                      />
+                    </>
+                  ),
+                },
+                {
+                  title: t('archive.step3Title'),
+                  body: (
+                    <>
+                      <p>{t('archive.step3Body')}</p>
+                      <Screenshot
+                        src={archiveScheduleShot}
+                        alt={t('archive.step3Alt')}
+                        caption={t('archive.step3Caption')}
+                        isDark={isDark}
+                        width="max-w-2xl"
+                      />
+                    </>
+                  ),
+                },
+                {
+                  title: t('archive.step4Title'),
+                  body: (
+                    <>
+                      <p>{t('archive.step4Body')}</p>
+                      <Screenshot
+                        src={archiveCleanupShot}
+                        alt={t('archive.step4Alt')}
+                        caption={t('archive.step4Caption')}
+                        isDark={isDark}
+                        width="max-w-2xl"
+                      />
+                    </>
+                  ),
+                },
+                { title: t('archive.step5Title'), body: t('archive.step5Body') },
+              ]}
+            />
+            <Note isDark={isDark}>{t('archive.note')}</Note>
+          </GuideCard>
+
+          <GuideCard
+            icon={ArchiveIcon}
+            title={t('archiveManage.title')}
+            lead={t('archiveManage.lead')}
+            isDark={isDark}
+          >
+            <Terms
+              isDark={isDark}
+              items={[
+                { t: t('archiveManage.runTerm'), d: t('archiveManage.runDesc') },
+                { t: t('archiveManage.browseTerm'), d: t('archiveManage.browseDesc') },
+                { t: t('archiveManage.turnOffTerm'), d: t('archiveManage.turnOffDesc') },
+                { t: t('archiveManage.editTerm'), d: t('archiveManage.editDesc') },
+              ]}
+            />
+            <Screenshot
+              src={archiveOverviewShot}
+              alt={t('archiveManage.overviewAlt')}
+              caption={t('archiveManage.overviewCaption')}
+              isDark={isDark}
+              width="max-w-2xl"
+            />
+          </GuideCard>
+
+          <GuideCard
+            icon={ArchiveIcon}
+            title={t('archiveRestore.title')}
+            lead={t('archiveRestore.lead')}
+            isDark={isDark}
+          >
+            <Steps
+              isDark={isDark}
+              steps={[
+                {
+                  title: t('archiveRestore.step1Title'),
+                  body: (
+                    <>
+                      <p>{t('archiveRestore.step1Body')}</p>
+                      <Screenshot
+                        src={archiveBrowseShot}
+                        alt={t('archiveRestore.step1Alt')}
+                        caption={t('archiveRestore.step1Caption')}
+                        isDark={isDark}
+                        width="max-w-sm"
+                      />
+                    </>
+                  ),
+                },
+                {
+                  title: t('archiveRestore.step2Title'),
+                  body: (
+                    <>
+                      <p>{t('archiveRestore.step2Body')}</p>
+                      <Screenshot
+                        src={archiveRestoreShot}
+                        alt={t('archiveRestore.step2Alt')}
+                        caption={t('archiveRestore.step2Caption')}
+                        isDark={isDark}
+                        width="max-w-sm"
+                      />
+                    </>
+                  ),
+                },
+                { title: t('archiveRestore.step3Title'), body: t('archiveRestore.step3Body') },
+              ]}
+            />
+          </GuideCard>
         </div>
       );
 

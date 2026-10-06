@@ -39,20 +39,22 @@ export function WishlistHero({ total, visibleTonight, highPriority, accent }: Pr
 
       <div className="relative flex hero-min-h flex-col justify-center gap-6 p-4 sm:p-6">
         <div className="min-w-0">
-          <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            <Star className="h-6 w-6 sm:h-7 sm:w-7 fill-current" style={{ color: accent }} />
+          <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+            <Star className="h-5 w-5 sm:h-7 sm:w-7 fill-current" style={{ color: accent }} />
             {t('wishlistHero.title')}
           </h1>
           {/* Uncapped on purpose, matching every other banner in this group
               (Library, Catalogs, Settings, Backup, Calibrations, Image
               gallery). A `max-w-xl` cap used to sit here, and this copy needs
               634px at 13px, so the cap wrapped it onto a second line and left
-              this banner 19px taller than every sibling page's. */}
-          <p className="mt-2 text-[13px] text-white/55">
+              this banner 19px taller than every sibling page's. Hidden on a
+              phone along with the stat row below, same reasoning as Library's
+              banner: it repeats what the list underneath already shows. */}
+          <p className="mt-2 hidden text-[13px] text-white/55 sm:block">
             {t('wishlistHero.subtitle')}
           </p>
 
-          <div className="mt-6 flex flex-wrap items-end gap-x-12 gap-y-4 sm:gap-x-16">
+          <div className="mt-6 hidden flex-wrap items-end gap-x-12 gap-y-4 sm:flex sm:gap-x-16">
             {stats.map(({ value, label }) => (
               <div key={label} className="min-w-0">
                 <div className="font-display text-2xl font-bold leading-none tracking-tight text-white tabular-nums">

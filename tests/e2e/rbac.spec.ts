@@ -38,14 +38,11 @@ test.describe('Viewer — Gallery page', () => {
   // exists; syncing moved to the telescope sync pill dropdown in the top nav
   // (src/components/Layout.tsx), and the tests below cover its admin gating.
 
-  test('hides the "Upload Files" button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /upload files/i })).toHaveCount(0);
-  });
-
-  test('hides the "New Observation" button', async ({ page }) => {
-    // It is a button now, not a link (Gallery.tsx renders both import controls
-    // behind `isAdmin`).
-    await expect(page.getByRole('button', { name: /new observation/i })).toHaveCount(0);
+  test('hides the "Add" menu (Upload Files / New Observation)', async ({ page }) => {
+    // Gallery.tsx renders the Add menu, which holds both import controls,
+    // behind `isAdmin`.
+    await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: /upload files|new observation/i })).toHaveCount(0);
   });
 
   test('hides the sync triggers in the telescope pill', async ({ page }) => {
@@ -77,18 +74,17 @@ test.describe('Admin — Gallery page', () => {
 
   test('shows the admin-only library controls', async ({ page }) => {
     // Replaces the removed "From Telescope" import button. Syncing itself now
-    // lives in the top-nav telescope pill; these two buttons are the library
-    // page's admin-only controls (Gallery.tsx).
-    await expect(page.getByRole('button', { name: /upload files/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /new observation/i })).toBeVisible();
+    // lives in the top-nav telescope pill; the Add menu (Upload Files, New
+    // Observation) is the library page's admin-only control (Gallery.tsx).
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: /upload files/i })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /new observation/i })).toBeVisible();
   });
 
-  test('shows the "Upload Files" button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /upload files/i })).toBeVisible();
-  });
-
-  test('shows the "New Observation" button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /new observation/i })).toBeVisible();
+  test('shows "Upload Files" and "New Observation" in the Add menu', async ({ page }) => {
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: /upload files/i })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /new observation/i })).toBeVisible();
   });
 });
 
@@ -215,13 +211,19 @@ test.describe('Viewer — Observation Detail page', () => {
   });
 
   test('hides the Move observation button', async ({ page }) => {
-    // The move/relocate action is the hero's admin-only "Combine" button now
-    // (SessionHero; it opens MoveObservationModal).
-    await expect(page.getByRole('main').getByRole('button', { name: /^combine$/i })).toHaveCount(0);
+    // The move/relocate action is a hero overflow-menu item ("Move to another
+    // object"). The menu is opened first and confirmed to have rendered, so
+    // this cannot pass vacuously on a menu that simply is not there: a viewer
+    // still gets "Show file location", just not the admin-only items.
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /show file location/i })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /move to another object/i })).toHaveCount(0);
   });
 
   test('hides the Delete observation button', async ({ page }) => {
-    await expect(page.getByRole('main').getByRole('button', { name: /^delete$/i })).toHaveCount(0);
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /show file location/i })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /delete session/i })).toHaveCount(0);
   });
 });
 
@@ -234,11 +236,14 @@ test.describe('Admin — Observation Detail page', () => {
   });
 
   test('shows the Move (Combine) button', async ({ page }) => {
-    await expect(page.getByRole('main').getByRole('button', { name: /^combine$/i })).toBeVisible();
+    // Admin-only, and a hero overflow-menu item rather than a top-level button.
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /move to another object/i })).toBeVisible();
   });
 
   test('shows Delete button', async ({ page }) => {
-    await expect(page.getByRole('main').getByRole('button', { name: /^delete$/i })).toBeVisible();
+    await page.getByRole('button', { name: /more actions/i }).click();
+    await expect(page.getByRole('menuitem', { name: /delete session/i })).toBeVisible();
   });
 });
 
@@ -252,14 +257,15 @@ test.describe('Admin via explicit /api/auth/me (token present)', () => {
   });
 
   test('gallery shows admin-only library controls for explicit admin user', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /upload files/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /new observation/i })).toBeVisible();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: /upload files/i })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /new observation/i })).toBeVisible();
   });
 
   test('does not show view-only banner on gallery', async ({ page }) => {
     // Wait for an admin-only control first so this is not a vacuous pass
     // during the pre-auth loading window.
-    await expect(page.getByRole('button', { name: /upload files/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
     await expect(page.getByText(/view-only mode/i)).toHaveCount(0);
   });
 });

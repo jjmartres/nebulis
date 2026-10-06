@@ -110,6 +110,8 @@ export function FileLocationModal({
     staleTime: 60 * 1000,
   });
 
+  // Older servers, and test mocks, do not send `linked`.
+  const linkedFolders = data?.linked ?? [];
   const primary: DiskLocation | null = data ? (date ? data.session : data.object) : null;
   const primaryLabel = date ? t('fileLocationModal.sessionFolder') : t('fileLocationModal.objectFolder');
 
@@ -151,13 +153,22 @@ export function FileLocationModal({
 
         {data && (
           <Section icon={data.storage === 'network' ? Network : HardDrive} title={t('fileLocationModal.onDisk')}>
-            {primary ? (
+            {primary?.path ? (
               <PathRow label={primaryLabel} value={primary.path} missing={!primary.exists} />
-            ) : (
+            ) : linkedFolders.length === 0 ? (
               <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 {t('fileLocationModal.noFolderRecorded')}
               </p>
-            )}
+            ) : null}
+
+            {linkedFolders.map(l => (
+              <PathRow
+                key={l.sourceId}
+                label={t('fileLocationModal.linkedFolder', { name: l.sourceLabel })}
+                value={l.path}
+                missing={!l.exists}
+              />
+            ))}
 
             {!date &&
               data.variants.map(v => (
@@ -165,9 +176,11 @@ export function FileLocationModal({
               ))}
 
             <p className={`pt-1 text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              {data.storage === 'network'
-                ? t('fileLocationModal.networkNote')
-                : t('fileLocationModal.localNote')}
+              {linkedFolders.length > 0 && !primary?.path
+                ? t('fileLocationModal.linkedNote')
+                : data.storage === 'network'
+                  ? t('fileLocationModal.networkNote')
+                  : t('fileLocationModal.localNote')}
             </p>
           </Section>
         )}

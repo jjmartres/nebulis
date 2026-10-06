@@ -40,7 +40,7 @@ interface Props {
 
 export function NightStrip({ nights, selectedKey, onSelect, onStep, onOpenCalendar }: Props) {
   const { t } = useTranslation('planner');
-  const { isDark } = useTheme();
+  const { isDark, isNight } = useTheme();
   const selectedRef = useRef<HTMLButtonElement | null>(null);
 
   // Keep the chosen night in view when the date changes from somewhere else
@@ -65,10 +65,10 @@ export function NightStrip({ nights, selectedKey, onSelect, onStep, onOpenCalend
           content also stops the arrows drifting to opposite screen edges.
           Widths are whole chips: 3, then 5, then 7, so a chip is never sliced
           in half by the container. */}
-      <div className="flex w-[14.5rem] max-w-full gap-2 overflow-x-auto pb-0.5 lg:w-[24.5rem] xl:w-[34.5rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex w-[14.5rem] max-w-full gap-2 overflow-x-auto pb-0.5 lg:w-[24.5rem] xl:w-[34.5rem] no-scrollbar">
         {nights.map(night => {
           const selected = night.key === selectedKey;
-          const hex = night.score != null ? scoreHex(night.score) : null;
+          const hex = night.score != null ? scoreHex(night.score, isNight) : null;
           return (
             <button
               key={night.key}

@@ -21,6 +21,7 @@ import { tcpProbe, getSmbOpHealth, invalidateSmbReachability, SMB_PORT } from '.
 import { ftpTestConnection, parseFtpHost } from '../lib/smb.ftp.js';
 import { getWalkerConfig, isDwarfKind } from '../lib/walkers/index.js';
 import { log } from '../lib/logger.js';
+import { scanForDevices } from '../lib/deviceScan.js';
 import { isObjectFolder } from '../lib/telescopeFiles.js';
 import type { TelescopeKind } from '../lib/telescopes.js';
 import { TELESCOPE_KINDS, isAsiairKind } from '../lib/types/telescopeKind.js';
@@ -302,6 +303,19 @@ router.post('/probe-identity', requireAdmin, async (req: Request, res: Response)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Probe failed';
     res.apiError(502, 'PROBE_FAILED', message);
+  }
+});
+
+// Sweep the server's own LAN for SeeStar, ASIAIR and Dwarf devices, so the Add
+// Telescope modal can offer "Find device" instead of making the user look up an
+// IP. Read-only: it only opens TCP/UDP connections and an anonymous FTP login.
+router.post('/scan', requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    res.apiSuccess(await scanForDevices());
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Scan failed';
+    log.warn({ error: message }, '[scan] device scan failed');
+    res.apiError(500, 'SCAN_FAILED', message);
   }
 });
 

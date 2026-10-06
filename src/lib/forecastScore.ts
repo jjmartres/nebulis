@@ -64,16 +64,32 @@ const SCORE_BANDS: { min: number; labelKey: string; color: string; stroke: strin
   { min: 0,  labelKey: 'scoreBand.bad',   color: 'text-red-500',     stroke: 'stroke-red-500',     hex: '#ef4444' },
 ];
 
-function bandFor(score: number) {
-  return SCORE_BANDS.find(b => score >= b.min) ?? SCORE_BANDS[SCORE_BANDS.length - 1];
+/** Night-theme equivalent of SCORE_BANDS. Same thresholds and labels, but
+ *  every hue collapses to the same dark-red ladder `.night` already uses for
+ *  slate text in index.css (#cc3333 down to #4d1414), so a score band never
+ *  renders green/blue/amber/orange while red-light mode is protecting the
+ *  viewer's dark adaptation. Brightness still carries the good/bad signal;
+ *  hue no longer does. */
+const NIGHT_SCORE_BANDS: { min: number; labelKey: string; color: string; stroke: string; hex: string }[] = [
+  { min: 85, labelKey: 'scoreBand.ideal', color: 'text-[#cc3333]', stroke: 'stroke-[#cc3333]', hex: '#cc3333' },
+  { min: 70, labelKey: 'scoreBand.great', color: 'text-[#b82e2e]', stroke: 'stroke-[#b82e2e]', hex: '#b82e2e' },
+  { min: 55, labelKey: 'scoreBand.good',  color: 'text-[#a02828]', stroke: 'stroke-[#a02828]', hex: '#a02828' },
+  { min: 40, labelKey: 'scoreBand.fair',  color: 'text-[#882222]', stroke: 'stroke-[#882222]', hex: '#882222' },
+  { min: 25, labelKey: 'scoreBand.poor',  color: 'text-[#661a1a]', stroke: 'stroke-[#661a1a]', hex: '#661a1a' },
+  { min: 0,  labelKey: 'scoreBand.bad',   color: 'text-[#4d1414]', stroke: 'stroke-[#4d1414]', hex: '#4d1414' },
+];
+
+function bandFor(score: number, isNight = false) {
+  const bands = isNight ? NIGHT_SCORE_BANDS : SCORE_BANDS;
+  return bands.find(b => score >= b.min) ?? bands[bands.length - 1];
 }
 
-export function scoreRingColor(score: number): string {
-  return bandFor(score).stroke;
+export function scoreRingColor(score: number, isNight = false): string {
+  return bandFor(score, isNight).stroke;
 }
 
-export function scoreHex(score: number): string {
-  return bandFor(score).hex;
+export function scoreHex(score: number, isNight = false): string {
+  return bandFor(score, isNight).hex;
 }
 
 export function scoreLabel(score: number, t: TFunc): string {
@@ -101,11 +117,19 @@ export function translateScoreRating(t: TFunc, rating: string): string {
   return key ? t(key, { ns: 'common' }) : rating;
 }
 
-export function scoreTextColor(score: number): string {
-  return bandFor(score).color;
+export function scoreTextColor(score: number, isNight = false): string {
+  return bandFor(score, isNight).color;
 }
 
-export function scoreBgColor(score: number, isDark: boolean): string {
+export function scoreBgColor(score: number, isDark: boolean, isNight = false): string {
+  if (isNight) {
+    // Same red ladder as NIGHT_SCORE_BANDS, dimmed to a wash for a card background.
+    if (score >= 85) return 'bg-[#cc3333]/10 border-[#cc3333]/30';
+    if (score >= 70) return 'bg-[#b82e2e]/5 border-[#b82e2e]/20';
+    if (score >= 55) return 'bg-[#a02828]/5 border-[#a02828]/20';
+    if (score >= 40) return 'bg-[#882222]/5 border-[#882222]/20';
+    return 'bg-[#661a1a]/5 border-[#661a1a]/20';
+  }
   if (score >= 85) return isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200';
   if (score >= 70) return isDark ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50/50 border-emerald-100';
   if (score >= 55) return isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-100';
@@ -119,6 +143,7 @@ export function calculateVisibilityScore(
   timeZone: string | undefined,
   darkWindow: DarkWindow | null | undefined,
   t: TFunc,
+  isNightTheme = false,
 ): VisibilityResult {
   // Cloud Cover (60% weight): 0% = 1.0, 100% = 0.0
   const cloudScore = 1 - hour.cloudCover / 100;
@@ -165,7 +190,7 @@ export function calculateVisibilityScore(
   const raw = (cloudScore * 0.6) + (seeingScore * 0.2) + (moonPenalty * 0.2) + transparencyBonus;
   const score = Math.round(Math.min(100, Math.max(0, raw * 100)));
 
-  const band = bandFor(score);
+  const band = bandFor(score, isNightTheme);
 
   return {
     score,

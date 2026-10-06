@@ -74,52 +74,6 @@ function dirSize(dir: string): { bytes: number; files: number } {
   return { bytes, files };
 }
 
-export interface ImportTmpUsage {
-  path: string;
-  /** Total bytes currently staged across all sessions. */
-  bytes: number;
-  files: number;
-  /** Number of upload-session directories present. */
-  sessions: number;
-  /** ISO timestamp of the oldest session, or null when the area is empty. */
-  oldestAt: string | null;
-}
-
-export function getImportTmpUsage(): ImportTmpUsage {
-  const empty: ImportTmpUsage = { path: IMPORT_TMP_BASE, bytes: 0, files: 0, sessions: 0, oldestAt: null };
-  if (!fs.existsSync(IMPORT_TMP_BASE)) return empty;
-
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(IMPORT_TMP_BASE, { withFileTypes: true });
-  } catch {
-    return empty;
-  }
-
-  let bytes = 0, files = 0, sessions = 0;
-  let oldestMs: number | null = null;
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const dirPath = path.join(IMPORT_TMP_BASE, entry.name);
-    sessions++;
-    const stats = dirSize(dirPath);
-    bytes += stats.bytes;
-    files += stats.files;
-    try {
-      const { mtimeMs } = fs.statSync(dirPath);
-      if (oldestMs === null || mtimeMs < oldestMs) oldestMs = mtimeMs;
-    } catch { /* unreadable; still counted as a session */ }
-  }
-
-  return {
-    path: IMPORT_TMP_BASE,
-    bytes,
-    files,
-    sessions,
-    oldestAt: oldestMs === null ? null : new Date(oldestMs).toISOString(),
-  };
-}
-
 export interface PurgeResult {
   deleted: number;
   errors: number;

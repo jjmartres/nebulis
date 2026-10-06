@@ -59,17 +59,17 @@ export function CalibrationHero({ accent, empty, totalFiles, totalBytes, frameTy
 
       <div className="relative flex hero-min-h flex-col justify-center gap-6 p-4 sm:p-6 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
         <div className="min-w-0 lg:max-w-[58%]">
-          <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            <Aperture className="h-6 w-6 sm:h-7 sm:w-7" style={{ color: accent }} />
+          <h1 className="font-display flex items-center gap-2.5 text-xl font-bold tracking-tight text-white sm:text-4xl">
+            <Aperture className="h-5 w-5 sm:h-7 sm:w-7" style={{ color: accent }} />
             {t('calibrations.pageTitle')}
           </h1>
 
-          <p className="mt-2 text-[13px] text-white/55">
+          <p className="mt-2 hidden text-[13px] text-white/55 sm:block">
             {t('calibrations.pageSubtitle')}
           </p>
 
           {!empty && (
-            <div className="mt-6 flex flex-wrap items-end gap-x-12 gap-y-4 sm:gap-x-16">
+            <div className="mt-6 hidden flex-wrap items-end gap-x-12 gap-y-4 sm:flex sm:gap-x-16">
               {stats.map(({ value, label }) => (
                 <div key={label} className="min-w-0">
                   <div className="font-display text-2xl font-bold leading-none tracking-tight tabular-nums text-white">
