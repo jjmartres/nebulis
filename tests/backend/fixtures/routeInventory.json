@@ -478,6 +478,21 @@
   },
   {
     "method": "GET",
+    "path": "/library/filter-aliases",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/filter-aliases",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/library/fits-thumbnail",
     "guards": [
       "<anonymous>"
@@ -693,6 +708,21 @@
     "method": "GET",
     "path": "/library/objects/:objectId/integration",
     "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/integration/filters",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/integration/goals",
+    "guards": [
+      "requireAdmin",
       "<anonymous>"
     ]
   },

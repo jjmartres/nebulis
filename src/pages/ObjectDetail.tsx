@@ -58,6 +58,7 @@ import { LinkedFilesChoice } from '../components/objectDetail/LinkedFilesChoice'
 import { buildObjectMetrics, summarizeObject } from '../components/objectDetail/objectStats';
 import { ObjectProcessedSection } from '../components/objectDetail/ObjectProcessedSection';
 import { ObjectProjectArchivesSection } from '../components/objectDetail/ObjectProjectArchivesSection';
+import { ObjectIntegrationSection } from '../components/objectDetail/ObjectIntegrationSection';
 import { TourAnchor } from '../components/tour/TourAnchor';
 import { DWARF_STARTRAILS_OBJECT_TYPE, DWARF_STARTRAILS_PLACEHOLDER_IMAGE } from '../lib/dwarfStartrails';
 import { DWARF_VIDEOS_OBJECT_TYPE } from '../lib/dwarfVideos';
@@ -660,6 +661,12 @@ export function ObjectDetail() {
           a collapsed section to match the height of its expanded sibling,
           leaving a tall dead area below the collapsed header that reads as
           a broken/empty panel rather than simply "closed". */}
+      {/* Integration per filter, with goals. Not for Star Trails / Videos,
+          which have no sub-frames to integrate. */}
+      {!isSyntheticDwarfObject && (
+        <ObjectIntegrationSection objectId={activeObjectId} isAdmin={isAdmin} />
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 items-start">
         <ObjectProcessedSection objectId={activeObjectId} isAdmin={isAdmin} />
 

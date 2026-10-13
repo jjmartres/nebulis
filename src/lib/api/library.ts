@@ -1404,3 +1404,53 @@ export const getObjectLocation = (objectId: string, date?: string) =>
   fetchJSON<ObjectLocation>(
     `/library/objects/${encodeURIComponent(objectId)}/location${date ? `?date=${encodeURIComponent(date)}` : ''}`,
   );
+
+// ─── Integration per filter + goals ──────────────────────────────────────────
+// Mirrors server/lib/library/integration.ts. `filter: null` is the "no filter"
+// bucket (one-shot colour camera without a wheel, or no FILTER keyword).
+
+export interface NightIntegration {
+  date: string;
+  frames: number;
+  exposureSec: number;
+}
+
+export interface FilterIntegration {
+  filter: string | null;
+  frames: number;
+  exposureSec: number;
+  goalSec: number | null;
+  nights: NightIntegration[];
+}
+
+export interface IntegrationBreakdown {
+  objectId: string;
+  totalFrames: number;
+  totalExposureSec: number;
+  unreadableFrames: number;
+  filters: FilterIntegration[];
+}
+
+export interface IntegrationGoal {
+  filter: string | null;
+  goalSec: number;
+}
+
+export interface FilterAlias {
+  alias: string;
+  canonical: string;
+}
+
+export const getIntegrationByFilter = (objectId: string) =>
+  fetchJSON<IntegrationBreakdown>(`/library/objects/${encodeURIComponent(objectId)}/integration/filters`);
+
+export const saveIntegrationGoals = (objectId: string, goals: IntegrationGoal[]) =>
+  fetchJSON<IntegrationGoal[]>(
+    `/library/objects/${encodeURIComponent(objectId)}/integration/goals`,
+    { method: 'PUT', body: JSON.stringify({ goals }) },
+  );
+
+export const getFilterAliases = () => fetchJSON<FilterAlias[]>('/library/filter-aliases');
+
+export const saveFilterAliases = (aliases: FilterAlias[]) =>
+  fetchJSON<FilterAlias[]>('/library/filter-aliases', { method: 'PUT', body: JSON.stringify({ aliases }) });
