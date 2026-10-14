@@ -649,6 +649,12 @@
     },
     "selectAll": "Alles selecteren",
     "selectNone": "Niets selecteren",
-    "noNights": "Geen enkele nacht van dit object heeft subframes."
+    "noNights": "Geen enkele nacht van dit object heeft subframes.",
+    "notMeasured_one": "De kwaliteit van de subframes van {{nights}} is nog niet gemeten, dus ze gaan allemaal mee. Meet ze om de slechte weg te laten.",
+    "notMeasured_other": "De kwaliteit van de subframes van {{count}} nachten ({{nights}}) is nog niet gemeten, dus ze gaan allemaal mee. Meet ze om de slechte weg te laten.",
+    "notMeasuredViewer": "Een beheerder kan ze meten.",
+    "measure_one": "{{count}} subframe meten",
+    "measure_other": "{{count}} subframes meten",
+    "measuring": "Kwaliteit van de subframes meten {{done}} / {{total}}"
   }
 }

@@ -649,6 +649,12 @@
     },
     "selectAll": "Alle auswählen",
     "selectNone": "Keine auswählen",
-    "noNights": "Keine Nacht dieses Objekts hat Einzelbilder."
+    "noNights": "Keine Nacht dieses Objekts hat Einzelbilder.",
+    "notMeasured_one": "Die Qualität der Einzelbilder vom {{nights}} ist noch nicht gemessen, daher werden alle exportiert. Miss sie, um die schlechten auszulassen.",
+    "notMeasured_other": "Die Qualität der Einzelbilder von {{count}} Nächten ({{nights}}) ist noch nicht gemessen, daher werden alle exportiert. Miss sie, um die schlechten auszulassen.",
+    "notMeasuredViewer": "Ein Admin kann sie messen.",
+    "measure_one": "{{count}} Einzelbild messen",
+    "measure_other": "{{count}} Einzelbilder messen",
+    "measuring": "Qualität der Einzelbilder wird gemessen {{done}} / {{total}}"
   }
 }

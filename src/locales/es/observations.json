@@ -649,6 +649,12 @@
     },
     "selectAll": "Seleccionar todo",
     "selectNone": "No seleccionar ninguna",
-    "noNights": "Ninguna noche de este objeto tiene subtomas."
+    "noNights": "Ninguna noche de este objeto tiene subtomas.",
+    "notMeasured_one": "La calidad de las subtomas del {{nights}} aún no está medida, así que se exportan todas. Mídela para dejar fuera las malas.",
+    "notMeasured_other": "La calidad de las subtomas de {{count}} noches ({{nights}}) aún no está medida, así que se exportan todas. Mídelas para dejar fuera las malas.",
+    "notMeasuredViewer": "Un administrador puede medirla.",
+    "measure_one": "Medir {{count}} subtoma",
+    "measure_other": "Medir {{count}} subtomas",
+    "measuring": "Midiendo la calidad de las subtomas {{done}} / {{total}}"
   }
 }

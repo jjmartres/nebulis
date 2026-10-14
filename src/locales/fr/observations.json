@@ -649,6 +649,12 @@
     },
     "selectAll": "Tout sélectionner",
     "selectNone": "Tout désélectionner",
-    "noNights": "Aucune nuit de cet objet n’a de sous-poses."
+    "noNights": "Aucune nuit de cet objet n’a de sous-poses.",
+    "notMeasured_one": "La qualité des sous-poses du {{nights}} n’est pas encore mesurée : toutes ses sous-poses sont exportées. Mesurez-la pour écarter les mauvaises.",
+    "notMeasured_other": "La qualité des sous-poses de {{count}} nuits ({{nights}}) n’est pas encore mesurée : toutes leurs sous-poses sont exportées. Mesurez-les pour écarter les mauvaises.",
+    "notMeasuredViewer": "Un administrateur peut la mesurer.",
+    "measure_one": "Mesurer {{count}} sous-pose",
+    "measure_other": "Mesurer {{count}} sous-poses",
+    "measuring": "Mesure de la qualité des sous-poses {{done}} / {{total}}"
   }
 }

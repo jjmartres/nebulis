@@ -649,6 +649,12 @@
     },
     "selectAll": "Select all",
     "selectNone": "Select none",
-    "noNights": "No night of this object has sub-frames."
+    "noNights": "No night of this object has sub-frames.",
+    "notMeasured_one": "Sub-frame quality of {{nights}} is not measured yet, so all its sub-frames go in. Measure it to leave the poor ones out.",
+    "notMeasured_other": "Sub-frame quality of {{count}} nights ({{nights}}) is not measured yet, so all their sub-frames go in. Measure them to leave the poor ones out.",
+    "notMeasuredViewer": "An admin can measure it.",
+    "measure_one": "Measure {{count}} sub-frame",
+    "measure_other": "Measure {{count}} sub-frames",
+    "measuring": "Measuring sub-frame quality {{done}} / {{total}}"
   }
 }

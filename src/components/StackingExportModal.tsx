@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, CheckCircle2, CheckSquare, Download, Loader2, MinusCircle, PackageCheck, Square, X, XCircle } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, CheckSquare, Download, Loader2, MinusCircle, PackageCheck, Square, X, XCircle } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { useArchiveJob } from '../hooks/useArchiveJob';
+import { useNightsQuality } from '../hooks/useNightsQuality';
+import { useAuth } from '../contexts/AuthContext';
 import { Modal } from './ui/Modal';
 import { formatBytes } from '../lib/utils';
 import { formatDate } from '../lib/formatLocale';
@@ -78,6 +80,16 @@ export function StackingExportModal({ objectId, onClose }: { objectId: string; o
     placeholderData: prev => prev,
     staleTime: 30_000,
   });
+
+  // Keep decisions only exist for measured nights: offer to measure the
+  // others, and rebuild the plan once the measurement is done.
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const refreshPlan = useCallback(
+    () => void queryClient.invalidateQueries({ queryKey: ['stacking-plan', objectId] }),
+    [queryClient, objectId],
+  );
+  const quality = useNightsQuality(objectId, dates, refreshPlan);
 
   const muted = isDark ? 'text-slate-400' : 'text-slate-500';
   const strong = isDark ? 'text-slate-100' : 'text-slate-800';
@@ -174,6 +186,53 @@ export function StackingExportModal({ objectId, onClose }: { objectId: string; o
         </div>
         <p className={`text-[11px] ${muted}`}>{t(layout === 'wbpp' ? 'stackingExport.wbppHint' : 'stackingExport.sirilHint')}</p>
 
+        {dates.length > 0 && (quality.measuring || quality.unmeasuredNights.length > 0) && (
+          <div
+            className={`rounded-xl border px-3 py-2.5 text-xs ${
+              isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800'
+            }`}
+            role="status"
+          >
+            {quality.measuring ? (
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" aria-hidden="true" />
+                <span className="flex-shrink-0">{t('stackingExport.measuring', { done: quality.done, total: quality.total })}</span>
+                <div className={`h-1.5 flex-1 overflow-hidden rounded-full ${isDark ? 'bg-amber-500/20' : 'bg-amber-200'}`}>
+                  <div
+                    className="h-full rounded-full bg-amber-500 transition-all"
+                    style={{ width: `${quality.total ? (quality.done / quality.total) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <Activity className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  {t('stackingExport.notMeasured', {
+                    count: quality.unmeasuredNights.length,
+                    nights: quality.unmeasuredNights.map(nightLabel).join(', '),
+                  })}
+                  {!isAdmin && ` ${t('stackingExport.notMeasuredViewer')}`}
+                </span>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    disabled={quality.starting}
+                    onClick={() => void quality.measure()}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-medium transition disabled:opacity-50 ${
+                      isDark ? 'bg-amber-500/20 text-amber-100 hover:bg-amber-500/30' : 'bg-amber-200 text-amber-900 hover:bg-amber-300'
+                    }`}
+                  >
+                    {quality.starting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
+                    {t('stackingExport.measure', { count: quality.unmeasuredFrames })}
+                  </button>
+                )}
+              </div>
+            )}
+            {quality.error && <p className={`mt-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>{quality.error}</p>}
+          </div>
+        )}
+
         {planError && (
           <p className={`text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>
             {planError instanceof Error ? planError.message : t('stackingExport.planFailed')}
@@ -240,7 +299,7 @@ export function StackingExportModal({ objectId, onClose }: { objectId: string; o
             </span>
             <button
               type="button"
-              disabled={!plan || dates.length === 0 || plan.totals.lights === 0 || isFetching}
+              disabled={!plan || dates.length === 0 || plan.totals.lights === 0 || isFetching || quality.measuring}
               onClick={() => void job.start(() => startStackingExport(objectId, dates, includeNotKept, layout))}
               className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent-600 disabled:opacity-50"
             >
