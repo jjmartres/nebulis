@@ -355,5 +355,12 @@
     "preparing": "Preparing…",
     "shareImage": "Share image",
     "saveImage": "Save image"
+  },
+  "integrationRemaining": {
+    "left": "{{duration}} left · {{filter}}",
+    "title": "{{filter}}: {{done}} of {{goal}}",
+    "noFilter": "No filter",
+    "complete": "Goals reached",
+    "completeTitle": "Every integration goal on this object is reached"
   }
 }
