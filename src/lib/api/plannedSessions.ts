@@ -15,8 +15,23 @@ export interface PlannedSession {
   /** JSON-serialized mosaic framing saved from the Framing & Mosaic planner
    *  for this scheduled block, or null if none was saved. See FramingModal.tsx. */
   framingSetup: string | null;
+  /** 1 when the user marked the block as deliberately skipped. Absent on
+   *  rows from servers that predate plan vs actual. */
+  skipped?: number;
+  /** Plan vs actual, computed by the server from the library on read
+   *  (server/lib/planOutcome.ts). Null when it could not be computed. */
+  outcome?: PlanOutcome | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type PlanOutcomeStatus = 'upcoming' | 'in_progress' | 'done' | 'partial' | 'missed' | 'skipped';
+
+export interface PlanOutcome {
+  status: PlanOutcomeStatus;
+  plannedSec: number;
+  achievedSec: number;
+  frames: number;
 }
 
 export interface PlannedSessionCreate {
@@ -34,6 +49,7 @@ interface PlannedSessionPatch {
   endTime?: string;
   notes?: string;
   framingSetup?: string;
+  skipped?: boolean;
 }
 
 export const listPlannedSessions = (range?: { from: string; to: string }) => {

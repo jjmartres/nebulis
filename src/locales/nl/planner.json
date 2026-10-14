@@ -355,5 +355,21 @@
     "preparing": "Voorbereiden…",
     "shareImage": "Afbeelding delen",
     "saveImage": "Afbeelding opslaan"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Gepland",
+      "in_progress": "Bezig",
+      "done": "Klaar",
+      "partial": "Gedeeltelijk",
+      "missed": "Gemist",
+      "skipped": "Overgeslagen"
+    },
+    "achieved": "{{achieved}} / {{planned}}",
+    "title_one": "{{status}} · {{count}} subframe in de bibliotheek",
+    "title_other": "{{status}} · {{count}} subframes in de bibliotheek",
+    "repeatTomorrow": "Opnieuw plannen voor de volgende nacht",
+    "markSkipped": "Markeren als overgeslagen",
+    "unskip": "Markering overgeslagen weghalen"
   }
 }

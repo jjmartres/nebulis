@@ -355,5 +355,21 @@
     "preparing": "Préparation…",
     "shareImage": "Partager l'image",
     "saveImage": "Enregistrer l'image"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "À venir",
+      "in_progress": "En cours",
+      "done": "Fait",
+      "partial": "Partiel",
+      "missed": "Raté",
+      "skipped": "Sauté"
+    },
+    "achieved": "{{achieved}} / {{planned}}",
+    "title_one": "{{status}} · {{count}} sous-pose dans la bibliothèque",
+    "title_other": "{{status}} · {{count}} sous-poses dans la bibliothèque",
+    "repeatTomorrow": "Replanifier la nuit suivante",
+    "markSkipped": "Marquer comme sauté",
+    "unskip": "Retirer la marque « sauté »"
   }
 }

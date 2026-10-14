@@ -22,6 +22,7 @@ import type { PlannedSession } from '../../lib/api/plannedSessions';
 import type { VisibilityVerdict } from '../../lib/visibilityCheck';
 import type { MoonVerdict } from '../../lib/moonProximity';
 import type { BlockDragData } from './dragData';
+import { PlanOutcomeActions, PlanOutcomeChip, PlanOutcomeIcon } from './PlanOutcomeBadge';
 
 const MIN_IMAGING_ALT = 20;
 
@@ -199,6 +200,7 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
         <div className="flex min-w-0 flex-1 flex-col justify-start gap-0.5">
           <div className="flex min-w-0 items-center gap-1.5">
             <GripVertical className="h-3 w-3 shrink-0 opacity-40" />
+            <PlanOutcomeIcon outcome={session.outcome} />
             <span className="truncate text-sm font-semibold">{displayName ?? session.objectName}</span>
             {isSaving && <span className="shrink-0 text-[10px] opacity-60">{t('scheduledImagingBlock.saving')}</span>}
           </div>
@@ -227,6 +229,7 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
                   {t('scheduledImagingBlock.overlap')}
                 </Chip>
               )}
+              <PlanOutcomeChip outcome={session.outcome} />
             </div>
           )}
 
@@ -240,6 +243,7 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
 
       {!isSaving && (
         <div className="absolute right-1 top-1 z-10 flex items-center gap-0.5 opacity-70 transition group-hover:opacity-100">
+          <PlanOutcomeActions session={session} />
           {session.framingSetup && onShowFraming && (
             <button
               onClick={(e) => { e.stopPropagation(); onShowFraming(session); }}

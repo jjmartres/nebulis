@@ -1635,6 +1635,16 @@ db.exec(`
   }
 }
 
+// ─── plannedSessions: user's "skipped" mark for plan vs actual ──────────────
+// Everything else about a block's outcome is computed on read (planOutcome.ts);
+// only the user's own decision that a block was deliberately skipped is stored.
+{
+  const cols = db.prepare<[], { name: string }>('PRAGMA table_info(plannedSessions)').all();
+  if (!cols.some(c => c.name === 'skipped')) {
+    db.prepare('ALTER TABLE plannedSessions ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0').run();
+  }
+}
+
 /**
  * Seed the first observing site from the legacy `appSettings` location columns.
  *

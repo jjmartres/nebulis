@@ -355,5 +355,21 @@
     "preparing": "Wird vorbereitet…",
     "shareImage": "Bild teilen",
     "saveImage": "Bild speichern"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Geplant",
+      "in_progress": "Läuft",
+      "done": "Erledigt",
+      "partial": "Teilweise",
+      "missed": "Verpasst",
+      "skipped": "Übersprungen"
+    },
+    "achieved": "{{achieved}} / {{planned}}",
+    "title_one": "{{status}} · {{count}} Einzelbild in der Bibliothek",
+    "title_other": "{{status}} · {{count}} Einzelbilder in der Bibliothek",
+    "repeatTomorrow": "In der nächsten Nacht erneut planen",
+    "markSkipped": "Als übersprungen markieren",
+    "unskip": "Markierung „übersprungen“ entfernen"
   }
 }

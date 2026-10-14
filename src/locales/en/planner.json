@@ -355,5 +355,21 @@
     "preparing": "Preparing…",
     "shareImage": "Share image",
     "saveImage": "Save image"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Upcoming",
+      "in_progress": "In progress",
+      "done": "Done",
+      "partial": "Partly done",
+      "missed": "Missed",
+      "skipped": "Skipped"
+    },
+    "achieved": "{{achieved}} / {{planned}}",
+    "title_one": "{{status}} · {{count}} sub-frame in the library",
+    "title_other": "{{status}} · {{count}} sub-frames in the library",
+    "repeatTomorrow": "Plan again the next night",
+    "markSkipped": "Mark as skipped",
+    "unskip": "Unmark skipped"
   }
 }

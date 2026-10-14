@@ -5,18 +5,68 @@
  * POST   /api/v1/planned-sessions                    Create a new scheduled block.
  * PATCH  /api/v1/planned-sessions/:id                Move / resize / edit notes.
  * DELETE /api/v1/planned-sessions/:id                Remove a block.
+ *
+ * Every listed session carries an `outcome` (plan vs actual, computed from the
+ * library on read — see server/lib/planOutcome.ts). Add `?outcomes=0` to skip
+ * that work when only the schedule is needed.
  */
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth.js';
 import * as PlannedSessions from '../lib/plannedSessions.js';
+import { computePlanOutcomes, type PlanOutcome } from '../lib/planOutcome.js';
+import { getActiveSite } from '../lib/observingSites.js';
+import { lookupTimeZoneForCoordinates } from '../lib/observerTimezone.js';
+import { timeZoneOrLocal } from '../lib/timezone.js';
+import { log } from '../lib/logger.js';
 
 const router = Router();
 
 const ListQuerySchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  outcomes: z.enum(['0', '1']).optional(),
 });
+
+/** Observer time zone for nights and capture times: the active site's. */
+function observerTimeZone(): string {
+  const site = getActiveSite();
+  const looked = site.latitude != null && site.longitude != null
+    ? lookupTimeZoneForCoordinates(site.latitude, site.longitude)
+    : null;
+  return looked ?? timeZoneOrLocal(site.timezone);
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Sessions with their outcome attached. Outcomes are computed over the window
+ * widened by a day on each side, so a night cut by the requested range still
+ * sees all of its blocks (that decides whether subs are split by time).
+ * Best-effort: a library error yields `outcome: null`, never a failed list.
+ */
+function withOutcomes(
+  sessions: PlannedSessions.PlannedSession[],
+  range: { from: string; to: string } | null,
+): (PlannedSessions.PlannedSession & { outcome: PlanOutcome | null })[] {
+  if (sessions.length === 0) return [];
+  let outcomes = new Map<number, PlanOutcome>();
+  try {
+    const context = range
+      ? PlannedSessions.getInRange(
+        new Date(Date.parse(range.from) - DAY_MS).toISOString(),
+        new Date(Date.parse(range.to) + DAY_MS).toISOString(),
+      )
+      : sessions;
+    outcomes = computePlanOutcomes(context, {
+      timeZone: observerTimeZone(),
+      skippedIds: new Set(context.filter(s => s.skipped).map(s => s.id)),
+    });
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : String(err) }, '[planned-sessions] could not compute outcomes');
+  }
+  return sessions.map(s => ({ ...s, outcome: outcomes.get(s.id) ?? null }));
+}
 
 const CreateBodySchema = z.object({
   objectId: z.string().min(1),
@@ -33,6 +83,8 @@ const UpdateBodySchema = z.object({
   endTime: z.string().datetime().optional(),
   notes: z.string().optional(),
   framingSetup: z.string().optional(),
+  /** Mark a block as deliberately skipped (or clear the mark). */
+  skipped: z.boolean().optional(),
 });
 
 router.get('/', (req: Request, res: Response) => {
@@ -41,9 +93,10 @@ router.get('/', (req: Request, res: Response) => {
     res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid query parameters');
     return;
   }
-  const { from, to } = parsed.data;
-  const sessions = from && to ? PlannedSessions.getInRange(from, to) : PlannedSessions.getAll();
-  res.apiSuccess(sessions);
+  const { from, to, outcomes } = parsed.data;
+  const range = from && to ? { from, to } : null;
+  const sessions = range ? PlannedSessions.getInRange(range.from, range.to) : PlannedSessions.getAll();
+  res.apiSuccess(outcomes === '0' ? sessions : withOutcomes(sessions, range));
 });
 
 router.post('/', requireAdmin, (req: Request, res: Response) => {
