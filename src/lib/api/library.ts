@@ -1404,3 +1404,82 @@ export const getObjectLocation = (objectId: string, date?: string) =>
   fetchJSON<ObjectLocation>(
     `/library/objects/${encodeURIComponent(objectId)}/location${date ? `?date=${encodeURIComponent(date)}` : ''}`,
   );
+
+// ─── Sub-frame quality (server/lib/library/subFrameQuality.ts) ───────────────
+
+export type SubFrameGradeLevel = 'good' | 'fair' | 'poor';
+export type SubFrameFlag = 'soft' | 'very_soft' | 'few_stars' | 'very_few_stars' | 'bright_background' | 'elongated';
+
+export interface SubFrameQualityJob {
+  total: number;
+  done: number;
+  running: boolean;
+  startedAt: string;
+  finishedAt: string | null;
+  cancelled: boolean;
+}
+
+export interface SubFrameQualityRow {
+  relPath: string;
+  fileName: string;
+  filter: string | null;
+  exposureSec: number | null;
+  dateObs: string | null;
+  measured: boolean;
+  error: string | null;
+  stars: number | null;
+  hfr: number | null;
+  fwhm: number | null;
+  eccentricity: number | null;
+  background: number | null;
+  noise: number | null;
+  grade: SubFrameGradeLevel | null;
+  flags: SubFrameFlag[];
+  weight: number | null;
+  manual: 'accepted' | 'rejected' | null;
+  accepted: boolean;
+}
+
+export interface SubFrameQualityReport {
+  objectId: string;
+  night: string;
+  job: SubFrameQualityJob | null;
+  total: number;
+  measured: number;
+  accepted: number;
+  groups: { filter: string | null; count: number; hfr: number | null; stars: number | null }[];
+  frames: SubFrameQualityRow[];
+}
+
+const qualityBase = (objectId: string, date: string) =>
+  `/library/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}/quality`;
+
+export const getSubFrameQuality = (objectId: string, date: string) =>
+  fetchJSON<SubFrameQualityReport>(qualityBase(objectId, date));
+
+export const analyzeSubFrameQuality = (objectId: string, date: string, force = false) =>
+  fetchJSON<SubFrameQualityJob>(`${qualityBase(objectId, date)}/analyze`, { method: 'POST', body: JSON.stringify({ force }) });
+
+export const cancelSubFrameQuality = (objectId: string, date: string) =>
+  fetchJSON<{ cancelled: boolean }>(`${qualityBase(objectId, date)}/cancel`, { method: 'POST', body: '{}' });
+
+export const setSubFrameReview = (relPath: string, rejected: boolean | null) =>
+  fetchJSON<{ relPath: string; rejected: boolean | null }>('/library/quality/review', {
+    method: 'PUT',
+    body: JSON.stringify({ relPath, rejected }),
+  });
+
+/** Fetch the CSV with the auth header and hand it to the browser as a file. */
+export async function downloadSubFrameQualityCsv(objectId: string, date: string): Promise<void> {
+  const res = await fetch(`${BASE}${qualityBase(objectId, date)}.csv`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(res.statusText);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${objectId}_${date}_subframes.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

@@ -536,5 +536,55 @@
     "moreCount_one": "+{{count}} más",
     "moreCount_other": "+{{count}} más",
     "approximate": "aproximado"
+  },
+  "subframeQuality": {
+    "title": "Calidad de las subtomas",
+    "summary": "{{accepted}} de {{total}} conservadas",
+    "summaryPartial": "{{measured}} de {{total}} medidas · {{kept}} conservadas",
+    "notMeasured_one": "{{count}} subtoma, sin medir todavía",
+    "notMeasured_other": "{{count}} subtomas, sin medir todavía",
+    "analyze_one": "Medir {{count}} subtoma",
+    "analyze_other": "Medir {{count}} subtomas",
+    "reanalyze": "Volver a medir",
+    "csv": "CSV",
+    "cancel": "Detener",
+    "measuring": "Midiendo {{done}} / {{total}}",
+    "failed": "Algo ha fallado. Inténtalo de nuevo.",
+    "hint": "Un administrador puede medir HFR, FWHM, estrellas y fondo de cada subtoma de esta noche.",
+    "hintAdmin": "Mide HFR, FWHM, número de estrellas, elongación y fondo a partir de los píxeles y califica cada subtoma frente al resto de la noche. Alrededor de un tercio de segundo por toma.",
+    "group_one": "{{filter}}: {{count}} toma, HFR mediano {{hfr}} px, {{stars}} estrellas",
+    "group_other": "{{filter}}: {{count}} tomas, HFR mediano {{hfr}} px, {{stars}} estrellas",
+    "noFilter": "Sin filtro",
+    "legendRejected": "Atenuada: no conservada",
+    "onlyRejected": "Solo subtomas no conservadas ({{count}})",
+    "col": {
+      "file": "Archivo",
+      "filter": "Filtro",
+      "hfr": "HFR",
+      "fwhm": "FWHM",
+      "stars": "Estrellas",
+      "ecc": "Elong.",
+      "background": "Fondo",
+      "grade": "Nota",
+      "keep": "Conservar"
+    },
+    "grade": {
+      "good": "Buena",
+      "fair": "Regular",
+      "poor": "Mala"
+    },
+    "flag": {
+      "soft": "Más blanda que la noche",
+      "very_soft": "Mucho más blanda que la noche",
+      "few_stars": "Menos estrellas que la noche",
+      "very_few_stars": "Muchas menos estrellas (¿nubes?)",
+      "bright_background": "Fondo más brillante",
+      "elongated": "Estrellas alargadas"
+    },
+    "unreadable": "Ilegible",
+    "keepFile": "Conservar {{name}}",
+    "reset": "auto",
+    "resetTitle": "Volver a la decisión automática",
+    "showAll": "Mostrar las {{count}}"
   }
 }

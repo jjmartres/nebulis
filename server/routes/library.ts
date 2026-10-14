@@ -21,6 +21,13 @@ import { redactUrl } from '../lib/logSafe.js';
 import { THUMBNAILS_DIR } from '../lib/paths.js';
 import { getLibraryDir, isLibraryAvailable, statLibraryFileForServe, TimeoutError } from '../lib/libraryPath.js';
 import { resolveLibraryFile, LinkedFileReadOnlyError } from '../lib/library/fileResolver.js';
+import {
+  getQualityReport,
+  startQualityJob,
+  cancelQualityJob,
+  setSubFrameReview,
+  qualityReportCsv,
+} from '../lib/library/subFrameQuality.js';
 import { getObjectLayout, sessionFolderFor } from '../lib/library/libraryLayout.js';
 import { runRender } from '../lib/renderQueue.js';
 import { mintDownloadToken, DOWNLOAD_TOKEN_TTL_MS } from '../lib/downloadToken.js';
@@ -1889,6 +1896,79 @@ router.post('/objects/:objectId/sessions/:date/move', requireAdmin, (req: Reques
 });
 
 // ─── Files ────────────────────────────────────────────────────────────────────
+
+// ─── Sub-frame quality (measured from pixels) ────────────────────────────────
+// See server/lib/library/subFrameQuality.ts. Measuring is a background job per
+// night; GET returns whatever is measured so far plus the job's progress.
+
+const NIGHT_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function qualityParams(req: Request, res: Response): { objectId: string; date: string } | null {
+  const objectId = String(req.params.objectId);
+  const date = String(req.params.date);
+  if (!NIGHT_RE.test(date)) {
+    res.apiError(422, 'VALIDATION_ERROR', 'date must be YYYY-MM-DD');
+    return null;
+  }
+  return { objectId, date };
+}
+
+router.get('/objects/:objectId/sessions/:date/quality', async (req: Request, res: Response) => {
+  const p = qualityParams(req, res);
+  if (!p) return;
+  if (!(await requireLibraryReachable(res))) return;
+  res.apiSuccess(getQualityReport(p.objectId, p.date));
+});
+
+router.get('/objects/:objectId/sessions/:date/quality.csv', async (req: Request, res: Response) => {
+  const p = qualityParams(req, res);
+  if (!p) return;
+  if (!(await requireLibraryReachable(res))) return;
+  const csv = qualityReportCsv(getQualityReport(p.objectId, p.date));
+  const safeName = `${p.objectId}_${p.date}_subframes.csv`.replace(/[^\w.-]+/g, '_');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+  res.send(csv);
+});
+
+const AnalyzeQualitySchema = z.object({ force: z.boolean().optional() });
+
+router.post('/objects/:objectId/sessions/:date/quality/analyze', requireAdmin, async (req: Request, res: Response) => {
+  const p = qualityParams(req, res);
+  if (!p) return;
+  const parsed = AnalyzeQualitySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  if (!(await requireLibraryReachable(res))) return;
+  res.apiSuccess(startQualityJob(p.objectId, p.date, { force: parsed.data.force }));
+});
+
+router.post('/objects/:objectId/sessions/:date/quality/cancel', requireAdmin, (req: Request, res: Response) => {
+  const p = qualityParams(req, res);
+  if (!p) return;
+  res.apiSuccess({ cancelled: cancelQualityJob(p.objectId, p.date) });
+});
+
+const SubFrameReviewSchema = z.object({
+  relPath: z.string().min(1).max(4096),
+  rejected: z.boolean().nullable(),
+});
+
+router.put('/quality/review', requireAdmin, (req: Request, res: Response) => {
+  const parsed = SubFrameReviewSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  if (!resolveLibraryFile(parsed.data.relPath)) {
+    res.apiError(404, 'NOT_FOUND', 'Unknown library file');
+    return;
+  }
+  setSubFrameReview(parsed.data.relPath, parsed.data.rejected);
+  res.apiSuccess({ relPath: parsed.data.relPath, rejected: parsed.data.rejected });
+});
 
 router.get('/objects/:objectId/sessions/:date/files', async (req: Request, res: Response) => {
   const objectId = String(req.params.objectId);

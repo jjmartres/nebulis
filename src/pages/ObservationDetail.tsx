@@ -48,6 +48,7 @@ import { ObservationTabs, type ObservationTab } from '../components/observationD
 import { VideoPanel } from '../components/observationDetail/VideoPanel';
 import { SessionFileGrid } from '../components/observationDetail/SessionFileGrid';
 import { SubframesPanel } from '../components/observationDetail/SubframesPanel';
+import { SubframeQualityPanel } from '../components/observationDetail/SubframeQualityPanel';
 import { ProcessedImagesGrid } from '../components/observationDetail/ProcessedImagesGrid';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../contexts/AuthContext';
@@ -831,6 +832,10 @@ if (isLoading) {
 
         {activeTab === 'videos' && (
         <VideoPanel videos={videoFiles} date={date} />
+        )}
+
+        {activeTab === 'subframes' && objectId && date && (
+        <SubframeQualityPanel objectId={objectId} date={date} isAdmin={isAdmin} />
         )}
 
         {activeTab === 'subframes' && (
