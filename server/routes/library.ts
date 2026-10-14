@@ -23,6 +23,7 @@ import { getLibraryDir, isLibraryAvailable, statLibraryFileForServe, TimeoutErro
 import { resolveLibraryFile, LinkedFileReadOnlyError } from '../lib/library/fileResolver.js';
 import {
   getIntegrationBreakdown,
+  getIntegrationProgressForGoalObjects,
   setIntegrationGoals,
   getFilterAliases,
   setFilterAliases,
@@ -2322,6 +2323,16 @@ router.get('/objects/:objectId/integration/filters', async (req: Request, res: R
     res.apiSuccess(getIntegrationBreakdown(objectId));
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to compute integration per filter';
+    res.apiError(500, 'STATS_FAILED', message);
+  }
+});
+
+router.get('/integration/progress', async (_req: Request, res: Response) => {
+  try {
+    if (!(await requireLibraryReachable(res))) return;
+    res.apiSuccess(getIntegrationProgressForGoalObjects());
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to compute integration progress';
     res.apiError(500, 'STATS_FAILED', message);
   }
 });

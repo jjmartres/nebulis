@@ -455,3 +455,49 @@ export function getIntegrationBreakdown(objectId: string): IntegrationBreakdown 
     filters: [...withFrames, ...goalOnly],
   };
 }
+
+// ─── Remaining time across objects (Planner / Wishlist) ─────────────────────
+
+export interface FilterRemaining {
+  /** Canonical filter name, or null for the "no filter" bucket. */
+  filter: string | null;
+  goalSec: number;
+  exposureSec: number;
+  /** goalSec − exposureSec, floored at 0. */
+  remainingSec: number;
+}
+
+export interface ObjectIntegrationProgress {
+  objectId: string;
+  /** Filters with a goal, in the same order as the breakdown. */
+  filters: FilterRemaining[];
+  /** True when every goal on the object is reached. */
+  complete: boolean;
+}
+
+const goalObjectsStmt = db.prepare<[], { objectId: string }>(
+  'SELECT DISTINCT objectId FROM objectIntegrationGoals ORDER BY objectId',
+);
+
+/**
+ * Progress toward goals for every object that has at least one, for the
+ * Planner and Wishlist ("4h left D2"). Objects without goals are left out, so
+ * the list stays small. Header reads go through the per-file cache, so after
+ * the first visit of each object this only stats files.
+ */
+export function getIntegrationProgressForGoalObjects(): ObjectIntegrationProgress[] {
+  const out: ObjectIntegrationProgress[] = [];
+  for (const { objectId } of goalObjectsStmt.all()) {
+    const filters: FilterRemaining[] = getIntegrationBreakdown(objectId).filters
+      .filter((f): f is FilterIntegration & { goalSec: number } => f.goalSec !== null)
+      .map(f => ({
+        filter: f.filter,
+        goalSec: f.goalSec,
+        exposureSec: f.exposureSec,
+        remainingSec: Math.max(0, f.goalSec - f.exposureSec),
+      }));
+    if (filters.length === 0) continue;
+    out.push({ objectId, filters, complete: filters.every(f => f.remainingSec === 0) });
+  }
+  return out;
+}

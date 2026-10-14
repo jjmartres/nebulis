@@ -124,6 +124,7 @@ export function ObjectIntegrationSection({
     try {
       await saveIntegrationGoals(objectId, goals);
       await queryClient.invalidateQueries({ queryKey: ['integration-by-filter', objectId] });
+      await queryClient.invalidateQueries({ queryKey: ['integration-progress'] });
       setDrafts(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('objectDetail.integrationSection.saveFailed'));

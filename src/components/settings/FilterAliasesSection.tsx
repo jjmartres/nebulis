@@ -45,6 +45,7 @@ export function FilterAliasesSection({ isDark }: { isDark: boolean }) {
       );
       await queryClient.invalidateQueries({ queryKey: ['filter-aliases'] });
       await queryClient.invalidateQueries({ queryKey: ['integration-by-filter'] });
+      await queryClient.invalidateQueries({ queryKey: ['integration-progress'] });
       setDrafts(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('librarySection.filterAliases.saveFailed'));

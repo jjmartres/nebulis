@@ -85,6 +85,16 @@ describe('integration per filter routes', () => {
     role = 'admin';
   });
 
+  it('serves progress for objects with goals', async () => {
+    role = 'viewer';
+    const res = await fetch(`${baseUrl}/integration/progress`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.find((p: { objectId: string }) => p.objectId === 'M42')?.filters.map((f: { filter: string | null }) => f.filter))
+      .toEqual(['Ha', null]);
+    role = 'admin';
+  });
+
   it('round-trips filter aliases', async () => {
     role = 'admin';
     const res = await put('/filter-aliases', { aliases: [{ alias: 'Ha 7nm', canonical: 'Ha' }] });

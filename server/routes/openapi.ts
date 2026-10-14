@@ -702,6 +702,34 @@ const spec = {
         responses: { 200: { description: 'Goals now stored' }, 422: { description: 'Invalid goal' } },
       },
     },
+    '/library/integration/progress': {
+      get: {
+        summary: 'Progress toward integration goals, for every object that has one',
+        tags: ['Library (Local)'],
+        description: 'Used by the Planner and Wishlist to show the time left per filter. Objects without goals are omitted.',
+        responses: {
+          200: {
+            description: 'Progress per object',
+            content: { 'application/json': { schema: { type: 'array', items: {
+              type: 'object',
+              properties: {
+                objectId: strEx('NGC6888'),
+                complete: { type: 'boolean' },
+                filters: { type: 'array', items: {
+                  type: 'object',
+                  properties: {
+                    filter:       nullable(strEx('D2')),
+                    goalSec:      { type: 'integer' },
+                    exposureSec:  { type: 'integer' },
+                    remainingSec: { type: 'integer' },
+                  },
+                } },
+              },
+            } } } },
+          },
+        },
+      },
+    },
     '/library/filter-aliases': {
       get: {
         summary: 'List user-defined filter name aliases',

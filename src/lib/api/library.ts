@@ -1454,3 +1454,20 @@ export const getFilterAliases = () => fetchJSON<FilterAlias[]>('/library/filter-
 
 export const saveFilterAliases = (aliases: FilterAlias[]) =>
   fetchJSON<FilterAlias[]>('/library/filter-aliases', { method: 'PUT', body: JSON.stringify({ aliases }) });
+
+export interface FilterRemaining {
+  filter: string | null;
+  goalSec: number;
+  exposureSec: number;
+  remainingSec: number;
+}
+
+export interface ObjectIntegrationProgress {
+  objectId: string;
+  filters: FilterRemaining[];
+  complete: boolean;
+}
+
+/** Progress toward integration goals, for every library object that has one. */
+export const getIntegrationProgress = () =>
+  fetchJSON<ObjectIntegrationProgress[]>('/library/integration/progress');

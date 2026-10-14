@@ -607,6 +607,13 @@
     ]
   },
   {
+    "method": "GET",
+    "path": "/library/integration/progress",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
     "method": "POST",
     "path": "/library/manual-observations",
     "guards": [

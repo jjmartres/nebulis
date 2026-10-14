@@ -19,6 +19,7 @@ import {
   getIntegrationBreakdown,
   setIntegrationGoals,
   getIntegrationGoals,
+  getIntegrationProgressForGoalObjects,
   setFilterAliases,
   getFilterAliases,
   DEFAULT_EXPOSURE_SEC,
@@ -303,5 +304,33 @@ describe('integration goals', () => {
     rekeyLibraryObject(OBJECT_ID, 'SH2-105-renamed', { skipManifest: true });
     expect(getIntegrationGoals(OBJECT_ID)).toEqual([]);
     expect(getIntegrationGoals('SH2-105-renamed')).toEqual([{ filter: 'Ha', goalSec: 3600 }]);
+  });
+});
+
+describe('getIntegrationProgressForGoalObjects', () => {
+  it('lists only objects with goals, largest-first order left to the UI, with remaining time floored at 0', () => {
+    addSub('d1a.fits', '2026-09-20', [['FILTER', 'D1'], ['EXPTIME', 3600]]);
+    addSub('d1b.fits', '2026-09-21', [['FILTER', 'D1'], ['EXPTIME', 3600]]);
+    addSub('d2.fits', '2026-09-21', [['FILTER', 'D2'], ['EXPTIME', 3600]]);
+    setIntegrationGoals(OBJECT_ID, [
+      { filter: 'D1', goalSec: 3600 },
+      { filter: 'D2', goalSec: 5 * 3600 },
+    ]);
+    stmts.upsertObject.run('M31', 'M31', 0, new Date().toISOString(), 0, null, null, null, null, null, null, null, null, null, null);
+
+    expect(getIntegrationProgressForGoalObjects()).toEqual([{
+      objectId: OBJECT_ID,
+      complete: false,
+      filters: [
+        { filter: 'D1', goalSec: 3600, exposureSec: 7200, remainingSec: 0 },
+        { filter: 'D2', goalSec: 18000, exposureSec: 3600, remainingSec: 14400 },
+      ],
+    }]);
+  });
+
+  it('marks an object complete when every goal is reached', () => {
+    addSub('d1.fits', '2026-09-20', [['FILTER', 'D1'], ['EXPTIME', 3600]]);
+    setIntegrationGoals(OBJECT_ID, [{ filter: 'D1', goalSec: 3600 }]);
+    expect(getIntegrationProgressForGoalObjects()[0].complete).toBe(true);
   });
 });
