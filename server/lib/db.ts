@@ -1635,6 +1635,17 @@ db.exec(`
   }
 }
 
+// ─── plannedSessions: filterBand ('broadband' | 'narrowband' | NULL) ────────
+// What the block will be shot through, so its Moon check uses the right
+// tolerance (server/lib/moonProximity.ts). NULL = not set, checked as
+// broadband like before.
+{
+  const cols = db.prepare<[], { name: string }>('PRAGMA table_info(plannedSessions)').all();
+  if (!cols.some(c => c.name === 'filterBand')) {
+    db.prepare('ALTER TABLE plannedSessions ADD COLUMN filterBand TEXT').run();
+  }
+}
+
 /**
  * Seed the first observing site from the legacy `appSettings` location columns.
  *

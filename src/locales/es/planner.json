@@ -18,8 +18,6 @@
     "raDec": "AR {{ra}}h · Dec {{dec}}°",
     "closeDetails": "Cerrar detalles",
     "addToTonight": "Añadir a esta noche",
-    "moonOkTonight": "La Luna no interferirá esta noche ({{percent}}% iluminada).",
-    "moonWarningTonight": "La Luna se acerca a {{deg}}° a las {{time}} ({{percent}}% iluminada); puede velar los detalles tenues.",
     "referenceImageAlt": "Imagen de referencia de {{name}}",
     "referenceImage": "Imagen de referencia",
     "setLocationForSky": "Configura tu ubicación en Configuración para ver dónde se sitúa esto en tu cielo.",
@@ -28,7 +26,20 @@
     "noCatalogDescription": "No hay ninguna descripción de catálogo disponible para este objeto.",
     "readMoreWikipedia": "Leer más en Wikipedia →",
     "altitudeTonight": "Altitud esta noche (de mediodía a mediodía, hora local)",
-    "setLocationForAltitude": "Configura tu ubicación en Configuración para ver la curva de altitud."
+    "setLocationForAltitude": "Configura tu ubicación en Configuración para ver la curva de altitud.",
+    "moonTonight": "Luna esta noche: {{percent}} % iluminada.",
+    "moonBand": {
+      "broadband": "Banda ancha:",
+      "narrowband": "Banda estrecha:"
+    },
+    "moonBandOk": "sin problema.",
+    "moonBandWarning": "se acerca a {{deg}}° a las {{time}} (necesita ≥ {{min}}°).",
+    "blockFilter": "Filtro",
+    "blockFilterOption": {
+      "unset": "Sin definir",
+      "broadband": "Banda ancha",
+      "narrowband": "Banda estrecha"
+    }
   },
   "nightHero": {
     "rises": "Sale {{time}}",
@@ -45,7 +56,14 @@
     "hourByHour": "hora a hora",
     "moon": "Luna",
     "litPercent": "{{percent}}% iluminada",
-    "planMyNight": "Planificar mi noche"
+    "planMyNight": "Planificar mi noche",
+    "filterAdviceTitle": "Según la Luna durante las horas oscuras de la noche",
+    "filterAdvice": {
+      "broadband": "Noche de banda ancha",
+      "narrowband": "Noche de banda estrecha",
+      "broadbandUntil": "Banda ancha hasta las {{time}}, luego banda estrecha",
+      "broadbandFrom": "Banda estrecha, banda ancha desde las {{time}}"
+    }
   },
   "scheduleTimeline": {
     "nightSchedule": "Horario nocturno",
@@ -80,7 +98,17 @@
     "removeScheduledBlock": "Quitar bloque programado",
     "remove": "Quitar",
     "resizeTop": "Redimensionar arriba",
-    "resizeBottom": "Redimensionar abajo"
+    "resizeBottom": "Redimensionar abajo",
+    "narrowbandOk": "banda estrecha OK",
+    "moonNbOk": "Luna · BE OK",
+    "band": {
+      "broadband": "Banda ancha (L, RGB, color sin filtro)",
+      "narrowband": "Banda estrecha (Ha, OIII, SII, doble banda)"
+    },
+    "bandShort": {
+      "broadband": "BA",
+      "narrowband": "BE"
+    }
   },
   "libraryPanel": {
     "filterAll": "Todos",

@@ -138,3 +138,26 @@ describe('POST /planner/verdict — same schema tolerances as /plan', () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe('POST /planner/verdict — filter band', () => {
+  // ~33.7° from a 60%-lit Moon at this instant (see moonProximity.test.ts).
+  const item = { id: '1', ra: 0, dec: 20, start: '2025-06-21T13:00:00.000Z', end: '2025-06-21T13:00:00.000Z' };
+  const verdict = async (band?: 'broadband' | 'narrowband' | null) => {
+    const res = await fetch(`${baseUrl}/planner/verdict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: [{ ...item, ...(band !== undefined ? { band } : {}) }], observerLat: 40.7128, observerLon: -74.006, moonIllumination: 60, timeZone: 'UTC' }),
+    });
+    expect(res.status).toBe(200);
+    return (await res.json()).data[0].moon;
+  };
+
+  it('checks an unset block as broadband and says narrowband would be fine', async () => {
+    expect(await verdict()).toMatchObject({ verdict: 'warning', band: 'broadband', narrowbandVerdict: 'ok' });
+    expect(await verdict(null)).toMatchObject({ verdict: 'warning', band: 'broadband' });
+  });
+
+  it('checks a narrowband block against the narrowband tolerance', async () => {
+    expect(await verdict('narrowband')).toMatchObject({ verdict: 'ok', band: 'narrowband', threshold: 30 });
+  });
+});

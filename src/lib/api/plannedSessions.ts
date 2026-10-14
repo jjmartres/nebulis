@@ -2,6 +2,7 @@
  * Planner scheduled blocks: client for /api/v1/planned-sessions.
  */
 import { fetchJSON } from './client';
+import type { FilterBand } from '../moonProximity';
 
 export interface PlannedSession {
   id: number;
@@ -15,6 +16,9 @@ export interface PlannedSession {
   /** JSON-serialized mosaic framing saved from the Framing & Mosaic planner
    *  for this scheduled block, or null if none was saved. See FramingModal.tsx. */
   framingSetup: string | null;
+  /** What the block will be shot through, for its Moon check. Null = not set
+   *  (checked as broadband). Absent from servers that predate it. */
+  filterBand?: FilterBand | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,12 +31,15 @@ export interface PlannedSessionCreate {
   startTime: string;
   endTime: string;
   notes?: string;
+  filterBand?: FilterBand | null;
 }
 
 interface PlannedSessionPatch {
   startTime?: string;
   endTime?: string;
   notes?: string;
+  /** null clears it. */
+  filterBand?: FilterBand | null;
   framingSetup?: string;
 }
 

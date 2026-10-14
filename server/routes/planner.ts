@@ -34,7 +34,7 @@ import { addDaysToDateKey, localDateKey, localParts, zonedDateTimeToUtc } from '
 import { observerTimezoneForCoordinates } from '../lib/observerTimezone.js';
 import { OBSERVING_NIGHT_ROLLOVER_HOUR } from '../lib/telescopeFiles.js';
 import { generateNightPlan, type PlanCandidate, AUTO_PLAN_FOCUSES } from '../lib/autoPlan.js';
-import { checkMoonProximity } from '../lib/moonProximity.js';
+import { checkMoonProximity, moonThresholdForIllumination, moonVerdictFor } from '../lib/moonProximity.js';
 import { checkBlockVisibility, type VisibleSkyMap } from '../lib/visibilityCheck.js';
 import { computeBestTonightScore } from '../lib/bestTonightScore.js';
 import SunCalc from 'suncalc';
@@ -486,6 +486,8 @@ const VerdictItemSchema = z.object({
   dec: z.number(),
   start: z.string().datetime(),
   end: z.string().datetime(),
+  /** The block's filter type; absent or null = broadband, as before. */
+  band: z.enum(['broadband', 'narrowband']).nullable().optional(),
 });
 
 const VerdictBodySchema = z.object({
@@ -524,7 +526,11 @@ router.post('/verdict', (req: Request, res: Response) => {
   const results = body.items.map(item => {
     const start = new Date(item.start);
     const end = new Date(item.end);
-    const moon = checkMoonProximity(item.ra, item.dec, body.observerLat, body.observerLon, start, end, body.moonIllumination, 5, body.timeZone);
+    const band = item.band ?? 'broadband';
+    const moon = checkMoonProximity(item.ra, item.dec, body.observerLat, body.observerLon, start, end, body.moonIllumination, 5, body.timeZone, band);
+    // Same closest approach against the narrowband tolerance: lets the client
+    // say "narrowband would be fine" on a broadband or unset block.
+    const narrowbandVerdict = moonVerdictFor(moon.minSeparation, moonThresholdForIllumination(body.moonIllumination, 'narrowband'));
     const visibility = checkBlockVisibility(item.ra, item.dec, body.observerLat, body.observerLon, start, end, skyMap, 5, body.timeZone);
     return {
       id: item.id,
@@ -535,6 +541,8 @@ router.post('/verdict', (req: Request, res: Response) => {
         worstAt: moon.worstAt?.toISOString() ?? null,
         moonAltAtWorst: Math.round(moon.moonAltAtWorst * 10) / 10,
         reason: moon.reason,
+        band,
+        narrowbandVerdict,
       },
       visibility: {
         verdict: visibility.verdict,
