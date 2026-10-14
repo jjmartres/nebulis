@@ -65,3 +65,21 @@ export const updatePlannedSession = (id: number, patch: PlannedSessionPatch) =>
 
 export const deletePlannedSession = (id: number) =>
   fetchJSON<{ deleted: boolean }>(`/planned-sessions/${id}`, { method: 'DELETE' });
+
+/** Plan vs actual for one object on one observing night. Mirrors
+ *  server/lib/planOutcome.ts PlanNightSummary. */
+export interface PlanNightSummary {
+  night: string;
+  objectId: string;
+  objectName: string;
+  libraryObjectIds: string[];
+  blocks: number;
+  plannedSec: number;
+  achievedSec: number;
+  frames: number;
+  status: PlanOutcomeStatus;
+}
+
+/** Per-night plan summaries for observing nights in [from, to] (YYYY-MM-DD). */
+export const listPlanNights = (from: string, to: string) =>
+  fetchJSON<PlanNightSummary[]>(`/planned-sessions/nights?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);

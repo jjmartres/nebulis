@@ -87,3 +87,21 @@ describe('GET /planned-sessions — outcomes', () => {
     expect(list[0].outcome.status).toBe('missed');
   });
 });
+
+describe('GET /planned-sessions/nights', () => {
+  it('returns one summary per object and night within the range', async () => {
+    await createBlock('2020-01-01T20:00:00.000Z', '2020-01-01T21:00:00.000Z');
+    await createBlock('2020-01-01T22:00:00.000Z', '2020-01-01T23:00:00.000Z');
+    await createBlock('2020-01-05T20:00:00.000Z', '2020-01-05T21:00:00.000Z');
+    const res = await fetch(`${baseUrl}/planned-sessions/nights?from=2020-01-01&to=2020-01-03`);
+    expect(res.status).toBe(200);
+    const nights = (await res.json()).data;
+    expect(nights).toHaveLength(1);
+    expect(nights[0]).toMatchObject({ objectId: 'M42', blocks: 2, plannedSec: 7200, status: 'missed' });
+  });
+
+  it('rejects malformed ranges', async () => {
+    expect((await fetch(`${baseUrl}/planned-sessions/nights?from=2020-01-05&to=2020-01-01`)).status).toBe(422);
+    expect((await fetch(`${baseUrl}/planned-sessions/nights?from=yesterday&to=2020-01-01`)).status).toBe(422);
+  });
+});

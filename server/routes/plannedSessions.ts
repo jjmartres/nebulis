@@ -6,6 +6,9 @@
  * PATCH  /api/v1/planned-sessions/:id                Move / resize / edit notes.
  * DELETE /api/v1/planned-sessions/:id                Remove a block.
  *
+ * GET    /api/v1/planned-sessions/nights?from=YYYY-MM-DD&to=YYYY-MM-DD
+ *        Plan vs actual per object and observing night (Observations page).
+ *
  * Every listed session carries an `outcome` (plan vs actual, computed from the
  * library on read — see server/lib/planOutcome.ts). Add `?outcomes=0` to skip
  * that work when only the schedule is needed.
@@ -14,7 +17,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth.js';
 import * as PlannedSessions from '../lib/plannedSessions.js';
-import { computePlanOutcomes, type PlanOutcome } from '../lib/planOutcome.js';
+import { computePlanOutcomes, summarizePlanByNight, type PlanOutcome } from '../lib/planOutcome.js';
 import { getActiveSite } from '../lib/observingSites.js';
 import { lookupTimeZoneForCoordinates } from '../lib/observerTimezone.js';
 import { timeZoneOrLocal } from '../lib/timezone.js';
@@ -97,6 +100,38 @@ router.get('/', (req: Request, res: Response) => {
   const range = from && to ? { from, to } : null;
   const sessions = range ? PlannedSessions.getInRange(range.from, range.to) : PlannedSessions.getAll();
   res.apiSuccess(outcomes === '0' ? sessions : withOutcomes(sessions, range));
+});
+
+const NightsQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+// Declared before '/:id' routes; the path is static so there is no clash.
+router.get('/nights', (req: Request, res: Response) => {
+  const parsed = NightsQuerySchema.safeParse(req.query);
+  if (!parsed.success || parsed.data.to < parsed.data.from) {
+    res.apiError(422, 'VALIDATION_ERROR', 'from and to must be YYYY-MM-DD dates, from <= to');
+    return;
+  }
+  const { from, to } = parsed.data;
+  const timeZone = observerTimeZone();
+  // Nights run noon to noon locally, so pad the instant window by a day on
+  // each side and keep only the summaries whose night falls in [from, to].
+  const sessions = PlannedSessions.getInRange(
+    new Date(Date.parse(`${from}T00:00:00Z`) - DAY_MS).toISOString(),
+    new Date(Date.parse(`${to}T00:00:00Z`) + 2 * DAY_MS).toISOString(),
+  );
+  try {
+    const outcomes = computePlanOutcomes(sessions, {
+      timeZone,
+      skippedIds: new Set(sessions.filter(s => s.skipped).map(s => s.id)),
+    });
+    res.apiSuccess(summarizePlanByNight(sessions, outcomes, timeZone).filter(n => n.night >= from && n.night <= to));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to compute plan outcomes';
+    res.apiError(500, 'PLAN_OUTCOME_FAILED', message);
+  }
 });
 
 router.post('/', requireAdmin, (req: Request, res: Response) => {

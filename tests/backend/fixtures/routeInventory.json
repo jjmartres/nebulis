@@ -1280,6 +1280,13 @@
   },
   {
     "method": "GET",
+    "path": "/planned-sessions/nights",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/planner",
     "guards": [
       "<anonymous>"

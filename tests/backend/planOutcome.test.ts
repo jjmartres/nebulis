@@ -11,7 +11,7 @@ vi.hoisted(() => {
   process.env.DATA_DIR = _fs.mkdtempSync(_path.join(_root, 'nebulis-planoutcome-test-'));
 });
 
-import { computePlanOutcomes, observingNightOfInstant, DONE_RATIO } from '../../server/lib/planOutcome';
+import { computePlanOutcomes, observingNightOfInstant, summarizePlanByNight, DONE_RATIO } from '../../server/lib/planOutcome';
 import type { PlannedSession } from '../../server/lib/plannedSessions';
 import { recordLibraryFile } from '../../server/lib/library/libraryFiles';
 import { stmts } from '../../server/lib/library/objects';
@@ -135,5 +135,38 @@ describe('computePlanOutcomes — timing and manual marks', () => {
     addSub('a.fits', '2026-09-05', '223000', null);
     const b = block('2026-09-05T20:00:00Z', '2026-09-05T22:00:00Z');
     expect(computePlanOutcomes([b], { timeZone: TZ, now: LATER }).get(b.id)!.achievedSec).toBe(10);
+  });
+});
+
+describe('summarizePlanByNight', () => {
+  it('sums a night\'s blocks per object and matches the library ids', () => {
+    addSub('a.fits', '2026-09-05', '221000');
+    addSub('b.fits', '2026-09-06', '011000');
+    const first = block('2026-09-05T20:00:00Z', '2026-09-05T21:00:00Z');
+    const second = block('2026-09-05T23:00:00Z', '2026-09-06T00:00:00Z');
+    const other = block('2026-09-08T20:00:00Z', '2026-09-08T21:00:00Z');
+    const sessions = [first, second, other];
+    const outcomes = computePlanOutcomes(sessions, { timeZone: TZ, now: LATER });
+    expect(summarizePlanByNight(sessions, outcomes, TZ)).toEqual([
+      {
+        night: '2026-09-05', objectId: 'Sh2-105', objectName: 'Crescent', libraryObjectIds: ['NGC6888'],
+        blocks: 2, plannedSec: 7200, achievedSec: 600, frames: 2, status: 'partial',
+      },
+      {
+        night: '2026-09-08', objectId: 'Sh2-105', objectName: 'Crescent', libraryObjectIds: ['NGC6888'],
+        blocks: 1, plannedSec: 3600, achievedSec: 0, frames: 0, status: 'missed',
+      },
+    ]);
+  });
+
+  it('leaves skipped blocks out of the totals, and reports an all-skipped night as skipped', () => {
+    const kept = block('2026-09-05T20:00:00Z', '2026-09-05T21:00:00Z');
+    const dropped = block('2026-09-05T23:00:00Z', '2026-09-06T00:00:00Z');
+    const lone = block('2026-09-08T20:00:00Z', '2026-09-08T21:00:00Z');
+    const sessions = [kept, dropped, lone];
+    const outcomes = computePlanOutcomes(sessions, { timeZone: TZ, now: LATER, skippedIds: new Set([dropped.id, lone.id]) });
+    const byNight = new Map(summarizePlanByNight(sessions, outcomes, TZ).map(n => [n.night, n]));
+    expect(byNight.get('2026-09-05')).toMatchObject({ blocks: 2, plannedSec: 3600, status: 'missed' });
+    expect(byNight.get('2026-09-08')).toMatchObject({ blocks: 1, plannedSec: 3600, status: 'skipped' });
   });
 });

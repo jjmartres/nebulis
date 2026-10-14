@@ -536,5 +536,20 @@
     "moreCount_one": "+{{count}} weitere",
     "moreCount_other": "+{{count}} weitere",
     "approximate": "ungefähr"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Geplant",
+      "in_progress": "Läuft",
+      "done": "Erledigt",
+      "partial": "Teilweise",
+      "missed": "Verpasst",
+      "skipped": "Übersprungen"
+    },
+    "achievedOfPlanned": "{{achieved}}/{{planned}}",
+    "resultTitle_one": "Planer: {{status}} · {{achieved}} von {{planned}} geplant ({{count}} Block)",
+    "resultTitle_other": "Planer: {{status}} · {{achieved}} von {{planned}} geplant ({{count}} Blöcke)",
+    "plannedLine": "{{status}} · {{planned}} geplant",
+    "plannedTitle": "{{name}}: {{status}}, {{planned}} geplant. Im Planer öffnen."
   }
 }

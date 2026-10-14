@@ -255,3 +255,73 @@ export function computePlanOutcomes(sessions: readonly PlannedSession[], opts: O
   }
   return result;
 }
+
+// ─── Per-night summary (Observations page) ──────────────────────────────────
+
+export interface PlanNightSummary {
+  /** Observing night, YYYY-MM-DD, in the observer's zone. */
+  night: string;
+  /** The catalog id the blocks were planned under. */
+  objectId: string;
+  objectName: string;
+  /** Library object ids holding that catalog id, so a client can match the
+   *  summary to its observation cards (which use library ids). */
+  libraryObjectIds: string[];
+  blocks: number;
+  plannedSec: number;
+  achievedSec: number;
+  frames: number;
+  status: PlanOutcomeStatus;
+}
+
+function aggregateStatus(statuses: PlanOutcomeStatus[], plannedSec: number, achievedSec: number, frames: number): PlanOutcomeStatus {
+  if (statuses.every(s => s === 'skipped')) return 'skipped';
+  const live = statuses.filter(s => s !== 'skipped');
+  if (live.every(s => s === 'upcoming')) return 'upcoming';
+  if (live.some(s => s === 'in_progress' || s === 'upcoming')) return 'in_progress';
+  if (plannedSec > 0 && achievedSec >= plannedSec * DONE_RATIO) return 'done';
+  return frames > 0 ? 'partial' : 'missed';
+}
+
+/**
+ * Blocks grouped by (object, observing night), with their outcomes summed —
+ * "planned 3 h, got 2 h 40" for an observation, or a missed plan on a night
+ * with nothing imaged. Skipped blocks don't count toward planned time unless
+ * every block of the group is skipped.
+ */
+export function summarizePlanByNight(
+  sessions: readonly PlannedSession[],
+  outcomes: ReadonlyMap<number, PlanOutcome>,
+  timeZone: string,
+): PlanNightSummary[] {
+  const groups = new Map<string, { s: PlannedSession; o: PlanOutcome }[]>();
+  for (const s of sessions) {
+    const o = outcomes.get(s.id);
+    if (!o) continue;
+    const key = `${s.objectId}\u0000${observingNightOfInstant(new Date(s.startTime), timeZone)}`;
+    const g = groups.get(key);
+    if (g) g.push({ s, o });
+    else groups.set(key, [{ s, o }]);
+  }
+
+  const out: PlanNightSummary[] = [];
+  for (const [key, items] of groups) {
+    const [objectId, night] = key.split('\u0000');
+    const counted = items.every(i => i.o.status === 'skipped') ? items : items.filter(i => i.o.status !== 'skipped');
+    const plannedSec = counted.reduce((n, i) => n + i.o.plannedSec, 0);
+    const achievedSec = counted.reduce((n, i) => n + i.o.achievedSec, 0);
+    const frames = counted.reduce((n, i) => n + i.o.frames, 0);
+    out.push({
+      night,
+      objectId,
+      objectName: items[0].s.objectName,
+      libraryObjectIds: [...new Set(objectStmts.byCatalog.all(objectId, objectId).map(r => r.objectId))],
+      blocks: items.length,
+      plannedSec,
+      achievedSec,
+      frames,
+      status: aggregateStatus(items.map(i => i.o.status), plannedSec, achievedSec, frames),
+    });
+  }
+  return out.sort((a, b) => a.night.localeCompare(b.night) || a.objectId.localeCompare(b.objectId));
+}
