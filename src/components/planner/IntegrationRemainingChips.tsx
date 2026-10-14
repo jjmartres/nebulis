@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Check, Hourglass } from 'lucide-react';
-import { useIntegrationProgress } from '../../hooks/useIntegrationProgress';
+import { useIntegrationProgress, useIntegrationProgressByLibraryId } from '../../hooks/useIntegrationProgress';
+import type { ObjectIntegrationProgress } from '../../lib/api/library';
 import { formatDuration } from '../../lib/captureMetrics';
 
 /**
@@ -17,6 +18,9 @@ import { formatDuration } from '../../lib/captureMetrics';
  */
 const MAX_CHIPS = 3;
 
+type Tone = 'surface' | 'block';
+
+/** For ids that may be catalog or variant ids (Planner, Wishlist). */
 export function IntegrationRemainingChips({
   objectId,
   isDark,
@@ -24,11 +28,34 @@ export function IntegrationRemainingChips({
 }: {
   objectId: string;
   isDark: boolean;
-  tone?: 'surface' | 'block';
+  tone?: Tone;
+}) {
+  const progress = useIntegrationProgress()(objectId);
+  return progress ? <RemainingChips progress={progress} isDark={isDark} tone={tone} /> : null;
+}
+
+/** For a library object id (Library grid), no catalog resolution needed. */
+export function LibraryIntegrationRemainingChips({
+  libraryObjectId,
+  isDark,
+}: {
+  libraryObjectId: string;
+  isDark: boolean;
+}) {
+  const progress = useIntegrationProgressByLibraryId().get(libraryObjectId);
+  return progress ? <RemainingChips progress={progress} isDark={isDark} tone="surface" /> : null;
+}
+
+function RemainingChips({
+  progress,
+  isDark,
+  tone,
+}: {
+  progress: ObjectIntegrationProgress;
+  isDark: boolean;
+  tone: Tone;
 }) {
   const { t } = useTranslation('planner');
-  const progress = useIntegrationProgress()(objectId);
-  if (!progress) return null;
 
   const chipBase = 'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums';
   const pending = tone === 'block'

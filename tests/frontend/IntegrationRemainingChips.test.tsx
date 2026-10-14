@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import i18n from '../../src/i18n';
-import { IntegrationRemainingChips } from '../../src/components/planner/IntegrationRemainingChips';
+import { IntegrationRemainingChips, LibraryIntegrationRemainingChips } from '../../src/components/planner/IntegrationRemainingChips';
 import type { ObjectIntegrationProgress } from '../../src/lib/api/library';
 import type { AstroObject } from '../../src/types';
 
@@ -51,5 +51,19 @@ describe('IntegrationRemainingChips', () => {
     const done = { ...SH2, complete: true, filters: SH2.filters.map(f => ({ ...f, remainingSec: 0 })) };
     expect(render([done], 'NGC6888')).toContain('Goals reached');
     expect(render([SH2], 'M31')).toBe('');
+  });
+});
+
+describe('LibraryIntegrationRemainingChips', () => {
+  it('looks up the library object id directly', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData(['integration-progress'], [SH2]);
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <LibraryIntegrationRemainingChips libraryObjectId="NGC6888" isDark={false} />
+        <LibraryIntegrationRemainingChips libraryObjectId="Sh2-105" isDark={false} />
+      </QueryClientProvider>,
+    );
+    expect(html.match(/4h left · D2/g)).toHaveLength(1);
   });
 });
