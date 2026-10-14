@@ -661,16 +661,18 @@ export function ObjectDetail() {
           a collapsed section to match the height of its expanded sibling,
           leaving a tall dead area below the collapsed header that reads as
           a broken/empty panel rather than simply "closed". */}
-      {/* Integration per filter, with goals. Not for Star Trails / Videos,
-          which have no sub-frames to integrate. */}
-      {!isSyntheticDwarfObject && (
-        <ObjectIntegrationSection objectId={activeObjectId} isAdmin={isAdmin} />
-      )}
-
       <div className="grid gap-4 md:grid-cols-2 items-start">
         <ObjectProcessedSection objectId={activeObjectId} isAdmin={isAdmin} />
 
-        <ObjectProjectArchivesSection objectId={activeObjectId} isAdmin={isAdmin} />
+        {/* Right column: integration per filter (with goals) stacked above
+            the project archives. Integration is skipped for Star Trails /
+            Videos, which have no sub-frames to integrate. */}
+        <div className="flex flex-col gap-4 min-w-0">
+          {!isSyntheticDwarfObject && (
+            <ObjectIntegrationSection objectId={activeObjectId} isAdmin={isAdmin} />
+          )}
+          <ObjectProjectArchivesSection objectId={activeObjectId} isAdmin={isAdmin} />
+        </div>
       </div>
 
       <ObservationsSection
