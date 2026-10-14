@@ -205,8 +205,12 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
             {isSaving && <span className="shrink-0 text-[10px] opacity-60">{t('scheduledImagingBlock.saving')}</span>}
           </div>
 
-          <div className="text-[11px] text-white/60 tabular-nums">
-            {t('scheduledImagingBlock.timeRange', { start: formatHm(start, observerTimezone), end: formatHm(end, observerTimezone) })}
+          <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-white/60 tabular-nums">
+            <span className="shrink-0">
+              {t('scheduledImagingBlock.timeRange', { start: formatHm(start, observerTimezone), end: formatHm(end, observerTimezone) })}
+            </span>
+            {/* Compact blocks hide the chip row, so the outcome rides on the time line. */}
+            {compact && !tiny && <PlanOutcomeChip outcome={session.outcome} />}
           </div>
 
           {!compact && (
