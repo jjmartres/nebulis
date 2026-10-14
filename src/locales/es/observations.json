@@ -226,7 +226,10 @@
       "showingAll": "Mostrando las {{total}}",
       "viewAll": "Ver las {{total}}",
       "openViewer": "Abrir visor",
-      "empty": "Aún no se han descargado subtomas. Conecta tu telescopio y usa Sincronizar subtomas para descargarlas."
+      "empty": "Aún no se han descargado subtomas. Conecta tu telescopio y usa Sincronizar subtomas para descargarlas.",
+      "quality": "Calidad",
+      "qualityTitle": "Medir HFR, FWHM y estrellas de cada subtoma y elegir las que conservar",
+      "notKept": "no conservada"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Salir del modo de comparación",

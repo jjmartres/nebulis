@@ -226,7 +226,10 @@
       "showingAll": "Alle {{total}} angezeigt",
       "viewAll": "Alle {{total}} ansehen",
       "openViewer": "Betrachter öffnen",
-      "empty": "Noch keine Subframes heruntergeladen. Verbinde dein Teleskop und nutze \"Subs herunterladen\", um sie zu synchronisieren."
+      "empty": "Noch keine Subframes heruntergeladen. Verbinde dein Teleskop und nutze \"Subs herunterladen\", um sie zu synchronisieren.",
+      "quality": "Qualität",
+      "qualityTitle": "HFR, FWHM und Sterne je Einzelbild messen und die zu behaltenden auswählen",
+      "notKept": "nicht behalten"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Vergleichsmodus verlassen",

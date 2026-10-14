@@ -226,7 +226,10 @@
       "showingAll": "Alle {{total}} weergegeven",
       "viewAll": "Bekijk alle {{total}}",
       "openViewer": "Viewer openen",
-      "empty": "Nog geen subframes gedownload. Verbind je telescoop en kies Subframes synchroniseren om ze te downloaden."
+      "empty": "Nog geen subframes gedownload. Verbind je telescoop en kies Subframes synchroniseren om ze te downloaden.",
+      "quality": "Kwaliteit",
+      "qualityTitle": "HFR, FWHM en sterren per subframe meten en kiezen welke je houdt",
+      "notKept": "niet behouden"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Verlaat de vergelijkingsmodus",

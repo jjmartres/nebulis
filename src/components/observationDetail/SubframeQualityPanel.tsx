@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSubFrameQuality } from '../../hooks/useSubFrameQuality';
 import { Activity, Check, AlertTriangle, XCircle, Download, Loader2, Play, RotateCcw, Square } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import {
-  getSubFrameQuality,
   analyzeSubFrameQuality,
   cancelSubFrameQuality,
   setSubFrameReview,
@@ -126,6 +126,10 @@ function MetricStrip({
   );
 }
 
+/**
+ * Rendered inside the Sub-frames tile, under its toolbar, when the
+ * "Quality" button is on (see SubframesPanel).
+ */
 export function SubframeQualityPanel({
   objectId,
   date,
@@ -139,12 +143,7 @@ export function SubframeQualityPanel({
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const queryKey = ['subframe-quality', objectId, date];
-  const { data, isLoading } = useQuery({
-    queryKey,
-    queryFn: () => getSubFrameQuality(objectId, date),
-    enabled: !!objectId && !!date,
-    refetchInterval: q => (q.state.data?.job?.running ? 1500 : false),
-  });
+  const { data, isLoading } = useSubFrameQuality(objectId, date);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -193,7 +192,10 @@ export function SubframeQualityPanel({
   const cell = 'px-2 py-1.5 tabular-nums';
 
   return (
-    <section className={`mb-5 rounded-2xl border p-4 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white shadow-sm'}`}>
+    <section
+      aria-label={t('subframeQuality.title')}
+      className={`border-b p-4 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <Activity className={`h-4 w-4 ${isDark ? 'text-accent-400' : 'text-accent-600'}`} aria-hidden="true" />
         <h3 className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{t('subframeQuality.title')}</h3>
@@ -291,9 +293,10 @@ export function SubframeQualityPanel({
             </label>
           </div>
 
-          <div className="mt-2 overflow-x-auto">
+          {/* Bounded height so the thumbnails below stay in reach. */}
+          <div className="mt-2 max-h-[28rem] overflow-auto">
             <table className="w-full text-left text-xs sm:min-w-[640px]">
-              <thead className={muted}>
+              <thead className={`sticky top-0 ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-white text-slate-500'}`}>
                 <tr>
                   <th className={cell}>{t('subframeQuality.col.file')}</th>
                   <th className={`${cell} hidden sm:table-cell`}>{t('subframeQuality.col.filter')}</th>

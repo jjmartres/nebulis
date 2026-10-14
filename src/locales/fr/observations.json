@@ -226,7 +226,10 @@
       "showingAll": "Affichage des {{total}}",
       "viewAll": "Voir les {{total}}",
       "openViewer": "Ouvrir la visionneuse",
-      "empty": "Aucune sous-pose téléchargée pour l'instant. Connectez votre télescope et utilisez Synchroniser les sous-poses pour les récupérer."
+      "empty": "Aucune sous-pose téléchargée pour l'instant. Connectez votre télescope et utilisez Synchroniser les sous-poses pour les récupérer.",
+      "quality": "Qualité",
+      "qualityTitle": "Mesurer HFR, FWHM et étoiles pour chaque sous-pose et choisir celles à garder",
+      "notKept": "non gardée"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Quitter le mode comparaison",

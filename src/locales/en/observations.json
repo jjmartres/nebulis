@@ -226,7 +226,10 @@
       "showingAll": "Showing all {{total}}",
       "viewAll": "View all {{total}}",
       "openViewer": "Open viewer",
-      "empty": "No subframes downloaded yet. Connect your telescope and use Download Subs to sync them."
+      "empty": "No subframes downloaded yet. Connect your telescope and use Download Subs to sync them.",
+      "quality": "Quality",
+      "qualityTitle": "Measure HFR, FWHM and stars for each sub-frame and pick the ones to keep",
+      "notKept": "not kept"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Exit compare mode",
