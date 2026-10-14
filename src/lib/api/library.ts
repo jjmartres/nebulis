@@ -1483,3 +1483,76 @@ export async function downloadSubFrameQualityCsv(objectId: string, date: string)
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// ── Stacking export: kept lights + matched calibration, as a ZIP ──
+export type StackingCalType = 'bias' | 'dark' | 'flat' | 'flatDark';
+export type StackingIssueCode =
+  | 'no_dark' | 'dark_temp_far' | 'dark_expired' | 'no_flat' | 'flat_other_night'
+  | 'no_flat_calibration' | 'bias_expired' | 'unknown_settings';
+
+export interface StackingIssue {
+  code: StackingIssueCode;
+  severity: 'error' | 'warning';
+  params?: Record<string, string | number>;
+}
+
+export interface StackingCalibration {
+  type: StackingCalType;
+  name: string;
+  scope: string | null;
+  folderName: string;
+  key: string;
+  source: 'attached' | 'matched';
+  fileCount: number;
+  bytes: number;
+  exposureSec: number | null;
+  gain: number | null;
+  binning: number | null;
+  sensorTempC: number | null;
+  filter: string | null;
+  capturedAt: string | null;
+  isExpired: boolean;
+  deltaTempC?: number;
+  deltaDays?: number;
+}
+
+export interface StackingPlanGroup {
+  id: string;
+  night: string;
+  filter: string | null;
+  exposureSec: number | null;
+  gain: number | null;
+  binning: number | null;
+  sensorTempC: number | null;
+  frames: number;
+  kept: number;
+  bytes: number;
+  dark: StackingCalibration | null;
+  flat: StackingCalibration | null;
+  flatDark: StackingCalibration | null;
+  bias: StackingCalibration | null;
+  issues: StackingIssue[];
+}
+
+export interface StackingPlan {
+  objectId: string;
+  nights: string[];
+  includeNotKept: boolean;
+  groups: StackingPlanGroup[];
+  totals: { lights: number; excluded: number; calibrationFrames: number; bytes: number; errors: number; warnings: number };
+}
+
+export type StackingLayout = 'wbpp' | 'siril';
+
+export const getStackingPlan = (objectId: string, dates: string[], includeNotKept: boolean) =>
+  fetchJSON<StackingPlan>(`/library/objects/${encodeURIComponent(objectId)}/stacking-export/plan`, {
+    method: 'POST',
+    body: JSON.stringify({ dates, includeNotKept }),
+  });
+
+/** Starts the ZIP build; poll it with getSubframesArchiveStatus like the sub-frame download. */
+export const startStackingExport = (objectId: string, dates: string[], includeNotKept: boolean, layout: StackingLayout) =>
+  fetchJSON<{ jobId: string; filesTotal: number }>(`/library/objects/${encodeURIComponent(objectId)}/stacking-export`, {
+    method: 'POST',
+    body: JSON.stringify({ dates, includeNotKept, layout }),
+  });

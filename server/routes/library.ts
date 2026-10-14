@@ -28,6 +28,7 @@ import {
   setSubFrameReview,
   qualityReportCsv,
 } from '../lib/library/subFrameQuality.js';
+import { buildStackingPlan, buildExportEntries, exportFileName } from '../lib/library/stackingExport.js';
 import { getObjectLayout, sessionFolderFor } from '../lib/library/libraryLayout.js';
 import { runRender } from '../lib/renderQueue.js';
 import { mintDownloadToken, DOWNLOAD_TOKEN_TTL_MS } from '../lib/downloadToken.js';
@@ -1970,6 +1971,52 @@ router.put('/quality/review', requireAdmin, (req: Request, res: Response) => {
   res.apiSuccess({ relPath: parsed.data.relPath, rejected: parsed.data.rejected });
 });
 
+// ─── Stacking export (lights + matched calibration) ──────────────────────────
+// See server/lib/library/stackingExport.ts. The plan is what the dialog shows;
+// the export streams the same plan into a ZIP through the async job flow of
+// the sub-frame download (status / tmp routes below).
+
+const StackingExportSchema = z.object({
+  dates: z.array(z.string().regex(NIGHT_RE, 'dates must be YYYY-MM-DD')).min(1).max(366),
+  includeNotKept: z.boolean().optional(),
+  layout: z.enum(['wbpp', 'siril']).optional(),
+});
+
+function stackingRequest(req: Request, res: Response) {
+  const parsed = StackingExportSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return null;
+  }
+  const objectId = String(req.params.objectId);
+  if (!objectStmts.getObject.get(objectId)) {
+    res.apiError(404, 'NOT_FOUND', 'Object not found in local library');
+    return null;
+  }
+  return { objectId, ...parsed.data };
+}
+
+router.post('/objects/:objectId/stacking-export/plan', strictRateLimiter, async (req: Request, res: Response) => {
+  const r = stackingRequest(req, res);
+  if (!r) return;
+  if (!(await requireLibraryReachable(res))) return;
+  res.apiSuccess(buildStackingPlan(r.objectId, r.dates, { includeNotKept: r.includeNotKept }).plan);
+});
+
+router.post('/objects/:objectId/stacking-export', strictRateLimiter, async (req: Request, res: Response) => {
+  const r = stackingRequest(req, res);
+  if (!r) return;
+  if (!(await requireLibraryReachable(res))) return;
+  const data = buildStackingPlan(r.objectId, r.dates, { includeNotKept: r.includeNotKept });
+  if (data.plan.totals.lights === 0) {
+    res.apiError(404, 'NO_FILES', 'No light frames to export for the selected nights');
+    return;
+  }
+  const layout = r.layout ?? 'wbpp';
+  const base = exportFileName(r.objectId, data.plan.nights, layout);
+  res.apiSuccess(startZipJob(`${base}.zip`, buildExportEntries(data, layout, base)));
+});
+
 router.get('/objects/:objectId/sessions/:date/files', async (req: Request, res: Response) => {
   const objectId = String(req.params.objectId);
   const date = String(req.params.date);
@@ -2632,6 +2679,83 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000).unref?.();
 
+/** One ZIP entry: a file on disk, or inline text (a README, a manifest). */
+interface ZipJobEntry {
+  name: string;
+  abs?: string;
+  content?: string;
+}
+
+/**
+ * Start building a ZIP in the background (phase 1 of the flow above) and
+ * return the job id to poll. Shared by the sub-frame download and the
+ * stacking export.
+ */
+function startZipJob(filename: string, entries: ZipJobEntry[]): { jobId: string; filesTotal: number } {
+  const tmpPath = path.join(os.tmpdir(), `nebulis-${randomUUID()}.zip`);
+
+  const jobId = randomUUID();
+  const job: ArchiveJob = {
+    filesTotal: entries.length,
+    filesDone: 0,
+    status: 'running',
+    filename,
+    startedAt: Date.now(),
+    expiresAt: Date.now() + 30 * 60 * 1000,
+  };
+  if (archiveJobs.size >= MAX_ARCHIVE_JOBS) {
+    archiveJobs.delete(archiveJobs.keys().next().value!);
+  }
+  archiveJobs.set(jobId, job);
+
+  // Build ZIP asynchronously
+  const output = fs.createWriteStream(tmpPath);
+  const archive = archiver('zip', { zlib: { level: 1 } });
+
+  // Cancellation: the client's "Cancel" now actually stops the server work
+  // instead of only halting the poll. abort() clears the pending file queue,
+  // detaches the pipes, and we drop the partial ZIP.
+  job.abort = () => {
+    if (job.status !== 'running') return;
+    job.status = 'cancelled';
+    try { archive.abort(); } catch { /* best effort */ }
+    fs.unlink(tmpPath, () => {});
+  };
+
+  archive.on('entry', () => { job.filesDone++; });
+
+  output.on('close', () => {
+    if (job.status === 'cancelled') { fs.unlink(tmpPath, () => {}); return; }
+    const token = randomUUID();
+    if (tempDownloads.size >= MAX_TEMP_DOWNLOADS) {
+      // Evict AND delete: dropping only the map entry leaked the ZIP (the
+      // per-token expiry sweeper never sees an entry that is no longer there).
+      const oldest = tempDownloads.keys().next().value;
+      if (oldest !== undefined) deleteTempDownload(oldest);
+    }
+    tempDownloads.set(token, { filePath: tmpPath, filename, expiresAt: Date.now() + 10 * 60 * 1000 });
+    job.status = 'done';
+    job.token = token;
+    job.size = archive.pointer();
+  });
+
+  archive.on('error', (err: Error) => {
+    fs.unlink(tmpPath, () => {});
+    if (job.status === 'cancelled') return;
+    job.status = 'error';
+    job.error = err.message;
+  });
+
+  archive.pipe(output);
+
+  for (const entry of entries) {
+    if (entry.content !== undefined) archive.append(entry.content, { name: entry.name });
+    else if (entry.abs) archive.file(entry.abs, { name: entry.name });
+  }
+  archive.finalize();
+  return { jobId, filesTotal: entries.length };
+}
+
 // Filter query — returns distinct filter names found across sub-frames for the given dates
 router.post('/download/objects/:objectId/subframe-filters', strictRateLimiter, (req: Request, res: Response) => {
   const objectId = String(req.params.objectId);
@@ -2707,64 +2831,6 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
   const datePart = nowDate.toISOString().slice(0, 10).replace(/-/g, '');
   const timePart = nowDate.toTimeString().slice(0, 8).replace(/:/g, '');
   const filename = `${objectId}-${datePart}${timePart}.zip`;
-  const tmpPath = path.join(os.tmpdir(), `nebulis-${randomUUID()}.zip`);
-
-  const jobId = randomUUID();
-  const job: ArchiveJob = {
-    filesTotal: subFrames.length,
-    filesDone: 0,
-    status: 'running',
-    filename,
-    startedAt: Date.now(),
-    expiresAt: Date.now() + 30 * 60 * 1000,
-  };
-  if (archiveJobs.size >= MAX_ARCHIVE_JOBS) {
-    archiveJobs.delete(archiveJobs.keys().next().value!);
-  }
-  archiveJobs.set(jobId, job);
-
-  // Respond immediately so client can start polling
-  res.apiSuccess({ jobId, filesTotal: subFrames.length });
-
-  // Build ZIP asynchronously
-  const output = fs.createWriteStream(tmpPath);
-  const archive = archiver('zip', { zlib: { level: 1 } });
-
-  // Cancellation: the client's "Cancel" now actually stops the server work
-  // instead of only halting the poll. abort() clears the pending file queue,
-  // detaches the pipes, and we drop the partial ZIP.
-  job.abort = () => {
-    if (job.status !== 'running') return;
-    job.status = 'cancelled';
-    try { archive.abort(); } catch { /* best effort */ }
-    fs.unlink(tmpPath, () => {});
-  };
-
-  archive.on('entry', () => { job.filesDone++; });
-
-  output.on('close', () => {
-    if (job.status === 'cancelled') { fs.unlink(tmpPath, () => {}); return; }
-    const token = randomUUID();
-    if (tempDownloads.size >= MAX_TEMP_DOWNLOADS) {
-      // Evict AND delete: dropping only the map entry leaked the ZIP (the
-      // per-token expiry sweeper never sees an entry that is no longer there).
-      const oldest = tempDownloads.keys().next().value;
-      if (oldest !== undefined) deleteTempDownload(oldest);
-    }
-    tempDownloads.set(token, { filePath: tmpPath, filename, expiresAt: Date.now() + 10 * 60 * 1000 });
-    job.status = 'done';
-    job.token = token;
-    job.size = archive.pointer();
-  });
-
-  archive.on('error', (err: Error) => {
-    fs.unlink(tmpPath, () => {});
-    if (job.status === 'cancelled') return;
-    job.status = 'error';
-    job.error = err.message;
-  });
-
-  archive.pipe(output);
 
   // libPath is folderName-relative (may include a session subfolder for a
   // nested object); by default keep that structure in the zip entry name too,
@@ -2777,6 +2843,7 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
   // timestamp), and any residual collision gets a `-2`, `-3` suffix.
   const sirilFolder = sirilLayout ? getObjectFolderName(objectId) : null;
   const usedNames = new Set<string>();
+  const entries: ZipJobEntry[] = [];
   for (const { libPath } of subFrames) {
     let entryName = libPath;
     if (sirilFolder) {
@@ -2791,10 +2858,11 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
       }
       usedNames.add(entryName);
     }
-    archive.file(path.join(LIBRARY_DIR, libPath), { name: entryName });
+    entries.push({ name: entryName, abs: path.join(LIBRARY_DIR, libPath) });
   }
 
-  archive.finalize();
+  // Respond immediately so client can start polling
+  res.apiSuccess(startZipJob(filename, entries));
 });
 
 // Phase 2 — poll job status
