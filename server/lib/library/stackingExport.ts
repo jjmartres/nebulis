@@ -28,6 +28,16 @@ import { listCalibrationLibrary, calibrationBundleName, resolveFrameType, type C
 import { resolveAttachmentsForSession } from './calibrationAttachments.js';
 import { listNightSubFrames, getQualityReport } from './subFrameQuality.js';
 import { dominantTelescopeForSession } from './libraryFiles.js';
+import { getFilterAliasMap, normalizeFilterName } from './integration.js';
+
+/** Canonical filter name (built-in and user aliases, as in the integration
+ *  breakdown), so a light shot through "H" finds flats labelled "Ha" when the
+ *  user aliased them. Null for no filter. */
+type FilterNormalizer = (raw: string | null | undefined) => string | null;
+function filterNormalizer(): FilterNormalizer {
+  const aliases = getFilterAliasMap();
+  return raw => normalizeFilterName(raw, aliases) || null;
+}
 
 const HEADER_BYTES = 2880 * 10;
 
@@ -83,7 +93,7 @@ export function readLightSettings(abs: string, fileName: string): Pick<LightInfo
   };
 }
 
-function nightLights(objectId: string, night: string): LightInfo[] {
+function nightLights(objectId: string, night: string, normalize: FilterNormalizer): LightInfo[] {
   const accepted = new Map(getQualityReport(objectId, night).frames.map(f => [f.relPath, f.accepted]));
   return listNightSubFrames(objectId, night).map(sub => {
     let bytes = 0;
@@ -97,7 +107,7 @@ function nightLights(objectId: string, night: string): LightInfo[] {
       ...readLightSettings(sub.abs, sub.fileName),
       kept: accepted.get(sub.relPath) ?? true,
     };
-  });
+  }).map(f => ({ ...f, filter: normalize(f.filter) }));
 }
 
 // ─── Calibration candidates ─────────────────────────────────────────────────
@@ -106,24 +116,34 @@ export interface CandidateWithFiles extends CalCandidate {
   files: CalibrationFile[];
 }
 
-const candidateId = (scope: string | null, folderName: string, key: string) => `${scope ?? ''}\u0000${folderName}\u0000${key}`;
+/** One candidate: a Calibration Library bundle, or for flats one filter's
+ *  share of it (see listCalibrationCandidates). */
+type CandidateRef = { scope: string | null; folderName: string; key: string; filter: string | null };
+const candidateId = (c: CandidateRef) => `${c.scope ?? ''}\u0000${c.folderName}\u0000${c.key}\u0000${c.filter ?? ''}`;
+/** The bundle a candidate came from, which is what attachments point at. */
+const bundleId = (scope: string | null, folderName: string, key: string) => `${scope ?? ''}\u0000${folderName}\u0000${key}`;
 
-function mostCommon(values: (string | undefined)[]): string | null {
-  const counts = new Map<string, number>();
-  for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
-  let bestValue: string | null = null;
-  let bestCount = 0;
-  for (const [v, n] of counts) if (n > bestCount) { bestValue = v; bestCount = n; }
-  return bestValue;
+function sumBytes(files: CalibrationFile[]): number {
+  return files.reduce((n, f) => n + f.size, 0);
 }
 
-export function listCalibrationCandidates(): CandidateWithFiles[] {
+/**
+ * Every bundle of the Calibration Library as a matching candidate.
+ *
+ * The library groups frames by exposure, gain, binning and temperature, not
+ * by filter, so flats of two filters shot at the same exposure share one
+ * bundle there. Each filter's flats are split into a candidate of their own
+ * here (named `<bundle>_<filter>`), or every filter would be calibrated with
+ * all of them. Filter labels go through the same aliases as the integration
+ * breakdown.
+ */
+export function listCalibrationCandidates(normalize: FilterNormalizer = filterNormalizer()): CandidateWithFiles[] {
   const out: CandidateWithFiles[] = [];
   for (const group of listCalibrationLibrary()) {
     for (const set of group.settingsGroups) {
       const type = resolveFrameType(group.type, set.frameType);
       if (type === 'mixed') continue;
-      out.push({
+      const base = {
         type: type as CalType,
         scope: group.scope,
         folderName: group.folderName,
@@ -133,13 +153,26 @@ export function listCalibrationCandidates(): CandidateWithFiles[] {
         gain: set.gain,
         binning: set.binning,
         sensorTempC: set.sensorTempC,
-        filter: mostCommon(set.files.map(f => f.info?.filterLabel)),
         capturedAt: set.capturedAt,
         isExpired: set.isExpired,
-        fileCount: set.fileCount,
-        bytes: set.bytes,
-        files: set.files,
-      });
+      };
+      const byFilter = new Map<string, CalibrationFile[]>();
+      for (const f of set.files) {
+        const k = type === 'flat' ? normalize(f.info?.filterLabel) ?? '' : '';
+        const list = byFilter.get(k);
+        if (list) list.push(f); else byFilter.set(k, [f]);
+      }
+      const split = byFilter.size > 1;
+      for (const [filter, files] of byFilter) {
+        out.push({
+          ...base,
+          name: split && filter ? `${base.name}_${filter}` : base.name,
+          filter: filter || null,
+          fileCount: files.length,
+          bytes: sumBytes(files),
+          files,
+        });
+      }
     }
   }
   return out;
@@ -234,18 +267,23 @@ export function buildStackingPlan(
 ): StackingPlanWithFiles {
   const includeNotKept = !!opts.includeNotKept;
   const sortedNights = [...new Set(nights)].sort();
-  const candidateList = listCalibrationCandidates();
-  const candidates = new Map(candidateList.map(c => [candidateId(c.scope, c.folderName, c.key), c]));
+  const normalize = filterNormalizer();
+  const candidateList = listCalibrationCandidates(normalize);
+  const candidates = new Map(candidateList.map(c => [candidateId(c), c]));
+  const byBundle = new Map<string, CandidateWithFiles[]>();
+  for (const c of candidateList) {
+    const id = bundleId(c.scope, c.folderName, c.key);
+    byBundle.set(id, [...(byBundle.get(id) ?? []), c]);
+  }
 
   const lights: LightInfo[] = [];
   const groups: PlanGroup[] = [];
   for (const night of sortedNights) {
-    const nightFrames = nightLights(objectId, night);
+    const nightFrames = nightLights(objectId, night, normalize);
     lights.push(...nightFrames);
     const scope = dominantTelescopeForSession(objectId, night);
     const attached = resolveAttachmentsForSession(objectId, night)
-      .map(a => candidates.get(candidateId(a.scope, a.folderName, a.settingsKey)))
-      .filter((c): c is CandidateWithFiles => !!c);
+      .flatMap(a => byBundle.get(bundleId(a.scope, a.folderName, a.settingsKey)) ?? []);
     const nightFilterCount = new Set(nightFrames.map(f => f.filter ?? '')).size;
 
     const byKey = new Map<string, LightInfo[]>();
@@ -286,7 +324,7 @@ export function buildStackingPlan(
   // Each bundle counted once, however many groups share it.
   const used = new Map<string, PlanCalibration>();
   for (const g of groups) {
-    for (const c of [g.dark, g.flat, g.flatDark, g.bias]) if (c) used.set(candidateId(c.scope, c.folderName, c.key), c);
+    for (const c of [g.dark, g.flat, g.flatDark, g.bias]) if (c) used.set(candidateId(c), c);
   }
   const included = lights.filter(f => includeNotKept || f.kept);
   const calibrationFrames = [...used.values()].reduce((s, c) => s + c.fileCount, 0);
@@ -354,7 +392,7 @@ export function buildExportEntries(
     entries.push({ name: unique, ...entry });
   };
   const filesOf = (c: PlanCalibration | null) =>
-    c ? candidates.get(candidateId(c.scope, c.folderName, c.key))?.files ?? [] : [];
+    c ? candidates.get(candidateId(c))?.files ?? [] : [];
   const calName = (f: CalibrationFile) => f.name.split(/[/\\]/).join('_');
   const root = safe(rootName);
   const lightsByGroup = new Map<string, LightInfo[]>();
@@ -375,14 +413,14 @@ export function buildExportEntries(
       }
       for (const [kind, folder, c] of [['dark', 'Darks', g.dark], ['bias', 'Bias', g.bias]] as const) {
         if (!c) continue;
-        const id = `${kind}\u0000${candidateId(c.scope, c.folderName, c.key)}`;
+        const id = `${kind}\u0000${candidateId(c)}`;
         if (shared.has(id)) continue;
         shared.add(id);
         for (const f of filesOf(c)) add(`${root}/${folder}/${safe(c.name)}/${calName(f)}`, { abs: f.path });
       }
       for (const [folder, c] of [['Flats', g.flat], ['FlatDarks', g.flatDark]] as const) {
         if (!c) continue;
-        const id = `${folder}\u0000${g.night}\u0000${candidateId(c.scope, c.folderName, c.key)}`;
+        const id = `${folder}\u0000${g.night}\u0000${candidateId(c)}`;
         if (shared.has(id)) continue;
         shared.add(id);
         for (const f of filesOf(c)) add(`${root}/${folder}/${nightDir}/${filterDir}/${calName(f)}`, { abs: f.path });
