@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSubFrameQuality } from '../../hooks/useSubFrameQuality';
-import { Activity, Check, AlertTriangle, XCircle, Download, Loader2, Play, RotateCcw, Square } from 'lucide-react';
+import { Activity, Download, Loader2, Play, RotateCcw, Square } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
+import { GradeBadge } from './GradeBadge';
 import {
   analyzeSubFrameQuality,
   cancelSubFrameQuality,
@@ -32,23 +33,6 @@ const GRADE_DOT: Record<SubFrameGradeLevel, string> = {
   fair: 'fill-amber-500',
   poor: 'fill-red-500',
 };
-
-function GradeBadge({ grade, isDark }: { grade: SubFrameGradeLevel | null; isDark: boolean }) {
-  const { t } = useTranslation('observations');
-  if (!grade) return <span className={isDark ? 'text-slate-600' : 'text-slate-400'}>–</span>;
-  const cls = grade === 'good'
-    ? isDark ? 'text-emerald-400' : 'text-emerald-700'
-    : grade === 'fair'
-      ? isDark ? 'text-amber-400' : 'text-amber-700'
-      : isDark ? 'text-red-400' : 'text-red-700';
-  const Icon = grade === 'good' ? Check : grade === 'fair' ? AlertTriangle : XCircle;
-  return (
-    <span className={`inline-flex items-center gap-1 ${cls}`}>
-      <Icon className="h-3 w-3" aria-hidden="true" />
-      {t(`subframeQuality.grade.${grade}`)}
-    </span>
-  );
-}
 
 /** One series over the night, one point per measured sub, with hover. */
 function MetricStrip({

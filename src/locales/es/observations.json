@@ -588,6 +588,9 @@
     "keepFile": "Conservar {{name}}",
     "reset": "auto",
     "resetTitle": "Volver a la decisión automática",
-    "showAll": "Mostrar las {{count}}"
+    "showAll": "Mostrar las {{count}}",
+    "viewerNotMeasured": "Aún sin medir. Usa el botón Calidad sobre las miniaturas de las subtomas para medir esta noche.",
+    "keepShortcut": "Conservar esta subtoma para el apilado (K)",
+    "autoDecision": "automático"
   }
 }

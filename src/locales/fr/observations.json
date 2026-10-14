@@ -588,6 +588,9 @@
     "keepFile": "Garder {{name}}",
     "reset": "auto",
     "resetTitle": "Revenir à la décision automatique",
-    "showAll": "Tout afficher ({{count}})"
+    "showAll": "Tout afficher ({{count}})",
+    "viewerNotMeasured": "Pas encore mesurée. Utilisez le bouton Qualité au-dessus des vignettes des sous-poses pour mesurer cette nuit.",
+    "keepShortcut": "Garder cette sous-pose pour l’empilement (K)",
+    "autoDecision": "automatique"
   }
 }

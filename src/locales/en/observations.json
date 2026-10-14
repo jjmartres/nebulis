@@ -588,6 +588,9 @@
     "keepFile": "Keep {{name}}",
     "reset": "auto",
     "resetTitle": "Go back to the automatic decision",
-    "showAll": "Show all {{count}}"
+    "showAll": "Show all {{count}}",
+    "viewerNotMeasured": "Not measured yet. Use the Quality button above the sub-frame thumbnails to measure this night.",
+    "keepShortcut": "Keep this sub-frame for stacking (K)",
+    "autoDecision": "automatic"
   }
 }

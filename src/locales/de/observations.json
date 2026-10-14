@@ -588,6 +588,9 @@
     "keepFile": "{{name}} behalten",
     "reset": "auto",
     "resetTitle": "Zur automatischen Entscheidung zurück",
-    "showAll": "Alle {{count}} anzeigen"
+    "showAll": "Alle {{count}} anzeigen",
+    "viewerNotMeasured": "Noch nicht gemessen. Mit der Schaltfläche „Qualität“ über den Einzelbild-Vorschauen diese Nacht messen.",
+    "keepShortcut": "Dieses Einzelbild zum Stacken behalten (K)",
+    "autoDecision": "automatisch"
   }
 }

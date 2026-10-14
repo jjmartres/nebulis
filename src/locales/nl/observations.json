@@ -588,6 +588,9 @@
     "keepFile": "{{name}} behouden",
     "reset": "auto",
     "resetTitle": "Terug naar de automatische keuze",
-    "showAll": "Alle {{count}} tonen"
+    "showAll": "Alle {{count}} tonen",
+    "viewerNotMeasured": "Nog niet gemeten. Gebruik de knop Kwaliteit boven de subframe-miniaturen om deze nacht te meten.",
+    "keepShortcut": "Dit subframe bewaren voor het stacken (K)",
+    "autoDecision": "automatisch"
   }
 }
