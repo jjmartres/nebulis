@@ -78,7 +78,9 @@ export function StackingExportModal({ objectId, onClose }: { objectId: string; o
     queryFn: () => getStackingPlan(objectId, dates, includeNotKept),
     enabled: dates.length > 0,
     placeholderData: prev => prev,
-    staleTime: 30_000,
+    // Always rebuilt on open: a Keep decision changed on the observation page
+    // must show up here straight away.
+    staleTime: 0,
   });
 
   // Keep decisions only exist for measured nights: offer to measure the
