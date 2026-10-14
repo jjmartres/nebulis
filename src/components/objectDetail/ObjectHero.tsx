@@ -19,7 +19,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  CalendarDays, Columns, Download, FolderOpen, Frame, Image as ImageIcon, Layers, Loader2, MoreHorizontal,
+  CalendarDays, Columns, Download, FolderOpen, Frame, Image as ImageIcon, Layers, Loader2, MoreHorizontal, PackageCheck,
   Pencil, PlusCircle, RefreshCw, Shuffle, Star, Telescope, Trash2,
 } from 'lucide-react';
 import { useClickOutside } from '../../hooks/useClickOutside';
@@ -94,6 +94,9 @@ interface Props {
    *  `hideTargetActions` for the case where it should disappear entirely. */
   onCompare: (() => void) | null;
   onCombine: () => void;
+  /** Opens the stacking export (kept lights + matching calibration). Null
+   *  when the object has no FITS sub-frames to export. */
+  onStackingExport: (() => void) | null;
   /** Opens the Framing & Mosaic planner. Null when the feature flag is off,
    *  in which case the button is omitted rather than shown disabled. */
   onFraming: (() => void) | null;
@@ -146,7 +149,7 @@ export function ObjectHero({
   filterRecommendations = null,
   isFavorite, onToggleFavorite,
   processingStatus, onChangeProcessingStatus,
-  onAddObservation, onCompare, onCombine, onFraming, onDownloadAll, downloadPending = false, onSyncAllSubframes,
+  onAddObservation, onCompare, onCombine, onStackingExport, onFraming, onDownloadAll, downloadPending = false, onSyncAllSubframes,
   onPlan, onEditDetails, onDelete, onReclassify,
   objectId, hideTargetActions = false,
 }: Props) {
@@ -411,6 +414,7 @@ export function ObjectHero({
               onPlan={hideTargetActions ? null : onPlan}
               onCompare={hideTargetActions ? null : onCompare}
               onCombine={hideTargetActions ? null : onCombine}
+              onStackingExport={hideTargetActions ? null : onStackingExport}
               onFraming={onFraming}
               onSyncAllSubframes={hideTargetActions ? null : onSyncAllSubframes}
               // Explains what the action actually does (reach out to the
@@ -471,12 +475,13 @@ export function ObjectHero({
  *  a solid surface once open: a translucent menu over a photograph is
  *  unreadable. */
 function OverflowMenu({
-  onPlan, onCompare, onCombine, onFraming, onSyncAllSubframes, syncAllSubframesTitle,
+  onPlan, onCompare, onCombine, onStackingExport, onFraming, onSyncAllSubframes, syncAllSubframesTitle,
   onEditDetails, onReclassify, onDelete, onShowLocation, showCompareDisabled,
 }: {
   onPlan: (() => void) | null;
   onCompare: (() => void) | null;
   onCombine: (() => void) | null;
+  onStackingExport: (() => void) | null;
   onFraming: (() => void) | null;
   onSyncAllSubframes: (() => void) | null;
   syncAllSubframesTitle: string;
@@ -517,7 +522,7 @@ function OverflowMenu({
     };
   }, [open]);
 
-  const hasTargetActions = onPlan || onCompare || showCompareDisabled || onCombine || onFraming || onSyncAllSubframes;
+  const hasTargetActions = onPlan || onCompare || showCompareDisabled || onCombine || onStackingExport || onFraming || onSyncAllSubframes;
 
   return (
     <div ref={wrapRef} className="relative">
@@ -593,6 +598,19 @@ function OverflowMenu({
             >
               <Layers className="h-3.5 w-3.5 text-slate-400" />
               {t('objectDetail.hero.combineSubs')}
+            </button>
+          )}
+          {onStackingExport && (
+            <button
+              role="menuitem"
+              onClick={() => { setOpen(false); onStackingExport(); }}
+              className="flex w-full items-start gap-2.5 px-3.5 py-2 text-left transition hover:bg-slate-800"
+            >
+              <PackageCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <span className="flex flex-col">
+                <span className="text-[13px] text-slate-200">{t('objectDetail.hero.stackingExport')}</span>
+                <span className="text-[11px] text-slate-500">{t('objectDetail.hero.stackingExportTitle')}</span>
+              </span>
             </button>
           )}
           {onFraming && (

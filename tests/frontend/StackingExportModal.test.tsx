@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import i18n from '../../src/i18n';
 import { ThemeProvider } from '../../src/hooks/useTheme';
-import { GroupCard } from '../../src/components/observationDetail/StackingExportModal';
+import { GroupCard } from '../../src/components/StackingExportModal';
 import type { StackingCalibration, StackingPlanGroup } from '../../src/lib/api/library';
 
 beforeAll(async () => {

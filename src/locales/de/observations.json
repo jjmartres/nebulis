@@ -229,9 +229,7 @@
       "empty": "Noch keine Subframes heruntergeladen. Verbinde dein Teleskop und nutze \"Subs herunterladen\", um sie zu synchronisieren.",
       "quality": "Qualität",
       "qualityTitle": "HFR, FWHM und Sterne je Einzelbild messen und die zu behaltenden auswählen",
-      "notKept": "nicht behalten",
-      "export": "Export zum Stacken",
-      "exportTitle": "Behaltene Lights mit passenden Darks, Flats und Bias, sortiert für PixInsight WBPP oder Siril"
+      "notKept": "nicht behalten"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Vergleichsmodus verlassen",
@@ -600,9 +598,6 @@
     "close": "Schließen",
     "intro": "Die behaltenen Lights mit den passenden Darks, Flats, Flat-Darks und Bias aus der Kalibrierbibliothek, in einem ZIP für deine Stacking-Software.",
     "nights": "Nächte",
-    "thisNight": "Diese Nacht",
-    "allNights_one": "Alle Nächte ({{count}})",
-    "allNights_other": "Alle Nächte ({{count}})",
     "layout": "Aufbau",
     "wbpp": "PixInsight WBPP",
     "siril": "Siril",
@@ -651,6 +646,9 @@
       "no_flat_calibration": "Weder Flat-Darks noch Bias zum Kalibrieren der Flats",
       "bias_expired": "Bias älter als die in den Einstellungen festgelegte Dark/Bias-Gültigkeit",
       "unknown_settings": "Belichtungszeit weder im FITS-Header noch im Dateinamen gefunden: Darks passen evtl. nicht"
-    }
+    },
+    "selectAll": "Alle auswählen",
+    "selectNone": "Keine auswählen",
+    "noNights": "Keine Nacht dieses Objekts hat Einzelbilder."
   }
 }

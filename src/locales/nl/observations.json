@@ -229,9 +229,7 @@
       "empty": "Nog geen subframes gedownload. Verbind je telescoop en kies Subframes synchroniseren om ze te downloaden.",
       "quality": "Kwaliteit",
       "qualityTitle": "HFR, FWHM en sterren per subframe meten en kiezen welke je houdt",
-      "notKept": "niet behouden",
-      "export": "Exporteren om te stacken",
-      "exportTitle": "Bewaarde lights met passende darks, flats en bias, geordend voor PixInsight WBPP of Siril"
+      "notKept": "niet behouden"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Verlaat de vergelijkingsmodus",
@@ -600,9 +598,6 @@
     "close": "Sluiten",
     "intro": "De lights die je bewaart, met de darks, flats, flat darks en bias uit de kalibratiebibliotheek die erbij passen, in één ZIP klaar voor je stacksoftware.",
     "nights": "Nachten",
-    "thisNight": "Deze nacht",
-    "allNights_one": "Alle nachten ({{count}})",
-    "allNights_other": "Alle nachten ({{count}})",
     "layout": "Indeling",
     "wbpp": "PixInsight WBPP",
     "siril": "Siril",
@@ -651,6 +646,9 @@
       "no_flat_calibration": "Geen flat darks of bias om de flats te kalibreren",
       "bias_expired": "Bias ouder dan de dark/bias-geldigheid in Instellingen",
       "unknown_settings": "Belichtingstijd niet gevonden in de FITS-header of de bestandsnaam: darks passen misschien niet"
-    }
+    },
+    "selectAll": "Alles selecteren",
+    "selectNone": "Niets selecteren",
+    "noNights": "Geen enkele nacht van dit object heeft subframes."
   }
 }

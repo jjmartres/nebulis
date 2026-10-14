@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, CheckCircle2, Download, Loader2, MinusCircle, PackageCheck, X, XCircle } from 'lucide-react';
-import { useTheme } from '../../hooks/useTheme';
-import { useArchiveJob } from '../../hooks/useArchiveJob';
-import { Modal } from '../ui/Modal';
-import { formatBytes } from '../../lib/utils';
-import { formatDate } from '../../lib/formatLocale';
+import { AlertTriangle, CheckCircle2, CheckSquare, Download, Loader2, MinusCircle, PackageCheck, Square, X, XCircle } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
+import { useArchiveJob } from '../hooks/useArchiveJob';
+import { Modal } from './ui/Modal';
+import { formatBytes } from '../lib/utils';
+import { formatDate } from '../lib/formatLocale';
 import {
   getLibrarySessions,
   getStackingPlan,
@@ -16,7 +16,7 @@ import {
   type StackingIssue,
   type StackingLayout,
   type StackingPlanGroup,
-} from '../../lib/api/library';
+} from '../lib/api/library';
 
 /** Which calibration row an issue belongs to. */
 const ISSUE_ROW: Record<StackingIssue['code'], 'dark' | 'flat' | 'flatDark' | 'bias' | null> = {
@@ -35,15 +35,17 @@ const ROWS = ['dark', 'flat', 'flatDark', 'bias'] as const;
 const nightLabel = (night: string) => formatDate(new Date(`${night}T12:00:00`), { day: 'numeric', month: 'short', year: 'numeric' });
 
 /**
- * Export the lights kept for this night (or every night of the object) with
- * the darks, flats, flat darks and bias that match them, as a ZIP laid out
- * for PixInsight WBPP or Siril. The plan is shown first so missing or
- * doubtful calibration is visible before downloading gigabytes.
+ * Export an object's kept lights for the chosen nights with the darks,
+ * flats, flat darks and bias that match them, as a ZIP laid out for
+ * PixInsight WBPP or Siril. Opened from the object page; every night with
+ * sub-frames is selected to start with. The plan is shown first so missing
+ * or doubtful calibration is visible before downloading gigabytes.
  */
-export function StackingExportModal({ objectId, date, onClose }: { objectId: string; date: string; onClose: () => void }) {
+export function StackingExportModal({ objectId, onClose }: { objectId: string; onClose: () => void }) {
   const { t } = useTranslation('observations');
   const { isDark } = useTheme();
-  const [allNights, setAllNights] = useState(false);
+  // null = every night (the default); a set once the user unticks one.
+  const [picked, setPicked] = useState<Set<string> | null>(null);
   const [includeNotKept, setIncludeNotKept] = useState(false);
   const [layout, setLayout] = useState<StackingLayout>('wbpp');
   const job = useArchiveJob();
@@ -52,15 +54,27 @@ export function StackingExportModal({ objectId, date, onClose }: { objectId: str
     queryKey: ['library-sessions', objectId],
     queryFn: () => getLibrarySessions(objectId),
   });
-  const nightsWithSubs = useMemo(
-    () => (sessions ?? []).filter(s => s.subFrameCount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(s.date)).map(s => s.date).sort(),
+  const nights = useMemo(
+    () => (sessions ?? [])
+      .filter(s => s.subFrameCount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(s.date))
+      .sort((a, b) => b.date.localeCompare(a.date)),
     [sessions],
   );
-  const dates = allNights && nightsWithSubs.length > 0 ? nightsWithSubs : [date];
+  const dates = useMemo(
+    () => nights.map(s => s.date).filter(d => picked === null || picked.has(d)).sort(),
+    [nights, picked],
+  );
+  const toggleNight = (d: string) => setPicked(prev => {
+    const next = new Set(prev ?? nights.map(s => s.date));
+    if (next.has(d)) next.delete(d); else next.add(d);
+    return next;
+  });
+  const allPicked = dates.length === nights.length;
 
   const { data: plan, isFetching, error: planError } = useQuery({
     queryKey: ['stacking-plan', objectId, dates.join(','), includeNotKept],
     queryFn: () => getStackingPlan(objectId, dates, includeNotKept),
+    enabled: dates.length > 0,
     placeholderData: prev => prev,
     staleTime: 30_000,
   });
@@ -105,21 +119,46 @@ export function StackingExportModal({ objectId, date, onClose }: { objectId: str
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
         <p className={`text-xs ${muted}`}>{t('stackingExport.intro')}</p>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <div className={segmentGroup} role="group" aria-label={t('stackingExport.nights')}>
-            <button type="button" className={segment(!allNights)} aria-pressed={!allNights} onClick={() => setAllNights(false)}>
-              {t('stackingExport.thisNight')}
-            </button>
-            <button
-              type="button"
-              className={segment(allNights)}
-              aria-pressed={allNights}
-              disabled={nightsWithSubs.length < 2}
-              onClick={() => setAllNights(true)}
-            >
-              {t('stackingExport.allNights', { count: nightsWithSubs.length })}
-            </button>
+        <fieldset>
+          <legend className={`mb-1.5 flex w-full items-center justify-between text-xs font-medium ${strong}`}>
+            {t('stackingExport.nights')}
+            {nights.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setPicked(allPicked ? new Set() : null)}
+                className={`text-[11px] font-normal underline ${muted}`}
+              >
+                {allPicked ? t('stackingExport.selectNone') : t('stackingExport.selectAll')}
+              </button>
+            )}
+          </legend>
+          {sessions && nights.length === 0 && <p className={`text-xs ${muted}`}>{t('stackingExport.noNights')}</p>}
+          <div className="flex flex-wrap gap-1.5">
+            {nights.map(s => {
+              const on = picked === null || picked.has(s.date);
+              return (
+                <button
+                  key={s.date}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  onClick={() => toggleNight(s.date)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition ${
+                    on
+                      ? isDark ? 'border-accent-500/40 bg-accent-500/10 text-slate-100' : 'border-accent-300 bg-accent-50 text-accent-800'
+                      : isDark ? 'border-slate-700 text-slate-400 hover:bg-slate-800' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  {on ? <CheckSquare className="h-3.5 w-3.5 text-accent-500" /> : <Square className="h-3.5 w-3.5" />}
+                  {nightLabel(s.date)}
+                  <span className={`tabular-nums ${muted}`}>{s.subFrameCount}</span>
+                </button>
+              );
+            })}
           </div>
+        </fieldset>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <div className={segmentGroup} role="group" aria-label={t('stackingExport.layout')}>
             <button type="button" className={segment(layout === 'wbpp')} aria-pressed={layout === 'wbpp'} onClick={() => setLayout('wbpp')}>
               {t('stackingExport.wbpp')}
@@ -141,13 +180,13 @@ export function StackingExportModal({ objectId, date, onClose }: { objectId: str
           </p>
         )}
 
-        {!plan && !planError && (
+        {!plan && !planError && dates.length > 0 && (
           <div className={`flex items-center gap-2 py-8 text-xs ${muted}`}>
             <Loader2 className="h-4 w-4 animate-spin" /> {t('stackingExport.matching')}
           </div>
         )}
 
-        {plan && (
+        {plan && dates.length > 0 && (
           <div className={`space-y-3 transition-opacity ${isFetching ? 'opacity-60' : ''}`}>
             <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${muted}`}>
               <span className={`font-medium ${strong}`}>
@@ -201,7 +240,7 @@ export function StackingExportModal({ objectId, date, onClose }: { objectId: str
             </span>
             <button
               type="button"
-              disabled={!plan || plan.totals.lights === 0 || isFetching}
+              disabled={!plan || dates.length === 0 || plan.totals.lights === 0 || isFetching}
               onClick={() => void job.start(() => startStackingExport(objectId, dates, includeNotKept, layout))}
               className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent-600 disabled:opacity-50"
             >

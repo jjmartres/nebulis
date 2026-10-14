@@ -229,9 +229,7 @@
       "empty": "Aucune sous-pose téléchargée pour l'instant. Connectez votre télescope et utilisez Synchroniser les sous-poses pour les récupérer.",
       "quality": "Qualité",
       "qualityTitle": "Mesurer HFR, FWHM et étoiles pour chaque sous-pose et choisir celles à garder",
-      "notKept": "non gardée",
-      "export": "Export pour empilement",
-      "exportTitle": "Lights gardées avec les darks, flats et bias correspondants, rangés pour PixInsight WBPP ou Siril"
+      "notKept": "non gardée"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Quitter le mode comparaison",
@@ -600,9 +598,6 @@
     "close": "Fermer",
     "intro": "Les lights que vous gardez, avec les darks, flats, flat darks et bias de la bibliothèque de calibration qui leur correspondent, dans un ZIP prêt pour votre logiciel d’empilement.",
     "nights": "Nuits",
-    "thisNight": "Cette nuit",
-    "allNights_one": "Toutes les nuits ({{count}})",
-    "allNights_other": "Toutes les nuits ({{count}})",
     "layout": "Organisation",
     "wbpp": "PixInsight WBPP",
     "siril": "Siril",
@@ -651,6 +646,9 @@
       "no_flat_calibration": "Ni flat darks ni bias pour calibrer les flats",
       "bias_expired": "Bias plus ancien que la validité dark/bias réglée dans les paramètres",
       "unknown_settings": "Temps de pose introuvable dans l’en-tête FITS et le nom du fichier : les darks peuvent ne pas correspondre"
-    }
+    },
+    "selectAll": "Tout sélectionner",
+    "selectNone": "Tout désélectionner",
+    "noNights": "Aucune nuit de cet objet n’a de sous-poses."
   }
 }

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Satellite, Download, Trash2, ArrowRight, Activity, Loader2, PackageCheck } from 'lucide-react';
+import { Satellite, Download, Trash2, ArrowRight, Activity, Loader2 } from 'lucide-react';
 import { SubframeQualityPanel } from './SubframeQualityPanel';
-import { StackingExportModal } from './StackingExportModal';
 import { useSubFrameQuality } from '../../hooks/useSubFrameQuality';
 import type { SubFrameQualityRow } from '../../lib/api/library';
 import { FitsThumbnail } from '../FitsThumbnail';
@@ -78,7 +77,6 @@ export function SubframesPanel({
   const quality = useSubFrameQuality(objectId, date, hasFits);
   const report = quality.data;
   const [qualityOpen, setQualityOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
   const measuring = !!report?.job?.running;
   const showQuality = qualityOpen || measuring;
   const qualityByName = useMemo(() => {
@@ -198,20 +196,6 @@ export function SubframesPanel({
                   : t('observationDetail.subframesPanel.zipping', { done: archiveState.done, total: archiveState.total })}
             </button>
           )}
-          {hasFits && (
-            <button
-              onClick={() => setExportOpen(true)}
-              title={t('observationDetail.subframesPanel.exportTitle')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
-                isDark
-                  ? 'border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                  : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <PackageCheck className="w-3.5 h-3.5" />
-              {t('observationDetail.subframesPanel.export')}
-            </button>
-          )}
           {isAdmin && hasSubFrames && (
             <button
               onClick={onDeleteAllSubframes}
@@ -223,10 +207,6 @@ export function SubframesPanel({
           )}
         </div>
       </div>
-
-      {exportOpen && (
-        <StackingExportModal objectId={objectId} date={date} onClose={() => setExportOpen(false)} />
-      )}
 
       {showQuality && hasFits && (
         <SubframeQualityPanel objectId={objectId} date={date} isAdmin={isAdmin} />

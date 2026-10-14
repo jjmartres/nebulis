@@ -124,7 +124,12 @@
     "uploadObservation": "Upload Observation",
     "configureSettings": "Configure Settings",
     "gridSize": "Grid size",
-    "groupOptions": {"none": "No grouping", "catalog": "By catalog", "type": "By type", "constellation": "By constellation"},
+    "groupOptions": {
+      "none": "No grouping",
+      "catalog": "By catalog",
+      "type": "By type",
+      "constellation": "By constellation"
+    },
     "sortOptions": {
       "catalogAsc": "Catalog number (M1, M2…)",
       "nameAsc": "Name (A–Z)",
@@ -409,7 +414,9 @@
       "editObjectDetails": "Edit object details",
       "reclassifyObject": "Reclassify object",
       "reclassifyObjectTitle": "Move everything here to a different catalog object",
-      "deleteObject": "Delete object"
+      "deleteObject": "Delete object",
+      "stackingExport": "Export for stacking",
+      "stackingExportTitle": "Kept lights + matching darks, flats and bias, for WBPP or Siril"
     }
   },
   "galleryPage": {

@@ -229,9 +229,7 @@
       "empty": "Aún no se han descargado subtomas. Conecta tu telescopio y usa Sincronizar subtomas para descargarlas.",
       "quality": "Calidad",
       "qualityTitle": "Medir HFR, FWHM y estrellas de cada subtoma y elegir las que conservar",
-      "notKept": "no conservada",
-      "export": "Exportar para apilar",
-      "exportTitle": "Lights conservados con los darks, flats y bias correspondientes, ordenados para PixInsight WBPP o Siril"
+      "notKept": "no conservada"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Salir del modo de comparación",
@@ -600,9 +598,6 @@
     "close": "Cerrar",
     "intro": "Los lights que conservas, con los darks, flats, flat darks y bias de la biblioteca de calibración que les corresponden, en un ZIP listo para tu software de apilado.",
     "nights": "Noches",
-    "thisNight": "Esta noche",
-    "allNights_one": "Todas las noches ({{count}})",
-    "allNights_other": "Todas las noches ({{count}})",
     "layout": "Estructura",
     "wbpp": "PixInsight WBPP",
     "siril": "Siril",
@@ -651,6 +646,9 @@
       "no_flat_calibration": "Ni flat darks ni bias para calibrar los flats",
       "bias_expired": "Bias más antiguo que la validez de dark/bias definida en Ajustes",
       "unknown_settings": "No se encontró la exposición en la cabecera FITS ni en el nombre: puede que los darks no coincidan"
-    }
+    },
+    "selectAll": "Seleccionar todo",
+    "selectNone": "No seleccionar ninguna",
+    "noNights": "Ninguna noche de este objeto tiene subtomas."
   }
 }

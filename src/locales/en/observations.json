@@ -229,9 +229,7 @@
       "empty": "No subframes downloaded yet. Connect your telescope and use Download Subs to sync them.",
       "quality": "Quality",
       "qualityTitle": "Measure HFR, FWHM and stars for each sub-frame and pick the ones to keep",
-      "notKept": "not kept",
-      "export": "Export for stacking",
-      "exportTitle": "Kept lights with matching darks, flats and bias, laid out for PixInsight WBPP or Siril"
+      "notKept": "not kept"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Exit compare mode",
@@ -600,9 +598,6 @@
     "close": "Close",
     "intro": "The lights you keep, with the darks, flats, flat darks and bias from the calibration library that match them, in one ZIP ready for your stacking software.",
     "nights": "Nights",
-    "thisNight": "This night",
-    "allNights_one": "All nights ({{count}})",
-    "allNights_other": "All nights ({{count}})",
     "layout": "Layout",
     "wbpp": "PixInsight WBPP",
     "siril": "Siril",
@@ -651,6 +646,9 @@
       "no_flat_calibration": "No flat darks or bias to calibrate the flats",
       "bias_expired": "Bias older than the dark/bias validity set in Settings",
       "unknown_settings": "Exposure not found in the FITS header or the file name: darks may not match"
-    }
+    },
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "noNights": "No night of this object has sub-frames."
   }
 }
