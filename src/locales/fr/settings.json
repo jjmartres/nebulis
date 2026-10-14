@@ -302,7 +302,7 @@
     },
     "filterAliases": {
       "title": "Alias de filtres",
-      "description": "Regroupez les noms de filtres écrits différemment par votre logiciel d’acquisition, pour que l’intégration par filtre les compte ensemble. Les écritures courantes (Ha, H-alpha, OIII, SII, L, R, G, B) sont déjà regroupées.",
+      "description": "Fusionne les noms de filtres écrits différemment par votre logiciel d’acquisition, pour que l’intégration par filtre les compte ensemble et que l’export pour empilement associe les lights aux bons flats. Les graphies courantes (Ha, H-alpha, OIII, SII, L, R, G, B) sont déjà fusionnées.",
       "empty": "Aucun alias pour l’instant.",
       "aliasPlaceholder": "Nom dans vos fichiers",
       "canonicalPlaceholder": "Compter comme",

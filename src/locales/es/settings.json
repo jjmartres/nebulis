@@ -302,7 +302,7 @@
     },
     "filterAliases": {
       "title": "Alias de filtros",
-      "description": "Agrupa los nombres de filtro que tu software de captura escribe de forma distinta, para que la integración por filtro los cuente juntos. Las grafías habituales (Ha, H-alpha, OIII, SII, L, R, G, B) ya están agrupadas.",
+      "description": "Une los nombres de filtro que tu software de captura escribe de forma distinta, para que la integración por filtro los cuente juntos y la exportación para apilar empareje los lights con los flats correctos. Las grafías habituales (Ha, H-alpha, OIII, SII, L, R, G, B) ya están unidas.",
       "empty": "Aún no hay alias.",
       "aliasPlaceholder": "Nombre en tus archivos",
       "canonicalPlaceholder": "Contar como",

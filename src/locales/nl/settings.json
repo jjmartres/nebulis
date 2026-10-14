@@ -302,7 +302,7 @@
     },
     "filterAliases": {
       "title": "Filteraliassen",
-      "description": "Voeg filternamen samen die je opnamesoftware verschillend schrijft, zodat de integratie per filter ze samen telt. Gangbare schrijfwijzen (Ha, H-alpha, OIII, SII, L, R, G, B) zijn al samengevoegd.",
+      "description": "Voegt filternamen samen die je opnamesoftware verschillend schrijft, zodat integratie per filter ze samen telt en de export om te stacken lights aan de juiste flats koppelt. Gangbare schrijfwijzen (Ha, H-alpha, OIII, SII, L, R, G, B) zijn al samengevoegd.",
       "empty": "Nog geen aliassen.",
       "aliasPlaceholder": "Naam in je bestanden",
       "canonicalPlaceholder": "Tellen als",

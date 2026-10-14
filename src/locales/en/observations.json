@@ -229,7 +229,9 @@
       "empty": "No subframes downloaded yet. Connect your telescope and use Download Subs to sync them.",
       "quality": "Quality",
       "qualityTitle": "Measure HFR, FWHM and stars for each sub-frame and pick the ones to keep",
-      "notKept": "not kept"
+      "notKept": "not kept",
+      "downloadAll": "All {{count}} sub-frames",
+      "downloadKept": "Only kept ({{count}})"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Exit compare mode",
@@ -442,7 +444,9 @@
       "filterTypesSelected_other": "{{selected}} of {{count}} filter types selected",
       "selectAtLeastOneFilter": "Select at least one filter type",
       "back": "Back",
-      "discardSelection": "Discard your session selection?"
+      "discardSelection": "Discard your session selection?",
+      "keptOnlyOption": "Only sub-frames kept by the quality check",
+      "keptOnlyHint": "Leaves out the sub-frames graded poor or unticked in a night’s quality view. Nights not measured yet go in whole."
     },
     "satelliteTrailScanModal": {
       "title": "Satellite Trail Detection",

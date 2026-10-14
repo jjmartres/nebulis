@@ -229,7 +229,9 @@
       "empty": "Aún no se han descargado subtomas. Conecta tu telescopio y usa Sincronizar subtomas para descargarlas.",
       "quality": "Calidad",
       "qualityTitle": "Medir HFR, FWHM y estrellas de cada subtoma y elegir las que conservar",
-      "notKept": "no conservada"
+      "notKept": "no conservada",
+      "downloadAll": "Las {{count}} subtomas",
+      "downloadKept": "Solo las conservadas ({{count}})"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Salir del modo de comparación",
@@ -442,7 +444,9 @@
       "filterTypesSelected_other": "{{selected}} de {{count}} tipos de filtro seleccionados",
       "selectAtLeastOneFilter": "Selecciona al menos un tipo de filtro",
       "back": "Atrás",
-      "discardSelection": "¿Descartar la selección de sesiones?"
+      "discardSelection": "¿Descartar la selección de sesiones?",
+      "keptOnlyOption": "Solo las subtomas conservadas",
+      "keptOnlyHint": "Deja fuera las subtomas calificadas como malas o desmarcadas en la vista de calidad de la noche. Las noches aún sin medir van completas."
     },
     "satelliteTrailScanModal": {
       "title": "Detección de estelas de satélites",

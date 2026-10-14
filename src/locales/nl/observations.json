@@ -229,7 +229,9 @@
       "empty": "Nog geen subframes gedownload. Verbind je telescoop en kies Subframes synchroniseren om ze te downloaden.",
       "quality": "Kwaliteit",
       "qualityTitle": "HFR, FWHM en sterren per subframe meten en kiezen welke je houdt",
-      "notKept": "niet behouden"
+      "notKept": "niet behouden",
+      "downloadAll": "Alle {{count}} subframes",
+      "downloadKept": "Alleen bewaarde ({{count}})"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Verlaat de vergelijkingsmodus",
@@ -442,7 +444,9 @@
       "filterTypesSelected_other": "{{selected}} van {{count}} filtertypen geselecteerd",
       "selectAtLeastOneFilter": "Selecteer ten minste één filtertype",
       "back": "Terug",
-      "discardSelection": "Je sessieselectie verwerpen?"
+      "discardSelection": "Je sessieselectie verwerpen?",
+      "keptOnlyOption": "Alleen bewaarde subframes",
+      "keptOnlyHint": "Laat subframes weg die als slecht beoordeeld zijn of in de kwaliteitsweergave van de nacht zijn uitgevinkt. Nog niet gemeten nachten gaan volledig mee."
     },
     "satelliteTrailScanModal": {
       "title": "Satellietspoordetectie",

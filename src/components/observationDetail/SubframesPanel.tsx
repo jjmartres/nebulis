@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Satellite, Download, Trash2, ArrowRight, Activity, Loader2 } from 'lucide-react';
 import { SubframeQualityPanel } from './SubframeQualityPanel';
+import { useClickOutside } from '../../hooks/useClickOutside';
 import { useSubFrameQuality } from '../../hooks/useSubFrameQuality';
 import type { SubFrameQualityRow } from '../../lib/api/library';
 import { FitsThumbnail } from '../FitsThumbnail';
@@ -61,7 +62,8 @@ export function SubframesPanel({
   isAdmin: boolean;
   telescopeOnline: boolean;
   archiveState: { done: number; total: number } | 'idle' | 'error';
-  onDownloadToComputer: () => void;
+  /** `keptOnly` leaves out the sub-frames the quality check did not keep. */
+  onDownloadToComputer: (keptOnly?: boolean) => void;
   onOpenSync: () => void;
   onScanTrails: () => void;
   onDeleteAllSubframes: () => void;
@@ -77,6 +79,11 @@ export function SubframesPanel({
   const quality = useSubFrameQuality(objectId, date, hasFits);
   const report = quality.data;
   const [qualityOpen, setQualityOpen] = useState(false);
+  // Download asks "all or kept only" once some subs are not kept.
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const notKeptCount = report && report.measured > 0 ? report.total - report.accepted : 0;
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
+  useClickOutside([downloadMenuRef], () => setDownloadMenuOpen(false), { enabled: downloadMenuOpen, closeOnEscape: true });
   const measuring = !!report?.job?.running;
   const showQuality = qualityOpen || measuring;
   const qualityByName = useMemo(() => {
@@ -170,31 +177,58 @@ export function SubframesPanel({
             </span>
           )}
           {hasSubFrames && (
-            <button
-              onClick={onDownloadToComputer}
-              disabled={archiveState !== 'idle'}
-              title={
-                archiveState === 'error'
-                  ? t('observationDetail.subframesPanel.retryTitle')
-                  : t('observationDetail.subframesPanel.zipToComputerTitle')
-              }
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:cursor-wait ${
-                archiveState === 'error'
-                  ? isDark
-                    ? 'border-red-500/30 text-red-400'
-                    : 'border-red-300 text-red-600'
-                  : isDark
-                    ? 'border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <Download className="w-3.5 h-3.5" />
-              {archiveState === 'idle'
-                ? t('observationDetail.subframesPanel.downloadToComputer')
-                : archiveState === 'error'
-                  ? t('observationDetail.subframesPanel.downloadFailed')
-                  : t('observationDetail.subframesPanel.zipping', { done: archiveState.done, total: archiveState.total })}
-            </button>
+            <div ref={downloadMenuRef} className="relative">
+              <button
+                onClick={() => (notKeptCount > 0 ? setDownloadMenuOpen(o => !o) : onDownloadToComputer())}
+                aria-haspopup={notKeptCount > 0 ? 'menu' : undefined}
+                aria-expanded={notKeptCount > 0 ? downloadMenuOpen : undefined}
+                disabled={archiveState !== 'idle'}
+                title={
+                  archiveState === 'error'
+                    ? t('observationDetail.subframesPanel.retryTitle')
+                    : t('observationDetail.subframesPanel.zipToComputerTitle')
+                }
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:cursor-wait ${
+                  archiveState === 'error'
+                    ? isDark
+                      ? 'border-red-500/30 text-red-400'
+                      : 'border-red-300 text-red-600'
+                    : isDark
+                      ? 'border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                      : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                {archiveState === 'idle'
+                  ? t('observationDetail.subframesPanel.downloadToComputer')
+                  : archiveState === 'error'
+                    ? t('observationDetail.subframesPanel.downloadFailed')
+                    : t('observationDetail.subframesPanel.zipping', { done: archiveState.done, total: archiveState.total })}
+              </button>
+              {downloadMenuOpen && notKeptCount > 0 && (
+                <div
+                  role="menu"
+                  className={`absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-xl border py-1 shadow-xl ${
+                    isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  {([false, true] as const).map(kept => (
+                    <button
+                      key={String(kept)}
+                      role="menuitem"
+                      onClick={() => { setDownloadMenuOpen(false); onDownloadToComputer(kept); }}
+                      className={`block w-full px-3.5 py-2 text-left text-xs transition ${
+                        isDark ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {kept
+                        ? t('observationDetail.subframesPanel.downloadKept', { count: report!.accepted })
+                        : t('observationDetail.subframesPanel.downloadAll', { count: report!.total })}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           {isAdmin && hasSubFrames && (
             <button

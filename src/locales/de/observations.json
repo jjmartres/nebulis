@@ -229,7 +229,9 @@
       "empty": "Noch keine Subframes heruntergeladen. Verbinde dein Teleskop und nutze \"Subs herunterladen\", um sie zu synchronisieren.",
       "quality": "Qualität",
       "qualityTitle": "HFR, FWHM und Sterne je Einzelbild messen und die zu behaltenden auswählen",
-      "notKept": "nicht behalten"
+      "notKept": "nicht behalten",
+      "downloadAll": "Alle {{count}} Einzelbilder",
+      "downloadKept": "Nur behaltene ({{count}})"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Vergleichsmodus verlassen",
@@ -442,7 +444,9 @@
       "filterTypesSelected_other": "{{selected}} von {{count}} Filtertypen ausgewählt",
       "selectAtLeastOneFilter": "Wähle mindestens einen Filtertyp aus",
       "back": "Zurück",
-      "discardSelection": "Sitzungsauswahl verwerfen?"
+      "discardSelection": "Sitzungsauswahl verwerfen?",
+      "keptOnlyOption": "Nur behaltene Einzelbilder",
+      "keptOnlyHint": "Lässt Einzelbilder weg, die als schlecht bewertet oder in der Qualitätsansicht der Nacht abgewählt wurden. Noch nicht gemessene Nächte gehen vollständig mit."
     },
     "satelliteTrailScanModal": {
       "title": "Satellitenspur-Erkennung",

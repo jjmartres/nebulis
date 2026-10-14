@@ -239,3 +239,14 @@ describe('filter aliases', () => {
     setFilterAliases([]);
   });
 });
+
+describe('sub-frame download, kept only', () => {
+  it('leaves out the subs that are not kept, and keeps every sub of an unmeasured night', async () => {
+    const start = async (body: unknown) => (await (await post('/download/objects/NGC6888/subframes', body)).json()).data;
+    expect((await start({ dates: [N1] })).filesTotal).toBe(5);
+    // One H sub of night 1 is unticked (beforeAll).
+    expect((await start({ dates: [N1], keptOnly: true })).filesTotal).toBe(4);
+    // Night 2 was never measured and has no decisions.
+    expect((await start({ dates: [N2], keptOnly: true })).filesTotal).toBe(2);
+  });
+});

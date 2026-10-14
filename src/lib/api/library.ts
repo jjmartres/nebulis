@@ -1292,6 +1292,8 @@ export const startSubframesArchive = (
   filters?: string[],
   includeVariants?: boolean,
   sirilLayout?: boolean,
+  /** Leave out the sub-frames not kept by the quality check. */
+  keptOnly?: boolean,
 ) =>
   fetchJSON<{ jobId: string; filesTotal: number }>(
     `/library/download/objects/${encodeURIComponent(objectId)}/subframes`,
@@ -1302,6 +1304,7 @@ export const startSubframesArchive = (
         ...(filters ? { filters } : {}),
         ...(includeVariants ? { includeVariants: true } : {}),
         ...(sirilLayout ? { sirilLayout: true } : {}),
+        ...(keptOnly ? { keptOnly: true } : {}),
       }),
     },
   );

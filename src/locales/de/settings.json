@@ -302,7 +302,7 @@
     },
     "filterAliases": {
       "title": "Filter-Aliase",
-      "description": "Fasse Filternamen zusammen, die deine Aufnahmesoftware unterschiedlich schreibt, damit die Integration pro Filter sie gemeinsam zählt. Gängige Schreibweisen (Ha, H-alpha, OIII, SII, L, R, G, B) sind bereits zusammengefasst.",
+      "description": "Führt Filternamen zusammen, die deine Aufnahmesoftware unterschiedlich schreibt, damit die Integration pro Filter sie zusammen zählt und der Export zum Stacken Lights den richtigen Flats zuordnet. Übliche Schreibweisen (Ha, H-alpha, OIII, SII, L, R, G, B) sind bereits zusammengeführt.",
       "empty": "Noch keine Aliase.",
       "aliasPlaceholder": "Name in deinen Dateien",
       "canonicalPlaceholder": "Zählen als",

@@ -302,7 +302,7 @@
     },
     "filterAliases": {
       "title": "Filter aliases",
-      "description": "Merge filter names written differently by your capture software, so integration per filter counts them together. Common spellings (Ha, H-alpha, OIII, SII, L, R, G, B) are already merged.",
+      "description": "Merge filter names written differently by your capture software, so integration per filter counts them together and the stacking export pairs lights with the right flats. Common spellings (Ha, H-alpha, OIII, SII, L, R, G, B) are already merged.",
       "empty": "No aliases yet.",
       "aliasPlaceholder": "Name in your files",
       "canonicalPlaceholder": "Count as",

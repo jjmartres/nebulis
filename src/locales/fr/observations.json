@@ -229,7 +229,9 @@
       "empty": "Aucune sous-pose téléchargée pour l'instant. Connectez votre télescope et utilisez Synchroniser les sous-poses pour les récupérer.",
       "quality": "Qualité",
       "qualityTitle": "Mesurer HFR, FWHM et étoiles pour chaque sous-pose et choisir celles à garder",
-      "notKept": "non gardée"
+      "notKept": "non gardée",
+      "downloadAll": "Les {{count}} sous-poses",
+      "downloadKept": "Seulement les gardées ({{count}})"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Quitter le mode comparaison",
@@ -442,7 +444,9 @@
       "filterTypesSelected_other": "{{selected}} types de filtres sélectionnés sur {{count}}",
       "selectAtLeastOneFilter": "Sélectionnez au moins un type de filtre",
       "back": "Retour",
-      "discardSelection": "Abandonner votre sélection de sessions ?"
+      "discardSelection": "Abandonner votre sélection de sessions ?",
+      "keptOnlyOption": "Seulement les sous-poses gardées",
+      "keptOnlyHint": "Écarte les sous-poses notées « mauvaise » ou décochées dans la vue qualité de la nuit. Les nuits pas encore mesurées partent en entier."
     },
     "satelliteTrailScanModal": {
       "title": "Détection de traînées de satellites",
