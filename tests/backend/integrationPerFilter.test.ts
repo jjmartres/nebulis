@@ -223,11 +223,30 @@ describe('getIntegrationBreakdown', () => {
     expect(getIntegrationBreakdown(OBJECT_ID).filters.map(f => f.filter)).toEqual([null]);
   });
 
-  it('counts only FITS subs and reports missing files as unreadable', () => {
+  it('counts only FITS subs, including subs on disk with no libraryFiles row', () => {
     addSub('ok.fits', '2026-09-20', [['FILTER', 'Ha'], ['EXPTIME', 300]]);
     recordLibraryFile({ objectId: OBJECT_ID, folderName: FOLDER, fileName: 'stack.jpg', role: 'preview', captureDate: null, captureTime: null });
+    // A row whose file is gone: not on disk, so not a sub of this object any more.
     recordLibraryFile({ objectId: OBJECT_ID, folderName: FOLDER, fileName: 'gone.fits', role: 'sub', captureDate: '2026-09-20', captureTime: '230000' });
+    // A sub on disk with no row (pre-backfill import): found by name, like the observation cards do.
+    fs.writeFileSync(
+      path.join(LIBRARY_DIR, FOLDER, 'Light_Sh2-105_180.0s_Bin1_H_gain252_20260905-221500_-10.0C_0001.fit'),
+      fitsBuffer([['FILTER', 'H'], ['EXPTIME', 180]]),
+    );
 
+    const b = getIntegrationBreakdown(OBJECT_ID);
+    expect(b.totalFrames).toBe(2);
+    expect(b.unreadableFrames).toBe(0);
+    expect(b.filters.map(f => [f.filter, f.frames, f.exposureSec])).toEqual([
+      ['H', 1, 180],
+      ['Ha', 1, 300],
+    ]);
+  });
+
+  it('reports truncated subs as unreadable', () => {
+    addSub('ok.fits', '2026-09-20', [['FILTER', 'Ha'], ['EXPTIME', 300]]);
+    addSub('bad.fits', '2026-09-20', []);
+    fs.writeFileSync(path.join(LIBRARY_DIR, FOLDER, 'bad.fits'), 'SIMPLE');
     const b = getIntegrationBreakdown(OBJECT_ID);
     expect(b.totalFrames).toBe(1);
     expect(b.unreadableFrames).toBe(1);

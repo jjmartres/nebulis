@@ -32,8 +32,10 @@ import fs from 'fs';
 import path from 'path';
 import db from '../db.js';
 import { parseFitsHeader } from '../fitsParser.js';
-import { FITS_EXTENSIONS } from '../telescopeFiles.js';
-import { getLibraryFilesForObject, sessionDateForRow, type LibraryFileRow } from './libraryFiles.js';
+import { getLibraryFilesForObject, sessionDateForRow, resolverFor } from './libraryFiles.js';
+import { listObjectFiles, getObjectLayout } from './libraryLayout.js';
+import { getLibraryDir } from '../libraryPath.js';
+import { parseFilename, FITS_EXTENSIONS } from '../telescopeFiles.js';
 import { resolveLibraryFile } from './fileResolver.js';
 import { getCaptureInfoForObject } from './captureInfo.js';
 
@@ -304,9 +306,58 @@ export interface IntegrationBreakdown {
   filters: FilterIntegration[];
 }
 
-function isFitsSub(row: LibraryFileRow): boolean {
-  if (row.role !== 'sub' || row.missingSince) return false;
-  return FITS_EXTENSIONS.has(path.extname(row.fileName).toLowerCase());
+function isFits(fileName: string): boolean {
+  return FITS_EXTENSIONS.has(path.extname(fileName).toLowerCase());
+}
+
+const objectStmts = {
+  folder: db.prepare<[string], { folderName: string }>('SELECT folderName FROM libraryObjects WHERE objectId = ?'),
+  deletedSessions: db.prepare<[string], { date: string }>('SELECT date FROM libraryDeletedSessions WHERE objectId = ?'),
+};
+
+interface SubFrameRef {
+  /** Library-relative path (`<folder>/…` or `@src/<id>/…`), as fileResolver expects. */
+  relPath: string;
+  night: string;
+}
+
+/**
+ * The light subs of an object, enumerated exactly like the observation cards
+ * count them (getLocalObservations): managed files are walked off disk and
+ * attributed through resolverFor (libraryFiles row when there is one, else
+ * the filename), linked files come from their libraryFiles rows. Reading only
+ * libraryFiles would miss managed subs that have no row (objects imported
+ * before the per-file table, or files dropped in by hand), which made the
+ * integration total disagree with the object's sub-frame count.
+ */
+function listSubFrames(objectId: string): SubFrameRef[] {
+  const deleted = new Set(objectStmts.deletedSessions.all(objectId).map(r => r.date));
+  const out: SubFrameRef[] = [];
+  const keep = (relPath: string, night: string | null) => {
+    const n = night ?? 'unknown';
+    if (!deleted.has(n)) out.push({ relPath, night: n });
+  };
+
+  const folderName = objectStmts.folder.get(objectId)?.folderName;
+  if (folderName) {
+    const objDir = path.join(getLibraryDir(), folderName);
+    if (fs.existsSync(objDir)) {
+      const identity = resolverFor(objectId);
+      for (const entry of listObjectFiles(objDir, getObjectLayout(objectId))) {
+        if (!isFits(entry.fileName)) continue;
+        const isSub = identity.role(entry.relPath) === 'sub' || parseFilename(entry.fileName).type === 'sub';
+        if (!isSub) continue;
+        keep(`${folderName}/${entry.relPath}`, identity.session(entry.relPath));
+      }
+    }
+  }
+
+  for (const row of getLibraryFilesForObject(objectId)) {
+    if (!row.sourceId || row.missingSince || !isFits(row.fileName)) continue;
+    if (row.role !== 'sub' && parseFilename(row.fileName).type !== 'sub') continue;
+    keep(row.relPath, sessionDateForRow(row));
+  }
+  return out;
 }
 
 /** A capture-sidecar value for a night, only when every run that night agrees. */
@@ -347,14 +398,12 @@ export function getIntegrationBreakdown(objectId: string): IntegrationBreakdown 
   let totalExposureSec = 0;
   let unreadableFrames = 0;
 
-  for (const row of getLibraryFilesForObject(objectId)) {
-    if (!isFitsSub(row)) continue;
-    const header = getSubFrameHeader(row.relPath);
+  for (const { relPath, night } of listSubFrames(objectId)) {
+    const header = getSubFrameHeader(relPath);
     if (!header) {
       unreadableFrames++;
       continue;
     }
-    const night = sessionDateForRow(row) ?? 'unknown';
     const capture = captureByNight.get(night);
 
     const filter = normalizeFilterName(header.rawFilter ?? capture?.filter ?? null, aliases);
