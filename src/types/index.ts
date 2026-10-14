@@ -84,6 +84,7 @@ export interface Settings {
   /** Catalog boards also credit objects that sat inside the frame of an object
    *  you imaged (M43 when M42 was shot). Default on. */
   groupCatalogCompanions: boolean;
+  autoMeasureSubQuality: boolean;
 }
 
 export interface CatalogEntry {

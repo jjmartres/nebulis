@@ -285,6 +285,10 @@
       "groupCompanions": {
         "label": "Objecten in hetzelfde beeld meetellen",
         "description": "Andere catalogusobjecten die ook in het beeld stonden van iets wat je hebt gefotografeerd, tellen ook als gefotografeerd. Voorbeeld: M42 fotograferen telt ook M43 mee. Zet dit uit om alleen de objecten te tellen waarop je hebt gericht."
+      },
+      "autoQuality": {
+        "label": "Kwaliteit van subframes meten na import",
+        "description": "Elke nacht met nieuwe FITS-subframes wordt na de import gemeten (HFR, sterren, achtergrond), zodat de selectie klaarstaat om te stacken."
       }
     },
     "calibration": {

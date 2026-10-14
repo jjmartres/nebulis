@@ -432,6 +432,7 @@ const spec = {
           nightlyForecastLastRun: nullable({ type: 'integer', description: 'Unix ms of the last run, read-only' }),
           calibrationExpiryDays: { type: 'integer', description: 'Days an archived bias/dark bundle stays valid before the Calibrations page flags it expired' },
           groupCatalogCompanions: { type: 'boolean', description: 'Catalog boards also count objects that sat inside the frame of an object you imaged (M43 when M42 was shot)' },
+          autoMeasureSubQuality: { type: 'boolean', description: 'Measure sub-frame quality (HFR, stars, background) of every night that receives new FITS sub-frames, after the import finishes' },
         },
       },
     },

@@ -285,6 +285,10 @@
       "groupCompanions": {
         "label": "Compter les objets du même champ",
         "description": "Les autres objets du catalogue qui se trouvaient dans le champ d'un objet photographié comptent aussi comme photographiés. Exemple : photographier M42 compte aussi M43. Désactiver pour ne compter que les objets visés."
+      },
+      "autoQuality": {
+        "label": "Mesurer la qualité des sous-poses après import",
+        "description": "Chaque nuit qui reçoit de nouvelles sous-poses FITS est mesurée (HFR, étoiles, fond) une fois l’import terminé, pour que la sélection soit prête pour l’empilement."
       }
     },
     "calibration": {
