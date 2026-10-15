@@ -9,6 +9,7 @@ function loadPixInsightModule() {
   // Strip PJSR # directives
   code = code.replace(/^[#].*$/gm, '// PJSR directive');
   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mod: { exports: any } = { exports: {} };
   const fn = new Function('module', 'exports', code);
   fn(mod, mod.exports);
@@ -154,8 +155,8 @@ describe('PixInsight Nebulis Connector Module', () => {
       const settings = new pluginModule.NebulisSettings();
       const client = new pluginModule.NebulisClient(settings);
 
-      let requestedBody: any = null;
-      client.request = (_method: string, endpoint: string, body: any) => {
+      let requestedBody: unknown = null;
+      client.request = (_method: string, endpoint: string, body: unknown) => {
         if (endpoint === '/api/v1/library/calibrations/download/link') {
           requestedBody = body;
           return {

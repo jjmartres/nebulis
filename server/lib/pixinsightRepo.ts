@@ -93,7 +93,7 @@ export function getAppVersion(): string {
       }
     } catch { /* try next */ }
   }
-  return '2.1.0';
+  return '2.1.2';
 }
 
 /**

@@ -504,7 +504,7 @@ export function getLocalSessions(objectId: string) {
     try { reconcileSessionTelescopesFromFiles(objectId); } catch { /* best-effort */ }
   }
 
-  const sessionMap = new Map<string, {
+  type SessionStats = {
     fileCount: number;
     // Distinct stacked captures, keyed by basename so the FITS and the JPG of
     // the same stack count once (not twice).
@@ -522,7 +522,24 @@ export function getLocalSessions(objectId: string) {
     anyImageIsCheap: boolean;
     filters: Set<string>;
     exposures: Set<string>;
-  }>();
+  };
+  const sessionMap = new Map<string, SessionStats>();
+
+  const createSessionStats = (): SessionStats => ({
+    fileCount: 0,
+    stackedKeys: new Set(),
+    fitsCount: 0,
+    subFrameCount: 0,
+    imageCount: 0,
+    videoCount: 0,
+    thumbnailFile: null,
+    stackedImageFile: null,
+    anyImageFile: null,
+    stackedImageIsCheap: false,
+    anyImageIsCheap: false,
+    filters: new Set(),
+    exposures: new Set(),
+  });
 
   // Processed-image counts per session date (separate `sessionProcessedImages`
   // table; these files live under `<folder>/processed/`, not the object root).
@@ -631,7 +648,7 @@ export function getLocalSessions(objectId: string) {
   for (const r of sessionRows) {
     if (r.date === 'unknown') continue; // stale rows from old imports — skip
     if (!deletedSessions.has(r.date) && !sessionMap.has(r.date)) {
-      sessionMap.set(r.date, { fileCount: 0, stackedKeys: new Set(), fitsCount: 0, subFrameCount: 0, imageCount: 0, videoCount: 0, thumbnailFile: null, stackedImageFile: null, anyImageFile: null, stackedImageIsCheap: false, anyImageIsCheap: false, filters: new Set(), exposures: new Set() });
+      sessionMap.set(r.date, createSessionStats());
     }
     if (r.temperature != null) {
       weatherMap.set(r.date, {
@@ -695,7 +712,7 @@ export function getLocalSessions(objectId: string) {
     // line above inserted is really there.
     let s = sessionMap.get(sessionKey);
     if (!s) {
-      s = { fileCount: 0, stackedKeys: new Set(), fitsCount: 0, subFrameCount: 0, imageCount: 0, videoCount: 0, thumbnailFile: null, stackedImageFile: null, anyImageFile: null, stackedImageIsCheap: false, anyImageIsCheap: false, filters: new Set(), exposures: new Set() };
+      s = createSessionStats();
       sessionMap.set(sessionKey, s);
     }
     s.fileCount++;
@@ -755,7 +772,7 @@ export function getLocalSessions(objectId: string) {
 
     let s = sessionMap.get(sessionKey);
     if (!s) {
-      s = { fileCount: 0, stackedKeys: new Set(), fitsCount: 0, subFrameCount: 0, imageCount: 0, videoCount: 0, thumbnailFile: null, stackedImageFile: null, anyImageFile: null, stackedImageIsCheap: false, anyImageIsCheap: false };
+      s = createSessionStats();
       sessionMap.set(sessionKey, s);
     }
     const parsed = parseFilename(row.fileName);
@@ -783,6 +800,8 @@ export function getLocalSessions(objectId: string) {
       s.anyImageIsCheap = isCheapImage;
     }
     if (effectiveType === 'sub') s.subFrameCount++;
+    if (parsed.filter && parsed.filter.trim().length > 0) s.filters.add(parsed.filter.trim());
+    if (parsed.exposure && parsed.exposure.trim().length > 0) s.exposures.add(parsed.exposure.trim());
     const cat = getFileCategory(row.fileName);
     if (cat === 'fits') s.fitsCount++;
     if (cat === 'image') s.imageCount++;

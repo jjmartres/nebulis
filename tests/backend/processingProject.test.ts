@@ -126,7 +126,7 @@ describe('processingProject', () => {
     seedObject('m51', 'M51');
     const res = await fetch(`${baseUrl}/objects/m51/processing-project`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; data: any };
+    const body = (await res.json()) as { ok: boolean; data: { exists: boolean; objectId: string } };
     expect(body.ok).toBe(true);
     expect(body.data.exists).toBe(false);
     expect(body.data.objectId).toBe('m51');
@@ -145,13 +145,16 @@ describe('processingProject', () => {
     });
 
     expect(postRes.status).toBe(200);
-    const postBody = (await postRes.json()) as { ok: boolean; data: any };
+    const postBody = (await postRes.json()) as { ok: boolean; data: { relativePath: string } };
     expect(postBody.ok).toBe(true);
     expect(postBody.data.relativePath).toBe('M101/processing_project/pixinsight/process_icons.xpsm');
 
     // Confirm it shows up in GET
     const getRes = await fetch(`${baseUrl}/objects/m101/processing-project`);
-    const getBody = (await getRes.json()) as { ok: boolean; data: any };
+    const getBody = (await getRes.json()) as {
+      ok: boolean;
+      data: { exists: boolean; fileCount: number; files: Array<{ name: string }> };
+    };
     expect(getBody.ok).toBe(true);
     expect(getBody.data.exists).toBe(true);
     expect(getBody.data.fileCount).toBe(1);

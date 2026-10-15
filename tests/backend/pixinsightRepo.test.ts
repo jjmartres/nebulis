@@ -174,7 +174,17 @@ describe('PixInsight Update Repository HTTP Endpoints', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('application/json');
 
-    const data = await res.json() as any;
+    const data = await res.json() as {
+      name: string;
+      version: string;
+      releaseDate: string;
+      packages: {
+        tarGz: { sha1: string };
+        zip: { sha1: string };
+        script: { fileName: string };
+      };
+      repositoryUrl: string;
+    };
     expect(data.name).toBe('Nebulis PixInsight Repository');
     expect(data.version).toBeDefined();
     expect(data.releaseDate).toMatch(/^\d{8}$/);
