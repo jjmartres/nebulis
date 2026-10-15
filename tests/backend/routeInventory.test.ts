@@ -23,6 +23,7 @@ import { settingsRouter } from '../../server/routes/settings';
 import { sitesRouter } from '../../server/routes/sites';
 import { storageRouter } from '../../server/routes/storage';
 import { systemLogRouter } from '../../server/routes/systemLog';
+import { alertsRouter } from '../../server/routes/alerts';
 import { telescopeRouter } from '../../server/routes/telescope';
 import { telescopesRouter } from '../../server/routes/telescopes';
 import { wishlistRouter } from '../../server/routes/wishlist';
@@ -77,6 +78,7 @@ const V1_MOUNTS: Array<[prefix: string, routerName: string]> = [
   ['/meta', 'metaRouter'],
   ['/catalogs', 'catalogsRouter'],
   ['/system-log', 'systemLogRouter'],
+  ['/alerts', 'alertsRouter'],
 ];
 
 const ROUTERS: Record<string, Router> = {
@@ -100,6 +102,7 @@ const ROUTERS: Record<string, Router> = {
   sitesRouter,
   storageRouter,
   systemLogRouter,
+  alertsRouter,
   telescopeRouter,
   telescopesRouter,
   wishlistRouter,

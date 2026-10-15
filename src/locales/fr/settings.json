@@ -17,7 +17,8 @@
     "about": "À propos",
     "archive": "Archive",
     "linked": "Dossiers liés",
-    "cleanup": "Nettoyage"
+    "cleanup": "Nettoyage",
+    "alerts": "Alertes"
   },
   "page": {
     "viewOnlyBanner": "Mode lecture seule. Contactez un administrateur pour effectuer des modifications.",
@@ -893,7 +894,8 @@
     "log": "Connexions, changements d'utilisateurs et de télescopes, synchronisations et autre activité administrative.",
     "danger": "Diagnostics, outils de nettoyage et actions destructrices.",
     "about": "Pourquoi Nebulis existe, et qui l'a créé.",
-    "libraryCleanup": "Libérez de l'espace disque en supprimant les fichiers inutiles."
+    "libraryCleanup": "Libérez de l'espace disque en supprimant les fichiers inutiles.",
+    "alerts": "Soyez prévenu d’une nuit dégagée ou d’un import terminé."
   },
   "transportEditor": {
     "kindLabel": {
@@ -1410,6 +1412,121 @@
       "detail": "Fichiers pas encore rangés par nuit. La réorganisation déplace des fichiers.",
       "progress": "Réorganisation… {{done}} / {{total}}",
       "fix": "Réorganiser"
+    }
+  },
+  "alerts": {
+    "title": "Canaux d’alerte",
+    "description": "Où Nebulis envoie ce qu’il remarque de lui-même.",
+    "add": "Ajouter un canal",
+    "actionFailed": "Ça n’a pas marché. Réessayez.",
+    "saveFailed": "Impossible d’enregistrer le canal.",
+    "loadFailed": "Impossible de charger les alertes.",
+    "loading": "Chargement…",
+    "empty": "Aucun canal d’alerte pour l’instant.",
+    "emptyHint": "Ajoutez un sujet ntfy pour recevoir les alertes sur votre téléphone, ou une URL Discord, Slack ou webhook.",
+    "noEvents": "Aucun événement choisi : rien n’est envoyé.",
+    "lastSent": "Dernier envoi {{when}}",
+    "lastFailed": "Dernière tentative {{when}} en échec : {{error}}",
+    "testSent": "Alerte de test envoyée.",
+    "testFailed": "Échec du test : {{error}}",
+    "enabledLabel": "Envoyer les alertes à {{name}}",
+    "test": "Tester",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "deleteConfirm": "Supprimer « {{name}} » ? Plus rien n’y sera envoyé.",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "addTitle": "Ajouter un canal d’alerte",
+    "editTitle": "Modifier le canal d’alerte",
+    "kindLabel": "Envoyer vers",
+    "kindHelp": {
+      "ntfy": "Notifications sur votre téléphone avec l’app gratuite ntfy : abonnez-vous à un sujet dans l’app, puis collez ici l’URL du sujet. Choisissez un nom difficile à deviner, ou ajoutez ?auth=… pour un serveur protégé.",
+      "discord": "Dans Discord : paramètres du salon → Intégrations → Webhooks → Nouveau webhook → Copier l’URL du webhook.",
+      "slack": "Dans Slack : créez une app avec Incoming Webhooks, ajoutez-en un à un canal, puis copiez son URL.",
+      "webhook": "Nebulis envoie du JSON (événement, titre, message, données) à cette URL, pour Home Assistant, n8n ou vos propres scripts."
+    },
+    "nameLabel": "Nom",
+    "namePlaceholder": {
+      "ntfy": "Mon téléphone",
+      "discord": "Serveur astro",
+      "slack": "Canal observatoire",
+      "webhook": "Home Assistant"
+    },
+    "urlLabel": "URL",
+    "urlPlaceholder": {
+      "ntfy": "https://ntfy.sh/my-nebulis-topic",
+      "discord": "https://discord.com/api/webhooks/…",
+      "slack": "https://hooks.slack.com/services/…",
+      "webhook": "https://homeassistant.local:8123/api/webhook/nebulis"
+    },
+    "urlKeep": "Laissez vide pour garder l’URL actuelle.",
+    "secretLabel": "Secret de signature (facultatif)",
+    "secretHelp": "S’il est défini, chaque requête porte X-Nebulis-Signature: sha256=HMAC du corps, pour que le destinataire vérifie qu’elle vient de Nebulis.",
+    "secretClear": "Supprimer le secret",
+    "eventsLabel": "Événements",
+    "event": {
+      "night": {
+        "clear": {
+          "short": "Nuit dégagée",
+          "label": "Nuit dégagée prévue",
+          "help": "Chaque soir, quand la prévision annonce assez d’heures de nuit noire dégagées au site actif."
+        }
+      },
+      "import": {
+        "finished": {
+          "short": "Import terminé",
+          "label": "Import terminé",
+          "help": "Quand un import apporte de nouveaux fichiers, avec les objets concernés."
+        },
+        "failed": {
+          "short": "Échec d’import",
+          "label": "Échec de l’import",
+          "help": "Quand un import s’arrête sur une erreur."
+        }
+      },
+      "update": {
+        "available": {
+          "short": "Mise à jour",
+          "label": "Mise à jour disponible",
+          "help": "Une fois par nouvelle version de Nebulis."
+        }
+      }
+    },
+    "language": "Langue des messages",
+    "languageHelp": "Langue des textes d’alerte, pour tous les canaux.",
+    "kind": {
+      "ntfy": "ntfy",
+      "discord": "Discord",
+      "slack": "Slack",
+      "webhook": "Webhook"
+    },
+    "clearNight": {
+      "title": "Nuit dégagée prévue",
+      "description": "La vérification du soir derrière l’alerte « Nuit dégagée prévue », pour le site actif.",
+      "checkTime": "Vérifier à",
+      "checkTimeHelp": "Heure locale du site actif. La vérification a lieu une fois par nuit.",
+      "minClearHours": "Envoyer à partir de",
+      "minClearHoursHelp": "Heures de nuit noire dégagées restant après la vérification.",
+      "hours_one": "{{count}} heure dégagée",
+      "hours_other": "{{count}} heures dégagées",
+      "maxCloud": "Une heure est dégagée jusqu’à",
+      "maxCloudHelp": "Couverture nuageuse de la prévision. Les heures probablement pluvieuses ne comptent jamais.",
+      "cloudPct": "{{pct}} % de nuages",
+      "preview": "Vérifier cette nuit maintenant",
+      "noListener": "Aucun canal n’a « Nuit dégagée » coché : la vérification ne tourne pas.",
+      "listeners_one": "Envoyée à {{count}} canal.",
+      "listeners_other": "Envoyée à {{count}} canaux.",
+      "tonight": "Cette nuit :",
+      "lastCheck": "Dernière vérification {{when}} :",
+      "summary": "{{clear}} h dégagées sur {{dark}} h de nuit noire, meilleur créneau de {{start}} à {{end}}, Lune à {{moon}} %",
+      "reason": {
+        "sent": "alerte envoyée",
+        "not_clear_enough": "sous le minimum, non envoyée",
+        "no_forecast": "pas de prévision disponible",
+        "no_dark_window": "pas de nuit astronomique cette nuit",
+        "no_site": "définissez d’abord la position du site actif",
+        "preview": "aperçu seulement"
+      }
     }
   }
 }

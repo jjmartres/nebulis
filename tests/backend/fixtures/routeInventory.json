@@ -1,5 +1,54 @@
 [
   {
+    "method": "GET",
+    "path": "/alerts",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/alerts/channels",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/alerts/channels/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/alerts/channels/:id",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/alerts/channels/:id/test",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/alerts/clear-night/preview",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/alerts/config",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
     "method": "POST",
     "path": "/auth/login",
     "guards": [

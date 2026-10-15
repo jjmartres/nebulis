@@ -32,5 +32,10 @@
   "settings:addTelescopeModal.wifiSmb": "Connection type names",
   "settings:transportEditor.kindLabel.ftp": "Connection type names",
   "settings:archive.destinationPlaceholder": "Example path",
-  "settings:usersSection.emailPlaceholder": "Example email address"
+  "settings:usersSection.emailPlaceholder": "Example email address",
+  "settings:alerts.namePlaceholder.webhook": "Product name",
+  "settings:alerts.urlPlaceholder.ntfy": "Example URL",
+  "settings:alerts.urlPlaceholder.discord": "Example URL",
+  "settings:alerts.urlPlaceholder.slack": "Example URL",
+  "settings:alerts.urlPlaceholder.webhook": "Example URL"
 }

@@ -22,6 +22,7 @@ import { LibraryCleanupSection } from '../components/settings/LibraryCleanupSect
 import { LinkedFoldersSection } from '../components/settings/LinkedFoldersSection';
 import { ArchiveSection } from '../components/settings/ArchiveSection';
 import { SystemLogSection } from '../components/settings/SystemLogSection';
+import { AlertsSection } from '../components/settings/AlertsSection';
 import { DangerSection } from '../components/settings/DangerSection';
 import { AboutSection } from '../components/settings/AboutSection';
 
@@ -158,6 +159,8 @@ export function SettingsPage() {
         if (resolvedSection === 'cleanup') return <LibraryCleanupSection isDark={isDark} />;
         if (resolvedSection === 'backups') return <DatabaseBackupsSection isDark={isDark} />;
         return <StorageLocationSection isDark={isDark} />;
+      case 'alerts':
+        return <AlertsSection isDark={isDark} />;
       case 'log':
         return <SystemLogSection isDark={isDark} />;
       case 'danger':
@@ -282,6 +285,7 @@ function subtitleKeyFor(groupId: string, sectionId: string | null): string {
     case 'sky':      return 'subtitle.sky';
     case 'storage':
       return sectionId === 'cleanup' ? 'subtitle.libraryCleanup' : 'subtitle.storage';
+    case 'alerts':   return 'subtitle.alerts';
     case 'log':      return 'subtitle.log';
     case 'danger':   return 'subtitle.danger';
     case 'about':    return 'subtitle.about';

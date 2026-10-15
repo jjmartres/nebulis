@@ -657,6 +657,30 @@ db.exec(`
     ON calibrationAttachments(objectId, date, calibrationType, COALESCE(scope, ''), folderName, settingsKey);
   CREATE INDEX IF NOT EXISTS idx_calibrationAttachments_bundle
     ON calibrationAttachments(scope, folderName, settingsKey);
+
+  -- ─── Alerts ────────────────────────────────────────────────────
+  -- Where alerts go (see server/lib/alerts). The URL and the signing secret
+  -- are stored encrypted (secretBox): webhook URLs commonly embed a token
+  -- (Discord, Slack, a private ntfy topic).
+  CREATE TABLE IF NOT EXISTS alertChannels (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    kind        TEXT NOT NULL,
+    url         TEXT NOT NULL,
+    secret      TEXT,
+    events      TEXT NOT NULL DEFAULT '[]',
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    createdAt   TEXT NOT NULL,
+    lastSentAt  TEXT,
+    lastStatus  TEXT,
+    lastError   TEXT
+  );
+  -- Alert options and bookkeeping (the night a clear-night alert last went
+  -- out, the last update version announced), as JSON values by key.
+  CREATE TABLE IF NOT EXISTS alertState (
+    key    TEXT PRIMARY KEY,
+    value  TEXT NOT NULL
+  );
 `);
 
 // ─── Column migrations for existing databases ────────────────────────────────
