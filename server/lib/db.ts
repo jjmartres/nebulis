@@ -1155,6 +1155,16 @@ db.exec(`
   }
 }
 
+// Settings → Library → "Measure sub-frame quality after import". On by
+// default: it only reads the imported FITS files and fills the quality cache
+// (server/lib/library/autoQuality.ts), so the Keep selection is ready.
+{
+  const autoQualityCols = db.prepare<[], { name: string }>('PRAGMA table_info(appSettings)').all();
+  if (!autoQualityCols.some(c => c.name === 'autoMeasureSubQuality')) {
+    db.prepare('ALTER TABLE appSettings ADD COLUMN autoMeasureSubQuality INTEGER NOT NULL DEFAULT 1').run();
+  }
+}
+
 // ─── Sub-frame role correction ──────────────────────────────────────────────
 // A sub-frame is a raw exposure and is always FITS. Rows recorded before
 // parseFilename enforced that could hold a device's per-frame preview under

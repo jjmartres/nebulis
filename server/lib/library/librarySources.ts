@@ -11,6 +11,7 @@ import path from 'path';
 import db from '../db.js';
 import { getCatalogEntry } from '../../data/catalog.js';
 import { resolveCatalogMeta, enrichObjectData, stmts as objectStmts } from './objects.js';
+import { noteImportedSubFrames } from './autoQuality.js';
 import { recordLinkedLibraryFiles, markLinkedFilesMissing, countLibraryFilesForObject, roleForFile, getLibraryFilesForObject, getLibraryFileRow, deleteLibraryFileRow, sessionDateForRow, type LibraryFileRow, type RecordLinkedFileInput } from './libraryFiles.js';
 import { walkSource } from './sourceWalk.js';
 import { resolveLibraryFile } from './fileResolver.js';
@@ -723,6 +724,8 @@ export function commitSource(rootPath: string, settings: Record<string, unknown>
   let filesLinked = 0;
   for (const [objectId, inputs] of inputsByObject) {
     recordLinkedLibraryFiles(inputs);
+    // Linked subs are measured like imported ones (autoQuality.ts).
+    noteImportedSubFrames(inputs);
     filesLinked += inputs.length;
 
     // Object first: a session row references it.
@@ -1030,6 +1033,8 @@ export function rescanSource(id: string, baseSettings: Record<string, unknown>):
   }
 
   recordLinkedLibraryFiles(toRecord);
+  // New or changed linked subs are measured like imported ones (autoQuality.ts).
+  noteImportedSubFrames(toRecord);
   // Every object this source still owns, not just the ones whose files changed:
   // it also un-deletes an object left tombstoned by an earlier run and refreshes
   // a display name, so a rescan repairs a link instead of only extending it.

@@ -91,6 +91,8 @@ const SettingsUpdateBodySchema = z.object({
   // Settings → Library → "Credit objects in the same frame". Whether the catalog
   // boards count an object as imaged when it sat inside another object's frame.
   groupCatalogCompanions: z.boolean().optional(),
+  // Settings → Library → "Measure sub-frame quality after import".
+  autoMeasureSubQuality: z.boolean().optional(),
 });
 
 const ResetDatabaseBodySchema = z.object({
@@ -175,6 +177,7 @@ const SettingsSchema = z.object({
   nightlyForecastLastRun: z.number().nullable(), // Unix ms, read-only
   calibrationExpiryDays: z.number(),
   groupCatalogCompanions: z.boolean(),
+  autoMeasureSubQuality: z.boolean(),
 });
 
 type Settings = z.infer<typeof SettingsSchema>;
@@ -226,6 +229,7 @@ const defaultSettings: Settings = {
   nightlyForecastLastRun: null,
   calibrationExpiryDays: 180,
   groupCatalogCompanions: true,
+  autoMeasureSubQuality: true,
 };
 
 // The persistable field list is the request schema's own key set, read off the

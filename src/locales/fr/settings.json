@@ -285,6 +285,10 @@
       "groupCompanions": {
         "label": "Compter les objets du même champ",
         "description": "Les autres objets du catalogue qui se trouvaient dans le champ d'un objet photographié comptent aussi comme photographiés. Exemple : photographier M42 compte aussi M43. Désactiver pour ne compter que les objets visés."
+      },
+      "autoQuality": {
+        "label": "Mesurer la qualité des sous-poses après import",
+        "description": "Chaque nuit qui reçoit de nouvelles sous-poses FITS est mesurée (HFR, étoiles, fond) une fois l’import terminé, pour que la sélection soit prête pour l’empilement."
       }
     },
     "calibration": {
@@ -298,7 +302,7 @@
     },
     "filterAliases": {
       "title": "Alias de filtres",
-      "description": "Regroupez les noms de filtres écrits différemment par votre logiciel d’acquisition, pour que l’intégration par filtre les compte ensemble. Les écritures courantes (Ha, H-alpha, OIII, SII, L, R, G, B) sont déjà regroupées.",
+      "description": "Fusionne les noms de filtres écrits différemment par votre logiciel d’acquisition, pour que l’intégration par filtre les compte ensemble et que l’export pour empilement associe les lights aux bons flats. Les graphies courantes (Ha, H-alpha, OIII, SII, L, R, G, B) sont déjà fusionnées.",
       "empty": "Aucun alias pour l’instant.",
       "aliasPlaceholder": "Nom dans vos fichiers",
       "canonicalPlaceholder": "Compter comme",
