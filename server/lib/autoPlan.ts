@@ -15,7 +15,10 @@
  *     but only when unimagedOnly excludes them outright — once eligible,
  *     already-imaged objects compete on equal footing
  *   - images each object when it sits highest during its time slot (elevation)
- *   - stays away from the moon (skips moon-wrecked slots, penalizes close ones)
+ *   - stays away from the moon (skips moon-wrecked slots, penalizes close ones),
+ *     judged for the filter type each object is shot through: narrowband
+ *     targets (emission nebulae…) tolerate a much closer Moon than galaxies,
+ *     so on a bright night the plan naturally turns to them
  *   - fills the night back-to-back from the chosen start time
  *
  * The schedule is greedy and per-slot: walking the night in order, each slot
@@ -24,7 +27,8 @@
  * in the sky, instead of just sorting by "best overall tonight" and hoping.
  */
 import { altAz } from './astroCalc.js';
-import { checkMoonProximity, type MoonProximityResult } from './moonProximity.js';
+import { checkMoonProximity, type FilterBand, type MoonProximityResult } from './moonProximity.js';
+import { bandForObjectType } from './filterBands.js';
 import { objectEverVisible, type VisibleSkyMap } from './visibilityCheck.js';
 import { typeInClass } from './objectCategories.js';
 import { seeingAdjustment, type SlotSkyQuality } from './skyQuality.js';
@@ -96,6 +100,9 @@ export interface PlanBlock {
   meanAlt: number;
   moonSeparation: number;
   moonVerdict: 'ok' | 'caution' | 'warning';
+  /** Filter type the block is planned for (from the object type), which the
+   *  Moon check above used. Stored on the block when it is scheduled. */
+  filterBand: FilterBand;
   /** Forecast for the block, or null when there was none for it. */
   sky: SlotSkyQuality | null;
 }
@@ -166,7 +173,7 @@ export function generateNightPlanDetailed(p: AutoPlanParams): NightPlanResult {
       continue;
     }
 
-    type Candidate = { target: PlanCandidate; meanAlt: number; moon: MoonProximityResult; score: number };
+    type Candidate = { target: PlanCandidate; meanAlt: number; moon: MoonProximityResult; band: FilterBand; score: number };
     let best: Candidate | null = null;
     let bestRelaxed: Candidate | null = null;
 
@@ -175,7 +182,8 @@ export function generateNightPlanDetailed(p: AutoPlanParams): NightPlanResult {
       const meanAlt = meanAltitude(t.ra, t.dec, p.observerLat, p.observerLon, start, end);
       if (meanAlt < 10) continue; // effectively below the horizon for this slot
 
-      const moon = checkMoonProximity(t.ra, t.dec, p.observerLat, p.observerLon, start, end, p.moonIllumination);
+      const band = bandForObjectType(t.type);
+      const moon = checkMoonProximity(t.ra, t.dec, p.observerLat, p.observerLon, start, end, p.moonIllumination, 5, undefined, band);
       if (moon.verdict === 'warning') continue; // moon would wreck it
 
       // Score (degrees of altitude-equivalent):
@@ -191,7 +199,7 @@ export function generateNightPlanDetailed(p: AutoPlanParams): NightPlanResult {
       const popularBonus = t.commonNames.length > 0 ? 30 : 0;
       const score = meanAlt - moonPenalty + popularBonus + seeingAdjustment(sky, t)
         + (jitter > 0 ? (Math.random() * 2 - 1) * jitter : 0);
-      const candidate = { target: t, meanAlt, moon, score };
+      const candidate = { target: t, meanAlt, moon, band, score };
 
       if (!bestRelaxed || candidate.score > bestRelaxed.score) bestRelaxed = candidate;
       if (meanAlt >= p.minAlt && (!best || candidate.score > best.score)) best = candidate;
@@ -210,6 +218,7 @@ export function generateNightPlanDetailed(p: AutoPlanParams): NightPlanResult {
       meanAlt: chosen.meanAlt,
       moonSeparation: chosen.moon.minSeparation,
       moonVerdict: chosen.moon.verdict,
+      filterBand: chosen.band,
       sky,
     });
   }

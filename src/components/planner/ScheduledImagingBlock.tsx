@@ -224,9 +224,11 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
                   {t('scheduledImagingBlock.altitudeRange', { min: Math.round(minAlt), max: Math.round(maxAlt) })}
                 </Chip>
               )}
-              {band && (
+              {(band || session.filter) && (
                 <Chip tone="ok">
-                  <span title={t(`scheduledImagingBlock.band.${band}`)}>{t(`scheduledImagingBlock.bandShort.${band}`)}</span>
+                  <span title={band ? t(`scheduledImagingBlock.band.${band}`) : undefined}>
+                    {session.filter || t(`scheduledImagingBlock.bandShort.${band!}`)}
+                  </span>
                 </Chip>
               )}
               {moonVerdict !== 'ok' && (

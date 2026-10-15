@@ -27,6 +27,7 @@ const CreateBodySchema = z.object({
   endTime: z.string().datetime(),
   notes: z.string().optional(),
   filterBand: z.enum(['broadband', 'narrowband']).nullable().optional(),
+  filter: z.string().max(64).nullable().optional(),
 });
 
 const UpdateBodySchema = z.object({
@@ -36,6 +37,7 @@ const UpdateBodySchema = z.object({
   framingSetup: z.string().optional(),
   // null clears it.
   filterBand: z.enum(['broadband', 'narrowband']).nullable().optional(),
+  filter: z.string().max(64).nullable().optional(),
 });
 
 router.get('/', (req: Request, res: Response) => {

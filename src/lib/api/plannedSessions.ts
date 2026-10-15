@@ -19,6 +19,8 @@ export interface PlannedSession {
   /** What the block will be shot through, for its Moon check. Null = not set
    *  (checked as broadband). Absent from servers that predate it. */
   filterBand?: FilterBand | null;
+  /** The filter picked for the block ("D2", "Ha"), or null. */
+  filter?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +34,7 @@ export interface PlannedSessionCreate {
   endTime: string;
   notes?: string;
   filterBand?: FilterBand | null;
+  filter?: string | null;
 }
 
 interface PlannedSessionPatch {
@@ -40,6 +43,7 @@ interface PlannedSessionPatch {
   notes?: string;
   /** null clears it. */
   filterBand?: FilterBand | null;
+  filter?: string | null;
   framingSetup?: string;
 }
 

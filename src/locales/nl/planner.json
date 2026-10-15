@@ -403,5 +403,13 @@
     "noFilter": "Geen filter",
     "complete": "Doelen bereikt",
     "completeTitle": "Alle integratiedoelen voor dit object zijn bereikt"
+  },
+  "filterSuggestion": {
+    "complete": "Integratiedoelen voor dit object bereikt.",
+    "suggest": "Filter: {{filter}}, nog {{left}}",
+    "noneTonight": "Alle filters met resterende tijd zijn breedband, en de maan staat te dichtbij.",
+    "use": "{{filter}} gebruiken",
+    "inUse": "In gebruik",
+    "ruledOut": "Maan te dichtbij voor breedband: {{filters}}"
   }
 }

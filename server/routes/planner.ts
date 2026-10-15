@@ -526,6 +526,8 @@ router.post('/plan', async (req: Request, res: Response) => {
       meanAlt: Math.round(b.meanAlt * 10) / 10,
       moonSeparation: Number.isFinite(b.moonSeparation) ? Math.round(b.moonSeparation * 10) / 10 : null,
       moonVerdict: b.moonVerdict,
+      // Additive, like `sky`: the filter type the Moon check assumed.
+      filterBand: b.filterBand,
       // Additive: clients that don't know `sky` ignore it.
       sky: b.sky,
     })),

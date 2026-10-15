@@ -23,6 +23,8 @@ export interface PlannedSession {
   /** What the block will be shot through, for the Moon check. Null = not set
    *  (checked as broadband). */
   filterBand: FilterBand | null;
+  /** The filter picked for the block ("D2", "Ha"), or null. */
+  filter: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +38,7 @@ export interface PlannedSessionInput {
   endTime: string;
   notes?: string;
   filterBand?: FilterBand | null;
+  filter?: string | null;
 }
 
 const stmts = {
@@ -47,8 +50,8 @@ const stmts = {
   ),
   getById: db.prepare<[number], PlannedSession>('SELECT * FROM plannedSessions WHERE id = ?'),
   insert: db.prepare(
-    `INSERT INTO plannedSessions (objectId, objectName, ra, dec, startTime, endTime, notes, filterBand)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO plannedSessions (objectId, objectName, ra, dec, startTime, endTime, notes, filterBand, filter)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ),
   update: db.prepare(
     `UPDATE plannedSessions
@@ -61,6 +64,7 @@ const stmts = {
   ),
   // Separate from `update`: its COALESCEs cannot set a column back to NULL.
   setFilterBand: db.prepare(`UPDATE plannedSessions SET filterBand = ?, updatedAt = datetime('now') WHERE id = ?`),
+  setFilter: db.prepare(`UPDATE plannedSessions SET filter = ?, updatedAt = datetime('now') WHERE id = ?`),
   delete: db.prepare('DELETE FROM plannedSessions WHERE id = ?'),
 };
 
@@ -102,6 +106,7 @@ export function create(input: PlannedSessionInput): PlannedSession {
     canonicalizeIso(input.endTime),
     input.notes ?? '',
     input.filterBand ?? null,
+    input.filter?.trim() || null,
   );
   const row = stmts.getById.get(Number(result.lastInsertRowid));
   if (!row) throw new Error('[plannedSessions] insert succeeded but row not found');
@@ -110,7 +115,7 @@ export function create(input: PlannedSessionInput): PlannedSession {
 
 export function update(
   id: number,
-  patch: Partial<Pick<PlannedSession, 'startTime' | 'endTime' | 'notes' | 'framingSetup' | 'filterBand'>>,
+  patch: Partial<Pick<PlannedSession, 'startTime' | 'endTime' | 'notes' | 'framingSetup' | 'filterBand' | 'filter'>>,
 ): PlannedSession | null {
   const existing = stmts.getById.get(id);
   if (!existing) return null;
@@ -122,6 +127,7 @@ export function update(
     id,
   );
   if (patch.filterBand !== undefined) stmts.setFilterBand.run(patch.filterBand, id);
+  if (patch.filter !== undefined) stmts.setFilter.run(patch.filter?.trim() || null, id);
   return stmts.getById.get(id) ?? null;
 }
 

@@ -1676,6 +1676,10 @@ db.exec(`
   if (!cols.some(c => c.name === 'filterBand')) {
     db.prepare('ALTER TABLE plannedSessions ADD COLUMN filterBand TEXT').run();
   }
+  // The filter itself ("D2", "Ha"), when one was picked for the block.
+  if (!cols.some(c => c.name === 'filter')) {
+    db.prepare('ALTER TABLE plannedSessions ADD COLUMN filter TEXT').run();
+  }
 }
 
 /**
