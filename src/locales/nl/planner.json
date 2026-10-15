@@ -396,5 +396,12 @@
     "preparing": "Voorbereiden…",
     "shareImage": "Afbeelding delen",
     "saveImage": "Afbeelding opslaan"
+  },
+  "integrationRemaining": {
+    "left": "nog {{duration}} · {{filter}}",
+    "title": "{{filter}}: {{done}} van {{goal}}",
+    "noFilter": "Geen filter",
+    "complete": "Doelen bereikt",
+    "completeTitle": "Alle integratiedoelen voor dit object zijn bereikt"
   }
 }

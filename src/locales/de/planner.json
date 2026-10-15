@@ -396,5 +396,12 @@
     "preparing": "Wird vorbereitet…",
     "shareImage": "Bild teilen",
     "saveImage": "Bild speichern"
+  },
+  "integrationRemaining": {
+    "left": "noch {{duration}} · {{filter}}",
+    "title": "{{filter}}: {{done}} von {{goal}}",
+    "noFilter": "Ohne Filter",
+    "complete": "Ziele erreicht",
+    "completeTitle": "Alle Integrationsziele für dieses Objekt sind erreicht"
   }
 }
