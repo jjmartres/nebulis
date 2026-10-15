@@ -1,5 +1,5 @@
 import { fetchJSON, fetchJSONWithMeta } from './client';
-import type { AutoPlanFocus, PlanBlock, PlanCandidate, PlanWeatherSummary } from '../planTypes';
+import type { AutoPlanFocus, PlanBlock, PlanCandidate, PlanGoalsSummary, PlanWeatherSummary } from '../planTypes';
 import type { VisibleSkyMap } from '../visibilityCheck';
 import type { BlockVisibilityResult } from '../visibilityCheck';
 import type { MoonProximityResult } from '../moonProximity';
@@ -196,6 +196,9 @@ export interface AutoPlanRequest {
   useForecast?: boolean;
   /** Cloud cover (%) above which a slot is skipped (server default 60). */
   maxCloudCover?: number;
+  /** Favour objects with time left toward their goals (candidates' `goals`)
+   *  and leave out finished ones. */
+  favorGoals?: boolean;
 }
 
 interface WirePlanBlock {
@@ -206,6 +209,8 @@ interface WirePlanBlock {
   moonSeparation: number | null;
   moonVerdict: PlanBlock['moonVerdict'];
   filterBand?: PlanBlock['filterBand'];
+  filter?: PlanBlock['filter'];
+  filterRemainingSec?: PlanBlock['filterRemainingSec'];
   sky?: PlanBlock['sky'];
 }
 
@@ -221,14 +226,19 @@ function isWireWeather(v: unknown): v is WireWeatherSummary {
   return typeof v === 'object' && v !== null && 'used' in v && Array.isArray((v as { skippedSlots?: unknown }).skippedSlots);
 }
 
+function isWireGoals(v: unknown): v is PlanGoalsSummary {
+  return typeof v === 'object' && v !== null && Array.isArray((v as { complete?: unknown }).complete);
+}
+
 export async function generateNightPlan(req: AutoPlanRequest): Promise<PlanBlock[]> {
   return (await generateNightPlanWithWeather(req)).blocks;
 }
 
-/** The plan plus the server's weather summary (null when it sent none). */
+/** The plan plus the server's weather and goals summaries (null when it sent
+ *  none). */
 export async function generateNightPlanWithWeather(
   req: AutoPlanRequest,
-): Promise<{ blocks: PlanBlock[]; weather: PlanWeatherSummary | null }> {
+): Promise<{ blocks: PlanBlock[]; weather: PlanWeatherSummary | null; goals: PlanGoalsSummary | null }> {
   const { data: wire, meta } = await fetchJSONWithMeta<WirePlanBlock[]>('/planner/plan', {
     method: 'POST',
     body: JSON.stringify({
@@ -238,6 +248,7 @@ export async function generateNightPlanWithWeather(
     }),
   });
   const rawWeather = typeof meta === 'object' && meta !== null ? (meta as { weather?: unknown }).weather : undefined;
+  const rawGoals = typeof meta === 'object' && meta !== null ? (meta as { goals?: unknown }).goals : undefined;
   const weather: PlanWeatherSummary | null = isWireWeather(rawWeather)
     ? {
       ...rawWeather,
@@ -252,7 +263,7 @@ export async function generateNightPlanWithWeather(
     // block", which is exactly what Infinity has always meant here.
     moonSeparation: b.moonSeparation ?? Infinity,
   }));
-  return { blocks, weather };
+  return { blocks, weather, goals: isWireGoals(rawGoals) ? rawGoals : null };
 }
 
 // Batch moon-proximity + sky-visibility verdicts for placed blocks. Used for

@@ -208,3 +208,33 @@ describe('POST /planner/plan — useForecast', () => {
     expect(off.meta.weather).toMatchObject({ requested: false, used: false, skippedSlots: [] });
   });
 });
+
+describe('POST /planner/plan — favorGoals', () => {
+  const h = (hours: number) => hours * 3600;
+  const done = { ...baseTarget, id: 'ngc0002', goals: [{ filter: 'L', goalSec: h(5), remainingSec: 0 }] };
+  const project = { ...baseTarget, id: 'ngc0003', ra: 13, goals: [{ filter: 'D2', goalSec: h(20), remainingSec: h(12) }, { filter: null, goalSec: h(2), remainingSec: h(1) }] };
+
+  async function plan(body: Record<string, unknown>) {
+    const res = await fetch(`${baseUrl}/planner/plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...planRequestBody(baseTarget), targets: [done, project], maxObjects: 2, ...body }),
+    });
+    expect(res.status).toBe(200);
+    return res.json();
+  }
+
+  it('drops finished objects, picks the filter, and reports both', async () => {
+    const body = await plan({ favorGoals: true });
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0]).toMatchObject({ target: { id: 'ngc0003' }, filter: 'D2', filterRemainingSec: h(12), filterBand: 'narrowband' });
+    expect(body.meta.goals).toEqual({ requested: true, complete: [{ id: 'ngc0002', name: baseTarget.name }] });
+  });
+
+  it('ignores goals when the switch is off', async () => {
+    const body = await plan({});
+    expect(body.data).toHaveLength(2);
+    expect(body.data.every((b: Record<string, unknown>) => !('filter' in b))).toBe(true);
+    expect(body.meta.goals).toEqual({ requested: false, complete: [] });
+  });
+});

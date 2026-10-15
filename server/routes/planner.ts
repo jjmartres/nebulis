@@ -419,6 +419,12 @@ const PlanCandidateSchema = z.object({
   constellation: z.string().nullable().optional().transform(v => v ?? null),
   commonNames: z.array(z.string()),
   isAlreadyImaged: z.boolean(),
+  /** Per-filter integration goals, read only with `favorGoals`. */
+  goals: z.array(z.object({
+    filter: z.string().max(100).nullable(),
+    goalSec: z.number().min(0),
+    remainingSec: z.number().min(0),
+  })).max(50).optional(),
 });
 
 const AutoPlanBodySchema = z.object({
@@ -447,6 +453,10 @@ const AutoPlanBodySchema = z.object({
   useForecast: z.boolean().optional(),
   /** Cloud cover (%) above which a slot is skipped. */
   maxCloudCover: z.number().min(0).max(100).optional(),
+  /** Favour objects with integration time left (candidates' `goals`), drop
+   *  those whose goals are reached, and pick each block's filter. Off when
+   *  omitted. */
+  favorGoals: z.boolean().optional(),
 });
 
 /**
@@ -499,7 +509,7 @@ router.post('/plan', async (req: Request, res: Response) => {
   const indexedHours = forecast ? indexForecastHours(forecast.hours) : null;
   const maxCloudCover = body.maxCloudCover ?? DEFAULT_MAX_CLOUD_COVER;
 
-  const { blocks, skippedSlots } = generateNightPlanDetailed({
+  const { blocks, skippedSlots, goalsComplete } = generateNightPlanDetailed({
     skyQuality: indexedHours
       ? (start, end) => slotSkyQuality(indexedHours, start, end, maxCloudCover)
       : undefined,
@@ -516,6 +526,7 @@ router.post('/plan', async (req: Request, res: Response) => {
     focus: body.focus,
     unimagedOnly: body.unimagedOnly,
     jitter: body.jitter,
+    favorGoals: body.favorGoals,
   });
 
   res.apiSuccess(
@@ -528,6 +539,8 @@ router.post('/plan', async (req: Request, res: Response) => {
       moonVerdict: b.moonVerdict,
       // Additive, like `sky`: the filter type the Moon check assumed.
       filterBand: b.filterBand,
+      // Additive, with favorGoals only: the goal filter picked for the block.
+      ...(b.filter !== undefined ? { filter: b.filter, filterRemainingSec: b.filterRemainingSec } : {}),
       // Additive: clients that don't know `sky` ignore it.
       sky: b.sky,
     })),
@@ -542,6 +555,10 @@ router.post('/plan', async (req: Request, res: Response) => {
           end: s.end.toISOString(),
           cloudCover: s.cloudCover,
         })),
+      },
+      goals: {
+        requested: body.favorGoals === true,
+        complete: goalsComplete.map(t => ({ id: t.id, name: t.name })),
       },
     },
   );

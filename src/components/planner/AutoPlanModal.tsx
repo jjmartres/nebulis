@@ -12,14 +12,16 @@
  * result, and hands finished blocks back to the planner.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, Moon, ArrowUp, X, Shuffle, Clock, Hash, Telescope, Cloud, CloudOff, Wind } from 'lucide-react';
+import { Sparkles, Moon, ArrowUp, X, Shuffle, Clock, Hash, Telescope, Cloud, CloudOff, Wind, Hourglass, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatHm } from '../../lib/timeFormat';
 import { formatObjectName } from '../../lib/utils';
 import { getCatalogThumbnailUrl } from '../../lib/catalogImage';
 import { generateNightPlanWithWeather } from '../../lib/api/planner';
 import { ConfirmModal } from '../ConfirmModal';
-import type { AutoPlanFocus, PlanBlock, PlanWeatherSummary } from '../../lib/planTypes';
+import type { AutoPlanFocus, PlanBlock, PlanCandidate, PlanGoalsSummary, PlanWeatherSummary } from '../../lib/planTypes';
+import { useIntegrationProgress } from '../../hooks/useIntegrationProgress';
+import { formatDuration } from '../../lib/captureMetrics';
 import { mergeSkipped } from '../../lib/planWeather';
 import type { PlannerTarget } from '../../lib/api/planner';
 import type { VisibleSkyMap } from '../../lib/visibilityCheck';
@@ -128,6 +130,8 @@ export function AutoPlanModal({
   const [avoidClouds, setAvoidClouds] = useState(true);
   const [maxCloudCover, setMaxCloudCover] = useState<number>(60);
   const [weather, setWeather] = useState<PlanWeatherSummary | null>(null);
+  const [favorGoals, setFavorGoals] = useState(true);
+  const [goalsSummary, setGoalsSummary] = useState<PlanGoalsSummary | null>(null);
   const [clearFirst, setClearFirst] = useState(defaultClearFirst);
   const [blocks, setBlocks] = useState<PlanBlock[]>([]);
   const [applying, setApplying] = useState(false);
@@ -135,6 +139,23 @@ export function AutoPlanModal({
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
+
+  // Integration goals ride along with each candidate, so the server can
+  // favour unfinished campaigns and leave finished ones out. The switch only
+  // shows when at least one candidate has goals.
+  const progressFor = useIntegrationProgress();
+  const targetsWithGoals = useMemo<PlanCandidate[]>(
+    () => targets.map(target => {
+      const progress = progressFor(target.id);
+      if (!progress) return target;
+      return {
+        ...target,
+        goals: progress.filters.map(f => ({ filter: f.filter, goalSec: f.goalSec, remainingSec: f.remainingSec })),
+      };
+    }),
+    [targets, progressFor],
+  );
+  const anyGoals = useMemo(() => targetsWithGoals.some(t => t.goals), [targetsWithGoals]);
 
   const build = useCallback(
     (jitter: number) => {
@@ -152,7 +173,7 @@ export function AutoPlanModal({
           : objectCount;
 
       return generateNightPlanWithWeather({
-        targets,
+        targets: anyGoals && favorGoals ? targetsWithGoals : targets,
         observerLat,
         observerLon,
         windowStart: new Date(s),
@@ -167,9 +188,10 @@ export function AutoPlanModal({
         jitter,
         useForecast: avoidClouds,
         maxCloudCover,
+        favorGoals: anyGoals && favorGoals,
       });
     },
-    [startMs, endMs, splitMode, minutesPerObject, objectCount, focus, unimagedOnly, avoidClouds, maxCloudCover, targets, observerLat, observerLon, minAlt, moonIllumination, visibleSkyMap],
+    [startMs, endMs, splitMode, minutesPerObject, objectCount, focus, unimagedOnly, avoidClouds, maxCloudCover, targets, targetsWithGoals, anyGoals, favorGoals, observerLat, observerLon, minAlt, moonIllumination, visibleSkyMap],
   );
 
   const handleBuild = useCallback(async () => {
@@ -179,6 +201,7 @@ export function AutoPlanModal({
       const result = await build(0);
       setBlocks(result.blocks);
       setWeather(result.weather);
+      setGoalsSummary(result.goals);
       setStep('preview');
     } catch (err) {
       setBuildError(err instanceof Error ? err.message : t('autoPlanModal.buildFailed'));
@@ -194,6 +217,7 @@ export function AutoPlanModal({
       const result = await build(8);
       setBlocks(result.blocks);
       setWeather(result.weather);
+      setGoalsSummary(result.goals);
     } catch (err) {
       setBuildError(err instanceof Error ? err.message : t('autoPlanModal.buildFailed'));
     } finally {
@@ -419,6 +443,19 @@ export function AutoPlanModal({
                 <span>{t('autoPlanModal.unimagedOnly')}</span>
               </label>
 
+              {/* Integration goals: favour unfinished campaigns. */}
+              {anyGoals && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={favorGoals}
+                    onChange={(e) => setFavorGoals(e.target.checked)}
+                    className="accent-amber-500"
+                  />
+                  <span>{t('autoPlanModal.favorGoals')}</span>
+                </label>
+              )}
+
               {/* Weather: skip slots the forecast says are cloudy. */}
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -467,6 +504,14 @@ export function AutoPlanModal({
                       .join(' · ')}
                   </div>
                 </div>
+              )}
+              {goalsSummary?.requested && goalsSummary.complete.length > 0 && (
+                <p className={`flex items-center gap-1.5 text-xs ${subtle}`}>
+                  <Check className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                  {t('autoPlanModal.goalsComplete', {
+                    names: goalsSummary.complete.map(o => formatObjectName(o.id, o.name)).join(', '),
+                  })}
+                </p>
               )}
               {blocks.length === 0 ? (
                 <div className={`text-center py-10 ${subtle}`}>
@@ -523,6 +568,21 @@ export function AutoPlanModal({
                               title={t(`scheduledImagingBlock.band.${b.filterBand}`)}
                             >
                               {t(`scheduledImagingBlock.bandShort.${b.filterBand}`)}
+                            </span>
+                          )}
+                          {b.filter !== undefined && b.filterRemainingSec !== undefined && (
+                            <span
+                              className={`inline-flex items-center gap-1 tabular-nums ${isDark ? 'text-accent-300' : 'text-accent-700'}`}
+                              title={t('autoPlanModal.goalFilterTitle', {
+                                filter: b.filter ?? t('integrationRemaining.noFilter'),
+                                duration: formatDuration(b.filterRemainingSec),
+                              })}
+                            >
+                              <Hourglass className="w-3 h-3" />
+                              {t('integrationRemaining.left', {
+                                duration: formatDuration(b.filterRemainingSec),
+                                filter: b.filter ?? t('integrationRemaining.noFilter'),
+                              })}
                             </span>
                           )}
                           {b.sky && (

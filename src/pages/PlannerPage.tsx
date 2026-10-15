@@ -1061,11 +1061,15 @@ export function PlannerPage() {
       }
       for (const b of blocks) {
         // An object with integration goals gets the filter with the most time
-        // left that the Moon allows on this block; others keep the plan's band.
-        const pick = suggestFilter(integrationProgressFor(b.target.id), {
-          minSeparation: b.moonSeparation,
-          illumination: nightMoonIllumination ?? 0,
-        });
+        // left that the Moon allows on this block: the plan's own pick when it
+        // was built favouring goals, else worked out here. Others keep the
+        // plan's band.
+        const pick = b.filter !== undefined
+          ? { filter: b.filter, band: b.filterBand }
+          : suggestFilter(integrationProgressFor(b.target.id), {
+            minSeparation: b.moonSeparation,
+            illumination: nightMoonIllumination ?? 0,
+          });
         await createPlannedSession({
           objectId: b.target.id,
           objectName: b.target.name,

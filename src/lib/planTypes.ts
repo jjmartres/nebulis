@@ -20,6 +20,16 @@ export interface PlanCandidate {
   constellation: string | null;
   commonNames: string[];
   isAlreadyImaged: boolean;
+  /** Per-filter integration goals, sent with `favorGoals`. */
+  goals?: PlanGoal[];
+}
+
+/** Mirrors server/lib/autoPlan.ts GoalProgress. */
+export interface PlanGoal {
+  /** Canonical filter name; null = the "no filter" goal. */
+  filter: string | null;
+  goalSec: number;
+  remainingSec: number;
 }
 
 export interface PlanBlock {
@@ -32,6 +42,11 @@ export interface PlanBlock {
   /** Filter type the plan assumed for the block (from the object type);
    *  absent from servers that predate it. */
   filterBand?: FilterBand;
+  /** With favorGoals, the goal filter picked for the block (null = the "no
+   *  filter" goal); absent for objects without goals. */
+  filter?: string | null;
+  /** Time left on that filter before the block, in seconds. */
+  filterRemainingSec?: number;
   /** Forecast for the block when the plan was built with the forecast. */
   sky?: PlanSkyQuality | null;
 }
@@ -55,4 +70,11 @@ export interface PlanWeatherSummary {
   forecastFetchedAt: string | null;
   maxCloudCover: number;
   skippedSlots: { start: Date; end: Date; cloudCover: number }[];
+}
+
+/** Goals summary POST /planner/plan returns in the envelope's meta. */
+export interface PlanGoalsSummary {
+  requested: boolean;
+  /** Objects left out because every goal on them is reached. */
+  complete: { id: string; name: string }[];
 }

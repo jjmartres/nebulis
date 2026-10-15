@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateNightPlan, generateNightPlanDetailed, type PlanCandidate } from '../../server/lib/autoPlan';
+import { generateNightPlan, generateNightPlanDetailed, goalBonus, type PlanCandidate } from '../../server/lib/autoPlan';
 
 /**
  * Regression coverage for the web/iOS planner divergence: iOS's port of this
@@ -243,5 +243,90 @@ describe('generateNightPlan — filter type and the Moon', () => {
   it('keeps the broadband target on a dark night, and says it is broadband', () => {
     const [block] = generateNightPlan(params(0, [galaxy, nebula]));
     expect(block).toMatchObject({ target: { id: 'galaxy' }, filterBand: 'broadband', moonVerdict: 'ok' });
+  });
+});
+
+describe('generateNightPlan — integration goals', () => {
+  const base = {
+    observerLat: OBSERVER_LAT,
+    observerLon: OBSERVER_LON,
+    windowStart: WINDOW_START,
+    windowEnd: WINDOW_END,
+    slotMinutes: 60,
+    maxObjects: 1,
+    minAlt: 30,
+    moonIllumination: 0,
+    visibleSkyMap: null,
+  };
+  const h = (hours: number) => hours * 3600;
+  // Same place in the sky: only the popularity and goal terms differ.
+  const popular = candidate({ id: 'popular', ra: 12, dec: HIGH_DEC, commonNames: ['Famous'] });
+  const project = candidate({
+    id: 'project', ra: 12, dec: HIGH_DEC, type: 'Emission Nebula',
+    goals: [{ filter: 'L', goalSec: h(10), remainingSec: h(8) }, { filter: 'Ha', goalSec: h(10), remainingSec: h(3) }],
+  });
+
+  it('puts an object with time left ahead of a better-known one', () => {
+    const [block] = generateNightPlan({ ...base, targets: [popular, project], favorGoals: true });
+    expect(block?.target.id).toBe('project');
+    expect(block).toMatchObject({ filter: 'L', filterRemainingSec: h(8), filterBand: 'broadband' });
+  });
+
+  it('plans exactly as before when the switch is off', () => {
+    const [block] = generateNightPlan({ ...base, targets: [popular, project] });
+    expect(block?.target.id).toBe('popular');
+    expect(block?.filter).toBeUndefined();
+  });
+
+  it('leaves out objects whose goals are all reached, and says which', () => {
+    const done = candidate({
+      id: 'done', ra: 12, dec: HIGH_DEC, commonNames: ['Done'],
+      goals: [{ filter: 'L', goalSec: h(5), remainingSec: 0 }],
+    });
+    const result = generateNightPlanDetailed({ ...base, maxObjects: 2, targets: [done, popular], favorGoals: true });
+    expect(result.blocks.map(b => b.target.id)).toEqual(['popular']);
+    expect(result.goalsComplete.map(t => t.id)).toEqual(['done']);
+    // Off: the finished object competes as usual.
+    expect(generateNightPlanDetailed({ ...base, maxObjects: 2, targets: [done, popular] }).goalsComplete).toEqual([]);
+  });
+
+  describe('with the Moon up', () => {
+    // Same scene as "filter type and the Moon": ~34° from a 60 % Moon, too
+    // close for broadband, fine for narrowband.
+    const moonParams = {
+      observerLat: 40.7128,
+      observerLon: -74.006,
+      windowStart: new Date('2025-06-21T12:00:00Z'),
+      windowEnd: new Date('2025-06-21T13:00:00Z'),
+      slotMinutes: 60,
+      maxObjects: 1,
+      minAlt: 30,
+      moonIllumination: 60,
+      visibleSkyMap: null,
+      favorGoals: true,
+    };
+    const near = (over: Partial<PlanCandidate>) => candidate({ ra: 0, dec: 30, ...over });
+
+    it('picks the narrowband filter with time left when broadband is ruled out', () => {
+      const [block] = generateNightPlan({
+        ...moonParams,
+        targets: [near({ id: 'project', type: 'Emission Nebula', goals: project.goals })],
+      });
+      expect(block).toMatchObject({ filter: 'Ha', filterRemainingSec: h(3), filterBand: 'narrowband', moonVerdict: 'ok' });
+    });
+
+    it('skips an object whose only time left is in broadband', () => {
+      const galaxy = near({ id: 'galaxy', type: 'Spiral Galaxy', goals: [{ filter: 'L', goalSec: h(10), remainingSec: h(9) }] });
+      expect(generateNightPlan({ ...moonParams, targets: [galaxy] })).toEqual([]);
+    });
+  });
+});
+
+describe('goalBonus', () => {
+  it('grows with the share of time left', () => {
+    expect(goalBonus([])).toBe(0);
+    expect(goalBonus([{ filter: 'L', goalSec: 100, remainingSec: 0 }])).toBe(0);
+    expect(goalBonus([{ filter: 'L', goalSec: 100, remainingSec: 100 }])).toBe(50);
+    expect(goalBonus([{ filter: 'L', goalSec: 100, remainingSec: 50 }, { filter: 'R', goalSec: 100, remainingSec: 0 }])).toBe(27.5);
   });
 });
