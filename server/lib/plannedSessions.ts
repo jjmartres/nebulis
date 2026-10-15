@@ -25,6 +25,8 @@ export interface PlannedSession {
   filterBand: FilterBand | null;
   /** The filter picked for the block ("D2", "Ha"), or null. */
   filter: string | null;
+  /** 1 when the user marked this block as deliberately skipped, else 0. */
+  skipped: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +61,7 @@ const stmts = {
            endTime      = COALESCE(?, endTime),
            notes        = COALESCE(?, notes),
            framingSetup = COALESCE(?, framingSetup),
+           skipped      = COALESCE(?, skipped),
            updatedAt    = datetime('now')
      WHERE id = ?`,
   ),
@@ -115,7 +118,7 @@ export function create(input: PlannedSessionInput): PlannedSession {
 
 export function update(
   id: number,
-  patch: Partial<Pick<PlannedSession, 'startTime' | 'endTime' | 'notes' | 'framingSetup' | 'filterBand' | 'filter'>>,
+  patch: Partial<Pick<PlannedSession, 'startTime' | 'endTime' | 'notes' | 'framingSetup' | 'filterBand' | 'filter'>> & { skipped?: boolean },
 ): PlannedSession | null {
   const existing = stmts.getById.get(id);
   if (!existing) return null;
@@ -124,6 +127,7 @@ export function update(
     patch.endTime != null ? canonicalizeIso(patch.endTime) : null,
     patch.notes ?? null,
     patch.framingSetup ?? null,
+    patch.skipped === undefined ? null : patch.skipped ? 1 : 0,
     id,
   );
   if (patch.filterBand !== undefined) stmts.setFilterBand.run(patch.filterBand, id);

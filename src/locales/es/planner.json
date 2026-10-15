@@ -39,7 +39,9 @@
       "unset": "Sin definir",
       "broadband": "Banda ancha",
       "narrowband": "Banda estrecha"
-    }
+    },
+    "moonOkTonight": "La Luna no interferirá esta noche ({{percent}}% iluminada).",
+    "moonWarningTonight": "La Luna se acerca a {{deg}}° a las {{time}} ({{percent}}% iluminada); puede velar los detalles tenues."
   },
   "nightHero": {
     "rises": "Sale {{time}}",
@@ -411,5 +413,21 @@
     "use": "Usar {{filter}}",
     "inUse": "En uso",
     "ruledOut": "Luna demasiado cerca para banda ancha: {{filters}}"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Próximo",
+      "in_progress": "En curso",
+      "done": "Hecho",
+      "partial": "Parcial",
+      "missed": "Perdido",
+      "skipped": "Omitido"
+    },
+    "achieved": "{{achieved}} / {{planned}}",
+    "title_one": "{{status}} · {{count}} subtoma en la biblioteca",
+    "title_other": "{{status}} · {{count}} subtomas en la biblioteca",
+    "repeatTomorrow": "Volver a planificar la noche siguiente",
+    "markSkipped": "Marcar como omitido",
+    "unskip": "Quitar la marca de omitido"
   }
 }

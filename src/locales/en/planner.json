@@ -39,7 +39,9 @@
       "unset": "Not set",
       "broadband": "Broadband",
       "narrowband": "Narrowband"
-    }
+    },
+    "moonOkTonight": "Moon won't interfere tonight ({{percent}}% illuminated).",
+    "moonWarningTonight": "Moon comes within {{deg}}° at {{time}} ({{percent}}% illuminated) — may wash out faint detail."
   },
   "nightHero": {
     "rises": "Rises {{time}}",
@@ -411,5 +413,21 @@
     "use": "Use {{filter}}",
     "inUse": "In use",
     "ruledOut": "Too close to the Moon for broadband: {{filters}}"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Upcoming",
+      "in_progress": "In progress",
+      "done": "Done",
+      "partial": "Partly done",
+      "missed": "Missed",
+      "skipped": "Skipped"
+    },
+    "achieved": "{{achieved}} / {{planned}}",
+    "title_one": "{{status}} · {{count}} sub-frame in the library",
+    "title_other": "{{status}} · {{count}} sub-frames in the library",
+    "repeatTomorrow": "Plan again the next night",
+    "markSkipped": "Mark as skipped",
+    "unskip": "Unmark skipped"
   }
 }

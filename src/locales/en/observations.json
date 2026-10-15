@@ -660,5 +660,20 @@
     "measure_one": "Measure {{count}} sub-frame",
     "measure_other": "Measure {{count}} sub-frames",
     "measuring": "Measuring sub-frame quality {{done}} / {{total}}"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Planned",
+      "in_progress": "In progress",
+      "done": "Done",
+      "partial": "Partly done",
+      "missed": "Missed",
+      "skipped": "Skipped"
+    },
+    "achievedOfPlanned": "{{achieved}}/{{planned}}",
+    "resultTitle_one": "Planner: {{status}} · {{achieved}} of {{planned}} planned ({{count}} block)",
+    "resultTitle_other": "Planner: {{status}} · {{achieved}} of {{planned}} planned ({{count}} blocks)",
+    "plannedLine": "{{status}} · {{planned}} planned",
+    "plannedTitle": "{{name}}: {{status}}, {{planned}} planned. Open in the Planner."
   }
 }

@@ -660,5 +660,20 @@
     "measure_one": "{{count}} Einzelbild messen",
     "measure_other": "{{count}} Einzelbilder messen",
     "measuring": "Qualität der Einzelbilder wird gemessen {{done}} / {{total}}"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Geplant",
+      "in_progress": "Läuft",
+      "done": "Erledigt",
+      "partial": "Teilweise",
+      "missed": "Verpasst",
+      "skipped": "Übersprungen"
+    },
+    "achievedOfPlanned": "{{achieved}}/{{planned}}",
+    "resultTitle_one": "Planer: {{status}} · {{achieved}} von {{planned}} geplant ({{count}} Block)",
+    "resultTitle_other": "Planer: {{status}} · {{achieved}} von {{planned}} geplant ({{count}} Blöcke)",
+    "plannedLine": "{{status}} · {{planned}} geplant",
+    "plannedTitle": "{{name}}: {{status}}, {{planned}} geplant. Im Planer öffnen."
   }
 }

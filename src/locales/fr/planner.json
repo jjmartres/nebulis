@@ -39,7 +39,9 @@
       "unset": "Non défini",
       "broadband": "Large bande",
       "narrowband": "Bande étroite"
-    }
+    },
+    "moonOkTonight": "La Lune ne gênera pas ce soir ({{percent}} % illuminée).",
+    "moonWarningTonight": "La Lune se rapproche à {{deg}}° à {{time}} ({{percent}} % illuminée) : les détails fins risquent d'être noyés."
   },
   "nightHero": {
     "rises": "Se lève à {{time}}",
@@ -411,5 +413,21 @@
     "use": "Utiliser {{filter}}",
     "inUse": "Utilisé",
     "ruledOut": "Lune trop proche pour la large bande : {{filters}}"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "À venir",
+      "in_progress": "En cours",
+      "done": "Fait",
+      "partial": "Partiel",
+      "missed": "Raté",
+      "skipped": "Sauté"
+    },
+    "achieved": "{{achieved}} / {{planned}}",
+    "title_one": "{{status}} · {{count}} sous-pose dans la bibliothèque",
+    "title_other": "{{status}} · {{count}} sous-poses dans la bibliothèque",
+    "repeatTomorrow": "Replanifier la nuit suivante",
+    "markSkipped": "Marquer comme sauté",
+    "unskip": "Retirer la marque « sauté »"
   }
 }

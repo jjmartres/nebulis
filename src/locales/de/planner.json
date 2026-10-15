@@ -39,7 +39,9 @@
       "unset": "Nicht gesetzt",
       "broadband": "Breitband",
       "narrowband": "Schmalband"
-    }
+    },
+    "moonOkTonight": "Der Mond wird heute Nacht nicht stören ({{percent}}% beleuchtet).",
+    "moonWarningTonight": "Der Mond kommt um {{time}} bis auf {{deg}}° heran ({{percent}}% beleuchtet) – feine Details könnten überstrahlt werden."
   },
   "nightHero": {
     "rises": "Aufgang {{time}}",
@@ -411,5 +413,21 @@
     "use": "{{filter}} verwenden",
     "inUse": "Verwendet",
     "ruledOut": "Mond zu nah für Breitband: {{filters}}"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Geplant",
+      "in_progress": "Läuft",
+      "done": "Erledigt",
+      "partial": "Teilweise",
+      "missed": "Verpasst",
+      "skipped": "Übersprungen"
+    },
+    "achieved": "{{achieved}} / {{planned}}",
+    "title_one": "{{status}} · {{count}} Einzelbild in der Bibliothek",
+    "title_other": "{{status}} · {{count}} Einzelbilder in der Bibliothek",
+    "repeatTomorrow": "In der nächsten Nacht erneut planen",
+    "markSkipped": "Als übersprungen markieren",
+    "unskip": "Markierung „übersprungen“ entfernen"
   }
 }

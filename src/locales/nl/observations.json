@@ -660,5 +660,20 @@
     "measure_one": "{{count}} subframe meten",
     "measure_other": "{{count}} subframes meten",
     "measuring": "Kwaliteit van de subframes meten {{done}} / {{total}}"
+  },
+  "planOutcome": {
+    "status": {
+      "upcoming": "Gepland",
+      "in_progress": "Bezig",
+      "done": "Klaar",
+      "partial": "Gedeeltelijk",
+      "missed": "Gemist",
+      "skipped": "Overgeslagen"
+    },
+    "achievedOfPlanned": "{{achieved}}/{{planned}}",
+    "resultTitle_one": "Planner: {{status}} · {{achieved}} van {{planned}} gepland ({{count}} blok)",
+    "resultTitle_other": "Planner: {{status}} · {{achieved}} van {{planned}} gepland ({{count}} blokken)",
+    "plannedLine": "{{status}} · {{planned}} gepland",
+    "plannedTitle": "{{name}}: {{status}}, {{planned}} gepland. Openen in de planner."
   }
 }
