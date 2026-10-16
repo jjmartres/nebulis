@@ -1067,6 +1067,23 @@ db.exec(`
   }
   db.prepare('CREATE INDEX IF NOT EXISTS idx_librarySessions_site ON librarySessions(siteId)').run();
 
+  // Which optical train shot the session (see library/sessionOptics.ts).
+  // `opticalConfigId` is the user's explicit choice, NULL meaning "let the
+  // files decide"; `fileFocalMm` caches the FOCALLEN the session's FITS
+  // recorded (an immutable fact about bytes on disk), `focalResolved` saying
+  // the lookup was done even when it found nothing. No foreign key, like
+  // siteId: deleting a config must degrade its sessions to "not set", never
+  // touch observation history.
+  if (!lsCols.some(c => c.name === 'opticalConfigId')) {
+    db.prepare('ALTER TABLE librarySessions ADD COLUMN opticalConfigId TEXT').run();
+  }
+  if (!lsCols.some(c => c.name === 'fileFocalMm')) {
+    db.prepare('ALTER TABLE librarySessions ADD COLUMN fileFocalMm REAL').run();
+  }
+  if (!lsCols.some(c => c.name === 'focalResolved')) {
+    db.prepare('ALTER TABLE librarySessions ADD COLUMN focalResolved INTEGER NOT NULL DEFAULT 0').run();
+  }
+
   // Audit 4 (indexes): `getAllFavorites` filters by userId; the table's
   // primary key is (objectId, userId) which doesn't help. Same shape for
   // `getAllImageFavorites`. Both queries fire on every /library/objects load.

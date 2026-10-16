@@ -86,7 +86,9 @@
     "showingRange": "Showing {{from}}–{{to}} of {{total}} observations",
     "previousPage": "Previous page",
     "nextPage": "Next page",
-    "pageOfTotal": "{{page}} / {{totalPages}}"
+    "pageOfTotal": "{{page}} / {{totalPages}}",
+    "columnRig": "Rig",
+    "noRig": "No telescope"
   },
   "toolbar": {
     "viewGroup": "View",
@@ -98,7 +100,8 @@
     "today": "Today",
     "allTelescopes": "All telescopes",
     "filterByTelescope": "Filter by telescope",
-    "share": "Share"
+    "share": "Share",
+    "allTrains": "{{name}} (all trains)"
   },
   "newObservationForm": {
     "objectLabel": "Object",
@@ -166,7 +169,16 @@
       "capturedOn": "Captured on {{name}}. Click to see its other sessions.",
       "reassignTitle": "Reassign to a different telescope",
       "reassignTo": "Reassign to",
-      "reassignFailed": "Reassignment failed"
+      "reassignFailed": "Reassignment failed",
+      "opticsTitle": "Optical train",
+      "opticsAuto": "Automatic",
+      "opticsAutoFits": "FITS: {{focal}}",
+      "opticsAutoNone": "not detected",
+      "opticsSource": {
+        "manual": "Chosen for this night",
+        "fits": "Matched from the focal length in the FITS",
+        "only": "The telescope's only configuration"
+      }
     },
     "objectPanel": {
       "about": "About {{name}}",

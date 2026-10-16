@@ -262,7 +262,13 @@
       "deletedTooltip": "See deleted items you can restore to allow re-syncing",
       "count_one": "{{count}} observation",
       "count_other": "{{count}} observations",
-      "empty": "Nothing captured for this object yet."
+      "empty": "Nothing captured for this object yet.",
+      "noRig": "No telescope",
+      "groupBy": "Group nights by",
+      "groupBy_year": "By year",
+      "groupBy_rig": "By rig",
+      "rigSummary_one": "{{count}} night · {{integration}}",
+      "rigSummary_other": "{{count}} nights · {{integration}}"
     },
     "observationCard": {
       "noPreview": "No preview",
@@ -1083,7 +1089,10 @@
     "titleLink": "Link a folder",
     "reviewLink": "Review",
     "step3NameLink": "Review & link",
-    "close": "Close"
+    "close": "Close",
+    "opticalTrain": "Optical train",
+    "opticalTrainAuto": "Detect from the FITS focal length",
+    "opticalTrainHint": "Which configuration of this telescope shot these files, e.g. with the reducer. Automatic reads the focal length each night's FITS recorded."
   },
   "linkFolderWizard": {
     "modalTitle": "Link a folder",

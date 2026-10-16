@@ -86,7 +86,9 @@
     "showingRange": "{{from}}–{{to}} van {{total}} waarnemingen weergegeven",
     "previousPage": "Vorige pagina",
     "nextPage": "Volgende pagina",
-    "pageOfTotal": "{{page}} / {{totalPages}}"
+    "pageOfTotal": "{{page}} / {{totalPages}}",
+    "columnRig": "Opstelling",
+    "noRig": "Geen telescoop"
   },
   "toolbar": {
     "viewGroup": "Weergave",
@@ -98,7 +100,8 @@
     "today": "Vandaag",
     "allTelescopes": "Alle telescopen",
     "filterByTelescope": "Filter op telescoop",
-    "share": "Delen"
+    "share": "Delen",
+    "allTrains": "{{name}} (alle opstellingen)"
   },
   "newObservationForm": {
     "objectLabel": "Object",
@@ -166,7 +169,16 @@
       "capturedOn": "Opgenomen met {{name}}. Klik om andere sessies van deze telescoop te bekijken.",
       "reassignTitle": "Toewijzen aan een andere telescoop",
       "reassignTo": "Toewijzen aan",
-      "reassignFailed": "Opnieuw toewijzen is mislukt"
+      "reassignFailed": "Opnieuw toewijzen is mislukt",
+      "opticsTitle": "Optische opstelling",
+      "opticsAuto": "Automatisch",
+      "opticsAutoFits": "FITS: {{focal}}",
+      "opticsAutoNone": "niet gevonden",
+      "opticsSource": {
+        "manual": "Gekozen voor deze nacht",
+        "fits": "Afgeleid uit de brandpuntsafstand in de FITS",
+        "only": "Enige configuratie van de telescoop"
+      }
     },
     "objectPanel": {
       "about": "Over {{name}}",

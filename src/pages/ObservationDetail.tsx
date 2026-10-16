@@ -711,8 +711,11 @@ if (isLoading) {
         onOpenMedia={openHeroMedia}
         onResetCrown={canResetCrown && !settingSessionImage ? () => handleSetSessionImage(null) : null}
         emptyReason={files.some(f => f.type === 'fits') ? t('observationDetail.page.rawFitsOnly') : t('observationDetail.page.noImagesCaptured')}
-        telescope={showTelescopeUI ? telescopeForObs : null}
+        // One telescope with several optical trains still needs the chip, to
+        // say (and pick) which train shot the night.
+        telescope={showTelescopeUI || (telescopeForObs?.opticalConfigs?.length ?? 0) >= 2 ? telescopeForObs : null}
         telescopes={telescopes}
+        optics={observation?.optics}
         isAdmin={isAdmin}
         captureMetrics={captureMetrics}
         accent={accent}

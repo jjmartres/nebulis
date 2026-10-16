@@ -86,7 +86,9 @@
     "showingRange": "{{from}}–{{to}} von {{total}} Beobachtungen angezeigt",
     "previousPage": "Vorherige Seite",
     "nextPage": "Nächste Seite",
-    "pageOfTotal": "{{page}} / {{totalPages}}"
+    "pageOfTotal": "{{page}} / {{totalPages}}",
+    "columnRig": "Setup",
+    "noRig": "Kein Teleskop"
   },
   "toolbar": {
     "viewGroup": "Ansicht",
@@ -98,7 +100,8 @@
     "today": "Heute",
     "allTelescopes": "Alle Teleskope",
     "filterByTelescope": "Nach Teleskop filtern",
-    "share": "Teilen"
+    "share": "Teilen",
+    "allTrains": "{{name}} (alle Aufbauten)"
   },
   "newObservationForm": {
     "objectLabel": "Objekt",
@@ -166,7 +169,16 @@
       "capturedOn": "Aufgenommen mit {{name}}. Klicken, um weitere Sitzungen zu sehen.",
       "reassignTitle": "Einem anderen Teleskop zuordnen",
       "reassignTo": "Zuordnen zu",
-      "reassignFailed": "Zuordnung fehlgeschlagen"
+      "reassignFailed": "Zuordnung fehlgeschlagen",
+      "opticsTitle": "Optischer Aufbau",
+      "opticsAuto": "Automatisch",
+      "opticsAutoFits": "FITS: {{focal}}",
+      "opticsAutoNone": "nicht erkannt",
+      "opticsSource": {
+        "manual": "Für diese Nacht gewählt",
+        "fits": "Aus der Brennweite in den FITS ermittelt",
+        "only": "Einzige Konfiguration des Teleskops"
+      }
     },
     "objectPanel": {
       "about": "Über {{name}}",

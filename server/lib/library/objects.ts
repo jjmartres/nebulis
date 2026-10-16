@@ -131,6 +131,12 @@ export interface LibrarySessionRow {
   /** Where the cached weather above was fetched. NULL predates the columns. */
   weatherLat: number | null;
   weatherLon: number | null;
+  /** Optical train the user chose for this session; NULL = let the files
+   *  decide. See server/lib/library/sessionOptics.ts. */
+  opticalConfigId: string | null;
+  /** FOCALLEN from the session's FITS, cached once `focalResolved` is 1. */
+  fileFocalMm: number | null;
+  focalResolved: number;
 }
 
 export interface LibraryMetaRow {

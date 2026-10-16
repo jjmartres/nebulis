@@ -45,6 +45,13 @@ import {
   sessionDateForRow,
 } from './libraryFiles.js';
 import { listObjectFiles, getObjectLayout, setObjectLayout } from './libraryLayout.js';
+import {
+  fitsFocalForSession,
+  opticalConfigsByProfile,
+  resolveSessionOptics,
+  rigKey,
+  setSessionOpticalConfig,
+} from './sessionOptics.js';
 import { isRenderableProcessedName } from './processed.js';
 import {
   isDwarfInternalArtifact,
@@ -489,6 +496,15 @@ function reconcileSessionTelescopesFromFiles(objectId: string): void {
   reconciledFileCounts.set(objectId, fileCount);
 }
 
+/** "180.0s" → 180, "500ms" → 0.5, from a filename's exposure token. */
+export function exposureSeconds(token: string | undefined): number | null {
+  const m = token?.match(/^(\d+(?:\.\d+)?)(m?s)$/i);
+  if (!m) return null;
+  const value = parseFloat(m[1]!);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return m[2]!.toLowerCase() === 'ms' ? value / 1000 : value;
+}
+
 export function getLocalSessions(objectId: string) {
   const LIBRARY_DIR = getLibraryDir();
   // Contained resolution rather than a hand-rolled prefix test: the local copy
@@ -555,6 +571,9 @@ export function getLocalSessions(objectId: string) {
   interface SessionRow {
     date: string;
     telescopeId: string | null;
+    opticalConfigId: string | null;
+    fileFocalMm: number | null;
+    focalResolved: number;
     temperature: number | null;
     cloudCover: number | null;
     humidity: number | null;
@@ -601,15 +620,36 @@ export function getLocalSessions(objectId: string) {
       captureByDate.set(date, summarizeSessionCapture(rows));
     }
   }
+  // Which optical train shot each night (telescope + configuration), so the
+  // object page can group nights that must not be stacked together. Reads a
+  // night's FITS header once, then the cached focal length.
+  const configsByProfile = opticalConfigsByProfile();
+  const sessionRowByDate = new Map(sessionRows.map(r => [r.date, r]));
+  const subExposureByDate = new Map<string, number>();
+  const addSubExposure = (date: string, token: string | undefined) => {
+    const sec = exposureSeconds(token);
+    if (sec !== null) subExposureByDate.set(date, (subExposureByDate.get(date) ?? 0) + sec);
+  };
   const enrich = (date: string) => {
     const telescopeId = telescopeIdByDate.get(date) ?? null;
     const telescope = telescopeId ? telescopeById.get(telescopeId) ?? null : null;
     const capture = captureByDate.get(date) ?? null;
+    const row = sessionRowByDate.get(date);
+    const optics = resolveSessionOptics(
+      telescopeId,
+      row ? { opticalConfigId: row.opticalConfigId, fileFocalMm: fitsFocalForSession(objectId, date, row) } : null,
+      configsByProfile,
+    );
     return {
       telescopeId,
       telescopeName: telescope?.name ?? null,
       telescopeColor: telescope?.color ?? null,
-      integrationSec: capture?.integrationSec ?? null,
+      optics,
+      rigKey: rigKey(telescopeId, optics),
+      // What the device recorded, else the sum of the sub exposures named in
+      // the files (ASIAIR, NINA: "Light_…_180.0s_…"), so a rig's nights can
+      // be totalled without a sidecar.
+      integrationSec: capture?.integrationSec ?? subExposureByDate.get(date) ?? null,
       framesStacked: capture?.framesStacked ?? null,
       hasNote: !!getNote(objectId, date),
     };
@@ -724,7 +764,10 @@ export function getLocalSessions(objectId: string) {
       s.anyImageFile = entry.relPath;
       s.anyImageIsCheap = isCheapImage;
     }
-    if (parsed.type === 'sub') s.subFrameCount++;
+    if (parsed.type === 'sub') {
+      s.subFrameCount++;
+      addSubExposure(sessionKey, parsed.exposure);
+    }
     const cat = getFileCategory(fname);
     if (cat === 'fits') s.fitsCount++;
     if (cat === 'image') s.imageCount++;
@@ -775,7 +818,10 @@ export function getLocalSessions(objectId: string) {
       s.anyImageFile = row.relPath;
       s.anyImageIsCheap = isCheapImage;
     }
-    if (effectiveType === 'sub') s.subFrameCount++;
+    if (effectiveType === 'sub') {
+      s.subFrameCount++;
+      addSubExposure(sessionKey, parsed.exposure);
+    }
     const cat = getFileCategory(row.fileName);
     if (cat === 'fits') s.fitsCount++;
     if (cat === 'image') s.imageCount++;
@@ -1065,6 +1111,7 @@ export function getLocalObservations() {
   // ensureLibraryDir is a no-op if the directory exists; route handlers can
   // assume the dir is present after this returns.
   if (!fs.existsSync(LIBRARY_DIR)) fs.mkdirSync(LIBRARY_DIR, { recursive: true });
+  const configsByProfile = opticalConfigsByProfile();
   // Typed prepared statement — SQL trust boundary enforced by libraryObjects schema.
   interface MinObjectRow {
     objectId: string;
@@ -1223,9 +1270,11 @@ export function getLocalObservations() {
 
     const folderName = obj.folderName || objectId;
 
+    const sessionRowByDate = new Map(sessionRows.map(r => [r.date, r]));
     for (const [date, session] of sessionMap) {
       const sorted = session.timestamps.sort();
       const note = getNote(objectId, date);
+      const obsTelescopeId = telescopeIdByDate.get(date) ?? obj.primaryTelescopeId ?? null;
       observations.push({
         id: `${objectId}_${date}`,
         objectId,
@@ -1265,7 +1314,18 @@ export function getLocalObservations() {
         ra: obj.ra || null,
         dec: obj.dec || null,
         hasNotes: !!note,
-        telescopeId: telescopeIdByDate.get(date) ?? obj.primaryTelescopeId ?? null,
+        telescopeId: obsTelescopeId,
+        ...(() => {
+          // List view: cached FITS focal length only (the background fill and
+          // the object page read the headers), never a file read per night.
+          const row = sessionRowByDate.get(date);
+          const optics = resolveSessionOptics(
+            obsTelescopeId,
+            row ? { opticalConfigId: row.opticalConfigId, fileFocalMm: row.focalResolved === 1 ? row.fileFocalMm : null } : null,
+            configsByProfile,
+          );
+          return { optics, rigKey: rigKey(obsTelescopeId, optics) };
+        })(),
       });
     }
   }
@@ -1421,15 +1481,22 @@ export function getLocalObservationDetail(objectId: string, date: string) {
       };
       return weather;
     })(),
-    telescopeId: (() => {
+    ...(() => {
       // Per-file attribution is ground truth — the session row's single
       // telescopeId goes stale on a mixed night or a legacy mis-stamp.
-      const fromFiles = dominantTelescopeForSession(objectId, date);
-      if (fromFiles) return fromFiles;
       const row = stmts.getSession.get(objectId, date);
-      return row?.telescopeId ?? obj?.primaryTelescopeId ?? null;
+      const telescopeId = dominantTelescopeForSession(objectId, date) ?? row?.telescopeId ?? obj?.primaryTelescopeId ?? null;
+      // Which optical train (see sessionOptics.ts): `optics.source` says
+      // whether it was chosen, read from the FITS focal length, or the
+      // telescope's only configuration.
+      const optics = resolveSessionOptics(
+        telescopeId,
+        row ? { opticalConfigId: row.opticalConfigId, fileFocalMm: fitsFocalForSession(objectId, date, row) } : null,
+        opticalConfigsByProfile(),
+      );
+      return { telescopeId, optics, rigKey: rigKey(telescopeId, optics) };
     })(),
-    // NULL means "not explicitly tagged" — the coordinates then come from the
+    // NULL means "not explicitly tagged"" — the coordinates then come from the
     // files, or from the default site when the files carry none. Reported
     // unresolved so the client can tell an explicit tag apart from a fallback.
     siteId: location.siteId,
@@ -1909,9 +1976,15 @@ export function getObjectPrimaryTelescopeId(objectId: string): string | null {
  *  true if a row was updated. Side effect: refreshes the object's
  *  primaryTelescopeId from the new session-count distribution. */
 export function reassignSessionTelescope(objectId: string, date: string, telescopeId: string): boolean {
+  // A configuration chosen for the old telescope means nothing on the new
+  // one, so the choice goes back to "let the files decide" when the
+  // telescope actually changes.
   const update = db.prepare(
-    'UPDATE librarySessions SET telescopeId = ? WHERE objectId = ? AND date = ?',
-  ).run(telescopeId, objectId, date);
+    `UPDATE librarySessions
+        SET opticalConfigId = CASE WHEN telescopeId IS ? THEN opticalConfigId ELSE NULL END,
+            telescopeId = ?
+      WHERE objectId = ? AND date = ?`,
+  ).run(telescopeId, telescopeId, objectId, date);
 
   if (update.changes > 0) {
     // Recompute primaryTelescopeId based on the new session distribution.
@@ -1927,6 +2000,27 @@ export function reassignSessionTelescope(objectId: string, date: string, telesco
     }
   }
   return update.changes > 0;
+}
+
+/**
+ * Set the optical configuration of a session, or clear it with null (back to
+ * "let the files decide"). The configuration must belong to the telescope
+ * the session resolves to. Returns 'not_found' / 'wrong_telescope' / 'ok'.
+ */
+export function setSessionOptics(
+  objectId: string,
+  date: string,
+  configId: string | null,
+): 'ok' | 'not_found' | 'wrong_telescope' {
+  const row = stmts.getSession.get(objectId, date);
+  if (!row) return 'not_found';
+  if (configId !== null) {
+    const telescopeId = dominantTelescopeForSession(objectId, date) ?? row.telescopeId;
+    const configs = telescopeId ? opticalConfigsByProfile().get(telescopeId) ?? [] : [];
+    if (!configs.some(c => c.id === configId)) return 'wrong_telescope';
+  }
+  setSessionOpticalConfig(objectId, date, configId);
+  return 'ok';
 }
 
 /**

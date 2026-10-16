@@ -21,6 +21,8 @@ import {
   setProfileDeviceId,
   type TelescopeProfile,
 } from '../telescopes.js';
+import { getOpticalConfigsForProfile } from '../telescopeOpticalConfigs.js';
+import { setSessionOpticalConfig } from './sessionOptics.js';
 import { smbListDir, smbGetFile, type SmbEntry } from '../smb.js';
 import { selectActiveTransport, markTransportSeen, type TransportKind } from '../telescopeTransports.js';
 import { writeIdentityIfMissing } from '../deviceIdentity.js';
@@ -3198,6 +3200,12 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
 
   const prevLastRun = importStatus.lastRun;
   const commitProfile = plan.telescopeId ? getProfileById(plan.telescopeId) : null;
+  // Only a configuration of the chosen telescope is stamped; anything else
+  // is ignored rather than failing the import.
+  const commitOpticalConfigId = commitProfile && plan.opticalConfigId
+    && getOpticalConfigsForProfile(commitProfile.id).some(c => c.id === plan.opticalConfigId)
+    ? plan.opticalConfigId
+    : null;
   importCancelRequested = false;
   importStatus = {
     running: true,
@@ -3906,6 +3914,7 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
               // win attribution even if an earlier import from a different
               // telescope already claimed this (objectId, date) session.
               stmts.addSessionStampedForce.run(objectId, date, commitProfile.id);
+              if (commitOpticalConfigId) setSessionOpticalConfig(objectId, date, commitOpticalConfigId);
             } else {
               stmts.addSession.run(objectId, date);
             }

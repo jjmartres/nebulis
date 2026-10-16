@@ -618,6 +618,9 @@ export interface ImportCommitPlan {
   /** Telescope to tag every session created by this import with, or null to
    *  leave sessions untagged. */
   telescopeId?: string | null;
+  /** Optical configuration of that telescope (e.g. the reducer); absent or
+   *  null = detect it from the FITS focal length. */
+  opticalConfigId?: string | null;
 }
 
 /** Phase 1: scan a server-readable folder and return the import plan.

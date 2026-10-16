@@ -8,8 +8,9 @@ import { resolveObjectLabel, formatObservationDate } from '../../lib/observation
 import { cleanCatalogId } from '../../lib/utils';
 import { useTheme } from '../../hooks/useTheme';
 import { nightSafeColor } from '../../lib/nightSafeColor';
+import { rigLabel } from '../../lib/rigLabel';
 
-type SortKey = 'object' | 'catalog' | 'date';
+type SortKey = 'object' | 'catalog' | 'rig' | 'date';
 type SortDir = 'asc' | 'desc';
 
 const PAGE_SIZE = 25;
@@ -17,6 +18,8 @@ const PAGE_SIZE = 25;
 const SORT_COLUMNS: { id: SortKey; labelKey: string }[] = [
   { id: 'object', labelKey: 'list.columnObject' },
   { id: 'catalog', labelKey: 'list.columnCatalog' },
+  // Telescope + optical train; only shown when there is more than one rig.
+  { id: 'rig', labelKey: 'list.columnRig' },
   { id: 'date', labelKey: 'list.columnDate' },
 ];
 
@@ -103,10 +106,25 @@ export function ObservationsList({
     }
   };
 
+  const noRig = t('list.noRig');
+  const rigOf = (o: ObservationSummary) =>
+    rigLabel(o.telescopeId ? telescopeById.get(o.telescopeId) : null, o.optics, noRig);
+  const columns = showTelescopeUI ? SORT_COLUMNS : SORT_COLUMNS.filter(c => c.id !== 'rig');
+
   const rows = useMemo(() => {
     const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    const fallback = t('list.noRig');
+    const rigName = (o: ObservationSummary) =>
+      rigLabel(o.telescopeId ? telescopeById.get(o.telescopeId) : null, o.optics, fallback);
     const sorted = [...observations].sort((a, b) => {
       switch (sortKey) {
+        case 'rig': {
+          // Grouped by rig, newest night first inside each.
+          const byRig = collator.compare(rigName(a), rigName(b));
+          // Ties are ordered so they read newest-first after the final
+          // reverse that a descending sort applies.
+          return byRig !== 0 ? byRig : (sortDir === 'asc' ? 1 : -1) * b.date.localeCompare(a.date);
+        }
         case 'object':
           return collator.compare(a.objectName || a.objectId, b.objectName || b.objectId);
         case 'catalog':
@@ -120,7 +138,7 @@ export function ObservationsList({
       }
     });
     return sortDir === 'asc' ? sorted : sorted.reverse();
-  }, [observations, sortKey, sortDir]);
+  }, [observations, sortKey, sortDir, telescopeById, t]);
 
   useEffect(() => {
     onSortedRowsChange?.(rows, describeSort(sortKey, sortDir, t));
@@ -165,7 +183,7 @@ export function ObservationsList({
           </caption>
           <thead className={`border-b ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
             <tr>
-              {SORT_COLUMNS.map(col => (
+              {columns.map(col => (
                 <SortHeader
                   key={col.id}
                   id={col.id}
@@ -212,6 +230,11 @@ export function ObservationsList({
                   <td className={`px-4 py-2.5 text-sm tabular-nums ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     {catalog}
                   </td>
+                  {showTelescopeUI && (
+                    <td className={`px-4 py-2.5 text-sm whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {rigOf(obs)}
+                    </td>
+                  )}
                   <td className={`px-4 py-2.5 text-sm tabular-nums whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     {formatObservationDate(obs.date)}
                   </td>

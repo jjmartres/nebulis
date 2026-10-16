@@ -48,6 +48,12 @@ export interface ObservationCardModel {
   capture: SessionCaptureSummary | null;
   telescope: { name: string; color: string } | null;
   hasNote: boolean;
+  /** Optical train ("Reducer 0.75x · 456 mm"), shown after the telescope. */
+  opticsLabel?: string | null;
+  /** Groups nights shot through the same telescope + optical train. */
+  rigKey?: string;
+  /** Integration the night recorded, for the per-rig totals. */
+  integrationSec?: number | null;
 }
 
 interface Props {
@@ -186,10 +192,14 @@ export function ObservationCard({ observation: o, isDark, tempUnit, onDelete }: 
             )}
           </div>
 
-          {o.telescope && (
+          {(o.telescope || o.opticsLabel) && (
             <div className={`flex items-center gap-1.5 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: nightSafeColor(o.telescope.color, isNight) }} />
-              <span className="truncate">{o.telescope.name}</span>
+              {o.telescope && (
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: nightSafeColor(o.telescope.color, isNight) }} />
+              )}
+              <span className="truncate">
+                {[o.telescope?.name, o.opticsLabel].filter(Boolean).join(' · ')}
+              </span>
             </div>
           )}
 

@@ -191,6 +191,27 @@ export interface Session {
   thumbnailUrl: string;
   filesUrl: string;
   weather: SessionWeather | null;
+  /** Telescope that shot the night (per-file attribution first). */
+  telescopeId?: string | null;
+  /** Integration the device recorded for the night, when it records it. */
+  integrationSec?: number | null;
+  /** Optical train of the night; absent from servers that predate it. */
+  optics?: SessionOptics;
+  /** Groups nights shot through the same telescope + optical train. */
+  rigKey?: string;
+}
+
+/** Which optical configuration of its telescope shot a night. Mirrors
+ *  server/lib/library/sessionOptics.ts. */
+export interface SessionOptics {
+  configId: string | null;
+  configName: string | null;
+  /** The configuration's focal length, else the one the FITS recorded. */
+  focalLengthMm: number | null;
+  /** 'manual' = chosen by the user, 'fits' = matched from the FITS focal
+   *  length, 'only' = the telescope's only configuration, null = none. */
+  source: 'manual' | 'fits' | 'only' | null;
+  fileFocalMm: number | null;
 }
 
 /** Rolled-up view of what the telescope recorded for one observing night.

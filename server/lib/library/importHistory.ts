@@ -10,6 +10,7 @@
  */
 import { logEvent } from '../systemLog.js';
 import { stmts } from './objects.js';
+import { invalidateSessionFocal, fitsFocalForSession } from './sessionOptics.js';
 import type { ImportStatus, TouchedObject, TouchedSession } from './importTypes.js';
 
 export type ImportHistorySource = 'telescope' | 'folder' | 'subframe';
@@ -98,6 +99,19 @@ export function writeImportHistory(status: ImportStatus, acc: ImportHistoryAccum
     );
   } catch (err) {
     console.warn('[import] insertHistory failed:', err instanceof Error ? err.message : err);
+  }
+  // Nights that received files may now carry a FOCALLEN they did not
+  // before: re-read it now (one header per night touched), so the run ends
+  // with its sessions' optical train known rather than on a timer.
+  if (newFilesCount > 0 && acc.sessionsTouched.size > 0) {
+    try {
+      for (const sess of acc.sessionsTouched.values()) {
+        invalidateSessionFocal(sess.objectId, sess.date);
+        fitsFocalForSession(sess.objectId, sess.date);
+      }
+    } catch (err) {
+      console.warn('[import] optics refresh failed:', err instanceof Error ? err.message : err);
+    }
   }
   try {
     logSyncHistoryEvent(acc.source, status, newFilesCount);

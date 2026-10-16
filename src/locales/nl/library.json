@@ -267,7 +267,13 @@
       "deletedTooltip": "Bekijk verwijderde waarnemingen waarvoor je opnieuw synchroniseren kunt toestaan",
       "count_one": "{{count}} waarneming",
       "count_other": "{{count}} waarnemingen",
-      "empty": "Er is nog niets vastgelegd voor dit object."
+      "empty": "Er is nog niets vastgelegd voor dit object.",
+      "noRig": "Geen telescoop",
+      "groupBy": "Nachten groeperen",
+      "groupBy_year": "Per jaar",
+      "groupBy_rig": "Per opstelling",
+      "rigSummary_one": "{{count}} nacht · {{integration}}",
+      "rigSummary_other": "{{count}} nachten · {{integration}}"
     },
     "observationCard": {
       "noPreview": "Geen voorbeeld",
@@ -1088,7 +1094,10 @@
     "titleLink": "Map koppelen",
     "reviewLink": "Controleren",
     "step3NameLink": "Controleren en koppelen",
-    "close": "Sluiten"
+    "close": "Sluiten",
+    "opticalTrain": "Optische opstelling",
+    "opticalTrainAuto": "Herkennen uit de brandpuntsafstand in de FITS",
+    "opticalTrainHint": "Met welke configuratie van deze telescoop deze bestanden zijn gemaakt, bijvoorbeeld met de reducer. Automatisch leest de brandpuntsafstand uit de FITS van elke nacht."
   },
   "linkFolderWizard": {
     "modalTitle": "Map koppelen",

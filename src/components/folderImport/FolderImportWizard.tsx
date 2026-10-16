@@ -52,6 +52,7 @@ function buildPlan(
   includeFits: boolean,
   archiveAll: boolean,
   telescopeId: string | null,
+  opticalConfigId: string | null,
 ): ImportCommitPlan {
   const objects = edits
     .filter(e => !e.skip)
@@ -72,6 +73,7 @@ function buildPlan(
     importFits: includeFits,
     archiveAllFiles: archiveAll,
     telescopeId,
+    opticalConfigId: telescopeId ? opticalConfigId : null,
   };
 }
 
@@ -81,6 +83,7 @@ export function FolderImportWizard({
   includeFits = true,
   archiveAll = false,
   telescopeId = null,
+  opticalConfigId = null,
   tmpId = null,
   onClose,
   onDone,
@@ -90,6 +93,8 @@ export function FolderImportWizard({
   includeFits?: boolean;
   archiveAll?: boolean;
   telescopeId?: string | null;
+  /** Optical configuration of that telescope; null = detect from the FITS. */
+  opticalConfigId?: string | null;
   // Set only when rootPath is a staged upload (ImportModal's upload flow), so
   // this wizard can drop the staging dir if the user cancels before commit.
   // A commit that starts and finishes (even via cancelImport) already deletes
@@ -259,7 +264,7 @@ export function FolderImportWizard({
 
   const handleCommit = () => {
     if (totals.objects === 0 || totals.files === 0) return;
-    commitMutation.mutate(buildPlan(rootPath, edits, includeSubframes, includeFits, archiveAll, telescopeId));
+    commitMutation.mutate(buildPlan(rootPath, edits, includeSubframes, includeFits, archiveAll, telescopeId, opticalConfigId));
   };
 
   const handleClose = () => {

@@ -267,7 +267,13 @@
       "deletedTooltip": "Gelöschte Elemente ansehen, die du wiederherstellen kannst, um die erneute Synchronisierung zu erlauben",
       "count_one": "{{count}} Beobachtung",
       "count_other": "{{count}} Beobachtungen",
-      "empty": "Für dieses Objekt wurde noch nichts aufgenommen."
+      "empty": "Für dieses Objekt wurde noch nichts aufgenommen.",
+      "noRig": "Kein Teleskop",
+      "groupBy": "Nächte gruppieren",
+      "groupBy_year": "Nach Jahr",
+      "groupBy_rig": "Nach Setup",
+      "rigSummary_one": "{{count}} Nacht · {{integration}}",
+      "rigSummary_other": "{{count}} Nächte · {{integration}}"
     },
     "observationCard": {
       "noPreview": "Keine Vorschau",
@@ -1088,7 +1094,10 @@
     "titleLink": "Ordner verknüpfen",
     "reviewLink": "Prüfen",
     "step3NameLink": "Prüfen und verknüpfen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "opticalTrain": "Optischer Aufbau",
+    "opticalTrainAuto": "Aus der Brennweite in den FITS erkennen",
+    "opticalTrainHint": "Mit welcher Konfiguration dieses Teleskops die Dateien entstanden sind, z. B. mit dem Reducer. Automatisch liest die Brennweite aus den FITS jeder Nacht."
   },
   "linkFolderWizard": {
     "modalTitle": "Ordner verknüpfen",

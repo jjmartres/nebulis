@@ -100,6 +100,8 @@ interface Props {
   telescope: TelescopeProfile | null;
   telescopes: TelescopeProfile[];
   isAdmin: boolean;
+  /** Optical train of the night, shown with the telescope. */
+  optics?: import('../../types').SessionOptics;
 
   captureMetrics: React.ComponentProps<typeof CaptureRail>['metrics'];
   accent: string;
@@ -143,7 +145,7 @@ const BADGE_TONE = {
 export function SessionHero({
   objectId, date, displayName, formattedDate, shortDate, timeRange, eyebrow,
   media, badge, onOpenMedia, onResetCrown, emptyReason,
-  telescope, telescopes, isAdmin,
+  telescope, telescopes, isAdmin, optics,
   captureMetrics, accent,
   onOpenNotes, hasNote, onMove, onDelete,
 }: Props) {
@@ -454,6 +456,7 @@ export function SessionHero({
                   telescope={telescope}
                   telescopes={telescopes}
                   isAdmin={isAdmin}
+                  optics={optics}
                 />
               )}
             </div>

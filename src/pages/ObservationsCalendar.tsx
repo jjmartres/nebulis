@@ -129,7 +129,9 @@ export function ObservationsCalendar() {
     queryKey: ['telescopes'],
     queryFn: listTelescopes,
   });
-  const showTelescopeUI = telescopes.length >= 2;
+  // Two telescopes, or one with several optical trains: either way nights
+  // come from more than one rig and the filter/rig column are worth showing.
+  const showTelescopeUI = telescopes.length >= 2 || telescopes.some(s => (s.opticalConfigs?.length ?? 0) >= 2);
   const [view, setView] = useState<ObservationsView>('calendar');
   const [telescopeFilter, setTelescopeFilter] = useState<string>(ALL_TELESCOPES_FILTER);
 
@@ -147,10 +149,17 @@ export function ObservationsCalendar() {
   }, [telescopes]);
   // If the selected telescope was removed, fall back to "All" during render
   // rather than via a corrective setState-in-effect.
+  // A filter is a telescope id, or `telescopeId|configId` for one optical
+  // train of it (the server's rigKey shape).
+  const filterTelescopeId = telescopeFilter.split('|')[0]!;
   const effectiveTelescopeFilter =
-    telescopeFilter === ALL_TELESCOPES_FILTER || telescopeById.has(telescopeFilter)
+    telescopeFilter === ALL_TELESCOPES_FILTER || telescopeById.has(filterTelescopeId)
       ? telescopeFilter
       : ALL_TELESCOPES_FILTER;
+  const matchesTelescopeFilter = (o: { telescopeId: string | null; rigKey?: string }) =>
+    effectiveTelescopeFilter.includes('|')
+      ? o.rigKey === effectiveTelescopeFilter
+      : o.telescopeId === effectiveTelescopeFilter;
 
   // Close expanded popover on outside click or Escape
   useEffect(() => {
@@ -182,12 +191,16 @@ export function ObservationsCalendar() {
   const filteredObservations = useMemo(() => {
     if (!observations) return [];
     if (effectiveTelescopeFilter === ALL_TELESCOPES_FILTER) return observations;
-    return observations.filter(o => o.telescopeId === effectiveTelescopeFilter);
+    return observations.filter(matchesTelescopeFilter);
+    // matchesTelescopeFilter only reads effectiveTelescopeFilter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [observations, effectiveTelescopeFilter]);
 
   const filteredLocations = useMemo(() => {
     if (effectiveTelescopeFilter === ALL_TELESCOPES_FILTER) return locations;
-    return locations.filter(l => l.telescopeId === effectiveTelescopeFilter);
+    // Map points carry no optical train: one train's filter shows its telescope.
+    const scopeId = effectiveTelescopeFilter.split('|')[0];
+    return locations.filter(l => l.telescopeId === scopeId);
   }, [locations, effectiveTelescopeFilter]);
 
   /** Most recent recorded night, which decides the landing month. */
@@ -440,7 +453,12 @@ export function ObservationsCalendar() {
         filteredLabel={
           effectiveTelescopeFilter === ALL_TELESCOPES_FILTER
             ? null
-            : telescopeById.get(effectiveTelescopeFilter)?.name ?? null
+            : (() => {
+              const [scopeId, configId] = effectiveTelescopeFilter.split('|');
+              const scope = telescopeById.get(scopeId!);
+              const config = configId ? scope?.opticalConfigs?.find(c => c.id === configId) : undefined;
+              return scope ? [scope.name, config?.name].filter(Boolean).join(' · ') : null;
+            })()
         }
       />
       </TourAnchor>
@@ -451,7 +469,7 @@ export function ObservationsCalendar() {
       <ObservationsToolbar
         view={view}
         onViewChange={setView}
-        telescopes={telescopes}
+        telescopes={showTelescopeUI ? telescopes : []}
         telescopeFilter={effectiveTelescopeFilter}
         onTelescopeFilterChange={setTelescopeFilter}
         onShare={canShare ? () => setShareModal(view) : null}

@@ -63,6 +63,7 @@ import { DWARF_STARTRAILS_OBJECT_TYPE, DWARF_STARTRAILS_PLACEHOLDER_IMAGE } from
 import { DWARF_VIDEOS_OBJECT_TYPE } from '../lib/dwarfVideos';
 import type { ObservationCardModel } from '../components/objectDetail/ObservationCard';
 import type { AstroObject, ProcessingStatus } from '../types';
+import { opticsLabel } from '../lib/rigLabel';
 
 /**
  * Requested size for the hero's fallback catalog image, when the object has no
@@ -494,6 +495,12 @@ export function ObjectDetail() {
         capture: captureByDate?.[s.date] ?? null,
         telescope: telescope ? { name: telescope.name, color: telescope.color } : null,
         hasNote: summary?.hasNotes ?? false,
+        // The object page's own session read has the freshest optics (it
+        // reads a night's FITS focal length the first time); the list's are
+        // the fallback for a server that predates it.
+        opticsLabel: opticsLabel(s.optics ?? summary?.optics),
+        rigKey: s.rigKey ?? summary?.rigKey,
+        integrationSec: captureByDate?.[s.date]?.integrationSec ?? s.integrationSec ?? null,
       };
     });
   }, [allSessions, observationSummaries, telescopes, captureByDate]);

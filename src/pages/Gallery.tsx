@@ -136,6 +136,7 @@ export function Gallery() {
   const [wizardFits, setWizardFits] = useState(true);
   const [wizardArchiveAll, setWizardArchiveAll] = useState(false);
   const [wizardTelescopeId, setWizardTelescopeId] = useState<string | null>(null);
+  const [wizardOpticalConfigId, setWizardOpticalConfigId] = useState<string | null>(null);
   const [wizardTmpId, setWizardTmpId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>(readStoredSort);
   const [groupKey, setGroupKey] = useState<GroupKey>(readStoredGroup);
@@ -828,12 +829,13 @@ export function Gallery() {
         <ImportModal
           resume={resumeLink ?? undefined}
           onClose={() => { setShowImportModal(false); setResumeLink(null); }}
-          onReview={(folderPath, includeSubframes, includeFits, telescopeId, archiveAll, tmpId) => {
+          onReview={(folderPath, includeSubframes, includeFits, telescopeId, archiveAll, tmpId, opticalConfigId) => {
             setShowImportModal(false);
             setWizardSubframes(includeSubframes);
             setWizardFits(includeFits);
             setWizardArchiveAll(archiveAll);
             setWizardTelescopeId(telescopeId);
+            setWizardOpticalConfigId(opticalConfigId);
             setWizardTmpId(tmpId);
             setWizardPath(folderPath);
           }}
@@ -879,6 +881,7 @@ export function Gallery() {
           includeFits={wizardFits}
           archiveAll={wizardArchiveAll}
           telescopeId={wizardTelescopeId}
+          opticalConfigId={wizardOpticalConfigId}
           tmpId={wizardTmpId}
           onClose={() => { setWizardPath(null); setWizardTmpId(null); }}
           onDone={() => queryClient.invalidateQueries({ queryKey: ['library-objects'] })}

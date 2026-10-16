@@ -52,6 +52,7 @@ import { startArchiveScheduler } from './lib/archive/archiveScheduler.js';
 import { prewarmSessionThumbnails } from './lib/library/sessionThumbnailPrewarm.js';
 import { startForecastRefresh } from './lib/forecastCache.js';
 import { startLinkedSourceScheduler } from './lib/library/linkedSourceScheduler.js';
+import { backfillSessionFocals } from './lib/library/sessionOptics.js';
 import { startAppUpdateChecker } from './lib/appUpdate/updater.js';
 import { prewarmThumbnails } from './lib/catalogPrefetch.js';
 import { satelliteCatalog } from './lib/satelliteCatalog.js';
@@ -713,6 +714,9 @@ function onListening(): void {
     startPlannerNightlyScheduler();
     startForecastRefresh();
     startLinkedSourceScheduler();
+    // Read the FITS focal length of nights not looked at yet, so the
+    // observations list can group the whole library by optical train.
+    backfillSessionFocals();
   }
 
   // Warm the per-session (Nights calendar) thumbnail cache in the background,

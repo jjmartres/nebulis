@@ -359,6 +359,14 @@ export const deleteTelescopeOpticalConfig = (profileId: string, configId: string
     { method: 'DELETE' },
   );
 
+/** Set which optical configuration of its telescope shot a session, or null
+ *  to let the FITS focal length decide. */
+export const setSessionOptics = (objectId: string, date: string, opticalConfigId: string | null) =>
+  fetchJSON<{ updated: boolean; opticalConfigId: string | null }>(
+    `/library/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}/optics`,
+    { method: 'PUT', body: JSON.stringify({ opticalConfigId }) },
+  );
+
 /** Reassign a session (objectId + date) to a different telescope. */
 export const reassignSessionTelescope = (
   objectId: string,

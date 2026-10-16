@@ -267,7 +267,13 @@
       "deletedTooltip": "Voir les éléments supprimés que vous pouvez restaurer pour permettre une resynchronisation",
       "count_one": "{{count}} observation",
       "count_other": "{{count}} observations",
-      "empty": "Rien n'a encore été capturé pour cet objet."
+      "empty": "Rien n'a encore été capturé pour cet objet.",
+      "noRig": "Sans télescope",
+      "groupBy": "Grouper les nuits",
+      "groupBy_year": "Par année",
+      "groupBy_rig": "Par rig",
+      "rigSummary_one": "{{count}} nuit · {{integration}}",
+      "rigSummary_other": "{{count}} nuits · {{integration}}"
     },
     "observationCard": {
       "noPreview": "Aucun aperçu",
@@ -1088,7 +1094,10 @@
     "titleLink": "Lier un dossier",
     "reviewLink": "Vérifier",
     "step3NameLink": "Vérifier et lier",
-    "close": "Fermer"
+    "close": "Fermer",
+    "opticalTrain": "Train optique",
+    "opticalTrainAuto": "Détecter depuis la focale des FITS",
+    "opticalTrainHint": "Quelle configuration de ce télescope a pris ces fichiers, par exemple avec le réducteur. En automatique, la focale inscrite dans les FITS de chaque nuit est utilisée."
   },
   "linkFolderWizard": {
     "modalTitle": "Lier un dossier",

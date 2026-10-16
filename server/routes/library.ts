@@ -37,6 +37,7 @@ import {
   runAllTelescopesImport,
   reassignSessionTelescope,
   reassignSessionSite,
+  setSessionOptics,
   backfillSingleSessionWeather,
   getImportStatus,
   cancelImport,
@@ -277,6 +278,12 @@ const SessionTelescopeBodySchema = z.object({
   telescopeId: z.string().min(1, 'telescopeId is required'),
 });
 
+const SessionOpticsBodySchema = z.object({
+  /** A configuration of the session's telescope, or null to let the FITS
+   *  focal length decide again. */
+  opticalConfigId: z.string().min(1).nullable(),
+});
+
 const SessionSiteBodySchema = z.object({
   siteId: z.string().nullable(),
 });
@@ -314,6 +321,7 @@ const FolderCommitBodySchema = z.object({
   importFits: z.boolean().optional(),
   archiveAllFiles: z.boolean().optional(),
   telescopeId: z.string().nullable().optional(),
+  opticalConfigId: z.string().nullable().optional(),
 });
 
 const MoveObservationBodySchema = z.object({
@@ -605,6 +613,31 @@ router.put('/objects/:objectId/sessions/:date/telescope', requireAdmin, (req: Re
     return;
   }
   res.apiSuccess({ updated: true, telescopeId });
+});
+
+/**
+ * Set which optical configuration of its telescope shot a session (e.g. the
+ * reducer rather than native), or `null` to go back to the configuration
+ * matched from the FITS focal length. See lib/library/sessionOptics.ts.
+ */
+router.put('/objects/:objectId/sessions/:date/optics', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const date = String(req.params.date);
+  const parsed = SessionOpticsBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(400, 'BAD_REQUEST', parsed.error.issues[0]?.message ?? 'opticalConfigId is required (or null)');
+    return;
+  }
+  const result = setSessionOptics(objectId, date, parsed.data.opticalConfigId);
+  if (result === 'not_found') {
+    res.apiError(404, 'NOT_FOUND', 'Session not found');
+    return;
+  }
+  if (result === 'wrong_telescope') {
+    res.apiError(422, 'VALIDATION_ERROR', "That configuration does not belong to this session's telescope");
+    return;
+  }
+  res.apiSuccess({ updated: true, opticalConfigId: parsed.data.opticalConfigId });
 });
 
 /**

@@ -848,6 +848,14 @@
     ]
   },
   {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/sessions/:date/optics",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
     "method": "GET",
     "path": "/library/objects/:objectId/sessions/:date/processed-images",
     "guards": [
