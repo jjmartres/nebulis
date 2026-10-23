@@ -366,7 +366,20 @@
     "replaceTitle": "Replace the plan for {{nightLabel}}?",
     "replaceMessage_one": "This clears the {{count}} target already scheduled for {{nightLabel}} and replaces it with these {{newCount}}.",
     "replaceMessage_other": "This clears the {{count}} targets already scheduled for {{nightLabel}} and replaces them with these {{newCount}}.",
-    "replace": "Replace"
+    "replace": "Replace",
+    "avoidClouds": "Skip cloudy hours (forecast)",
+    "cloudThresholdLabel": "Cloud cover limit",
+    "cloudThreshold": "above {{pct}}% clouds",
+    "forecastUnavailable": "No forecast available for this night, so the plan ignores the weather.",
+    "skippedCloudy": "Left empty: forecast above {{pct}}% clouds",
+    "skippedRange": "{{start}}–{{end}} ({{pct}}%)",
+    "allCloudy": "The forecast is cloudy for the whole window.",
+    "cloudPct": "{{pct}}% clouds",
+    "dewRisk": "Dew risk: temperature close to the dew point",
+    "seeingExcellent": "Excellent seeing",
+    "seeingGood": "Good seeing",
+    "seeingAverage": "Average seeing",
+    "seeingPoor": "Poor seeing"
   },
   "planShareModal": {
     "observationPlan": "Observation Plan",
@@ -383,5 +396,12 @@
     "preparing": "Preparing…",
     "shareImage": "Share image",
     "saveImage": "Save image"
+  },
+  "integrationRemaining": {
+    "left": "{{duration}} left · {{filter}}",
+    "title": "{{filter}}: {{done}} of {{goal}}",
+    "noFilter": "No filter",
+    "complete": "Goals reached",
+    "completeTitle": "Every integration goal on this object is reached"
   }
 }

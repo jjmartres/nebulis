@@ -3,8 +3,8 @@
  *
  * A two-step, playful flow:
  *   1. Setup  — how long are you out, how to split the time, what to focus on.
- *   2. Preview — the generated plan with thumbnails, peak altitude, and moon
- *      status. Shuffle for a different take, then drop it onto the timeline.
+ *   2. Preview — the generated plan with thumbnails, peak altitude, moon
+ *      status and, when the forecast is used, cloud cover per block. Shuffle for a different take, then drop it onto the timeline.
  *
  * The actual scoring runs server-side (POST /planner/plan, see
  * server/lib/autoPlan.ts) so this matches what every other client produces
@@ -12,14 +12,15 @@
  * result, and hands finished blocks back to the planner.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, Moon, ArrowUp, X, Shuffle, Clock, Hash, Telescope } from 'lucide-react';
+import { Sparkles, Moon, ArrowUp, X, Shuffle, Clock, Hash, Telescope, Cloud, CloudOff, Wind } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatHm } from '../../lib/timeFormat';
 import { formatObjectName } from '../../lib/utils';
 import { getCatalogThumbnailUrl } from '../../lib/catalogImage';
-import { generateNightPlan } from '../../lib/api/planner';
+import { generateNightPlanWithWeather } from '../../lib/api/planner';
 import { ConfirmModal } from '../ConfirmModal';
-import type { AutoPlanFocus, PlanBlock } from '../../lib/planTypes';
+import type { AutoPlanFocus, PlanBlock, PlanWeatherSummary } from '../../lib/planTypes';
+import { mergeSkipped } from '../../lib/planWeather';
 import type { PlannerTarget } from '../../lib/api/planner';
 import type { VisibleSkyMap } from '../../lib/visibilityCheck';
 
@@ -50,6 +51,18 @@ interface AutoPlanModalProps {
 }
 
 type SplitMode = 'perObject' | 'count';
+
+/** Cloud-cover ceilings offered for "avoid cloudy hours". 60 % matches the
+ *  server default. */
+const CLOUD_THRESHOLDS = [30, 45, 60, 75] as const;
+
+/** 7Timer seeing 1-5 → label key. */
+function seeingKey(seeing: number): string {
+  if (seeing <= 1.5) return 'autoPlanModal.seeingExcellent';
+  if (seeing <= 2.5) return 'autoPlanModal.seeingGood';
+  if (seeing <= 3.5) return 'autoPlanModal.seeingAverage';
+  return 'autoPlanModal.seeingPoor';
+}
 
 const FOCUS_OPTIONS: { value: AutoPlanFocus; labelKey: string }[] = [
   { value: 'all', labelKey: 'autoPlanModal.focusAnything' },
@@ -112,6 +125,9 @@ export function AutoPlanModal({
   const [objectCount, setObjectCount] = useState(4);
   const [focus, setFocus] = useState<AutoPlanFocus>('all');
   const [unimagedOnly, setUnimagedOnly] = useState(false);
+  const [avoidClouds, setAvoidClouds] = useState(true);
+  const [maxCloudCover, setMaxCloudCover] = useState<number>(60);
+  const [weather, setWeather] = useState<PlanWeatherSummary | null>(null);
   const [clearFirst, setClearFirst] = useState(defaultClearFirst);
   const [blocks, setBlocks] = useState<PlanBlock[]>([]);
   const [applying, setApplying] = useState(false);
@@ -135,7 +151,7 @@ export function AutoPlanModal({
           ? Math.max(1, Math.floor(windowMinutes / slotMinutes))
           : objectCount;
 
-      return generateNightPlan({
+      return generateNightPlanWithWeather({
         targets,
         observerLat,
         observerLon,
@@ -149,16 +165,20 @@ export function AutoPlanModal({
         focus,
         unimagedOnly,
         jitter,
+        useForecast: avoidClouds,
+        maxCloudCover,
       });
     },
-    [startMs, endMs, splitMode, minutesPerObject, objectCount, focus, unimagedOnly, targets, observerLat, observerLon, minAlt, moonIllumination, visibleSkyMap],
+    [startMs, endMs, splitMode, minutesPerObject, objectCount, focus, unimagedOnly, avoidClouds, maxCloudCover, targets, observerLat, observerLon, minAlt, moonIllumination, visibleSkyMap],
   );
 
   const handleBuild = useCallback(async () => {
     setBuilding(true);
     setBuildError(null);
     try {
-      setBlocks(await build(0));
+      const result = await build(0);
+      setBlocks(result.blocks);
+      setWeather(result.weather);
       setStep('preview');
     } catch (err) {
       setBuildError(err instanceof Error ? err.message : t('autoPlanModal.buildFailed'));
@@ -171,7 +191,9 @@ export function AutoPlanModal({
     setBuilding(true);
     setBuildError(null);
     try {
-      setBlocks(await build(8));
+      const result = await build(8);
+      setBlocks(result.blocks);
+      setWeather(result.weather);
     } catch (err) {
       setBuildError(err instanceof Error ? err.message : t('autoPlanModal.buildFailed'));
     } finally {
@@ -396,15 +418,63 @@ export function AutoPlanModal({
                 />
                 <span>{t('autoPlanModal.unimagedOnly')}</span>
               </label>
+
+              {/* Weather: skip slots the forecast says are cloudy. */}
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={avoidClouds}
+                    onChange={(e) => setAvoidClouds(e.target.checked)}
+                    className="accent-amber-500"
+                  />
+                  <span>{t('autoPlanModal.avoidClouds')}</span>
+                </label>
+                {avoidClouds && (
+                  <select
+                    value={maxCloudCover}
+                    onChange={(e) => setMaxCloudCover(Number(e.target.value))}
+                    aria-label={t('autoPlanModal.cloudThresholdLabel')}
+                    className={`px-2 py-1 rounded-lg text-xs outline-none cursor-pointer ${
+                      isDark ? 'bg-slate-800 text-slate-100 border border-slate-700' : 'bg-slate-100 text-slate-900 border border-slate-200'
+                    }`}
+                  >
+                    {CLOUD_THRESHOLDS.map(v => (
+                      <option key={v} value={v}>{t('autoPlanModal.cloudThreshold', { pct: v })}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
               {buildError && <p className="text-xs text-red-500">{buildError}</p>}
             </>
           ) : (
             <>
+              {weather?.requested && !weather.used && (
+                <p className={`flex items-center gap-1.5 text-xs ${subtle}`}>
+                  <CloudOff className="w-3.5 h-3.5 shrink-0" />
+                  {t('autoPlanModal.forecastUnavailable')}
+                </p>
+              )}
+              {weather?.used && weather.skippedSlots.length > 0 && (
+                <div className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-slate-800/60 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <Cloud className="w-3.5 h-3.5 shrink-0" />
+                    {t('autoPlanModal.skippedCloudy', { pct: weather.maxCloudCover })}
+                  </div>
+                  <div className={`mt-0.5 tabular-nums ${subtle}`}>
+                    {mergeSkipped(weather.skippedSlots)
+                      .map(r => t('autoPlanModal.skippedRange', { start: fmtTime(r.start), end: fmtTime(r.end), pct: r.cloudCover }))
+                      .join(' · ')}
+                  </div>
+                </div>
+              )}
               {blocks.length === 0 ? (
                 <div className={`text-center py-10 ${subtle}`}>
                   <Moon className="w-8 h-8 mx-auto mb-3 opacity-50" />
                   <p className="text-sm">
-                    {t('autoPlanModal.noFreshTargets')}
+                    {weather?.used && weather.skippedSlots.length > 0
+                      ? t('autoPlanModal.allCloudy')
+                      : t('autoPlanModal.noFreshTargets')}
                   </p>
                   <p className="text-xs mt-1">{t('autoPlanModal.tryDifferent')}</p>
                 </div>
@@ -443,6 +513,23 @@ export function AutoPlanModal({
                             <Moon className="w-3 h-3" />
                             {b.moonSeparation === Infinity ? t('autoPlanModal.moonDown') : t('autoPlanModal.awayDeg', { deg: Math.round(b.moonSeparation) })}
                           </span>
+                          {b.sky && (
+                            <span
+                              className={`inline-flex items-center gap-1 ${
+                                b.sky.cloudCover > 30 ? 'text-amber-500' : isDark ? 'text-slate-400' : 'text-slate-500'
+                              }`}
+                              title={b.sky.dewRisk ? t('autoPlanModal.dewRisk') : undefined}
+                            >
+                              <Cloud className="w-3 h-3" />
+                              {t('autoPlanModal.cloudPct', { pct: b.sky.cloudCover })}
+                            </span>
+                          )}
+                          {b.sky?.seeing != null && (
+                            <span className={`inline-flex items-center gap-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                              <Wind className="w-3 h-3" />
+                              {t(seeingKey(b.sky.seeing))}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className={`text-right text-xs shrink-0 ${subtle}`}>

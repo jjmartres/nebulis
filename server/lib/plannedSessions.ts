@@ -20,9 +20,8 @@ export interface PlannedSession {
    *  this scheduled block in the Framing & Mosaic planner, or null if the
    *  user never saved one. Opaque to this module; see FramingModal.tsx. */
   framingSetup: string | null;
-  /** What the block will be shot through, for the Moon check. Null = not set
-   *  (checked as broadband). */
-  filterBand: FilterBand | null;
+  /** 1 when the user marked this block as deliberately skipped, else 0. */
+  skipped: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +55,7 @@ const stmts = {
            endTime      = COALESCE(?, endTime),
            notes        = COALESCE(?, notes),
            framingSetup = COALESCE(?, framingSetup),
+           skipped      = COALESCE(?, skipped),
            updatedAt    = datetime('now')
      WHERE id = ?`,
   ),
@@ -110,7 +110,7 @@ export function create(input: PlannedSessionInput): PlannedSession {
 
 export function update(
   id: number,
-  patch: Partial<Pick<PlannedSession, 'startTime' | 'endTime' | 'notes' | 'framingSetup' | 'filterBand'>>,
+  patch: Partial<Pick<PlannedSession, 'startTime' | 'endTime' | 'notes' | 'framingSetup'>> & { skipped?: boolean },
 ): PlannedSession | null {
   const existing = stmts.getById.get(id);
   if (!existing) return null;
@@ -119,6 +119,7 @@ export function update(
     patch.endTime != null ? canonicalizeIso(patch.endTime) : null,
     patch.notes ?? null,
     patch.framingSetup ?? null,
+    patch.skipped === undefined ? null : patch.skipped ? 1 : 0,
     id,
   );
   if (patch.filterBand !== undefined) stmts.setFilterBand.run(patch.filterBand, id);

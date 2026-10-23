@@ -366,7 +366,20 @@
     "replaceTitle": "Remplacer le plan de {{nightLabel}} ?",
     "replaceMessage_one": "Cela efface la {{count}} cible déjà programmée pour {{nightLabel}} et la remplace par ces {{newCount}}.",
     "replaceMessage_other": "Cela efface les {{count}} cibles déjà programmées pour {{nightLabel}} et les remplace par ces {{newCount}}.",
-    "replace": "Remplacer"
+    "replace": "Remplacer",
+    "avoidClouds": "Éviter les heures nuageuses (prévision)",
+    "cloudThresholdLabel": "Limite de couverture nuageuse",
+    "cloudThreshold": "au-delà de {{pct}} % de nuages",
+    "forecastUnavailable": "Aucune prévision disponible pour cette nuit : le plan ne tient pas compte de la météo.",
+    "skippedCloudy": "Laissé vide : prévision au-delà de {{pct}} % de nuages",
+    "skippedRange": "{{start}}–{{end}} ({{pct}} %)",
+    "allCloudy": "La prévision est nuageuse sur toute la plage.",
+    "cloudPct": "{{pct}} % de nuages",
+    "dewRisk": "Risque de rosée : température proche du point de rosée",
+    "seeingExcellent": "Seeing excellent",
+    "seeingGood": "Bon seeing",
+    "seeingAverage": "Seeing moyen",
+    "seeingPoor": "Seeing médiocre"
   },
   "planShareModal": {
     "observationPlan": "Plan d'observation",
@@ -383,5 +396,12 @@
     "preparing": "Préparation…",
     "shareImage": "Partager l'image",
     "saveImage": "Enregistrer l'image"
+  },
+  "integrationRemaining": {
+    "left": "reste {{duration}} · {{filter}}",
+    "title": "{{filter}} : {{done}} sur {{goal}}",
+    "noFilter": "Sans filtre",
+    "complete": "Objectifs atteints",
+    "completeTitle": "Tous les objectifs d’intégration de cet objet sont atteints"
   }
 }

@@ -7,6 +7,7 @@
     "account": "Compte",
     "users": "Utilisateurs",
     "devices": "Appareils",
+    "apiKeys": "Clés d'API",
     "hardware": "Télescopes",
     "sky": "Ciel",
     "storage": "Stockage",
@@ -285,6 +286,10 @@
       "groupCompanions": {
         "label": "Compter les objets du même champ",
         "description": "Les autres objets du catalogue qui se trouvaient dans le champ d'un objet photographié comptent aussi comme photographiés. Exemple : photographier M42 compte aussi M43. Désactiver pour ne compter que les objets visés."
+      },
+      "autoQuality": {
+        "label": "Mesurer la qualité des sous-poses après import",
+        "description": "Chaque nuit qui reçoit de nouvelles sous-poses FITS est mesurée (HFR, étoiles, fond) une fois l’import terminé, pour que la sélection soit prête pour l’empilement."
       }
     },
     "calibration": {
@@ -295,6 +300,18 @@
         "description": "Le courant d'obscurité et le bruit de lecture d'un capteur dérivent avec le temps, donc un lot plus ancien que cette valeur est marqué Expiré sur la page Calibrations et peut y être supprimé. Les flats et flat-darks ne sont pas concernés, ils sont associés à une session plutôt que soumis à expiration.",
         "unit": "jours"
       }
+    },
+    "filterAliases": {
+      "title": "Alias de filtres",
+      "description": "Regroupez les noms de filtres écrits différemment par votre logiciel d’acquisition, pour que l’intégration par filtre les compte ensemble. Les écritures courantes (Ha, H-alpha, OIII, SII, L, R, G, B) sont déjà regroupées.",
+      "empty": "Aucun alias pour l’instant.",
+      "aliasPlaceholder": "Nom dans vos fichiers",
+      "canonicalPlaceholder": "Compter comme",
+      "remove": "Retirer l’alias",
+      "add": "Ajouter un alias",
+      "cancel": "Annuler",
+      "save": "Enregistrer les alias",
+      "saveFailed": "Impossible d’enregistrer les alias."
     }
   },
   "softwareUpdate": {
@@ -886,6 +903,7 @@
     "library": "Comment se comportent les cartes d'objet, le nommage et le diaporama.",
     "updates": "Version, notes de version et paramètres de mise à jour.",
     "accountDevices": "Téléphones et Apple TV liés à votre compte.",
+    "accountApiKeys": "Clés d'API pour les outils externes comme PixInsight.",
     "accountUsers": "Les personnes pouvant se connecter à cette bibliothèque.",
     "hardware": "Télescopes et connexions caméra.",
     "sky": "Site d'observation, catalogues et sources de données externes.",

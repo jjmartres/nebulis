@@ -192,7 +192,8 @@ const appSettingsStmts = {
     nightlyForecastLastRun = ?,
     nightlyMaintenanceEnabled = ?,
     calibrationExpiryDays = ?,
-    groupCatalogCompanions = ?
+    groupCatalogCompanions = ?,
+    autoMeasureSubQuality = ?
     WHERE id = 1`),
   setApiKey: db.prepare('UPDATE appSettings SET apiKey = ? WHERE id = 1'),
 };
@@ -321,6 +322,7 @@ interface AppSettingsRow {
   nightlyMaintenanceEnabled: number;
   calibrationExpiryDays: number;
   groupCatalogCompanions: number;
+  autoMeasureSubQuality: number;
 }
 
 const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -389,6 +391,7 @@ function rowToSettings(row: AppSettingsRow): Record<string, unknown> {
     nightlyMaintenanceEnabled: Boolean(row.nightlyMaintenanceEnabled ?? 1),
     calibrationExpiryDays: typeof row.calibrationExpiryDays === 'number' ? row.calibrationExpiryDays : 180,
     groupCatalogCompanions: Boolean(row.groupCatalogCompanions ?? 1),
+    autoMeasureSubQuality: Boolean(row.autoMeasureSubQuality ?? 1),
   };
 }
 
@@ -443,6 +446,7 @@ function saveSettingsRow(data: Record<string, unknown>): void {
     boolToInt(data.nightlyMaintenanceEnabled, 1),
     num(data.calibrationExpiryDays, 180),
     boolToInt(data.groupCatalogCompanions, 1),
+    boolToInt(data.autoMeasureSubQuality, 1),
   );
   settingsCache = null;
 }

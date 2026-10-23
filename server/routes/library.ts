@@ -21,6 +21,15 @@ import { redactUrl } from '../lib/logSafe.js';
 import { THUMBNAILS_DIR } from '../lib/paths.js';
 import { getLibraryDir, isLibraryAvailable, statLibraryFileForServe, TimeoutError } from '../lib/libraryPath.js';
 import { resolveLibraryFile, LinkedFileReadOnlyError } from '../lib/library/fileResolver.js';
+import {
+  getIntegrationBreakdown,
+  getIntegrationProgressForGoalObjects,
+  setIntegrationGoals,
+  getFilterAliases,
+  setFilterAliases,
+  MAX_GOAL_SEC,
+  MAX_FILTER_NAME_LENGTH,
+} from '../lib/library/integration.js';
 import { getObjectLayout, sessionFolderFor } from '../lib/library/libraryLayout.js';
 import { runRender } from '../lib/renderQueue.js';
 import { mintDownloadToken, DOWNLOAD_TOKEN_TTL_MS } from '../lib/downloadToken.js';
@@ -105,6 +114,8 @@ import {
   getProjectArchivePath,
   isProjectArchiveName,
   projectArchiveMimeType,
+  getProcessingProjectSummary,
+  saveProcessingProjectFile,
   getObjectFolderName,
   scanImportFolder,
   LIBRARY_OBJECT_FILTERS,
@@ -323,6 +334,9 @@ const MoveObservationBodySchema = z.object({
 const SubframesBodySchema = z.object({
   dates: z.array(z.string()).min(1, 'dates must be a non-empty array'),
   filters: z.array(z.string()).optional(),
+  // Leave out the sub-frames the quality check (or the user) did not keep.
+  // Nights never measured have no decisions, so all their subs go in.
+  keptOnly: z.boolean().optional(),
   // Matches `/sessions?includeVariants=true` and `/download/objects/:objectId?includeVariants=true`:
   // a mosaic/Ha/etc. variant's sub-frames live in that variant's own object
   // folder, not the base object's, so combining "all of M31" requires pulling
@@ -1890,6 +1904,79 @@ router.post('/objects/:objectId/sessions/:date/move', requireAdmin, (req: Reques
 
 // ─── Files ────────────────────────────────────────────────────────────────────
 
+// ─── Sub-frame quality (measured from pixels) ────────────────────────────────
+// See server/lib/library/subFrameQuality.ts. Measuring is a background job per
+// night; GET returns whatever is measured so far plus the job's progress.
+
+const NIGHT_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function qualityParams(req: Request, res: Response): { objectId: string; date: string } | null {
+  const objectId = String(req.params.objectId);
+  const date = String(req.params.date);
+  if (!NIGHT_RE.test(date)) {
+    res.apiError(422, 'VALIDATION_ERROR', 'date must be YYYY-MM-DD');
+    return null;
+  }
+  return { objectId, date };
+}
+
+router.get('/objects/:objectId/sessions/:date/quality', async (req: Request, res: Response) => {
+  const p = qualityParams(req, res);
+  if (!p) return;
+  if (!(await requireLibraryReachable(res))) return;
+  res.apiSuccess(getQualityReport(p.objectId, p.date));
+});
+
+router.get('/objects/:objectId/sessions/:date/quality.csv', async (req: Request, res: Response) => {
+  const p = qualityParams(req, res);
+  if (!p) return;
+  if (!(await requireLibraryReachable(res))) return;
+  const csv = qualityReportCsv(getQualityReport(p.objectId, p.date));
+  const safeName = `${p.objectId}_${p.date}_subframes.csv`.replace(/[^\w.-]+/g, '_');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+  res.send(csv);
+});
+
+const AnalyzeQualitySchema = z.object({ force: z.boolean().optional() });
+
+router.post('/objects/:objectId/sessions/:date/quality/analyze', requireAdmin, async (req: Request, res: Response) => {
+  const p = qualityParams(req, res);
+  if (!p) return;
+  const parsed = AnalyzeQualitySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  if (!(await requireLibraryReachable(res))) return;
+  res.apiSuccess(startQualityJob(p.objectId, p.date, { force: parsed.data.force }));
+});
+
+router.post('/objects/:objectId/sessions/:date/quality/cancel', requireAdmin, (req: Request, res: Response) => {
+  const p = qualityParams(req, res);
+  if (!p) return;
+  res.apiSuccess({ cancelled: cancelQualityJob(p.objectId, p.date) });
+});
+
+const SubFrameReviewSchema = z.object({
+  relPath: z.string().min(1).max(4096),
+  rejected: z.boolean().nullable(),
+});
+
+router.put('/quality/review', requireAdmin, (req: Request, res: Response) => {
+  const parsed = SubFrameReviewSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  if (!resolveLibraryFile(parsed.data.relPath)) {
+    res.apiError(404, 'NOT_FOUND', 'Unknown library file');
+    return;
+  }
+  setSubFrameReview(parsed.data.relPath, parsed.data.rejected);
+  res.apiSuccess({ relPath: parsed.data.relPath, rejected: parsed.data.rejected });
+});
+
 router.get('/objects/:objectId/sessions/:date/files', async (req: Request, res: Response) => {
   const objectId = String(req.params.objectId);
   const date = String(req.params.date);
@@ -2286,6 +2373,79 @@ router.get('/objects/:objectId/integration', async (req: Request, res: Response)
   }
 });
 
+// ─── Integration per filter + goals ──────────────────────────────────────────
+// See server/lib/library/integration.ts. Unlike /integration above (managed
+// files only, per night), this reads the libraryFiles table, so linked-folder
+// subs count, and groups by filter.
+
+const FilterNameSchema = z.string().trim().min(1).max(MAX_FILTER_NAME_LENGTH);
+
+const IntegrationGoalsSchema = z.object({
+  goals: z.array(z.object({
+    filter: FilterNameSchema.nullable(),
+    goalSec: z.number().int().min(0).max(MAX_GOAL_SEC),
+  })).max(50),
+});
+
+const FilterAliasesSchema = z.object({
+  aliases: z.array(z.object({
+    alias: FilterNameSchema,
+    canonical: FilterNameSchema,
+  })).max(500),
+});
+
+router.get('/objects/:objectId/integration/filters', async (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  try {
+    if (!(await requireLibraryReachable(res))) return;
+    res.apiSuccess(getIntegrationBreakdown(objectId));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to compute integration per filter';
+    res.apiError(500, 'STATS_FAILED', message);
+  }
+});
+
+router.get('/integration/progress', async (_req: Request, res: Response) => {
+  try {
+    if (!(await requireLibraryReachable(res))) return;
+    res.apiSuccess(getIntegrationProgressForGoalObjects());
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to compute integration progress';
+    res.apiError(500, 'STATS_FAILED', message);
+  }
+});
+
+router.put('/objects/:objectId/integration/goals', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const parsed = IntegrationGoalsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  try {
+    res.apiSuccess(setIntegrationGoals(objectId, parsed.data.goals));
+  } catch (err) {
+    if (err instanceof RangeError) {
+      res.apiError(422, 'VALIDATION_ERROR', err.message);
+      return;
+    }
+    throw err;
+  }
+});
+
+router.get('/filter-aliases', (_req: Request, res: Response) => {
+  res.apiSuccess(getFilterAliases());
+});
+
+router.put('/filter-aliases', requireAdmin, (req: Request, res: Response) => {
+  const parsed = FilterAliasesSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  res.apiSuccess(setFilterAliases(parsed.data.aliases));
+});
+
 // ─── FITS header (local file) ─────────────────────────────────────────────────
 
 router.get('/headers', async (req: Request, res: Response) => {
@@ -2552,86 +2712,24 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000).unref?.();
 
-// Filter query — returns distinct filter names found across sub-frames for the given dates
-router.post('/download/objects/:objectId/subframe-filters', strictRateLimiter, (req: Request, res: Response) => {
-  const objectId = String(req.params.objectId);
-  const bodyParsed = z.object({
-    dates: z.array(z.string()).min(1),
-    includeVariants: z.boolean().optional(),
-  }).safeParse(req.body);
-  if (!bodyParsed.success) {
-    res.apiError(400, 'INVALID_DATES', 'dates must be a non-empty array');
-    return;
-  }
-  // A mosaic/Ha/etc. variant's sub-frames live in that variant's own object
-  // folder, not the base object's — see resolveVariantIds. Uses getLocalFiles
-  // (same layout-aware, libraryFiles-backed accessor `getLocalSessions` uses)
-  // rather than a flat readdir, because a nested object stores files under
-  // per-session subfolders that a flat listing never sees.
-  const ids = bodyParsed.data.includeVariants ? resolveVariantIds(objectId, req.userId ?? '') : [objectId];
-  const filters = new Set<string>();
-  for (const id of ids) {
-    for (const date of bodyParsed.data.dates) {
-      for (const f of getLocalFiles(id, date)) {
-        if (f.fileType === 'sub' && f.filter) filters.add(f.filter);
-      }
-    }
-  }
-  res.apiSuccess({ filters: [...filters].sort() });
-});
+/** One ZIP entry: a file on disk, or inline text (a README, a manifest). */
+interface ZipJobEntry {
+  name: string;
+  abs?: string;
+  content?: string;
+}
 
-// Phase 1 — start async ZIP job
-router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Request, res: Response) => {
-  const objectId = String(req.params.objectId);
-  const bodyParsed = SubframesBodySchema.safeParse(req.body);
-  if (!bodyParsed.success) {
-    res.apiError(400, 'INVALID_DATES', bodyParsed.error.issues[0]?.message ?? 'dates must be a non-empty array');
-    return;
-  }
-  const { dates, filters, includeVariants, sirilLayout } = bodyParsed.data;
-
-  const filterSet = filters && filters.length > 0 ? new Set(filters) : null;
-  // A mosaic/Ha/etc. variant's sub-frames live in that variant's own object
-  // folder, not the base object's — see resolveVariantIds. Uses getLocalFiles
-  // (same layout-aware, libraryFiles-backed accessor `getLocalSessions` uses)
-  // rather than a flat readdir, because a nested object stores files under
-  // per-session subfolders that a flat listing never sees.
-  const ids = includeVariants ? resolveVariantIds(objectId, req.userId ?? '') : [objectId];
-  const LIBRARY_DIR = getLibraryDir();
-  const anyObjectExists = ids.some(id => {
-    const objDir = path.resolve(LIBRARY_DIR, getObjectFolderName(id));
-    return objDir.startsWith(LIBRARY_DIR + path.sep) && fs.existsSync(objDir);
-  });
-  if (!anyObjectExists) {
-    res.apiError(404, 'NOT_FOUND', 'Object not found in local library');
-    return;
-  }
-
-  const subFrames: { libPath: string }[] = [];
-  for (const id of ids) {
-    for (const date of dates) {
-      for (const f of getLocalFiles(id, date)) {
-        if (f.fileType !== 'sub') continue;
-        if (filterSet !== null && (!f.filter || !filterSet.has(f.filter))) continue;
-        subFrames.push({ libPath: f.path });
-      }
-    }
-  }
-
-  if (subFrames.length === 0) {
-    res.apiError(404, 'NO_FILES', 'No subframes found for the selected sessions');
-    return;
-  }
-
-  const nowDate = new Date();
-  const datePart = nowDate.toISOString().slice(0, 10).replace(/-/g, '');
-  const timePart = nowDate.toTimeString().slice(0, 8).replace(/:/g, '');
-  const filename = `${objectId}-${datePart}${timePart}.zip`;
+/**
+ * Start building a ZIP in the background (phase 1 of the flow above) and
+ * return the job id to poll. Shared by the sub-frame download and the
+ * stacking export.
+ */
+function startZipJob(filename: string, entries: ZipJobEntry[]): { jobId: string; filesTotal: number } {
   const tmpPath = path.join(os.tmpdir(), `nebulis-${randomUUID()}.zip`);
 
   const jobId = randomUUID();
   const job: ArchiveJob = {
-    filesTotal: subFrames.length,
+    filesTotal: entries.length,
     filesDone: 0,
     status: 'running',
     filename,
@@ -2642,9 +2740,6 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
     archiveJobs.delete(archiveJobs.keys().next().value!);
   }
   archiveJobs.set(jobId, job);
-
-  // Respond immediately so client can start polling
-  res.apiSuccess({ jobId, filesTotal: subFrames.length });
 
   // Build ZIP asynchronously
   const output = fs.createWriteStream(tmpPath);
@@ -2686,6 +2781,105 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
 
   archive.pipe(output);
 
+  for (const entry of entries) {
+    if (entry.content !== undefined) archive.append(entry.content, { name: entry.name });
+    else if (entry.abs) archive.file(entry.abs, { name: entry.name });
+  }
+  archive.finalize();
+  return { jobId, filesTotal: entries.length };
+}
+
+// Filter query — returns distinct filter names found across sub-frames for the given dates
+router.post('/download/objects/:objectId/subframe-filters', strictRateLimiter, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const bodyParsed = z.object({
+    dates: z.array(z.string()).min(1),
+    includeVariants: z.boolean().optional(),
+  }).safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.apiError(400, 'INVALID_DATES', 'dates must be a non-empty array');
+    return;
+  }
+  // A mosaic/Ha/etc. variant's sub-frames live in that variant's own object
+  // folder, not the base object's — see resolveVariantIds. Uses getLocalFiles
+  // (same layout-aware, libraryFiles-backed accessor `getLocalSessions` uses)
+  // rather than a flat readdir, because a nested object stores files under
+  // per-session subfolders that a flat listing never sees.
+  const ids = bodyParsed.data.includeVariants ? resolveVariantIds(objectId, req.userId ?? '') : [objectId];
+  const filters = new Set<string>();
+  for (const id of ids) {
+    for (const date of bodyParsed.data.dates) {
+      for (const f of getLocalFiles(id, date)) {
+        if (f.fileType === 'sub' && f.filter) filters.add(f.filter);
+      }
+    }
+  }
+  res.apiSuccess({ filters: [...filters].sort() });
+});
+
+/** Library paths and file names of a night's sub-frames that are not kept
+ *  (quality grade or the user's decision). Empty for an unmeasured night. */
+function notKeptSubFrames(objectId: string, night: string): Set<string> {
+  if (!NIGHT_RE.test(night)) return new Set();
+  const out = new Set<string>();
+  for (const f of getQualityReport(objectId, night).frames) {
+    if (f.accepted) continue;
+    out.add(f.relPath);
+    out.add(f.fileName);
+  }
+  return out;
+}
+
+// Phase 1 — start async ZIP job
+router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const bodyParsed = SubframesBodySchema.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.apiError(400, 'INVALID_DATES', bodyParsed.error.issues[0]?.message ?? 'dates must be a non-empty array');
+    return;
+  }
+  const { dates, filters, includeVariants, sirilLayout, keptOnly } = bodyParsed.data;
+
+  const filterSet = filters && filters.length > 0 ? new Set(filters) : null;
+  // A mosaic/Ha/etc. variant's sub-frames live in that variant's own object
+  // folder, not the base object's — see resolveVariantIds. Uses getLocalFiles
+  // (same layout-aware, libraryFiles-backed accessor `getLocalSessions` uses)
+  // rather than a flat readdir, because a nested object stores files under
+  // per-session subfolders that a flat listing never sees.
+  const ids = includeVariants ? resolveVariantIds(objectId, req.userId ?? '') : [objectId];
+  const LIBRARY_DIR = getLibraryDir();
+  const anyObjectExists = ids.some(id => {
+    const objDir = path.resolve(LIBRARY_DIR, getObjectFolderName(id));
+    return objDir.startsWith(LIBRARY_DIR + path.sep) && fs.existsSync(objDir);
+  });
+  if (!anyObjectExists) {
+    res.apiError(404, 'NOT_FOUND', 'Object not found in local library');
+    return;
+  }
+
+  const subFrames: { libPath: string }[] = [];
+  for (const id of ids) {
+    for (const date of dates) {
+      const notKept = keptOnly ? notKeptSubFrames(id, date) : null;
+      for (const f of getLocalFiles(id, date)) {
+        if (f.fileType !== 'sub') continue;
+        if (filterSet !== null && (!f.filter || !filterSet.has(f.filter))) continue;
+        if (notKept && (notKept.has(f.path) || notKept.has(f.name))) continue;
+        subFrames.push({ libPath: f.path });
+      }
+    }
+  }
+
+  if (subFrames.length === 0) {
+    res.apiError(404, 'NO_FILES', 'No subframes found for the selected sessions');
+    return;
+  }
+
+  const nowDate = new Date();
+  const datePart = nowDate.toISOString().slice(0, 10).replace(/-/g, '');
+  const timePart = nowDate.toTimeString().slice(0, 8).replace(/:/g, '');
+  const filename = `${objectId}-${datePart}${timePart}.zip`;
+
   // libPath is folderName-relative (may include a session subfolder for a
   // nested object); by default keep that structure in the zip entry name too,
   // both to avoid same-filename collisions across sessions and to stay
@@ -2697,6 +2891,7 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
   // timestamp), and any residual collision gets a `-2`, `-3` suffix.
   const sirilFolder = sirilLayout ? getObjectFolderName(objectId) : null;
   const usedNames = new Set<string>();
+  const entries: ZipJobEntry[] = [];
   for (const { libPath } of subFrames) {
     let entryName = libPath;
     if (sirilFolder) {
@@ -2711,10 +2906,11 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
       }
       usedNames.add(entryName);
     }
-    archive.file(path.join(LIBRARY_DIR, libPath), { name: entryName });
+    entries.push({ name: entryName, abs: path.join(LIBRARY_DIR, libPath) });
   }
 
-  archive.finalize();
+  // Respond immediately so client can start polling
+  res.apiSuccess(startZipJob(filename, entries));
 });
 
 // Phase 2 — poll job status
@@ -3386,6 +3582,14 @@ const projectArchiveUpload = multer({
   fileFilter: (_req, file, cb) => cb(null, isProjectArchiveName(file.originalname)),
 });
 
+const processingProjectFileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, file, cb) => cb(null, `processingproj_${randomUUID()}_${path.basename(file.originalname)}`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 * 1024, fieldSize: 1 * 1024 * 1024 },
+});
+
 /**
  * Free-space preflight for a project-archive upload, keyed off the
  * Content-Length header before multer starts streaming the body anywhere.
@@ -3479,6 +3683,44 @@ router.get('/project-archives/:id', async (req: Request, res: Response) => {
     if (err && !res.headersSent) res.status(500).send('Failed to send file');
   });
 });
+
+// ─── Processing project direct inspection and file synchronization ────────────
+router.get('/objects/:objectId/processing-project', (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  try {
+    const summary = getProcessingProjectSummary(objectId);
+    res.apiSuccess(summary);
+  } catch (err) {
+    res.apiError(500, 'PROJECT_SUMMARY_FAILED', err instanceof Error ? err.message : 'Failed to get processing project');
+  }
+});
+
+router.post(
+  '/objects/:objectId/processing-project/file',
+  requireAdmin,
+  checkArchiveUploadSpace,
+  processingProjectFileUpload.single('file'),
+  (req: Request, res: Response) => {
+    const objectId = String(req.params.objectId);
+    const file = req.file;
+    if (!file) {
+      res.apiError(400, 'NO_FILE', 'No file provided');
+      return;
+    }
+
+    const subPath = typeof req.body?.subPath === 'string' && req.body.subPath.trim()
+      ? req.body.subPath.trim()
+      : file.originalname;
+
+    try {
+      const result = saveProcessingProjectFile(objectId, subPath, file.path);
+      res.apiSuccess(result);
+    } catch (err) {
+      try { fs.unlinkSync(file.path); } catch { /* ignore */ }
+      res.apiError(500, 'UPLOAD_FAILED', err instanceof Error ? err.message : 'Failed to save project file');
+    }
+  },
+);
 
 // ─── Save edited telescope image back into the library folder ─────────────────
 // Writes the canvas export alongside the original telescope files so it

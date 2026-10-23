@@ -35,6 +35,8 @@ const ObservationsWorldMap = lazyRoute(() =>
 );
 import type { ObservationsWorldMapHandle } from '../components/ObservationsWorldMap';
 import { listTelescopes, type TelescopeProfile } from '../lib/api/telescopes';
+import { listPlanNights } from '../lib/api/plannedSessions';
+import { indexPlanByDate } from '../lib/planNights';
 import { useTheme } from '../hooks/useTheme';
 import { nightSafeColor } from '../lib/nightSafeColor';
 import { cleanCatalogId, formatObjectName } from '../lib/utils';
@@ -250,6 +252,27 @@ export function ObservationsCalendar() {
     }
     return map;
   }, [filteredObservations]);
+
+  // Plan vs actual for the month on screen: Planner blocks summed per object
+  // and night (server/lib/planOutcome.ts). Best-effort — a failure just
+  // leaves the calendar as it was.
+  const planRange = useMemo(() => {
+    const { year, month } = currentMonth;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const last = new Date(year, month + 1, 0).getDate();
+    return { from: `${year}-${pad(month + 1)}-01`, to: `${year}-${pad(month + 1)}-${pad(last)}` };
+  }, [currentMonth]);
+  const { data: planNights = [] } = useQuery({
+    queryKey: ['plan-nights', planRange.from, planRange.to],
+    queryFn: () => listPlanNights(planRange.from, planRange.to),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const planByDate = useMemo(() => {
+    const objectIdsByDate = new Map<string, string[]>();
+    for (const [date, list] of observationsByDate) objectIdsByDate.set(date, list.map(o => o.objectId));
+    return indexPlanByDate(planNights, objectIdsByDate);
+  }, [planNights, observationsByDate]);
 
   // Calendar grid generation
   const calendarDays = useMemo(() => {
@@ -523,6 +546,7 @@ export function ObservationsCalendar() {
         <MonthGrid
           days={calendarDays}
           observationsByDate={observationsByDate}
+          planByDate={planByDate}
           monthLabel={monthLabel}
           today={today}
           nearestDate={nearestDate}

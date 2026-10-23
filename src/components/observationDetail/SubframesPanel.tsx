@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Satellite, Download, Trash2, ArrowRight } from 'lucide-react';
+import { Satellite, Download, Trash2, ArrowRight, Activity, Loader2 } from 'lucide-react';
+import { SubframeQualityPanel } from './SubframeQualityPanel';
+import { useSubFrameQuality } from '../../hooks/useSubFrameQuality';
+import type { SubFrameQualityRow } from '../../lib/api/library';
 import { FitsThumbnail } from '../FitsThumbnail';
 import { useTheme } from '../../hooks/useTheme';
 import type { SessionFile } from '../../types';
@@ -32,7 +35,15 @@ function sampleIndices(total: number, count: number): number[] {
  *  more, so it can never wrap and strand a tile on a second row. What is hidden
  *  is stated in the footer instead of in an overflow tile.
  *  The ResizeObserver measurement is entirely local to this panel. */
+const GRADE_BADGE: Record<NonNullable<SubFrameQualityRow['grade']>, string> = {
+  good: 'bg-emerald-500',
+  fair: 'bg-amber-500',
+  poor: 'bg-red-500',
+};
+
 export function SubframesPanel({
+  objectId,
+  date,
   subFrames,
   isAdmin,
   telescopeOnline,
@@ -43,11 +54,15 @@ export function SubframesPanel({
   onDeleteAllSubframes,
   onOpenGallery,
 }: {
+  /** Library object and night, for the sub-frame quality view. */
+  objectId: string;
+  date: string;
   subFrames: SessionFile[];
   isAdmin: boolean;
   telescopeOnline: boolean;
   archiveState: { done: number; total: number } | 'idle' | 'error';
-  onDownloadToComputer: () => void;
+  /** `keptOnly` leaves out the sub-frames the quality check did not keep. */
+  onDownloadToComputer: (keptOnly?: boolean) => void;
   onOpenSync: () => void;
   onScanTrails: () => void;
   onDeleteAllSubframes: () => void;
@@ -56,6 +71,20 @@ export function SubframesPanel({
   const { isDark } = useTheme();
   const { t } = useTranslation('observations');
   const hasSubFrames = subFrames.length > 0;
+  const hasFits = hasSubFrames && subFrames.some(f => f.type === 'fits');
+
+  // Sub-frame quality: the toolbar button toggles the view inside this tile;
+  // once a night is measured, thumbnails carry a grade dot either way.
+  const quality = useSubFrameQuality(objectId, date, hasFits);
+  const report = quality.data;
+  const [qualityOpen, setQualityOpen] = useState(false);
+  const measuring = !!report?.job?.running;
+  const showQuality = qualityOpen || measuring;
+  const qualityByName = useMemo(() => {
+    const map = new Map<string, SubFrameQualityRow>();
+    for (const f of report?.frames ?? []) if (f.measured) map.set(f.fileName, f);
+    return map;
+  }, [report]);
 
   // Measured on the grid itself, which carries no padding of its own, so
   // clientWidth is exactly the space the tiles have to divide up.
@@ -82,7 +111,7 @@ export function SubframesPanel({
           panel and carries its count, so the bar is only its controls. */}
       <div className={`flex items-center justify-end p-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
         <div className="flex items-center gap-2">
-          {isAdmin && hasSubFrames && subFrames.some(f => f.type === 'fits') && (
+          {isAdmin && hasFits && (
             <button
               onClick={onScanTrails}
               title={t('observationDetail.subframesPanel.scanTrailsTitle')}
@@ -94,6 +123,28 @@ export function SubframesPanel({
             >
               <Satellite className="w-3.5 h-3.5" />
               {t('observationDetail.subframesPanel.scanTrails')}
+            </button>
+          )}
+          {hasFits && report && report.total > 0 && (isAdmin || report.measured > 0) && (
+            <button
+              onClick={() => setQualityOpen(o => !o)}
+              aria-expanded={showQuality}
+              title={t('observationDetail.subframesPanel.qualityTitle')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                showQuality
+                  ? isDark
+                    ? 'border-accent-500/50 bg-accent-500/10 text-accent-300'
+                    : 'border-accent-400 bg-accent-50 text-accent-700'
+                  : isDark
+                    ? 'border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {measuring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
+              {t('observationDetail.subframesPanel.quality')}
+              {report.measured > 0 && !measuring && (
+                <span className="tabular-nums opacity-80">{report.accepted}/{report.total}</span>
+              )}
             </button>
           )}
           {isAdmin && (
@@ -120,31 +171,58 @@ export function SubframesPanel({
             </span>
           )}
           {hasSubFrames && (
-            <button
-              onClick={onDownloadToComputer}
-              disabled={archiveState !== 'idle'}
-              title={
-                archiveState === 'error'
-                  ? t('observationDetail.subframesPanel.retryTitle')
-                  : t('observationDetail.subframesPanel.zipToComputerTitle')
-              }
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:cursor-wait ${
-                archiveState === 'error'
-                  ? isDark
-                    ? 'border-red-500/30 text-red-400'
-                    : 'border-red-300 text-red-600'
-                  : isDark
-                    ? 'border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <Download className="w-3.5 h-3.5" />
-              {archiveState === 'idle'
-                ? t('observationDetail.subframesPanel.downloadToComputer')
-                : archiveState === 'error'
-                  ? t('observationDetail.subframesPanel.downloadFailed')
-                  : t('observationDetail.subframesPanel.zipping', { done: archiveState.done, total: archiveState.total })}
-            </button>
+            <div ref={downloadMenuRef} className="relative">
+              <button
+                onClick={() => (notKeptCount > 0 ? setDownloadMenuOpen(o => !o) : onDownloadToComputer())}
+                aria-haspopup={notKeptCount > 0 ? 'menu' : undefined}
+                aria-expanded={notKeptCount > 0 ? downloadMenuOpen : undefined}
+                disabled={archiveState !== 'idle'}
+                title={
+                  archiveState === 'error'
+                    ? t('observationDetail.subframesPanel.retryTitle')
+                    : t('observationDetail.subframesPanel.zipToComputerTitle')
+                }
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:cursor-wait ${
+                  archiveState === 'error'
+                    ? isDark
+                      ? 'border-red-500/30 text-red-400'
+                      : 'border-red-300 text-red-600'
+                    : isDark
+                      ? 'border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                      : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                {archiveState === 'idle'
+                  ? t('observationDetail.subframesPanel.downloadToComputer')
+                  : archiveState === 'error'
+                    ? t('observationDetail.subframesPanel.downloadFailed')
+                    : t('observationDetail.subframesPanel.zipping', { done: archiveState.done, total: archiveState.total })}
+              </button>
+              {downloadMenuOpen && notKeptCount > 0 && (
+                <div
+                  role="menu"
+                  className={`absolute right-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-xl border py-1 shadow-xl ${
+                    isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  {([false, true] as const).map(kept => (
+                    <button
+                      key={String(kept)}
+                      role="menuitem"
+                      onClick={() => { setDownloadMenuOpen(false); onDownloadToComputer(kept); }}
+                      className={`block w-full px-3.5 py-2 text-left text-xs transition ${
+                        isDark ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {kept
+                        ? t('observationDetail.subframesPanel.downloadKept', { count: report!.accepted })
+                        : t('observationDetail.subframesPanel.downloadAll', { count: report!.total })}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           {isAdmin && hasSubFrames && (
             <button
@@ -157,6 +235,10 @@ export function SubframesPanel({
           )}
         </div>
       </div>
+
+      {showQuality && hasFits && (
+        <SubframeQualityPanel objectId={objectId} date={date} isAdmin={isAdmin} />
+      )}
 
       {subFrames.length > 0 ? (
         <>
@@ -172,15 +254,25 @@ export function SubframesPanel({
             >
               {shownIndices.map(idx => {
                 const file = subFrames[idx];
+                const q = qualityByName.get(file.name);
+                const frameTitle = t('observationDetail.subframesPanel.frameTitle', { name: file.name, index: idx + 1, total: subFrames.length });
                 return (
                   <button
                     key={file.path}
                     onClick={() => onOpenGallery(idx, 'subframes')}
-                    title={t('observationDetail.subframesPanel.frameTitle', { name: file.name, index: idx + 1, total: subFrames.length })}
-                    className={`aspect-square rounded-lg overflow-hidden border-2 ${
+                    title={q?.grade
+                      ? `${frameTitle} · ${t(`subframeQuality.grade.${q.grade}`)}${q.accepted ? '' : ` · ${t('observationDetail.subframesPanel.notKept')}`}`
+                      : frameTitle}
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
                       isDark ? 'border-slate-700 hover:border-slate-500 bg-slate-800' : 'border-slate-200 hover:border-slate-400 bg-slate-100'
-                    }`}
+                    } ${q && !q.accepted ? 'opacity-50' : ''}`}
                   >
+                    {q?.grade && (
+                      <span
+                        className={`absolute right-1 top-1 z-10 h-2 w-2 rounded-full ring-2 ${isDark ? 'ring-slate-900' : 'ring-white'} ${GRADE_BADGE[q.grade]}`}
+                        aria-hidden="true"
+                      />
+                    )}
                     {file.type === 'fits' ? (
                       <FitsThumbnail url={file.downloadUrl} thumbUrl={file.thumbUrl} stretch={1.0} isDark={isDark} />
                     ) : (

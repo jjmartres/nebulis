@@ -226,7 +226,10 @@
       "showingAll": "Affichage des {{total}}",
       "viewAll": "Voir les {{total}}",
       "openViewer": "Ouvrir la visionneuse",
-      "empty": "Aucune sous-pose téléchargée pour l'instant. Connectez votre télescope et utilisez Synchroniser les sous-poses pour les récupérer."
+      "empty": "Aucune sous-pose téléchargée pour l'instant. Connectez votre télescope et utilisez Synchroniser les sous-poses pour les récupérer.",
+      "quality": "Qualité",
+      "qualityTitle": "Mesurer HFR, FWHM et étoiles pour chaque sous-pose et choisir celles à garder",
+      "notKept": "non gardée"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Quitter le mode comparaison",
@@ -439,7 +442,9 @@
       "filterTypesSelected_other": "{{selected}} types de filtres sélectionnés sur {{count}}",
       "selectAtLeastOneFilter": "Sélectionnez au moins un type de filtre",
       "back": "Retour",
-      "discardSelection": "Abandonner votre sélection de sessions ?"
+      "discardSelection": "Abandonner votre sélection de sessions ?",
+      "keptOnlyOption": "Seulement les sous-poses gardées",
+      "keptOnlyHint": "Écarte les sous-poses notées « mauvaise » ou décochées dans la vue qualité de la nuit. Les nuits pas encore mesurées partent en entier."
     },
     "satelliteTrailScanModal": {
       "title": "Détection de traînées de satellites",
@@ -536,5 +541,58 @@
     "moreCount_one": "+{{count}} de plus",
     "moreCount_other": "+{{count}} de plus",
     "approximate": "approximatif"
+  },
+  "subframeQuality": {
+    "title": "Qualité des sous-poses",
+    "summary": "{{accepted}} sur {{total}} gardées",
+    "summaryPartial": "{{measured}} sur {{total}} mesurées · {{kept}} gardées",
+    "notMeasured_one": "{{count}} sous-pose, pas encore mesurée",
+    "notMeasured_other": "{{count}} sous-poses, pas encore mesurées",
+    "analyze_one": "Mesurer {{count}} sous-pose",
+    "analyze_other": "Mesurer {{count}} sous-poses",
+    "reanalyze": "Mesurer à nouveau",
+    "csv": "CSV",
+    "cancel": "Arrêter",
+    "measuring": "Mesure {{done}} / {{total}}",
+    "failed": "Une erreur est survenue. Réessayez.",
+    "hint": "Un administrateur peut mesurer HFR, FWHM, étoiles et fond de ciel pour chaque sous-pose de cette nuit.",
+    "hintAdmin": "Mesure HFR, FWHM, nombre d’étoiles, élongation et fond de ciel à partir des pixels, puis note chaque sous-pose par rapport au reste de la nuit. Environ un tiers de seconde par pose.",
+    "group_one": "{{filter}} : {{count}} pose, HFR médian {{hfr}} px, {{stars}} étoiles",
+    "group_other": "{{filter}} : {{count}} poses, HFR médian {{hfr}} px, {{stars}} étoiles",
+    "noFilter": "Sans filtre",
+    "legendRejected": "Estompé : non gardée",
+    "onlyRejected": "Seulement les sous-poses non gardées ({{count}})",
+    "col": {
+      "file": "Fichier",
+      "filter": "Filtre",
+      "hfr": "HFR",
+      "fwhm": "FWHM",
+      "stars": "Étoiles",
+      "ecc": "Élong.",
+      "background": "Fond",
+      "grade": "Note",
+      "keep": "Garder"
+    },
+    "grade": {
+      "good": "Bonne",
+      "fair": "Moyenne",
+      "poor": "Mauvaise"
+    },
+    "flag": {
+      "soft": "Plus floue que la nuit",
+      "very_soft": "Bien plus floue que la nuit",
+      "few_stars": "Moins d’étoiles que la nuit",
+      "very_few_stars": "Beaucoup moins d’étoiles (nuages ?)",
+      "bright_background": "Fond plus lumineux",
+      "elongated": "Étoiles allongées"
+    },
+    "unreadable": "Illisible",
+    "keepFile": "Garder {{name}}",
+    "reset": "auto",
+    "resetTitle": "Revenir à la décision automatique",
+    "showAll": "Tout afficher ({{count}})",
+    "viewerNotMeasured": "Pas encore mesurée. Utilisez le bouton Qualité au-dessus des vignettes des sous-poses pour mesurer cette nuit.",
+    "keepShortcut": "Garder cette sous-pose pour l’empilement (K)",
+    "autoDecision": "automatique"
   }
 }
