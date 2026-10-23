@@ -673,6 +673,38 @@ db.exec(`
     ON calibrationAttachments(objectId, date, calibrationType, COALESCE(scope, ''), folderName, settingsKey);
   CREATE INDEX IF NOT EXISTS idx_calibrationAttachments_bundle
     ON calibrationAttachments(scope, folderName, settingsKey);
+
+  -- ─── Integration per filter (see server/lib/library/integration.ts) ──────
+  -- How much integration the user wants on an object, per filter. filter is
+  -- the canonical (alias-normalised) name; '' is the "no filter" bucket
+  -- (one-shot colour cameras without a wheel, or frames with no FILTER key).
+  CREATE TABLE IF NOT EXISTS objectIntegrationGoals (
+    objectId  TEXT NOT NULL,
+    filter    TEXT NOT NULL DEFAULT '',
+    goalSec   INTEGER NOT NULL,
+    updatedAt TEXT NOT NULL,
+    PRIMARY KEY (objectId, filter)
+  );
+
+  -- User-defined filter name aliases ("H-alpha 7nm" → "Ha"), applied before
+  -- the built-in ones. Case-insensitive on the alias side.
+  CREATE TABLE IF NOT EXISTS filterAliases (
+    alias     TEXT PRIMARY KEY COLLATE NOCASE,
+    canonical TEXT NOT NULL
+  );
+
+  -- Per-file cache of the two header values the integration breakdown needs,
+  -- so opening an object does not re-read every sub-frame. Keyed by the
+  -- libraryFiles relPath and invalidated by size/mtime. rawFilter is stored
+  -- before alias normalisation so editing aliases never needs a re-read.
+  CREATE TABLE IF NOT EXISTS subFrameHeaderCache (
+    relPath     TEXT PRIMARY KEY,
+    bytes       INTEGER NOT NULL,
+    mtimeMs     INTEGER NOT NULL,
+    rawFilter   TEXT,
+    exposureSec REAL,
+    cachedAt    TEXT NOT NULL
+  );
 `);
 
 // ─── Column migrations for existing databases ────────────────────────────────
