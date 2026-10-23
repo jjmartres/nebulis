@@ -442,7 +442,9 @@
       "editObjectDetails": "Objectdetails bewerken",
       "reclassifyObject": "Object opnieuw classificeren",
       "reclassifyObjectTitle": "Verplaats alles hier naar een ander catalogusobject",
-      "deleteObject": "Object verwijderen"
+      "deleteObject": "Object verwijderen",
+      "stackingExport": "Exporteren om te stacken",
+      "stackingExportTitle": "Bewaarde lights + passende darks, flats en bias, voor WBPP of Siril"
     }
   },
   "galleryPage": {

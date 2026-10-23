@@ -1044,6 +1044,22 @@
   },
   {
     "method": "POST",
+    "path": "/library/objects/:objectId/stacking-export",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/stacking-export/plan",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
     "path": "/library/objects/:objectId/sync-subframes",
     "guards": [
       "requireAdmin",

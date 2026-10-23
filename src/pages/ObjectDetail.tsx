@@ -43,6 +43,7 @@ import { useSyncSubframes } from '../contexts/SyncSubframesContext';
 import { GalleryImageModal } from '../components/GalleryImageModal';
 import { CompareSessionsModal } from '../components/CompareSessionsModal';
 import { CombineSubframesModal } from '../components/CombineSubframesModal';
+import { StackingExportModal } from '../components/StackingExportModal';
 import { EditObjectModal } from '../components/EditObjectModal';
 import { ReclassifyModal } from '../components/objectDetail/ReclassifyModal';
 import { FramingModal, FRAMING_MOSAIC_ENABLED } from '../components/catalogs/FramingModal';
@@ -101,6 +102,7 @@ export function ObjectDetail() {
   const [newObservationOpen, setNewObservationOpen] = useState(false);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [combineSubframesOpen, setCombineSubframesOpen] = useState(false);
+  const [stackingExportOpen, setStackingExportOpen] = useState(false);
   const [editObjectOpen, setEditObjectOpen] = useState(false);
   const [reclassifyOpen, setReclassifyOpen] = useState(false);
   const [framingOpen, setFramingOpen] = useState(false);
@@ -601,6 +603,7 @@ export function ObjectDetail() {
         onAddObservation={isAdmin ? () => setNewObservationOpen(true) : null}
         onCompare={allSessions.length >= 2 ? () => setCompareModalOpen(true) : null}
         onCombine={() => setCombineSubframesOpen(true)}
+        onStackingExport={allSessions.some(s => s.subFrameCount > 0) ? () => setStackingExportOpen(true) : null}
         onFraming={FRAMING_MOSAIC_ENABLED ? () => setFramingOpen(true) : null}
         onDownloadAll={handleDownloadAll}
         downloadPending={downloadPending}
@@ -713,6 +716,10 @@ export function ObjectDetail() {
 
       {combineSubframesOpen && (
         <CombineSubframesModal objectId={activeObjectId} onClose={() => setCombineSubframesOpen(false)} />
+      )}
+
+      {stackingExportOpen && (
+        <StackingExportModal objectId={activeObjectId} onClose={() => setStackingExportOpen(false)} />
       )}
 
       {editObjectOpen && (
