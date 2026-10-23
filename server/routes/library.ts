@@ -334,6 +334,9 @@ const MoveObservationBodySchema = z.object({
 const SubframesBodySchema = z.object({
   dates: z.array(z.string()).min(1, 'dates must be a non-empty array'),
   filters: z.array(z.string()).optional(),
+  // Leave out the sub-frames the quality check (or the user) did not keep.
+  // Nights never measured have no decisions, so all their subs go in.
+  keptOnly: z.boolean().optional(),
   // Matches `/sessions?includeVariants=true` and `/download/objects/:objectId?includeVariants=true`:
   // a mosaic/Ha/etc. variant's sub-frames live in that variant's own object
   // folder, not the base object's, so combining "all of M31" requires pulling
@@ -2814,6 +2817,19 @@ router.post('/download/objects/:objectId/subframe-filters', strictRateLimiter, (
   res.apiSuccess({ filters: [...filters].sort() });
 });
 
+/** Library paths and file names of a night's sub-frames that are not kept
+ *  (quality grade or the user's decision). Empty for an unmeasured night. */
+function notKeptSubFrames(objectId: string, night: string): Set<string> {
+  if (!NIGHT_RE.test(night)) return new Set();
+  const out = new Set<string>();
+  for (const f of getQualityReport(objectId, night).frames) {
+    if (f.accepted) continue;
+    out.add(f.relPath);
+    out.add(f.fileName);
+  }
+  return out;
+}
+
 // Phase 1 — start async ZIP job
 router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Request, res: Response) => {
   const objectId = String(req.params.objectId);
@@ -2822,7 +2838,7 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
     res.apiError(400, 'INVALID_DATES', bodyParsed.error.issues[0]?.message ?? 'dates must be a non-empty array');
     return;
   }
-  const { dates, filters, includeVariants, sirilLayout } = bodyParsed.data;
+  const { dates, filters, includeVariants, sirilLayout, keptOnly } = bodyParsed.data;
 
   const filterSet = filters && filters.length > 0 ? new Set(filters) : null;
   // A mosaic/Ha/etc. variant's sub-frames live in that variant's own object
@@ -2844,9 +2860,11 @@ router.post('/download/objects/:objectId/subframes', strictRateLimiter, (req: Re
   const subFrames: { libPath: string }[] = [];
   for (const id of ids) {
     for (const date of dates) {
+      const notKept = keptOnly ? notKeptSubFrames(id, date) : null;
       for (const f of getLocalFiles(id, date)) {
         if (f.fileType !== 'sub') continue;
         if (filterSet !== null && (!f.filter || !filterSet.has(f.filter))) continue;
+        if (notKept && (notKept.has(f.path) || notKept.has(f.name))) continue;
         subFrames.push({ libPath: f.path });
       }
     }

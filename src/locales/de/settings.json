@@ -286,6 +286,10 @@
       "groupCompanions": {
         "label": "Objekte im selben Bildfeld mitzählen",
         "description": "Weitere Katalogobjekte, die im Bildfeld eines aufgenommenen Objekts lagen, zählen ebenfalls als aufgenommen. Beispiel: Wird M42 aufgenommen, zählt auch M43. Ausschalten, um nur die anvisierten Objekte zu zählen."
+      },
+      "autoQuality": {
+        "label": "Qualität der Einzelbilder nach dem Import messen",
+        "description": "Jede Nacht mit neuen FITS-Einzelbildern wird nach dem Import gemessen (HFR, Sterne, Hintergrund), damit die Auswahl fürs Stacken bereitsteht."
       }
     },
     "calibration": {

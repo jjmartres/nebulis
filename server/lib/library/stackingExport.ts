@@ -83,7 +83,7 @@ export function readLightSettings(abs: string, fileName: string): Pick<LightInfo
   };
 }
 
-function nightLights(objectId: string, night: string): LightInfo[] {
+Qunction nightLights(objectId: string, night: string): LightInfo[] {
   const accepted = new Map(getQualityReport(objectId, night).frames.map(f => [f.relPath, f.accepted]));
   return listNightSubFrames(objectId, night).map(sub => {
     let bytes = 0;
@@ -97,7 +97,7 @@ function nightLights(objectId: string, night: string): LightInfo[] {
       ...readLightSettings(sub.abs, sub.fileName),
       kept: accepted.get(sub.relPath) ?? true,
     };
-  });
+});
 }
 
 // ─── Calibration candidates ─────────────────────────────────────────────────

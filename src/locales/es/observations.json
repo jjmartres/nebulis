@@ -442,7 +442,9 @@
       "filterTypesSelected_other": "{{selected}} de {{count}} tipos de filtro seleccionados",
       "selectAtLeastOneFilter": "Selecciona al menos un tipo de filtro",
       "back": "Atrás",
-      "discardSelection": "¿Descartar la selección de sesiones?"
+      "discardSelection": "¿Descartar la selección de sesiones?",
+      "keptOnlyOption": "Solo las subtomas conservadas",
+      "keptOnlyHint": "Deja fuera las subtomas calificadas como malas o desmarcadas en la vista de calidad de la noche. Las noches aún sin medir van completas."
     },
     "satelliteTrailScanModal": {
       "title": "Detección de estelas de satélites",

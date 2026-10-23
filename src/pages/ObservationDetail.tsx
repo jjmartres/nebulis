@@ -568,11 +568,11 @@ export function ObservationDetail() {
 
   // ─── Download local subframes as ZIP ────────────────────────────────────────
 
-  const handleDownloadToComputer = useCallback(async () => {
+  const handleDownloadToComputer = useCallback(async (keptOnly = false) => {
     if (!objectId || !date || archiveState !== 'idle') return;
     archiveAbortRef.current = false;
     try {
-      const { jobId, filesTotal } = await startSubframesArchive(objectId, [date]);
+      const { jobId, filesTotal } = await startSubframesArchive(objectId, [date], undefined, undefined, undefined, keptOnly);
       if (archiveAbortRef.current) { void cancelSubframesArchive(jobId).catch(() => {}); return; }
       archiveJobIdRef.current = jobId;
       setArchiveState({ done: 0, total: filesTotal });

@@ -442,7 +442,9 @@
       "filterTypesSelected_other": "{{selected}} von {{count}} Filtertypen ausgewählt",
       "selectAtLeastOneFilter": "Wähle mindestens einen Filtertyp aus",
       "back": "Zurück",
-      "discardSelection": "Sitzungsauswahl verwerfen?"
+      "discardSelection": "Sitzungsauswahl verwerfen?",
+      "keptOnlyOption": "Nur behaltene Einzelbilder",
+      "keptOnlyHint": "Lässt Einzelbilder weg, die als schlecht bewertet oder in der Qualitätsansicht der Nacht abgewählt wurden. Noch nicht gemessene Nächte gehen vollständig mit."
     },
     "satelliteTrailScanModal": {
       "title": "Satellitenspur-Erkennung",

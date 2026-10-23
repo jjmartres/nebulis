@@ -286,6 +286,10 @@
       "groupCompanions": {
         "label": "Contar objetos del mismo encuadre",
         "description": "Los demás objetos del catálogo que estaban en el encuadre de algo fotografiado también cuentan como fotografiados. Ejemplo: fotografiar M42 también cuenta M43. Desactivar para contar solo los objetos apuntados."
+      },
+      "autoQuality": {
+        "label": "Medir la calidad de las subtomas tras importar",
+        "description": "Cada noche que recibe nuevas subtomas FITS se mide (HFR, estrellas, fondo) al terminar la importación, para que la selección esté lista para apilar."
       }
     },
     "calibration": {
