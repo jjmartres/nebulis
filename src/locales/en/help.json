@@ -26,6 +26,7 @@
     "linkedFolders": "Linked folders",
     "archive": "External archive",
     "mobileDevices": "Mobile devices",
+    "pixinsight": "PixInsight integration",
     "troubleshooting": "Troubleshooting"
   },
   "whatIsNebulis": {
@@ -508,6 +509,31 @@
     "step4Body": "Every phone, tablet, and TV you've linked shows up under Settings → Account → Devices. Each one carries its own sign-in token, so revoking a device here cuts its access immediately without touching anyone else's.",
     "step4Alt": "Settings → Account → Devices, with a Connect a device button and an empty device list",
     "step4Caption": "Settings → Account → Devices"
+  },
+  "pixinsightHelp": {
+    "title": "PixInsight integration",
+    "lead": "Nebulis features an official PixInsight integration via an embedded update repository and a native PJSR connector. Browse objects, download light subframes, manage calibrations with linked target visibility, and sync your process icons and processing projects.",
+    "step1Title": "1. Add the Repository to PixInsight",
+    "step1Desc": "Nebulis serves an official PixInsight update repository at <1>/plugins/pixinsight/</1>. Add it once to receive automated updates directly through PixInsight:",
+    "bullet1": "In PixInsight, navigate to <1>Resources → Updates → Manage Repositories</1>.",
+    "bullet2": "Click <1>Add</1>, paste your Nebulis repository URL above (make sure to include the trailing slash <3>/</3>), and click <5>OK</5>.",
+    "bullet3": "Go to <1>Resources → Updates → Check for Updates</1>. PixInsight will find the connector update. Click <3>Apply updates</3> and restart PixInsight.",
+    "bullet4": "Launch the connector from <1>Script → Nebulis → Nebulis Connector</1>.",
+    "step2Title": "2. Authenticate with an API Key",
+    "step2Desc": "The connector authenticates using user-linked API keys:",
+    "bullet5": "In your Nebulis web browser, open <1>Settings → Account → API Keys</1>.",
+    "bullet6": "Click <1>New API Key</1>, give it a descriptive name (e.g. <3>PixInsight Mac Studio</3>), and copy the key (prefixed with <5>neb-</5>).",
+    "bullet7": "In PixInsight, click the <1>⚙ Settings</1> icon in the connector header or bottom bar, paste the key into <3>Nebulis API Key</3>, and click <5>Save Settings</5>.",
+    "step3Title": "3. Connector Interface Overview",
+    "termsLabel": "Tabbed Architecture",
+    "termLibrary": "Library & Download",
+    "termLibraryDesc": "Browse your DSO targets with real-time DSO image previews, catalog identifiers, and session breakdowns (date, filter, subframes, telescope rig). Download raw light subframes directly into your local workspace folder.",
+    "termCalibration": "Calibration Library",
+    "termCalibrationDesc": "Dedicated browser for all Master Darks, Flats, Bias, and Flat-Darks across all telescopes and rigs. For Flats, the linked target object is explicitly displayed. Select any calibration sets and batch-download them to your local calibrations folder.",
+    "termProject": "Project Sync",
+    "termProjectDesc": "Two-way synchronization for your processing workflows. Export active PixInsight process icons (.xpsm) or upload master integrated images directly into the object's processing_project/ folder on Nebulis.",
+    "termSettings": "⚙ Settings Window",
+    "termSettingsDesc": "Dedicated sub-window for server connection, API key testing, download root directories, and download acceleration options."
   },
   "troubleshooting": {
     "title": "Troubleshooting",
