@@ -17,6 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { CalendarOff, Clock, NotebookPen } from 'lucide-react';
 import type { ObservationSummary } from '../../lib/api/observations';
 import type { TelescopeProfile } from '../../lib/api/telescopes';
+import type { DayPlan } from '../../lib/planNights';
+import { PlanResultInline, PlannedNightEntry } from './PlanNightBadges';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { formatDate, weekdayLabels, weekStartsOn } from '../../lib/formatLocale';
 import { nightSafeColor } from '../../lib/nightSafeColor';
@@ -33,6 +35,8 @@ export interface CalendarDay {
 interface Props {
   days: CalendarDay[];
   observationsByDate: Map<string, ObservationSummary[]>;
+  /** Plan vs actual per night (Planner blocks), when available. */
+  planByDate?: Map<string, DayPlan>;
   monthLabel: string;
   /** `YYYY-MM-DD`. */
   today: string;
@@ -67,7 +71,7 @@ function localeWeekdayHeaders(): string[] {
 }
 
 export function MonthGrid({
-  days, observationsByDate, monthLabel, today, nearestDate, onGoToNearest,
+  days, observationsByDate, planByDate, monthLabel, today, nearestDate, onGoToNearest,
   telescopeById, showTelescopeUI, obsName, formatTime,
   onExpandDay, onEntryHoverEnter, onEntryHoverLeave, onEntryClick,
   isDark, isNight, isSpace, accentText,
@@ -103,9 +107,13 @@ export function MonthGrid({
       {asAgenda ? (
       <ol>
         {visibleDays
-          .filter(d => d.isCurrentMonth && (observationsByDate.get(d.date)?.length ?? 0) > 0)
+          .filter(d => d.isCurrentMonth && (
+            (observationsByDate.get(d.date)?.length ?? 0) > 0
+            || (planByDate?.get(d.date)?.unmatched.length ?? 0) > 0
+          ))
           .map(day => {
             const dayObs = observationsByDate.get(day.date) ?? [];
+            const dayPlan = planByDate?.get(day.date);
             const weekday = formatDate(new Date(`${day.date}T12:00:00`), { weekday: 'short' });
             const isToday = day.date === today;
 
@@ -187,11 +195,17 @@ export function MonthGrid({
                               </span>
                             )}
                             {obs.fileCount > 0 && <span>{t('monthGrid.fileCount', { count: obs.fileCount })}</span>}
+                            {dayPlan?.byObject.get(obs.objectId) && (
+                              <PlanResultInline plan={dayPlan.byObject.get(obs.objectId)!} isDark={isDark} />
+                            )}
                           </span>
                         </span>
                       </Link>
                     );
                   })}
+                  {dayPlan?.unmatched.map(plan => (
+                    <PlannedNightEntry key={plan.objectId} plan={plan} isDark={isDark} compact={false} />
+                  ))}
                 </div>
               </li>
             );
@@ -219,6 +233,7 @@ export function MonthGrid({
           const dayObs = observationsByDate.get(day.date) ?? [];
           const hasObs = dayObs.length > 0;
           const isToday = day.date === today;
+          const dayPlan = planByDate?.get(day.date);
 
           return (
             <div
@@ -324,12 +339,19 @@ export function MonthGrid({
                             />
                           )}
                         </span>
-                        {obs.startTime && (
+                        {(obs.startTime || dayPlan?.byObject.has(obs.objectId)) && (
                           <span className={`flex items-center gap-1 text-[10px] tabular-nums ${
                             isDark ? 'text-slate-500' : 'text-slate-400'
                           }`}>
-                            <Clock className="h-2.5 w-2.5" />
-                            {formatTime(obs.startTime)}
+                            {obs.startTime && (
+                              <>
+                                <Clock className="h-2.5 w-2.5" />
+                                {formatTime(obs.startTime)}
+                              </>
+                            )}
+                            {dayPlan?.byObject.get(obs.objectId) && (
+                              <PlanResultInline plan={dayPlan.byObject.get(obs.objectId)!} isDark={isDark} />
+                            )}
                           </span>
                         )}
                       </span>
@@ -350,6 +372,12 @@ export function MonthGrid({
                     {t('monthGrid.moreCount', { count: dayObs.length - VISIBLE_PER_DAY })}
                   </button>
                 )}
+
+                {/* Planned in the Planner but nothing imaged that night. Only
+                    on days of this month, two at most to keep cells short. */}
+                {day.isCurrentMonth && dayPlan?.unmatched.slice(0, 2).map(plan => (
+                  <PlannedNightEntry key={plan.objectId} plan={plan} isDark={isDark} compact />
+                ))}
               </div>
             </div>
           );
