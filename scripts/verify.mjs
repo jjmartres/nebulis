@@ -142,7 +142,13 @@ const STAGES = [
     // titles under tests/backend/lab) into lab-report/results-vitest-tier1.json;
     // it is a no-op for every other test, so this always runs and tier 1 never
     // needs a separate `--reporter` pass under `--lab`.
-    command: () => [bin('vitest'), ['run', '--reporter=default', '--reporter=./tests/lab/labReporter.ts']],
+    command: () => {
+      const reporters = ['--reporter=default'];
+      if (fs.existsSync(path.resolve(ROOT, 'tests/lab/labReporter.ts'))) {
+        reporters.push('--reporter=./tests/lab/labReporter.ts');
+      }
+      return [bin('vitest'), ['run', ...reporters]];
+    },
     timeoutMs: 15 * 60 * 1000,
   },
   ...(wantE2e

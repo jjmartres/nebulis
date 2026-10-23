@@ -338,7 +338,20 @@
     "replaceTitle": "¿Sustituir el plan de {{nightLabel}}?",
     "replaceMessage_one": "Esto elimina el {{count}} objetivo ya programado para {{nightLabel}} y lo sustituye por estos {{newCount}}.",
     "replaceMessage_other": "Esto elimina los {{count}} objetivos ya programados para {{nightLabel}} y los sustituye por estos {{newCount}}.",
-    "replace": "Sustituir"
+    "replace": "Sustituir",
+    "avoidClouds": "Saltar las horas nubladas (previsión)",
+    "cloudThresholdLabel": "Límite de nubosidad",
+    "cloudThreshold": "más de {{pct}} % de nubes",
+    "forecastUnavailable": "No hay previsión para esta noche, así que el plan no tiene en cuenta el tiempo.",
+    "skippedCloudy": "Sin asignar: previsión de más de {{pct}} % de nubes",
+    "skippedRange": "{{start}}–{{end}} ({{pct}} %)",
+    "allCloudy": "La previsión está nublada durante todo el intervalo.",
+    "cloudPct": "{{pct}} % de nubes",
+    "dewRisk": "Riesgo de rocío: temperatura cercana al punto de rocío",
+    "seeingExcellent": "Seeing excelente",
+    "seeingGood": "Buen seeing",
+    "seeingAverage": "Seeing medio",
+    "seeingPoor": "Seeing malo"
   },
   "planShareModal": {
     "observationPlan": "Plan de observación",
@@ -355,5 +368,12 @@
     "preparing": "Preparando…",
     "shareImage": "Compartir imagen",
     "saveImage": "Guardar imagen"
+  },
+  "integrationRemaining": {
+    "left": "faltan {{duration}} · {{filter}}",
+    "title": "{{filter}}: {{done}} de {{goal}}",
+    "noFilter": "Sin filtro",
+    "complete": "Objetivos alcanzados",
+    "completeTitle": "Todos los objetivos de integración de este objeto se han alcanzado"
   }
 }

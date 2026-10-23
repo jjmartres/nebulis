@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateNightPlan, type PlanCandidate } from '../../server/lib/autoPlan';
+import { generateNightPlan, generateNightPlanDetailed, type PlanCandidate } from '../../server/lib/autoPlan';
 
 /**
  * Regression coverage for the web/iOS planner divergence: iOS's port of this
@@ -159,5 +159,59 @@ describe('generateNightPlan — deterministic golden output', () => {
 
     expect(second.map(b => b.target.id)).toEqual(first.map(b => b.target.id));
     expect(first.length).toBeGreaterThan(0);
+  });
+});
+
+describe('generateNightPlanDetailed — forecast', () => {
+  const base = {
+    observerLat: OBSERVER_LAT,
+    observerLon: OBSERVER_LON,
+    windowStart: WINDOW_START,
+    windowEnd: WINDOW_END,
+    slotMinutes: 60,
+    maxObjects: 2,
+    minAlt: 30,
+    moonIllumination: 0,
+    visibleSkyMap: null,
+  };
+  const quality = (cloudCover: number, seeing: number | null = 3) => ({
+    cloudCover, seeing, transparency: 3, dewRisk: false, usable: cloudCover <= 60,
+  });
+
+  it('leaves cloudy slots empty and reports them', () => {
+    const targets = [
+      candidate({ id: 'a', ra: 12, dec: HIGH_DEC }),
+      candidate({ id: 'b', ra: 13, dec: HIGH_DEC }),
+    ];
+    const { blocks, skippedSlots } = generateNightPlanDetailed({
+      ...base,
+      targets,
+      skyQuality: (start) => (start.getTime() === WINDOW_START.getTime() ? quality(90) : quality(10)),
+    });
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.start.toISOString()).toBe('2026-01-01T03:00:00.000Z');
+    expect(blocks[0]!.sky?.cloudCover).toBe(10);
+    expect(skippedSlots).toEqual([{ start: WINDOW_START, end: new Date('2026-01-01T03:00:00Z'), cloudCover: 90 }]);
+  });
+
+  it('puts the small target in the steadiest slot', () => {
+    // Same coordinates, so altitude is equal: only the seeing term differs.
+    const galaxy = candidate({ id: 'galaxy', ra: 12, dec: HIGH_DEC, type: 'Galaxy', majorAxisArcmin: 5 });
+    const nebula = candidate({ id: 'nebula', ra: 12, dec: HIGH_DEC, type: 'Emission Nebula', majorAxisArcmin: 120 });
+    const { blocks } = generateNightPlanDetailed({
+      ...base,
+      targets: [nebula, galaxy],
+      // first hour: poor seeing, second hour: excellent
+      skyQuality: (start) => (start.getTime() === WINDOW_START.getTime() ? quality(10, 5) : quality(10, 1)),
+    });
+    expect(blocks.map(b => b.target.id)).toEqual(['nebula', 'galaxy']);
+  });
+
+  it('plans exactly as before without a forecast', () => {
+    const targets = [candidate({ id: 'a', ra: 12, dec: HIGH_DEC })];
+    const withNull = generateNightPlanDetailed({ ...base, targets, skyQuality: () => null });
+    const without = generateNightPlanDetailed({ ...base, targets });
+    expect(withNull.blocks.map(b => [b.target.id, b.start.getTime()])).toEqual(without.blocks.map(b => [b.target.id, b.start.getTime()]));
+    expect(without.skippedSlots).toEqual([]);
   });
 });

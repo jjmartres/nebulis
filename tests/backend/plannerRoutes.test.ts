@@ -18,6 +18,7 @@ const TEST_DATA_DIR = vi.hoisted(() => {
 import fs from 'fs';
 import { apiEnvelope } from '../../server/middleware/apiEnvelope';
 import { plannerRouter } from '../../server/routes/planner';
+import { setForecastCacheEntry, _clearForecastCache } from '../../server/lib/forecastCache';
 
 // POST /planner/plan is called by both the web client (TS/JSON, which always
 // sends an explicit `null` for an absent optional field) and the iOS client
@@ -136,5 +137,51 @@ describe('POST /planner/verdict — same schema tolerances as /plan', () => {
       body: JSON.stringify({ items: [verdictItem], observerLat: 40, observerLon: -74, moonIllumination: 0, visibleSkyMap: [] }),
     });
     expect(res.status).toBe(200);
+  });
+});
+
+describe('POST /planner/plan — useForecast', () => {
+  function seedForecast(cloudByHour: Record<string, number>) {
+    _clearForecastCache();
+    const hourly = Object.entries(cloudByHour).map(([time, cloudCover]) => ({
+      time, cloudCover, cloudCoverLow: 0, cloudCoverMid: 0, cloudCoverHigh: 0,
+      seeing: 3, transparency: 3, humidity: 50, temperature: 10, dewPoint: 0,
+      wind: 5, visibility: null, precipProb: 0, jetStream: null, cape: null,
+    }));
+    setForecastCacheEntry({
+      data: { hourly, sources: { weather: 'open-meteo', seeing: '7timer' } },
+      fetchedAt: Date.now(), lat: 40, lon: -74,
+    });
+  }
+
+  async function plan(body: Record<string, unknown>) {
+    const res = await fetch(`${baseUrl}/planner/plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...planRequestBody(baseTarget), targets: [baseTarget, { ...baseTarget, id: 'ngc0002', ra: 13 }], maxObjects: 2, ...body }),
+    });
+    expect(res.status).toBe(200);
+    return res.json();
+  }
+
+  it('skips cloudy slots and reports them in meta.weather', async () => {
+    seedForecast({ '2026-01-01T02:00:00Z': 95, '2026-01-01T03:00:00Z': 5 });
+    const body = await plan({ useForecast: true });
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].start).toBe('2026-01-01T03:00:00.000Z');
+    expect(body.data[0].sky.cloudCover).toBe(5);
+    expect(body.meta.weather).toMatchObject({
+      requested: true, used: true, maxCloudCover: 60,
+      skippedSlots: [{ start: '2026-01-01T02:00:00.000Z', end: '2026-01-01T03:00:00.000Z', cloudCover: 95 }],
+    });
+  });
+
+  it('honours maxCloudCover and leaves the plan unchanged when useForecast is off', async () => {
+    seedForecast({ '2026-01-01T02:00:00Z': 95, '2026-01-01T03:00:00Z': 5 });
+    expect((await plan({ useForecast: true, maxCloudCover: 100 })).data).toHaveLength(2);
+    const off = await plan({});
+    expect(off.data).toHaveLength(2);
+    expect(off.data[0].sky).toBeNull();
+    expect(off.meta.weather).toMatchObject({ requested: false, used: false, skippedSlots: [] });
   });
 });

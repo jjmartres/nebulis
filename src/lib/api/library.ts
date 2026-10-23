@@ -1405,81 +1405,69 @@ export const getObjectLocation = (objectId: string, date?: string) =>
     `/library/objects/${encodeURIComponent(objectId)}/location${date ? `?date=${encodeURIComponent(date)}` : ''}`,
   );
 
-// ─── Sub-frame quality (server/lib/library/subFrameQuality.ts) ───────────────
+// ─── Integration per filter + goals ──────────────────────────────────────────
+// Mirrors server/lib/library/integration.ts. `filter: null` is the "no filter"
+// bucket (one-shot colour camera without a wheel, or no FILTER keyword).
 
-export type SubFrameGradeLevel = 'good' | 'fair' | 'poor';
-export type SubFrameFlag = 'soft' | 'very_soft' | 'few_stars' | 'very_few_stars' | 'bright_background' | 'elongated';
-
-export interface SubFrameQualityJob {
-  total: number;
-  done: number;
-  running: boolean;
-  startedAt: string;
-  finishedAt: string | null;
-  cancelled: boolean;
+export interface NightIntegration {
+  date: string;
+  frames: number;
+  exposureSec: number;
 }
 
-export interface SubFrameQualityRow {
-  relPath: string;
-  fileName: string;
+export interface FilterIntegration {
   filter: string | null;
-  exposureSec: number | null;
-  dateObs: string | null;
-  measured: boolean;
-  error: string | null;
-  stars: number | null;
-  hfr: number | null;
-  fwhm: number | null;
-  eccentricity: number | null;
-  background: number | null;
-  noise: number | null;
-  grade: SubFrameGradeLevel | null;
-  flags: SubFrameFlag[];
-  weight: number | null;
-  manual: 'accepted' | 'rejected' | null;
-  accepted: boolean;
+  frames: number;
+  exposureSec: number;
+  goalSec: number | null;
+  nights: NightIntegration[];
 }
 
-export interface SubFrameQualityReport {
+export interface IntegrationBreakdown {
   objectId: string;
-  night: string;
-  job: SubFrameQualityJob | null;
-  total: number;
-  measured: number;
-  accepted: number;
-  groups: { filter: string | null; count: number; hfr: number | null; stars: number | null }[];
-  frames: SubFrameQualityRow[];
+  totalFrames: number;
+  totalExposureSec: number;
+  unreadableFrames: number;
+  filters: FilterIntegration[];
 }
 
-const qualityBase = (objectId: string, date: string) =>
-  `/library/objects/${encodeURIComponent(objectId)}/sessions/${encodeURIComponent(date)}/quality`;
-
-export const getSubFrameQuality = (objectId: string, date: string) =>
-  fetchJSON<SubFrameQualityReport>(qualityBase(objectId, date));
-
-export const analyzeSubFrameQuality = (objectId: string, date: string, force = false) =>
-  fetchJSON<SubFrameQualityJob>(`${qualityBase(objectId, date)}/analyze`, { method: 'POST', body: JSON.stringify({ force }) });
-
-export const cancelSubFrameQuality = (objectId: string, date: string) =>
-  fetchJSON<{ cancelled: boolean }>(`${qualityBase(objectId, date)}/cancel`, { method: 'POST', body: '{}' });
-
-export const setSubFrameReview = (relPath: string, rejected: boolean | null) =>
-  fetchJSON<{ relPath: string; rejected: boolean | null }>('/library/quality/review', {
-    method: 'PUT',
-    body: JSON.stringify({ relPath, rejected }),
-  });
-
-/** Fetch the CSV with the auth header and hand it to the browser as a file. */
-export async function downloadSubFrameQualityCsv(objectId: string, date: string): Promise<void> {
-  const res = await fetch(`${BASE}${qualityBase(objectId, date)}.csv`, { headers: authHeaders() });
-  if (!res.ok) throw new Error(res.statusText);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${objectId}_${date}_subframes.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+export interface IntegrationGoal {
+  filter: string | null;
+  goalSec: number;
 }
+
+export interface FilterAlias {
+  alias: string;
+  canonical: string;
+}
+
+export const getIntegrationByFilter = (objectId: string) =>
+  fetchJSON<IntegrationBreakdown>(`/library/objects/${encodeURIComponent(objectId)}/integration/filters`);
+
+export const saveIntegrationGoals = (objectId: string, goals: IntegrationGoal[]) =>
+  fetchJSON<IntegrationGoal[]>(
+    `/library/objects/${encodeURIComponent(objectId)}/integration/goals`,
+    { method: 'PUT', body: JSON.stringify({ goals }) },
+  );
+
+export const getFilterAliases = () => fetchJSON<FilterAlias[]>('/library/filter-aliases');
+
+export const saveFilterAliases = (aliases: FilterAlias[]) =>
+  fetchJSON<FilterAlias[]>('/library/filter-aliases', { method: 'PUT', body: JSON.stringify({ aliases }) });
+
+export interface FilterRemaining {
+  filter: string | null;
+  goalSec: number;
+  exposureSec: number;
+  remainingSec: number;
+}
+
+export interface ObjectIntegrationProgress {
+  objectId: string;
+  filters: FilterRemaining[];
+  complete: boolean;
+}
+
+/** Progress toward integration goals, for every library object that has one. */
+export const getIntegrationProgress = () =>
+  fetchJSON<ObjectIntegrationProgress[]>('/library/integration/progress');
