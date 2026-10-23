@@ -109,7 +109,7 @@ export function SubframesPanel({
       {/* No title row: the selected tab immediately above already names this
           panel and carries its count, so the bar is only its controls. */}
       <div className={`flex items-center justify-end p-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex items-center gap-2">
           {isAdmin && hasFits && (
             <button
               onClick={onScanTrails}

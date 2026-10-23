@@ -8,7 +8,7 @@ import noUnguardedTimezone from './eslint-rules/no-unguarded-timezone.js'
 import noHardcodedJsxText from './eslint-rules/no-hardcoded-jsx-text.js'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'server/dist']),
+  globalIgnores(['dist', 'coverage', 'server/dist', 'integrations/**']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

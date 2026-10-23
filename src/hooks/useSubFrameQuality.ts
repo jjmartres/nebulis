@@ -50,8 +50,6 @@ export function useSubFrameReview(objectId: string, date: string) {
       await setSubFrameReview(row.relPath, rejected);
     } finally {
       await queryClient.invalidateQueries({ queryKey: key });
-      // The stacking export plan counts kept subs.
-      void queryClient.invalidateQueries({ queryKey: ['stacking-plan', objectId] });
     }
   }, [queryClient, objectId, date]);
 }
