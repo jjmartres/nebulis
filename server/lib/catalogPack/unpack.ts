@@ -21,8 +21,10 @@ import { extract } from 'tar';
 
 // Matches the exact filenames the server expects in sky-cache/:
 //   images/hubble_M1.webp, images/M1_master.jpg, descriptions.json, credits.json
+// Names may be mixed case (solar system bodies such as hubble_Amalthea.webp). The
+// character class still excludes dots and slashes, so traversal stays impossible.
 const ALLOWED_PATH_RE =
-  /^images\/(hubble_[A-Z0-9_-]+\.webp|sh2_[0-9]+_hubble_[A-Z0-9_]+\.webp|[A-Z0-9_-]+_master\.jpg)$|^(descriptions|credits)\.json$/;
+  /^images\/(hubble_[A-Za-z0-9_-]+\.webp|sh2_[0-9]+_hubble_[A-Za-z0-9_]+\.webp|[A-Za-z0-9_-]+_master\.jpg)$|^(descriptions|credits)\.json$/;
 
 export interface UnpackResult {
   /** Absolute paths of files that were written to destDir. */

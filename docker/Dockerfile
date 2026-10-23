@@ -19,9 +19,10 @@ RUN npm run build
 # @img/sharp-linux-{arch} package "just works" on Debian.
 FROM node:22-bookworm-slim
 
-# smbclient → SMB share access, ffmpeg → RTSP-to-MJPEG, wget → healthcheck.
+# smbclient → SMB share access, ffmpeg → RTSP-to-MJPEG, wget → healthcheck,
+# unzip → in-app plate-solver (ASTAP) installer.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates smbclient ffmpeg wget \
+  && apt-get install -y --no-install-recommends ca-certificates smbclient ffmpeg wget unzip \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,7 +32,7 @@ COPY package.json pnpm-lock.yaml .npmrc ./
 RUN npm install -g pnpm@10.4.0 \
   && pnpm install --frozen-lockfile --prod --config.strict-dep-builds=false \
   && pnpm rebuild better-sqlite3 sharp \
-  && pnpm add tsx
+  && pnpm add tsx@4.22.4
 
 # Copy server source (tsx runs TypeScript directly) + bundled catalog data
 COPY server/ ./server/

@@ -10,15 +10,15 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 |---|---|---|---|
 | B33 (Horsehead Nebula) | NGC2024 (Flame Nebula) | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | ESO494-026 | NGC2527 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| H20 | M71 (Messier 71) | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| H20 | M71 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | H20 | SH2-84 | 0.96 | seestar-s30-pro |
 | H21 | NGC7790 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| HCG92 (Stephan's Quintet) | NGC7331 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| HCG92 (Stephan's Quintet) | NGC7331 (Deer Lick Group) | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC59 | SH2-185 | 0.34 | all |
-| IC63 | SH2-185 | 0.10 | all |
+| IC63 (Ghost of Cassiopeia) | SH2-185 | 0.10 | all |
 | IC127 | NGC584 | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC127 | NGC596 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC166 | NGC663 | 0.98 | seestar-s30-pro |
+| IC166 | NGC663 | 0.97 | seestar-s30-pro |
 | IC166 | NGC654 | 0.99 | seestar-s30-pro |
 | IC178 | NGC752 | 1.19 | none |
 | IC179 | NGC752 | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -28,19 +28,17 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | IC343 | NGC1407 | 0.14 | all |
 | IC346 | NGC1407 | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC349 (Barnard's Merope Nebula) | M45 (Pleiades) | 0.31 | all |
-| IC410 (Tadpoles Nebula) | SH2-236 | 0.03 | all |
 | IC410 (Tadpoles Nebula) | SH2-230 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC417 (Spider Nebula) | SH2-234 | 0.01 | all |
 | IC417 (Spider Nebula) | NGC1931 (Fly Nebula) | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC417 (Spider Nebula) | NGC1907 | 0.90 | seestar-s30-pro, dwarf-2 |
 | IC417 (Spider Nebula) | SH2-230 | 1.19 | none |
-| IC420 | NGC1973 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| IC420 | NGC1973 (Running Man Nebula) | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC420 | M43 (De Mairan's Nebula) | 1.13 | none |
 | IC420 | M42 (Orion Nebula) | 1.18 | none |
 | IC427 | NGC1999 | 0.10 | all |
-| IC427 | NGC1980 | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| IC427 | NGC1980 (Lower Sword) | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC428 | NGC1999 | 0.26 | all |
-| IC428 | NGC1980 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| IC428 | NGC1980 (Lower Sword) | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC428 | M42 (Orion Nebula) | 1.10 | seestar-s30-pro |
 | IC429 | NGC1999 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC430 | NGC1999 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -65,26 +63,24 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | IC1275 | SH2-32 | 0.21 | all |
 | IC1275 | SH2-31 | 0.27 | all |
 | IC1275 | NGC6559 | 0.35 | all |
-| IC1283 | SH2-35 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| IC1283 | SH2-39 | 1.12 | seestar-s30-pro |
-| IC1284 | IC1283 | 0.13 | all |
+| IC1283 (Twiddlebug Nebula) | SH2-35 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| IC1283 (Twiddlebug Nebula) | SH2-39 | 1.12 | seestar-s30-pro |
+| IC1284 | IC1283 (Twiddlebug Nebula) | 0.13 | all |
 | IC1284 | SH2-35 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC1284 | SH2-39 | 1.04 | seestar-s30-pro |
 | IC1284 | M24 (Sagittarius Star Cloud) | 1.17 | none |
 | IC1287 | SH2-55 | 0.98 | seestar-s30-pro |
 | IC1287 | SH2-56 | 1.08 | seestar-s30-pro |
 | IC1295 | NGC6712 | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| IC1308 | NGC6822 (Barnard's Galaxy) | 0.08 | all |
+| IC1308 | NGC6822 (Barnard's Galaxy) | 0.09 | all |
 | IC1318 (Sadr Region) | SH2-108 | 0.13 | all |
 | IC1318 (Sadr Region) | NGC6910 | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC1340 | NGC6992 (Eastern Veil Nebula) | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC1369 | NGC7026 | 0.98 | seestar-s30-pro |
-| IC1396 (Elephant Trunk Nebula) | SH2-131 (Elephant's Trunk Nebula) | 0.01 | all |
 | IC1470 | SH2-156 | 0.01 | all |
 | IC1470 | NGC7510 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC1590 | NGC281 (Pacman Nebula) | 0.03 | all |
-| IC1795 (Fish Head Nebula) | SH2-190 (Heart Nebula) | 1.01 | seestar-s30-pro |
-| IC1805 (Heart Nebula) | SH2-190 (Heart Nebula) | 0.08 | all |
+| IC1795 (Fish Head Nebula) | IC1805 (Heart Nebula) | 0.93 | seestar-s30-pro |
 | IC1805 (Heart Nebula) | NGC1027 | 1.19 | none |
 | IC1831 | SH2-192 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC1831 | SH2-193 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -98,18 +94,17 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | IC1990 | M45 (Pleiades) | 0.24 | all |
 | IC2067 | NGC1579 (Northern Trifid Nebula) | 0.22 | all |
 | IC2156 | NGC2158 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| IC2156 | M35 (Messier 35) | 0.98 | seestar-s30-pro |
+| IC2156 | M35 | 0.98 | seestar-s30-pro |
 | IC2157 | NGC2158 | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| IC2157 | M35 (Messier 35) | 1.01 | seestar-s30-pro |
+| IC2157 | M35 | 1.01 | seestar-s30-pro |
 | IC2157 | NGC2129 | 1.13 | none |
-| IC2159 | SH2-252 | 0.10 | all |
+| IC2159 | NGC2174 (Monkey Head Nebula) | 0.26 | all |
 | IC2162 | SH2-255 | 0.02 | all |
 | IC2162 | SH2-257 | 0.06 | all |
 | IC2162 | SH2-256 | 0.11 | all |
 | IC2162 | SH2-258 | 0.12 | all |
 | IC2162 | SH2-254 | 0.18 | all |
 | IC2162 | SH2-259 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC2177 (Seagull Nebula) | SH2-292 (Seagull Nebula) | 0.05 | all |
 | IC2177 (Seagull Nebula) | NGC2335 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC2177 (Seagull Nebula) | SH2-296 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC2177 (Seagull Nebula) | NGC2343 | 0.87 | seestar-s30-pro, dwarf-2 |
@@ -117,21 +112,21 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | IC2177 (Seagull Nebula) | SH2-295 | 1.10 | seestar-s30-pro |
 | IC2421 | NGC2683 (UFO Galaxy) | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC2722 | NGC3628 (Hamburger Galaxy) | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| IC2722 | M65 (Messier 65) | 0.89 | seestar-s30-pro, dwarf-2 |
-| IC2722 | M66 (Messier 66) | 0.98 | seestar-s30-pro |
-| IC2872 | IC2944 (lam Cen Nebula) | 0.87 | seestar-s30-pro, dwarf-2 |
-| IC2948 | IC2944 (lam Cen Nebula) | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| IC2722 | M65 | 0.89 | seestar-s30-pro, dwarf-2 |
+| IC2722 | M66 | 0.98 | seestar-s30-pro |
+| IC2872 | IC2944 (Running Chicken Nebula) | 0.87 | seestar-s30-pro, dwarf-2 |
+| IC2948 | IC2944 (Running Chicken Nebula) | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC3055 | NGC4216 | 1.12 | seestar-s30-pro |
 | IC3121 | NGC4216 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC3121 | M99 (Coma Pinwheel Galaxy) | 1.17 | none |
 | IC3138 | NGC4216 | 1.02 | seestar-s30-pro |
 | IC3142 | M99 (Coma Pinwheel Galaxy) | 0.44 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC3142 | NGC4216 | 1.13 | none |
-| IC3258 | M84 (Messier 84) | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| IC3258 | M86 (Messier 86) | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| IC3258 | M84 | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| IC3258 | M86 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC3258 | NGC4371 | 0.83 | seestar-s30-pro, dwarf-2 |
-| IC3258 | NGC4438 | 1.11 | seestar-s30-pro |
-| IC3258 | NGC4435 | 1.13 | none |
+| IC3258 | NGC4438 (Eyes) | 1.11 | seestar-s30-pro |
+| IC3258 | NGC4435 (Eyes) | 1.13 | none |
 | IC3267 | NGC4365 | 0.29 | all |
 | IC3329 | NGC4448 | 1.17 | none |
 | IC3381 | NGC4429 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -139,26 +134,26 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | IC3381 | NGC4371 | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC3381 | M87 (Virgo A) | 0.87 | seestar-s30-pro, dwarf-2 |
 | IC3392 | NGC4419 | 0.43 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| IC3392 | M88 (Messier 88) | 0.98 | seestar-s30-pro |
+| IC3392 | M88 | 0.98 | seestar-s30-pro |
 | IC3392 | NGC4459 | 1.02 | seestar-s30-pro |
 | IC3475 | M87 (Virgo A) | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC3475 | NGC4478 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC3475 | M89 (Messier 89) | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| IC3475 | M89 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC3475 | NGC4473 | 0.96 | seestar-s30-pro |
-| IC3475 | M90 (Messier 90) | 1.08 | seestar-s30-pro |
+| IC3475 | M90 | 1.08 | seestar-s30-pro |
 | IC3475 | NGC4477 | 1.08 | seestar-s30-pro |
-| IC3476 | M88 (Messier 88) | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| IC3476 | M88 | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC3476 | NGC4477 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC3476 | M91 (Messier 91) | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| IC3476 | M91 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC3476 | NGC4459 | 0.90 | seestar-s30-pro, dwarf-2 |
 | IC3476 | NGC4473 | 0.94 | seestar-s30-pro |
 | IC3499 | NGC4564 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC3551 | NGC4559 | 0.02 | all |
+| IC3551 | NGC4559 | 0.01 | all |
 | IC3552 | NGC4559 | 0.04 | all |
 | IC3555 | NGC4559 | 0.03 | all |
 | IC3563 | NGC4559 | 0.05 | all |
-| IC3583 | M90 (Messier 90) | 0.10 | all |
-| IC3583 | M89 (Messier 89) | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| IC3583 | M90 | 0.10 | all |
+| IC3583 | M89 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC3848 | M64 (Black Eye Galaxy) | 0.98 | seestar-s30-pro |
 | IC3866 | M64 (Black Eye Galaxy) | 0.89 | seestar-s30-pro, dwarf-2 |
 | IC4182 | NGC5005 | 1.15 | none |
@@ -184,7 +179,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | IC4685 | NGC6544 | 1.10 | seestar-s30-pro |
 | IC4701 | SH2-44 | 0.09 | all |
 | IC4701 | SH2-43 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC4701 | M18 (Messier 18) | 0.93 | seestar-s30-pro |
+| IC4701 | M18 | 0.93 | seestar-s30-pro |
 | IC4701 | SH2-47 | 1.07 | seestar-s30-pro |
 | IC4701 | M17 (Omega Nebula) | 1.11 | seestar-s30-pro |
 | IC4703 (Eagle Nebula) | M16 (Eagle Nebula) | 0.05 | all |
@@ -192,131 +187,132 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | IC4706 | M17 (Omega Nebula) | 0.31 | all |
 | IC4706 | SH2-47 | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC4706 | SH2-44 | 1.03 | seestar-s30-pro |
-| IC4706 | M18 (Messier 18) | 1.07 | seestar-s30-pro |
+| IC4706 | M18 | 1.07 | seestar-s30-pro |
 | IC4707 | M17 (Omega Nebula) | 0.27 | all |
 | IC4707 | SH2-47 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC4707 | M18 (Messier 18) | 1.09 | seestar-s30-pro |
+| IC4707 | M18 | 1.09 | seestar-s30-pro |
 | IC4707 | SH2-44 | 1.09 | seestar-s30-pro |
-| IC4776 | M70 (Messier 70) | 1.19 | none |
-| IC4812 | NGC6729 | 0.20 | all |
+| IC4776 | M70 | 1.19 | none |
+| IC4812 | NGC6729 (R Coronae Australis Nebula) | 0.20 | all |
 | IC4812 | NGC6723 | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| IC4827 | NGC6752 | 0.93 | seestar-s30-pro |
-| IC4830 | NGC6752 | 0.78 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| IC4836 | NGC6752 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| IC4827 | NGC6752 (Great Peacock Globular) | 0.93 | seestar-s30-pro |
+| IC4830 | NGC6752 (Great Peacock Globular) | 0.78 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| IC4836 | NGC6752 (Great Peacock Globular) | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | IC4996 | SH2-104 | 0.85 | seestar-s30-pro, dwarf-2 |
 | IC4996 | NGC6888 (Crescent Nebula) | 1.19 | none |
 | IC5132 | NGC7142 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC5133 | NGC7142 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC5134 | NGC7142 | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | IC5378 | NGC7814 (Little Sombrero Galaxy) | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M4 (Messier 4) | NGC6144 | 0.96 | seestar-s30-pro |
-| M4 (Messier 4) | SH2-9 | 1.08 | seestar-s30-pro |
+| M4 | NGC6144 | 0.96 | seestar-s30-pro |
+| M4 | SH2-9 | 1.08 | seestar-s30-pro |
 | M6 (Butterfly Cluster) | SH2-12 | 0.99 | seestar-s30-pro |
 | M8 (Lagoon Nebula) | SH2-28 | 0.83 | seestar-s30-pro, dwarf-2 |
 | M8 (Lagoon Nebula) | NGC6544 | 1.03 | seestar-s30-pro |
-| M9 (Messier 9) | NGC6342 | 1.17 | none |
+| M9 | NGC6342 | 1.17 | none |
 | M13 (Hercules Cluster) | NGC6207 | 0.46 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | M16 (Eagle Nebula) | SH2-48 | 1.17 | none |
 | M17 (Omega Nebula) | SH2-47 | 0.92 | seestar-s30-pro |
-| M17 (Omega Nebula) | M18 (Messier 18) | 0.95 | seestar-s30-pro |
+| M17 (Omega Nebula) | M18 | 0.95 | seestar-s30-pro |
 | M17 (Omega Nebula) | SH2-44 | 1.17 | none |
-| M18 (Messier 18) | SH2-43 | 0.90 | seestar-s30-pro, dwarf-2 |
-| M18 (Messier 18) | SH2-44 | 0.91 | seestar-s30-pro |
-| M18 (Messier 18) | M17 (Omega Nebula) | 0.95 | seestar-s30-pro |
-| M20 (Trifid Nebula) | M21 (Messier 21) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M18 | SH2-43 | 0.90 | seestar-s30-pro, dwarf-2 |
+| M18 | SH2-44 | 0.91 | seestar-s30-pro |
+| M18 | M17 (Omega Nebula) | 0.95 | seestar-s30-pro |
+| M20 (Trifid Nebula) | M21 | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | M20 (Trifid Nebula) | SH2-28 | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
 | M20 (Trifid Nebula) | SH2-26 | 0.93 | seestar-s30-pro |
-| M21 (Messier 21) | M20 (Trifid Nebula) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M21 (Messier 21) | SH2-34 (Forgotten Nebula) | 0.97 | seestar-s30-pro |
-| M21 (Messier 21) | SH2-28 | 1.15 | none |
+| M21 | M20 (Trifid Nebula) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M21 | SH2-34 (Forgotten Nebula) | 0.97 | seestar-s30-pro |
+| M21 | SH2-28 | 1.15 | none |
 | M22 (Sagittarius Cluster) | NGC6642 | 1.12 | seestar-s30-pro |
 | M24 (Sagittarius Star Cloud) | SH2-39 | 0.14 | all |
 | M24 (Sagittarius Star Cloud) | SH2-41 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | M24 (Sagittarius Star Cloud) | SH2-43 | 1.12 | seestar-s30-pro |
-| M31 (Andromeda Galaxy) | M32 (Messier 32) | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M31 (Andromeda Galaxy) | M110 (Messier 110) | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M32 (Messier 32) | M31 (Andromeda Galaxy) | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M32 (Messier 32) | M110 (Messier 110) | 0.93 | seestar-s30-pro |
-| M35 (Messier 35) | NGC2158 | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M31 (Andromeda Galaxy) | M32 | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M31 (Andromeda Galaxy) | M110 | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M32 | M31 (Andromeda Galaxy) | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M32 | M110 | 0.93 | seestar-s30-pro |
+| M35 | NGC2158 | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | M36 (Pinwheel Cluster) | NGC1931 (Fly Nebula) | 1.01 | seestar-s30-pro |
 | M38 (Starfish Cluster) | NGC1907 | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | M42 (Orion Nebula) | M43 (De Mairan's Nebula) | 0.14 | all |
-| M42 (Orion Nebula) | NGC1980 | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M42 (Orion Nebula) | NGC1973 | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M42 (Orion Nebula) | NGC1980 (Lower Sword) | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M42 (Orion Nebula) | NGC1973 (Running Man Nebula) | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | M43 (De Mairan's Nebula) | M42 (Orion Nebula) | 0.14 | all |
-| M43 (De Mairan's Nebula) | NGC1973 | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M43 (De Mairan's Nebula) | NGC1980 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M46 (Messier 46) | NGC2438 | 0.08 | all |
-| M47 (Messier 47) | NGC2423 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M49 (Messier 49) | NGC4526 | 1.10 | seestar-s30-pro |
-| M49 (Messier 49) | NGC4535 | 1.15 | none |
+| M43 (De Mairan's Nebula) | NGC1973 (Running Man Nebula) | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M43 (De Mairan's Nebula) | NGC1980 (Lower Sword) | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M46 | NGC2438 | 0.08 | all |
+| M47 | NGC2423 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M49 | NGC4526 | 1.10 | seestar-s30-pro |
+| M49 | NGC4535 | 1.15 | none |
 | M51 (Whirlpool Galaxy) | NGC5195 | 0.07 | all |
-| M52 (Messier 52) | NGC7635 (Bubble Nebula) | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M52 (Messier 52) | SH2-161 | 1.14 | none |
-| M52 (Messier 52) | SH2-159 | 1.18 | none |
-| M58 (Messier 58) | NGC4564 | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M58 (Messier 58) | M89 (Messier 89) | 0.89 | seestar-s30-pro, dwarf-2 |
-| M58 (Messier 58) | M59 (Messier 59) | 1.07 | seestar-s30-pro |
-| M59 (Messier 59) | M60 (Messier 60) | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M59 (Messier 59) | NGC4660 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| M59 (Messier 59) | M58 (Messier 58) | 1.07 | seestar-s30-pro |
-| M60 (Messier 60) | M59 (Messier 59) | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M60 (Messier 60) | NGC4660 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M61 (Messier 61) | NGC4281 | 0.99 | seestar-s30-pro |
-| M61 (Messier 61) | NGC4273 | 1.00 | seestar-s30-pro |
-| M65 (Messier 65) | M66 (Messier 66) | 0.34 | all |
-| M65 (Messier 65) | NGC3628 (Hamburger Galaxy) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M65 (Messier 65) | NGC3593 | 1.09 | seestar-s30-pro |
-| M66 (Messier 66) | M65 (Messier 65) | 0.34 | all |
-| M66 (Messier 66) | NGC3628 (Hamburger Galaxy) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M71 (Messier 71) | SH2-84 | 1.18 | none |
+| M52 | NGC7635 (Bubble Nebula) | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M52 | SH2-161 | 1.14 | none |
+| M52 | SH2-159 | 1.18 | none |
+| M58 | NGC4564 | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M58 | M89 | 0.89 | seestar-s30-pro, dwarf-2 |
+| M58 | M59 | 1.07 | seestar-s30-pro |
+| M59 | M60 | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M59 | NGC4660 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| M59 | M58 | 1.07 | seestar-s30-pro |
+| M60 | M59 | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M60 | NGC4660 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M61 | NGC4281 | 0.99 | seestar-s30-pro |
+| M61 | NGC4273 | 1.00 | seestar-s30-pro |
+| M65 | M66 | 0.34 | all |
+| M65 | NGC3628 (Hamburger Galaxy) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M65 | NGC3593 | 1.09 | seestar-s30-pro |
+| M66 | M65 | 0.34 | all |
+| M66 | NGC3628 (Hamburger Galaxy) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M71 | SH2-84 | 1.18 | none |
 | M77 (Cetus A) | NGC1055 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | M81 (Bode's Galaxy) | M82 (Cigar Galaxy) | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
 | M81 (Bode's Galaxy) | NGC3077 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | M82 (Cigar Galaxy) | M81 (Bode's Galaxy) | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
 | M82 (Cigar Galaxy) | NGC3077 | 1.15 | none |
-| M84 (Messier 84) | M86 (Messier 86) | 0.28 | all |
-| M84 (Messier 84) | NGC4435 | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M84 (Messier 84) | NGC4438 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M84 (Messier 84) | NGC4371 | 1.18 | none |
-| M85 (Messier 85) | NGC4394 | 0.13 | all |
-| M85 (Messier 85) | NGC4293 | 1.01 | seestar-s30-pro |
-| M86 (Messier 86) | M84 (Messier 84) | 0.28 | all |
-| M86 (Messier 86) | NGC4435 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M86 (Messier 86) | NGC4438 | 0.39 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M86 (Messier 86) | NGC4473 | 1.00 | seestar-s30-pro |
-| M86 (Messier 86) | NGC4477 | 1.16 | none |
-| M86 (Messier 86) | NGC4478 | 1.17 | none |
+| M84 | M86 | 0.28 | all |
+| M84 | NGC4435 (Eyes) | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M84 | NGC4438 (Eyes) | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M84 | NGC4371 | 1.18 | none |
+| M85 | NGC4394 | 0.13 | all |
+| M85 | NGC4293 | 1.01 | seestar-s30-pro |
+| M86 | M84 | 0.28 | all |
+| M86 | NGC4435 (Eyes) | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M86 | NGC4438 (Eyes) | 0.39 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| M86 | NGC4473 | 1.00 | seestar-s30-pro |
+| M86 | NGC4477 | 1.16 | none |
+| M86 | NGC4478 | 1.17 | none |
 | M87 (Virgo A) | NGC4478 | 0.14 | all |
-| M87 (Virgo A) | NGC4438 | 0.97 | seestar-s30-pro |
-| M87 (Virgo A) | NGC4435 | 1.03 | seestar-s30-pro |
+| M87 (Virgo A) | NGC4438 (Eyes) | 0.97 | seestar-s30-pro |
+| M87 (Virgo A) | NGC4435 (Eyes) | 1.03 | seestar-s30-pro |
 | M87 (Virgo A) | NGC4473 | 1.07 | seestar-s30-pro |
-| M87 (Virgo A) | M89 (Messier 89) | 1.19 | none |
-| M88 (Messier 88) | M91 (Messier 91) | 0.84 | seestar-s30-pro, dwarf-2 |
-| M88 (Messier 88) | NGC4459 | 0.85 | seestar-s30-pro, dwarf-2 |
-| M88 (Messier 88) | NGC4477 | 0.92 | seestar-s30-pro |
-| M88 (Messier 88) | NGC4473 | 1.12 | seestar-s30-pro |
-| M89 (Messier 89) | M90 (Messier 90) | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M89 (Messier 89) | M58 (Messier 58) | 0.89 | seestar-s30-pro, dwarf-2 |
-| M89 (Messier 89) | NGC4564 | 1.13 | none |
-| M89 (Messier 89) | M87 (Virgo A) | 1.19 | none |
-| M90 (Messier 90) | M89 (Messier 89) | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M91 (Messier 91) | M88 (Messier 88) | 0.84 | seestar-s30-pro, dwarf-2 |
-| M95 (Messier 95) | M96 (Messier 96) | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| M96 (Messier 96) | M95 (Messier 95) | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| M96 (Messier 96) | M105 (Messier 105) | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| M96 (Messier 96) | NGC3384 | 0.89 | seestar-s30-pro, dwarf-2 |
+| M87 (Virgo A) | M89 | 1.19 | none |
+| M88 | M91 | 0.84 | seestar-s30-pro, dwarf-2 |
+| M88 | NGC4459 | 0.85 | seestar-s30-pro, dwarf-2 |
+| M88 | NGC4477 | 0.92 | seestar-s30-pro |
+| M88 | NGC4473 | 1.12 | seestar-s30-pro |
+| M89 | M90 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M89 | M58 | 0.89 | seestar-s30-pro, dwarf-2 |
+| M89 | NGC4564 | 1.13 | none |
+| M89 | M87 (Virgo A) | 1.19 | none |
+| M90 | M89 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M91 | M88 | 0.84 | seestar-s30-pro, dwarf-2 |
+| M95 | M96 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| M96 | M95 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| M96 | M105 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| M96 | NGC3384 | 0.89 | seestar-s30-pro, dwarf-2 |
 | M97 (Owl Nebula) | M108 (Surfboard Galaxy) | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| M100 (Messier 100) | NGC4350 | 0.91 | seestar-s30-pro |
+| M100 | NGC4350 | 0.91 | seestar-s30-pro |
 | M101 (Pinwheel Galaxy) | NGC5473 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| M105 (Messier 105) | NGC3384 | 0.12 | all |
-| M105 (Messier 105) | M96 (Messier 96) | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| M105 (Messier 105) | NGC3412 | 1.12 | seestar-s30-pro |
-| M106 (Messier 106) | NGC4346 | 0.83 | seestar-s30-pro, dwarf-2 |
+| M105 | NGC3384 | 0.12 | all |
+| M105 | M96 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| M105 | NGC3412 | 1.12 | seestar-s30-pro |
+| M106 | NGC4346 | 0.83 | seestar-s30-pro, dwarf-2 |
 | M108 (Surfboard Galaxy) | M97 (Owl Nebula) | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| M109 (Messier 109) | NGC3953 | 1.19 | none |
-| M110 (Messier 110) | M31 (Andromeda Galaxy) | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
-| M110 (Messier 110) | M32 (Messier 32) | 0.93 | seestar-s30-pro |
+| M109 | NGC3953 | 1.19 | none |
+| M110 | M31 (Andromeda Galaxy) | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
+| M110 | M32 | 0.93 | seestar-s30-pro |
+| MEL101 | IC2602 (Southern Pleiades) | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC103 | SH2-173 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC103 | NGC136 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC103 | SH2-172 | 1.17 | none |
@@ -339,8 +335,8 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC381 | SH2-185 | 1.16 | none |
 | NGC395 | NGC362 | 1.15 | none |
 | NGC406 | NGC362 | 1.03 | seestar-s30-pro |
-| NGC436 | NGC457 (ET Cluster) | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC457 (ET Cluster) | NGC436 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC436 | NGC457 (ET Cluster) | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC457 (ET Cluster) | NGC436 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC458 | NGC362 | 1.17 | none |
 | NGC489 | NGC524 | 0.79 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC502 | NGC524 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -363,10 +359,10 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC615 | NGC584 | 1.04 | seestar-s30-pro |
 | NGC636 | NGC615 | 1.01 | seestar-s30-pro |
 | NGC642 | NGC613 | 1.16 | none |
-| NGC654 | NGC663 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC654 | NGC663 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC659 | NGC663 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC663 | NGC659 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC663 | NGC654 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC663 | NGC654 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC770 | NGC772 | 0.06 | all |
 | NGC788 | NGC779 | 0.92 | seestar-s30-pro |
 | NGC794 | NGC772 | 0.98 | seestar-s30-pro |
@@ -374,7 +370,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC797NED02 | NGC752 | 1.19 | none |
 | NGC869 (Double Cluster (h Per)) | NGC884 (Double Cluster (χ Per)) | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC884 (Double Cluster (χ Per)) | NGC869 (Double Cluster (h Per)) | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC896 | SH2-190 (Heart Nebula) | 1.10 | seestar-s30-pro |
+| NGC896 | IC1805 (Heart Nebula) | 1.02 | seestar-s30-pro |
 | NGC899 | NGC908 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC906 | NGC891 (Silver Sliver Galaxy) | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC907 | NGC908 | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -388,7 +384,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC1027 | SH2-194 | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC1027 | SH2-192 | 0.68 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC1027 | SH2-193 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC1027 | SH2-190 (Heart Nebula) | 1.11 | seestar-s30-pro |
+| NGC1027 | IC1805 (Heart Nebula) | 1.19 | none |
 | NGC1032 | NGC1055 | 0.88 | seestar-s30-pro, dwarf-2 |
 | NGC1035 | NGC1052 | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC1042 | NGC1052 | 0.24 | all |
@@ -417,79 +413,77 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC1435 (Merope Nebula) | M45 (Pleiades) | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC1440 | NGC1407 | 1.19 | none |
 | NGC1444 | SH2-205 | 1.14 | none |
-| NGC1491 (Fossil Footprint Nebula) | SH2-206 | 0.01 | all |
 | NGC1528 | SH2-209 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC1624 | SH2-212 | 0.08 | all |
+| NGC1624 (Tribble Nebulae) | SH2-212 | 0.08 | all |
 | NGC1778 | SH2-226 | 1.14 | none |
 | NGC1778 | SH2-228 | 1.17 | none |
 | NGC1807 | NGC1817 | 0.44 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC1857 | SH2-227 | 0.39 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC1893 | SH2-236 | 0.06 | all |
+| NGC1893 | IC410 (Tadpoles Nebula) | 0.05 | all |
 | NGC1893 | SH2-230 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC1907 | M38 (Starfish Cluster) | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC1907 | SH2-234 | 0.89 | seestar-s30-pro, dwarf-2 |
-| NGC1931 (Fly Nebula) | SH2-234 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC1907 | IC417 (Spider Nebula) | 0.90 | seestar-s30-pro, dwarf-2 |
+| NGC1931 (Fly Nebula) | IC417 (Spider Nebula) | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC1931 (Fly Nebula) | M36 (Pinwheel Cluster) | 1.01 | seestar-s30-pro |
-| NGC1962 | NGC2070 (30 Dor Cluster) | 1.14 | none |
-| NGC1965 | NGC2070 (30 Dor Cluster) | 1.13 | none |
-| NGC1966 | NGC2070 (30 Dor Cluster) | 1.11 | seestar-s30-pro |
-| NGC1967 | NGC2070 (30 Dor Cluster) | 1.07 | seestar-s30-pro |
-| NGC1970 | NGC2070 (30 Dor Cluster) | 1.09 | seestar-s30-pro |
-| NGC1973 | M43 (De Mairan's Nebula) | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC1973 | M42 (Orion Nebula) | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC1973 | NGC1980 | 1.18 | none |
-| NGC1975 | NGC1973 | 0.07 | all |
+| NGC1962 | NGC2070 (Tarantula Nebula) | 1.14 | none |
+| NGC1965 | NGC2070 (Tarantula Nebula) | 1.13 | none |
+| NGC1966 | NGC2070 (Tarantula Nebula) | 1.11 | seestar-s30-pro |
+| NGC1967 | NGC2070 (Tarantula Nebula) | 1.07 | seestar-s30-pro |
+| NGC1970 | NGC2070 (Tarantula Nebula) | 1.09 | seestar-s30-pro |
+| NGC1973 (Running Man Nebula) | M43 (De Mairan's Nebula) | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC1973 (Running Man Nebula) | M42 (Orion Nebula) | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC1973 (Running Man Nebula) | NGC1980 (Lower Sword) | 1.18 | none |
+| NGC1975 | NGC1973 (Running Man Nebula) | 0.07 | all |
 | NGC1975 | M43 (De Mairan's Nebula) | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC1975 | M42 (Orion Nebula) | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC1977 (Running Man Nebula) | NGC1973 | 0.12 | all |
+| NGC1977 (Running Man Nebula) | NGC1973 (Running Man Nebula) | 0.12 | all |
 | NGC1977 (Running Man Nebula) | M43 (De Mairan's Nebula) | 0.43 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC1977 (Running Man Nebula) | M42 (Orion Nebula) | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC1977 (Running Man Nebula) | NGC1980 | 1.07 | seestar-s30-pro |
-| NGC1980 | M42 (Orion Nebula) | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC1980 | M43 (De Mairan's Nebula) | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC1980 | NGC1999 | 0.84 | seestar-s30-pro, dwarf-2 |
-| NGC1980 | NGC1973 | 1.18 | none |
-| NGC1981 (Upper Sword) | NGC1973 | 0.31 | all |
+| NGC1977 (Running Man Nebula) | NGC1980 (Lower Sword) | 1.07 | seestar-s30-pro |
+| NGC1980 (Lower Sword) | M42 (Orion Nebula) | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC1980 (Lower Sword) | M43 (De Mairan's Nebula) | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC1980 (Lower Sword) | NGC1999 | 0.84 | seestar-s30-pro, dwarf-2 |
+| NGC1980 (Lower Sword) | NGC1973 (Running Man Nebula) | 1.18 | none |
+| NGC1981 (Upper Sword) | NGC1973 (Running Man Nebula) | 0.31 | all |
 | NGC1981 (Upper Sword) | M43 (De Mairan's Nebula) | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC1981 (Upper Sword) | M42 (Orion Nebula) | 0.97 | seestar-s30-pro |
-| NGC1983 | NGC2070 (30 Dor Cluster) | 0.99 | seestar-s30-pro |
-| NGC1984 | NGC2070 (30 Dor Cluster) | 0.98 | seestar-s30-pro |
-| NGC1994 | NGC2070 (30 Dor Cluster) | 0.92 | seestar-s30-pro |
-| NGC1999 | NGC1980 | 0.84 | seestar-s30-pro, dwarf-2 |
-| NGC2005 | NGC2070 (30 Dor Cluster) | 0.99 | seestar-s30-pro |
-| NGC2009 | NGC2070 (30 Dor Cluster) | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2016 | NGC2070 (30 Dor Cluster) | 1.05 | seestar-s30-pro |
+| NGC1983 | NGC2070 (Tarantula Nebula) | 0.99 | seestar-s30-pro |
+| NGC1984 | NGC2070 (Tarantula Nebula) | 0.98 | seestar-s30-pro |
+| NGC1994 | NGC2070 (Tarantula Nebula) | 0.92 | seestar-s30-pro |
+| NGC1999 | NGC1980 (Lower Sword) | 0.84 | seestar-s30-pro, dwarf-2 |
+| NGC2005 | NGC2070 (Tarantula Nebula) | 0.99 | seestar-s30-pro |
+| NGC2009 | NGC2070 (Tarantula Nebula) | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC2016 | NGC2070 (Tarantula Nebula) | 1.05 | seestar-s30-pro |
 | NGC2023 | NGC2024 (Flame Nebula) | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC2037 | NGC2070 (30 Dor Cluster) | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2042 | NGC2070 (30 Dor Cluster) | 0.29 | all |
-| NGC2043 | NGC2070 (30 Dor Cluster) | 1.00 | seestar-s30-pro |
-| NGC2052 | NGC2070 (30 Dor Cluster) | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2058 | NGC2070 (30 Dor Cluster) | 1.07 | seestar-s30-pro |
-| NGC2060 | NGC2070 (30 Dor Cluster) | 0.11 | all |
-| NGC2064 | M78 (Messier 78) | 0.14 | all |
-| NGC2065 | NGC2070 (30 Dor Cluster) | 1.14 | none |
-| NGC2067 | M78 (Messier 78) | 0.08 | all |
-| NGC2069 | NGC2070 (30 Dor Cluster) | 0.13 | all |
-| NGC2071 | M78 (Messier 78) | 0.23 | all |
-| NGC2074 | NGC2070 (30 Dor Cluster) | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC2080 | NGC2070 (30 Dor Cluster) | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC2081 | NGC2070 (30 Dor Cluster) | 0.33 | all |
-| NGC2083 | NGC2070 (30 Dor Cluster) | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2084 | NGC2070 (30 Dor Cluster) | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2092 | NGC2070 (30 Dor Cluster) | 0.27 | all |
-| NGC2096 | NGC2070 (30 Dor Cluster) | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2098 | NGC2070 (30 Dor Cluster) | 0.90 | seestar-s30-pro, dwarf-2 |
-| NGC2100 | NGC2070 (30 Dor Cluster) | 0.33 | all |
-| NGC2102 | NGC2070 (30 Dor Cluster) | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC2113 | NGC2070 (30 Dor Cluster) | 0.89 | seestar-s30-pro, dwarf-2 |
-| NGC2125 | NGC2070 (30 Dor Cluster) | 1.14 | none |
-| NGC2127 | NGC2070 (30 Dor Cluster) | 1.15 | none |
-| NGC2158 | M35 (Messier 35) | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2037 | NGC2070 (Tarantula Nebula) | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC2042 | NGC2070 (Tarantula Nebula) | 0.29 | all |
+| NGC2043 | NGC2070 (Tarantula Nebula) | 1.00 | seestar-s30-pro |
+| NGC2052 | NGC2070 (Tarantula Nebula) | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC2058 | NGC2070 (Tarantula Nebula) | 1.07 | seestar-s30-pro |
+| NGC2060 | NGC2070 (Tarantula Nebula) | 0.11 | all |
+| NGC2064 | M78 | 0.14 | all |
+| NGC2065 | NGC2070 (Tarantula Nebula) | 1.14 | none |
+| NGC2067 | M78 | 0.08 | all |
+| NGC2069 | NGC2070 (Tarantula Nebula) | 0.13 | all |
+| NGC2071 | M78 | 0.23 | all |
+| NGC2074 | NGC2070 (Tarantula Nebula) | 0.40 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2080 | NGC2070 (Tarantula Nebula) | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2081 | NGC2070 (Tarantula Nebula) | 0.33 | all |
+| NGC2083 | NGC2070 (Tarantula Nebula) | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC2084 | NGC2070 (Tarantula Nebula) | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC2092 | NGC2070 (Tarantula Nebula) | 0.27 | all |
+| NGC2096 | NGC2070 (Tarantula Nebula) | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC2098 | NGC2070 (Tarantula Nebula) | 0.90 | seestar-s30-pro, dwarf-2 |
+| NGC2100 | NGC2070 (Tarantula Nebula) | 0.33 | all |
+| NGC2102 | NGC2070 (Tarantula Nebula) | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2113 | NGC2070 (Tarantula Nebula) | 0.89 | seestar-s30-pro, dwarf-2 |
+| NGC2125 | NGC2070 (Tarantula Nebula) | 1.14 | none |
+| NGC2127 | NGC2070 (Tarantula Nebula) | 1.15 | none |
+| NGC2158 | M35 | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC2169 (37 Cluster) | SH2-268 | 0.78 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2170 (Angel Nebula) | NGC2185 | 0.88 | seestar-s30-pro, dwarf-2 |
-| NGC2174 (Monkey Head Nebula) | SH2-252 | 0.17 | all |
 | NGC2174 (Monkey Head Nebula) | SH2-247 | 0.98 | seestar-s30-pro |
-| NGC2175 | SH2-252 | 0.01 | all |
+| NGC2175 | NGC2174 (Monkey Head Nebula) | 0.18 | all |
 | NGC2175 | SH2-247 | 1.16 | none |
 | NGC2180 | NGC2186 | 0.97 | seestar-s30-pro |
 | NGC2182 | NGC2185 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -500,22 +494,14 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC2194 | SH2-268 | 1.00 | seestar-s30-pro |
 | NGC2194 | SH2-269 | 1.03 | seestar-s30-pro |
 | NGC2219 | NGC2232 | 1.08 | seestar-s30-pro |
-| NGC2237 (Rosette Nebula) | SH2-275 (Rosette Nebula) | 0.23 | all |
-| NGC2237 (Rosette Nebula) | NGC2244 (Rosette Cluster) | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2237 (Rosette Nebula) | NGC2244 (Rosette Cluster) | 0.27 | all |
 | NGC2238 (Rosette Nebula) | NGC2237 (Rosette Nebula) | 0.07 | all |
-| NGC2238 (Rosette Nebula) | SH2-275 (Rosette Nebula) | 0.27 | all |
-| NGC2238 (Rosette Nebula) | NGC2244 (Rosette Cluster) | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC2239 | SH2-275 (Rosette Nebula) | 0.05 | all |
-| NGC2239 | NGC2244 (Rosette Cluster) | 0.14 | all |
-| NGC2239 | NGC2237 (Rosette Nebula) | 0.27 | all |
-| NGC2244 (Rosette Cluster) | SH2-275 (Rosette Nebula) | 0.18 | all |
-| NGC2244 (Rosette Cluster) | NGC2237 (Rosette Nebula) | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC2246 (Rosette B) | NGC2244 (Rosette Cluster) | 0.26 | all |
-| NGC2246 (Rosette B) | SH2-275 (Rosette Nebula) | 0.29 | all |
+| NGC2238 (Rosette Nebula) | NGC2244 (Rosette Cluster) | 0.32 | all |
+| NGC2244 (Rosette Cluster) | NGC2237 (Rosette Nebula) | 0.27 | all |
+| NGC2246 (Rosette B) | NGC2244 (Rosette Cluster) | 0.24 | all |
 | NGC2246 (Rosette B) | NGC2237 (Rosette Nebula) | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC2251 | NGC2261 (Hubble's Nebula) | 1.18 | none |
-| NGC2252 | NGC2244 (Rosette Cluster) | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2252 | SH2-275 (Rosette Nebula) | 0.87 | seestar-s30-pro, dwarf-2 |
+| NGC2252 | NGC2244 (Rosette Cluster) | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2252 | NGC2237 (Rosette Nebula) | 1.00 | seestar-s30-pro |
 | NGC2254 | NGC2251 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2259 | NGC2264 (Cone Nebula / Christmas Tree) | 1.18 | none |
@@ -528,15 +514,20 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC2309 | SH2-291 | 0.87 | seestar-s30-pro, dwarf-2 |
 | NGC2311 | SH2-287 | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC2311 | SH2-286 | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2316 | M50 (Messier 50) | 0.95 | seestar-s30-pro |
+| NGC2316 | M50 | 0.95 | seestar-s30-pro |
 | NGC2316 | SH2-291 | 1.08 | seestar-s30-pro |
-| NGC2317 | M50 (Messier 50) | 0.94 | seestar-s30-pro |
+| NGC2317 | M50 | 0.94 | seestar-s30-pro |
 | NGC2317 | SH2-291 | 1.09 | seestar-s30-pro |
+| NGC2327 | SH2-295 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2327 | SH2-296 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2327 | SH2-293 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2327 | IC2177 (Seagull Nebula) | 0.85 | seestar-s30-pro, dwarf-2 |
+| NGC2327 | SH2-297 | 1.06 | seestar-s30-pro |
 | NGC2335 | NGC2343 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2335 | SH2-292 (Seagull Nebula) | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC2335 | IC2177 (Seagull Nebula) | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2343 | NGC2335 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2343 | SH2-296 | 0.83 | seestar-s30-pro, dwarf-2 |
-| NGC2343 | SH2-292 (Seagull Nebula) | 0.92 | seestar-s30-pro |
+| NGC2343 | IC2177 (Seagull Nebula) | 0.87 | seestar-s30-pro, dwarf-2 |
 | NGC2345 | SH2-297 | 1.14 | none |
 | NGC2351 | NGC2353 | 0.33 | all |
 | NGC2352 | SH2-310 | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -548,24 +539,23 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC2409 | SH2-302 | 0.21 | all |
 | NGC2414 | SH2-300 | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC2414 | SH2-299 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2423 | M47 (Messier 47) | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC2423 | M47 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2424 | NGC2419 | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC2425 | M47 (Messier 47) | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC2425 | M46 (Messier 46) | 0.85 | seestar-s30-pro, dwarf-2 |
+| NGC2425 | M47 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2425 | M46 | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC2425 | NGC2438 | 0.87 | seestar-s30-pro, dwarf-2 |
 | NGC2425 | NGC2423 | 1.05 | seestar-s30-pro |
 | NGC2432 | NGC2440 | 0.89 | seestar-s30-pro, dwarf-2 |
-| NGC2438 | M46 (Messier 46) | 0.08 | all |
-| NGC2448 | M93 (Messier 93) | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC2520 | NGC2527 | 0.00 | all |
+| NGC2438 | M46 | 0.08 | all |
+| NGC2448 | M93 | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2567 | NGC2571 | 0.89 | seestar-s30-pro, dwarf-2 |
 | NGC2571 | NGC2567 | 0.89 | seestar-s30-pro, dwarf-2 |
 | NGC2580 | NGC2567 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2580 | NGC2571 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC2587 | NGC2571 | 1.00 | seestar-s30-pro |
 | NGC2591 | NGC2655 | 0.96 | seestar-s30-pro |
-| NGC2669 | IC2391 (omi Vel Cluster) | 0.88 | seestar-s30-pro, dwarf-2 |
-| NGC2678 | M67 (Messier 67) | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC2669 | IC2391 (Omicron Velorum Cluster) | 0.88 | seestar-s30-pro, dwarf-2 |
+| NGC2678 | M67 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC2692 | NGC2681 | 0.92 | seestar-s30-pro |
 | NGC2693 | NGC2681 | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC2715 | NGC2655 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -603,8 +593,6 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC3185 | NGC3193 | 0.27 | all |
 | NGC3187 | NGC3190 | 0.08 | all |
 | NGC3187 | NGC3193 | 0.14 | all |
-| NGC3189 | NGC3190 | 0.00 | all |
-| NGC3189 | NGC3193 | 0.10 | all |
 | NGC3190 | NGC3193 | 0.10 | all |
 | NGC3193 | NGC3190 | 0.10 | all |
 | NGC3222 | NGC3226 | 0.21 | all |
@@ -619,22 +607,22 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC3367 | NGC3384 | 1.20 | none |
 | NGC3377 | NGC3412 | 0.96 | seestar-s30-pro |
 | NGC3380 | NGC3414 | 0.92 | seestar-s30-pro |
-| NGC3384 | M105 (Messier 105) | 0.12 | all |
-| NGC3384 | M96 (Messier 96) | 0.89 | seestar-s30-pro, dwarf-2 |
+| NGC3384 | M105 | 0.12 | all |
+| NGC3384 | M96 | 0.89 | seestar-s30-pro, dwarf-2 |
 | NGC3384 | NGC3412 | 1.01 | seestar-s30-pro |
 | NGC3389 | NGC3384 | 0.11 | all |
-| NGC3389 | M105 (Messier 105) | 0.16 | all |
-| NGC3389 | M96 (Messier 96) | 0.83 | seestar-s30-pro, dwarf-2 |
+| NGC3389 | M105 | 0.16 | all |
+| NGC3389 | M96 | 0.83 | seestar-s30-pro, dwarf-2 |
 | NGC3389 | NGC3412 | 1.06 | seestar-s30-pro |
 | NGC3391 | NGC3377 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC3391 | NGC3412 | 0.94 | seestar-s30-pro |
 | NGC3396 | NGC3395 | 0.02 | all |
 | NGC3412 | NGC3377 | 0.96 | seestar-s30-pro |
 | NGC3412 | NGC3384 | 1.01 | seestar-s30-pro |
-| NGC3412 | M105 (Messier 105) | 1.12 | seestar-s30-pro |
+| NGC3412 | M105 | 1.12 | seestar-s30-pro |
 | NGC3413 | NGC3395 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC3424 | NGC3395 | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC3430 | NGC3395 | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC3430 | NGC3395 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC3442 | NGC3395 | 1.16 | none |
 | NGC3451 | NGC3414 | 1.00 | seestar-s30-pro |
 | NGC3485 | NGC3489 | 0.94 | seestar-s30-pro |
@@ -643,7 +631,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC3510 | NGC3486 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC3510 | NGC3504 | 0.92 | seestar-s30-pro |
 | NGC3512 | NGC3504 | 0.20 | all |
-| NGC3593 | M65 (Messier 65) | 1.09 | seestar-s30-pro |
+| NGC3593 | M65 | 1.09 | seestar-s30-pro |
 | NGC3598 | NGC3607 | 0.89 | seestar-s30-pro, dwarf-2 |
 | NGC3598 | NGC3608 | 0.98 | seestar-s30-pro |
 | NGC3599 | NGC3607 | 0.35 | all |
@@ -665,8 +653,8 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC3619 | NGC3610 | 1.04 | seestar-s30-pro |
 | NGC3626 | NGC3608 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC3626 | NGC3607 | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC3628 (Hamburger Galaxy) | M65 (Messier 65) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC3628 (Hamburger Galaxy) | M66 (Messier 66) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC3628 (Hamburger Galaxy) | M65 | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC3628 (Hamburger Galaxy) | M66 | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC3630 | NGC3640 | 0.34 | all |
 | NGC3641 | NGC3640 | 0.04 | all |
 | NGC3642 | NGC3610 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -699,8 +687,6 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC3893 | NGC3949 | 1.20 | none |
 | NGC3896 | NGC3893 | 0.06 | all |
 | NGC3896 | NGC3949 | 1.14 | none |
-| NGC3899 | NGC3912 | 0.00 | all |
-| NGC3899 | NGC3900 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC3900 | NGC3912 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC3912 | NGC3900 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC3913 | NGC3898 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -713,7 +699,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC3928 (Miniature Spiral) | NGC3893 | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC3928 (Miniature Spiral) | NGC3949 | 0.88 | seestar-s30-pro, dwarf-2 |
 | NGC3949 | NGC3893 | 1.20 | none |
-| NGC3953 | M109 (Messier 109) | 1.19 | none |
+| NGC3953 | M109 | 1.19 | none |
 | NGC3972 | NGC3982 | 0.22 | all |
 | NGC3972 | NGC3998 | 0.34 | all |
 | NGC3972 | NGC3898 | 1.19 | none |
@@ -771,19 +757,19 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4206 | NGC4216 | 0.20 | all |
 | NGC4208 | NGC4216 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4208 | M99 (Coma Pinwheel Galaxy) | 0.93 | seestar-s30-pro |
-| NGC4208 | M98 (Messier 98) | 1.09 | seestar-s30-pro |
+| NGC4208 | M98 | 1.09 | seestar-s30-pro |
 | NGC4215 | NGC4261 | 1.04 | seestar-s30-pro |
-| NGC4217 | M106 (Messier 106) | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4218 | M106 (Messier 106) | 0.99 | seestar-s30-pro |
-| NGC4220 | M106 (Messier 106) | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4217 | M106 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4218 | M106 | 0.99 | seestar-s30-pro |
+| NGC4220 | M106 | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4223 | NGC4261 | 0.99 | seestar-s30-pro |
-| NGC4237 | M98 (Messier 98) | 0.92 | seestar-s30-pro |
+| NGC4237 | M98 | 0.92 | seestar-s30-pro |
 | NGC4237 | M99 (Coma Pinwheel Galaxy) | 0.99 | seestar-s30-pro |
 | NGC4241 | NGC4261 | 0.90 | seestar-s30-pro, dwarf-2 |
 | NGC4245 | NGC4274 | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4245 | NGC4278 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4245 | NGC4314 | 1.11 | seestar-s30-pro |
-| NGC4248 | M106 (Messier 106) | 0.22 | all |
+| NGC4248 | M106 | 0.22 | all |
 | NGC4248 | NGC4346 | 1.04 | seestar-s30-pro |
 | NGC4251 | NGC4278 | 1.19 | none |
 | NGC4253 | NGC4245 | 0.27 | all |
@@ -792,7 +778,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4253 | NGC4314 | 0.89 | seestar-s30-pro, dwarf-2 |
 | NGC4255 | NGC4273 | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4255 | NGC4281 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4255 | M61 (Messier 61) | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4255 | M61 | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4255 | NGC4261 | 1.05 | seestar-s30-pro |
 | NGC4260 | NGC4261 | 0.27 | all |
 | NGC4260 | NGC4281 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -806,22 +792,22 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4266 | NGC4273 | 0.20 | all |
 | NGC4266 | NGC4281 | 0.22 | all |
 | NGC4266 | NGC4261 | 0.30 | all |
-| NGC4266 | M61 (Messier 61) | 1.20 | none |
+| NGC4266 | M61 | 1.20 | none |
 | NGC4267 | NGC4216 | 1.00 | seestar-s30-pro |
 | NGC4268 | NGC4273 | 0.07 | all |
 | NGC4268 | NGC4281 | 0.18 | all |
 | NGC4268 | NGC4261 | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4268 | M61 (Messier 61) | 0.97 | seestar-s30-pro |
+| NGC4268 | M61 | 0.97 | seestar-s30-pro |
 | NGC4269 | NGC4261 | 0.22 | all |
 | NGC4269 | NGC4281 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4269 | NGC4273 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4270 | NGC4273 | 0.12 | all |
 | NGC4270 | NGC4281 | 0.15 | all |
 | NGC4270 | NGC4261 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4270 | M61 (Messier 61) | 1.12 | seestar-s30-pro |
+| NGC4270 | M61 | 1.12 | seestar-s30-pro |
 | NGC4273 | NGC4281 | 0.11 | all |
 | NGC4273 | NGC4261 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4273 | M61 (Messier 61) | 1.00 | seestar-s30-pro |
+| NGC4273 | M61 | 1.00 | seestar-s30-pro |
 | NGC4274 | NGC4278 | 0.34 | all |
 | NGC4274 | NGC4245 | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4274 | NGC4314 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -829,25 +815,25 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4277 | NGC4273 | 0.03 | all |
 | NGC4277 | NGC4281 | 0.09 | all |
 | NGC4277 | NGC4261 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4277 | M61 (Messier 61) | 0.98 | seestar-s30-pro |
+| NGC4277 | M61 | 0.98 | seestar-s30-pro |
 | NGC4278 | NGC4274 | 0.34 | all |
 | NGC4278 | NGC4245 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4278 | NGC4314 | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4278 | NGC4251 | 1.19 | none |
 | NGC4281 | NGC4273 | 0.11 | all |
 | NGC4281 | NGC4261 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4281 | M61 (Messier 61) | 0.99 | seestar-s30-pro |
+| NGC4281 | M61 | 0.99 | seestar-s30-pro |
 | NGC4283 | NGC4278 | 0.06 | all |
 | NGC4283 | NGC4274 | 0.32 | all |
 | NGC4283 | NGC4245 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4283 | NGC4314 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4288 | NGC4346 | 0.85 | seestar-s30-pro, dwarf-2 |
-| NGC4288 | M106 (Messier 106) | 1.05 | seestar-s30-pro |
+| NGC4288 | M106 | 1.05 | seestar-s30-pro |
 | NGC4290 | M40 (Winnecke 4) | 0.20 | all |
-| NGC4292 | M61 (Messier 61) | 0.20 | all |
+| NGC4292 | M61 | 0.20 | all |
 | NGC4292 | NGC4273 | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4292 | NGC4281 | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4293 | M85 (Messier 85) | 1.01 | seestar-s30-pro |
+| NGC4293 | M85 | 1.01 | seestar-s30-pro |
 | NGC4293 | NGC4394 | 1.13 | none |
 | NGC4294 | NGC4371 | 0.91 | seestar-s30-pro |
 | NGC4297 | NGC4261 | 0.99 | seestar-s30-pro |
@@ -857,13 +843,13 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4300 | NGC4281 | 0.33 | all |
 | NGC4300 | NGC4273 | 0.44 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4300 | NGC4261 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4300 | M61 (Messier 61) | 0.91 | seestar-s30-pro |
-| NGC4301 | M61 (Messier 61) | 0.16 | all |
+| NGC4300 | M61 | 0.91 | seestar-s30-pro |
+| NGC4301 | M61 | 0.16 | all |
 | NGC4301 | NGC4281 | 0.97 | seestar-s30-pro |
 | NGC4301 | NGC4273 | 1.00 | seestar-s30-pro |
 | NGC4302 | M99 (Coma Pinwheel Galaxy) | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4305 | M84 (Messier 84) | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4305 | M86 (Messier 86) | 1.03 | seestar-s30-pro |
+| NGC4305 | M84 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4305 | M86 | 1.03 | seestar-s30-pro |
 | NGC4308 | NGC4314 | 0.22 | all |
 | NGC4308 | NGC4274 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4308 | NGC4278 | 0.89 | seestar-s30-pro, dwarf-2 |
@@ -872,7 +858,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4310 | NGC4314 | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4310 | NGC4274 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4310 | NGC4245 | 1.12 | seestar-s30-pro |
-| NGC4312 | M100 (Messier 100) | 0.30 | all |
+| NGC4312 | M100 | 0.30 | all |
 | NGC4312 | NGC4419 | 1.17 | none |
 | NGC4313 | NGC4371 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4314 | NGC4274 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -880,7 +866,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4314 | NGC4245 | 1.11 | seestar-s30-pro |
 | NGC4324 | NGC4281 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4324 | NGC4273 | 0.79 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4324 | M61 (Messier 61) | 0.83 | seestar-s30-pro, dwarf-2 |
+| NGC4324 | M61 | 0.83 | seestar-s30-pro, dwarf-2 |
 | NGC4324 | NGC4261 | 1.09 | seestar-s30-pro |
 | NGC4325 | NGC4371 | 1.17 | none |
 | NGC4325 | NGC4429 | 1.17 | none |
@@ -891,90 +877,90 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4339 | NGC4261 | 1.07 | seestar-s30-pro |
 | NGC4339 | NGC4273 | 1.17 | none |
 | NGC4340 | NGC4350 | 0.09 | all |
-| NGC4340 | M100 (Messier 100) | 0.92 | seestar-s30-pro |
+| NGC4340 | M100 | 0.91 | seestar-s30-pro |
 | NGC4341 | NGC4365 | 0.25 | all |
 | NGC4342 | NGC4365 | 0.33 | all |
 | NGC4343 | NGC4365 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4344 | M85 (Messier 85) | 0.78 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4344 | M85 | 0.78 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4344 | NGC4350 | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC4344 | NGC4394 | 0.87 | seestar-s30-pro, dwarf-2 |
 | NGC4344 | NGC4293 | 1.02 | seestar-s30-pro |
-| NGC4346 | M106 (Messier 106) | 0.83 | seestar-s30-pro, dwarf-2 |
-| NGC4350 | M100 (Messier 100) | 0.91 | seestar-s30-pro |
+| NGC4346 | M106 | 0.83 | seestar-s30-pro, dwarf-2 |
+| NGC4350 | M100 | 0.91 | seestar-s30-pro |
 | NGC4350 | NGC4450 | 1.15 | none |
 | NGC4351 | NGC4371 | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4351 | M84 (Messier 84) | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4351 | M86 (Messier 86) | 0.91 | seestar-s30-pro |
+| NGC4351 | M84 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4351 | M86 | 0.91 | seestar-s30-pro |
 | NGC4352 | NGC4371 | 0.53 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4352 | NGC4429 | 0.83 | seestar-s30-pro, dwarf-2 |
 | NGC4353 | NGC4365 | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4360 | NGC4442 | 1.05 | seestar-s30-pro |
 | NGC4371 | NGC4429 | 0.86 | seestar-s30-pro, dwarf-2 |
-| NGC4371 | M84 (Messier 84) | 1.18 | none |
+| NGC4371 | M84 | 1.18 | none |
 | NGC4377 | NGC4419 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4377 | M100 (Messier 100) | 1.20 | none |
-| NGC4378 | M61 (Messier 61) | 0.96 | seestar-s30-pro |
-| NGC4379 | M100 (Messier 100) | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4377 | M100 | 1.20 | none |
+| NGC4378 | M61 | 0.96 | seestar-s30-pro |
+| NGC4379 | M100 | 0.60 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4379 | NGC4419 | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4379 | NGC4350 | 1.13 | none |
 | NGC4380 | NGC4442 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4383 | NGC4350 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4383 | M100 (Messier 100) | 0.89 | seestar-s30-pro, dwarf-2 |
+| NGC4383 | M100 | 0.89 | seestar-s30-pro, dwarf-2 |
 | NGC4383 | NGC4450 | 0.96 | seestar-s30-pro |
-| NGC4387 | M84 (Messier 84) | 0.17 | all |
-| NGC4387 | M86 (Messier 86) | 0.18 | all |
-| NGC4387 | NGC4438 | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4387 | NGC4435 | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4387 | M84 | 0.17 | all |
+| NGC4387 | M86 | 0.18 | all |
+| NGC4387 | NGC4438 (Eyes) | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4387 | NGC4435 (Eyes) | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4387 | NGC4371 | 1.12 | seestar-s30-pro |
 | NGC4387 | NGC4473 | 1.18 | none |
-| NGC4388 | M84 (Messier 84) | 0.28 | all |
-| NGC4388 | M86 (Messier 86) | 0.30 | all |
-| NGC4388 | NGC4438 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4388 | NGC4435 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4388 | M84 | 0.28 | all |
+| NGC4388 | M86 | 0.30 | all |
+| NGC4388 | NGC4438 (Eyes) | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4388 | NGC4435 (Eyes) | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4388 | NGC4371 | 0.98 | seestar-s30-pro |
 | NGC4388 | NGC4478 | 1.15 | none |
 | NGC4390 | NGC4429 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4390 | NGC4442 | 0.85 | seestar-s30-pro, dwarf-2 |
-| NGC4394 | M85 (Messier 85) | 0.13 | all |
+| NGC4394 | M85 | 0.13 | all |
 | NGC4394 | NGC4293 | 1.13 | none |
 | NGC4396 | NGC4419 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4396 | M100 (Messier 100) | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4396 | M100 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4396 | NGC4350 | 1.13 | none |
-| NGC4402 | M86 (Messier 86) | 0.17 | all |
-| NGC4402 | M84 (Messier 84) | 0.34 | all |
-| NGC4402 | NGC4435 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4402 | NGC4438 | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4402 | M86 | 0.17 | all |
+| NGC4402 | M84 | 0.34 | all |
+| NGC4402 | NGC4435 (Eyes) | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4402 | NGC4438 (Eyes) | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4402 | NGC4473 | 0.95 | seestar-s30-pro |
 | NGC4402 | NGC4477 | 1.09 | seestar-s30-pro |
 | NGC4402 | NGC4459 | 1.11 | seestar-s30-pro |
 | NGC4405 | NGC4350 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4405 | M100 (Messier 100) | 0.85 | seestar-s30-pro, dwarf-2 |
+| NGC4405 | M100 | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC4405 | NGC4450 | 1.07 | seestar-s30-pro |
 | NGC4405 | NGC4419 | 1.15 | none |
-| NGC4407 | M86 (Messier 86) | 0.35 | all |
-| NGC4407 | M84 (Messier 84) | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4407 | NGC4438 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4407 | NGC4435 | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4407 | M86 | 0.35 | all |
+| NGC4407 | M84 | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4407 | NGC4438 (Eyes) | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4407 | NGC4435 (Eyes) | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4407 | NGC4478 | 0.96 | seestar-s30-pro |
 | NGC4407 | NGC4371 | 0.99 | seestar-s30-pro |
 | NGC4407 | M87 (Virgo A) | 1.07 | seestar-s30-pro |
 | NGC4407 | NGC4473 | 1.14 | none |
 | NGC4410 | NGC4442 | 0.88 | seestar-s30-pro, dwarf-2 |
 | NGC4411 | NGC4442 | 1.01 | seestar-s30-pro |
-| NGC4411 | M49 (Messier 49) | 1.19 | none |
+| NGC4411 | M49 | 1.19 | none |
 | NGC4411B | NGC4442 | 0.97 | seestar-s30-pro |
-| NGC4411B | M49 (Messier 49) | 1.15 | none |
-| NGC4416 | M49 (Messier 49) | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4411B | M49 | 1.15 | none |
+| NGC4416 | M49 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4416 | NGC4365 | 0.83 | seestar-s30-pro, dwarf-2 |
 | NGC4417 | NGC4442 | 0.37 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4419 | NGC4459 | 1.18 | none |
 | NGC4421 | NGC4419 | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4421 | M100 (Messier 100) | 1.06 | seestar-s30-pro |
+| NGC4421 | M100 | 1.06 | seestar-s30-pro |
 | NGC4424 | NGC4442 | 0.44 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4425 | NGC4438 | 0.30 | all |
-| NGC4425 | M86 (Messier 86) | 0.33 | all |
-| NGC4425 | NGC4435 | 0.36 | all |
-| NGC4425 | M84 (Messier 84) | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4425 | NGC4438 (Eyes) | 0.30 | all |
+| NGC4425 | M86 | 0.33 | all |
+| NGC4425 | NGC4435 (Eyes) | 0.36 | all |
+| NGC4425 | M84 | 0.55 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4425 | NGC4478 | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC4425 | M87 (Virgo A) | 0.94 | seestar-s30-pro |
 | NGC4425 | NGC4473 | 0.94 | seestar-s30-pro |
@@ -982,44 +968,44 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4425 | NGC4371 | 1.17 | none |
 | NGC4429 | NGC4371 | 0.86 | seestar-s30-pro, dwarf-2 |
 | NGC4431 | NGC4478 | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4431 | M86 (Messier 86) | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4431 | NGC4438 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4431 | NGC4435 | 0.79 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4431 | M86 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4431 | NGC4438 (Eyes) | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4431 | NGC4435 (Eyes) | 0.79 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4431 | M87 (Virgo A) | 0.83 | seestar-s30-pro, dwarf-2 |
-| NGC4431 | M84 (Messier 84) | 0.84 | seestar-s30-pro, dwarf-2 |
+| NGC4431 | M84 | 0.84 | seestar-s30-pro, dwarf-2 |
 | NGC4431 | NGC4371 | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC4431 | NGC4429 | 1.18 | none |
-| NGC4434 | M49 (Messier 49) | 0.56 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4434 | M49 | 0.56 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4434 | NGC4365 | 1.14 | none |
-| NGC4435 | NGC4438 | 0.07 | all |
-| NGC4435 | M86 (Messier 86) | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4435 | NGC4473 | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4435 | M84 (Messier 84) | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4435 | NGC4477 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4435 | NGC4459 | 0.96 | seestar-s30-pro |
-| NGC4435 | NGC4478 | 0.98 | seestar-s30-pro |
-| NGC4435 | M87 (Virgo A) | 1.03 | seestar-s30-pro |
+| NGC4435 (Eyes) | NGC4438 (Eyes) | 0.07 | all |
+| NGC4435 (Eyes) | M86 | 0.38 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4435 (Eyes) | NGC4473 | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4435 (Eyes) | M84 | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4435 (Eyes) | NGC4477 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4435 (Eyes) | NGC4459 | 0.96 | seestar-s30-pro |
+| NGC4435 (Eyes) | NGC4478 | 0.98 | seestar-s30-pro |
+| NGC4435 (Eyes) | M87 (Virgo A) | 1.03 | seestar-s30-pro |
 | NGC4436 | NGC4478 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4436 | NGC4438 | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4436 | M86 (Messier 86) | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4436 | NGC4435 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4436 | NGC4438 (Eyes) | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4436 | M86 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4436 | NGC4435 (Eyes) | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4436 | M87 (Virgo A) | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4436 | M84 (Messier 84) | 0.86 | seestar-s30-pro, dwarf-2 |
+| NGC4436 | M84 | 0.86 | seestar-s30-pro, dwarf-2 |
 | NGC4436 | NGC4371 | 0.91 | seestar-s30-pro |
-| NGC4438 | NGC4435 | 0.07 | all |
-| NGC4438 | M86 (Messier 86) | 0.39 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4438 | NGC4473 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4438 | M84 (Messier 84) | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4438 | NGC4477 | 0.84 | seestar-s30-pro, dwarf-2 |
-| NGC4438 | NGC4478 | 0.92 | seestar-s30-pro |
-| NGC4438 | M87 (Virgo A) | 0.97 | seestar-s30-pro |
-| NGC4438 | NGC4459 | 1.02 | seestar-s30-pro |
+| NGC4438 (Eyes) | NGC4435 (Eyes) | 0.07 | all |
+| NGC4438 (Eyes) | M86 | 0.39 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4438 (Eyes) | NGC4473 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4438 (Eyes) | M84 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4438 (Eyes) | NGC4477 | 0.84 | seestar-s30-pro, dwarf-2 |
+| NGC4438 (Eyes) | NGC4478 | 0.92 | seestar-s30-pro |
+| NGC4438 (Eyes) | M87 (Virgo A) | 0.97 | seestar-s30-pro |
+| NGC4438 (Eyes) | NGC4459 | 1.02 | seestar-s30-pro |
 | NGC4440 | NGC4478 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4440 | M87 (Virgo A) | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4440 | NGC4438 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4440 | M86 (Messier 86) | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4440 | NGC4435 | 0.79 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4440 | M84 (Messier 84) | 0.91 | seestar-s30-pro |
+| NGC4440 | NGC4438 (Eyes) | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4440 | M86 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4440 | NGC4435 (Eyes) | 0.79 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4440 | M84 | 0.91 | seestar-s30-pro |
 | NGC4440 | NGC4371 | 0.94 | seestar-s30-pro |
 | NGC4440 | NGC4429 | 1.19 | none |
 | NGC4445 | NGC4442 | 0.37 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -1030,106 +1016,107 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4452 | M87 (Virgo A) | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4452 | NGC4371 | 0.93 | seestar-s30-pro |
 | NGC4458 | NGC4473 | 0.28 | all |
-| NGC4458 | NGC4435 | 0.35 | all |
-| NGC4458 | NGC4438 | 0.37 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4458 | NGC4435 (Eyes) | 0.35 | all |
+| NGC4458 | NGC4438 (Eyes) | 0.37 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4458 | NGC4477 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4458 | M86 (Messier 86) | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4458 | M86 | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4458 | NGC4459 | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4458 | M87 (Virgo A) | 0.96 | seestar-s30-pro |
 | NGC4458 | NGC4478 | 0.97 | seestar-s30-pro |
-| NGC4458 | M84 (Messier 84) | 1.01 | seestar-s30-pro |
+| NGC4458 | M84 | 1.01 | seestar-s30-pro |
 | NGC4459 | NGC4477 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4459 | NGC4473 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4459 | M88 (Messier 88) | 0.85 | seestar-s30-pro, dwarf-2 |
-| NGC4459 | NGC4435 | 0.96 | seestar-s30-pro |
-| NGC4459 | NGC4438 | 1.02 | seestar-s30-pro |
+| NGC4459 | M88 | 0.85 | seestar-s30-pro, dwarf-2 |
+| NGC4459 | NGC4435 (Eyes) | 0.96 | seestar-s30-pro |
+| NGC4459 | NGC4438 (Eyes) | 1.02 | seestar-s30-pro |
 | NGC4459 | NGC4419 | 1.18 | none |
 | NGC4460 | NGC4449 | 0.78 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4461 | NGC4473 | 0.31 | all |
-| NGC4461 | NGC4435 | 0.35 | all |
-| NGC4461 | NGC4438 | 0.36 | all |
+| NGC4461 | NGC4435 (Eyes) | 0.35 | all |
+| NGC4461 | NGC4438 (Eyes) | 0.36 | all |
 | NGC4461 | NGC4477 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4461 | M86 (Messier 86) | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4461 | M86 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4461 | NGC4459 | 0.79 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4461 | M87 (Virgo A) | 0.90 | seestar-s30-pro, dwarf-2 |
 | NGC4461 | NGC4478 | 0.91 | seestar-s30-pro |
-| NGC4461 | M84 (Messier 84) | 1.02 | seestar-s30-pro |
-| NGC4464 | M49 (Messier 49) | 0.19 | all |
+| NGC4461 | M84 | 1.02 | seestar-s30-pro |
+| NGC4463 | C99 | 1.06 | seestar-s30-pro |
+| NGC4464 | M49 | 0.19 | all |
 | NGC4468 | NGC4459 | 0.14 | all |
 | NGC4468 | NGC4477 | 0.43 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4468 | NGC4473 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4468 | M88 (Messier 88) | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4468 | NGC4435 | 1.07 | seestar-s30-pro |
-| NGC4468 | NGC4438 | 1.12 | seestar-s30-pro |
+| NGC4468 | M88 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4468 | NGC4435 (Eyes) | 1.07 | seestar-s30-pro |
+| NGC4468 | NGC4438 (Eyes) | 1.12 | seestar-s30-pro |
 | NGC4468 | NGC4419 | 1.18 | none |
-| NGC4469 | M49 (Messier 49) | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4469 | M49 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4469 | NGC4442 | 1.11 | seestar-s30-pro |
-| NGC4470 | M49 (Messier 49) | 0.18 | all |
+| NGC4470 | M49 | 0.18 | all |
 | NGC4470 | NGC4526 | 1.10 | seestar-s30-pro |
 | NGC4473 | NGC4477 | 0.21 | all |
 | NGC4473 | NGC4459 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4473 | NGC4435 | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4473 | NGC4438 | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4473 | M86 (Messier 86) | 1.00 | seestar-s30-pro |
+| NGC4473 | NGC4435 (Eyes) | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4473 | NGC4438 (Eyes) | 0.65 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4473 | M86 | 1.00 | seestar-s30-pro |
 | NGC4473 | M87 (Virgo A) | 1.07 | seestar-s30-pro |
 | NGC4473 | NGC4478 | 1.11 | seestar-s30-pro |
-| NGC4473 | M88 (Messier 88) | 1.12 | seestar-s30-pro |
+| NGC4473 | M88 | 1.12 | seestar-s30-pro |
 | NGC4474 | NGC4459 | 0.23 | all |
 | NGC4474 | NGC4477 | 0.43 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4474 | M88 (Messier 88) | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4474 | M88 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4474 | NGC4473 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4474 | NGC4435 | 1.13 | none |
-| NGC4474 | NGC4438 | 1.18 | none |
+| NGC4474 | NGC4435 (Eyes) | 1.13 | none |
+| NGC4474 | NGC4438 (Eyes) | 1.18 | none |
 | NGC4476 | NGC4478 | 0.08 | all |
 | NGC4476 | M87 (Virgo A) | 0.21 | all |
-| NGC4476 | NGC4438 | 0.85 | seestar-s30-pro, dwarf-2 |
-| NGC4476 | NGC4435 | 0.92 | seestar-s30-pro |
+| NGC4476 | NGC4438 (Eyes) | 0.85 | seestar-s30-pro, dwarf-2 |
+| NGC4476 | NGC4435 (Eyes) | 0.92 | seestar-s30-pro |
 | NGC4476 | NGC4473 | 1.08 | seestar-s30-pro |
-| NGC4476 | M86 (Messier 86) | 1.10 | seestar-s30-pro |
+| NGC4476 | M86 | 1.10 | seestar-s30-pro |
 | NGC4477 | NGC4473 | 0.21 | all |
 | NGC4477 | NGC4459 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4477 | NGC4435 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4477 | NGC4438 | 0.84 | seestar-s30-pro, dwarf-2 |
-| NGC4477 | M88 (Messier 88) | 0.92 | seestar-s30-pro |
-| NGC4477 | M86 (Messier 86) | 1.16 | none |
+| NGC4477 | NGC4435 (Eyes) | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4477 | NGC4438 (Eyes) | 0.84 | seestar-s30-pro, dwarf-2 |
+| NGC4477 | M88 | 0.92 | seestar-s30-pro |
+| NGC4477 | M86 | 1.16 | none |
 | NGC4478 | M87 (Virgo A) | 0.14 | all |
-| NGC4478 | NGC4438 | 0.92 | seestar-s30-pro |
-| NGC4478 | NGC4435 | 0.98 | seestar-s30-pro |
+| NGC4478 | NGC4438 (Eyes) | 0.92 | seestar-s30-pro |
+| NGC4478 | NGC4435 (Eyes) | 0.98 | seestar-s30-pro |
 | NGC4478 | NGC4473 | 1.11 | seestar-s30-pro |
-| NGC4478 | M86 (Messier 86) | 1.17 | none |
+| NGC4478 | M86 | 1.17 | none |
 | NGC4479 | NGC4477 | 0.09 | all |
 | NGC4479 | NGC4473 | 0.19 | all |
 | NGC4479 | NGC4459 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4479 | NGC4435 | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4479 | NGC4438 | 0.84 | seestar-s30-pro, dwarf-2 |
-| NGC4479 | M88 (Messier 88) | 0.94 | seestar-s30-pro |
-| NGC4479 | M86 (Messier 86) | 1.18 | none |
+| NGC4479 | NGC4435 (Eyes) | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4479 | NGC4438 (Eyes) | 0.84 | seestar-s30-pro, dwarf-2 |
+| NGC4479 | M88 | 0.94 | seestar-s30-pro |
+| NGC4479 | M86 | 1.18 | none |
 | NGC4479 | M87 (Virgo A) | 1.19 | none |
 | NGC4482 | NGC4429 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4482 | NGC4442 | 1.10 | seestar-s30-pro |
 | NGC4483 | NGC4442 | 1.02 | seestar-s30-pro |
-| NGC4483 | M49 (Messier 49) | 1.04 | seestar-s30-pro |
+| NGC4483 | M49 | 1.04 | seestar-s30-pro |
 | NGC4486A | M87 (Virgo A) | 0.13 | all |
 | NGC4486A | NGC4478 | 0.17 | all |
-| NGC4486A | NGC4438 | 1.07 | seestar-s30-pro |
-| NGC4486A | NGC4435 | 1.14 | none |
-| NGC4486A | M89 (Messier 89) | 1.18 | none |
+| NGC4486A | NGC4438 (Eyes) | 1.07 | seestar-s30-pro |
+| NGC4486A | NGC4435 (Eyes) | 1.14 | none |
+| NGC4486A | M89 | 1.18 | none |
 | NGC4486A | NGC4473 | 1.19 | none |
 | NGC4486B | M87 (Virgo A) | 0.12 | all |
 | NGC4486B | NGC4478 | 0.17 | all |
-| NGC4486B | NGC4438 | 0.85 | seestar-s30-pro, dwarf-2 |
-| NGC4486B | NGC4435 | 0.91 | seestar-s30-pro |
+| NGC4486B | NGC4438 (Eyes) | 0.85 | seestar-s30-pro, dwarf-2 |
+| NGC4486B | NGC4435 (Eyes) | 0.91 | seestar-s30-pro |
 | NGC4486B | NGC4473 | 0.96 | seestar-s30-pro |
-| NGC4486B | M86 (Messier 86) | 1.15 | none |
+| NGC4486B | M86 | 1.15 | none |
 | NGC4486B | NGC4477 | 1.15 | none |
-| NGC4488 | M49 (Messier 49) | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4488 | M49 | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4488 | NGC4535 | 0.88 | seestar-s30-pro, dwarf-2 |
 | NGC4488 | NGC4526 | 1.03 | seestar-s30-pro |
 | NGC4489 | NGC4450 | 0.66 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4491 | NGC4478 | 0.86 | seestar-s30-pro, dwarf-2 |
 | NGC4491 | M87 (Virgo A) | 0.91 | seestar-s30-pro |
 | NGC4491 | NGC4429 | 0.94 | seestar-s30-pro |
-| NGC4492 | M49 (Messier 49) | 0.31 | all |
+| NGC4492 | M49 | 0.31 | all |
 | NGC4492 | NGC4535 | 0.84 | seestar-s30-pro, dwarf-2 |
 | NGC4492 | NGC4526 | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC4494 | NGC4565 (Needle Galaxy) | 1.13 | none |
@@ -1142,59 +1129,59 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4503 | NGC4429 | 1.15 | none |
 | NGC4519 | NGC4535 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4519 | NGC4526 | 0.96 | seestar-s30-pro |
-| NGC4519 | M49 (Messier 49) | 1.13 | none |
+| NGC4519 | M49 | 1.13 | none |
 | NGC4522 | NGC4535 | 0.99 | seestar-s30-pro |
 | NGC4526 | NGC4535 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4526 | NGC4570 | 0.84 | seestar-s30-pro, dwarf-2 |
-| NGC4526 | M49 (Messier 49) | 1.10 | seestar-s30-pro |
+| NGC4526 | M49 | 1.10 | seestar-s30-pro |
 | NGC4527 | NGC4536 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4528 | NGC4564 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4528 | M58 (Messier 58) | 1.02 | seestar-s30-pro |
-| NGC4531 | M89 (Messier 89) | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4531 | M90 (Messier 90) | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4528 | M58 | 1.02 | seestar-s30-pro |
+| NGC4531 | M89 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4531 | M90 | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4531 | M87 (Virgo A) | 1.08 | seestar-s30-pro |
 | NGC4531 | NGC4473 | 1.14 | none |
 | NGC4531 | NGC4477 | 1.17 | none |
 | NGC4532 | NGC4570 | 1.01 | seestar-s30-pro |
 | NGC4535 | NGC4526 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4535 | NGC4570 | 1.14 | none |
-| NGC4535 | M49 (Messier 49) | 1.15 | none |
+| NGC4535 | M49 | 1.15 | none |
 | NGC4536 | NGC4527 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4540 | M91 (Messier 91) | 1.07 | seestar-s30-pro |
-| NGC4550 | M89 (Messier 89) | 0.34 | all |
-| NGC4550 | M58 (Messier 58) | 0.68 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4540 | M91 | 1.07 | seestar-s30-pro |
+| NGC4550 | M89 | 0.34 | all |
+| NGC4550 | M58 | 0.68 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4550 | NGC4564 | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4550 | M90 (Messier 90) | 1.00 | seestar-s30-pro |
+| NGC4550 | M90 | 1.00 | seestar-s30-pro |
 | NGC4550 | M87 (Virgo A) | 1.16 | none |
-| NGC4551 | M89 (Messier 89) | 0.29 | all |
-| NGC4551 | M58 (Messier 58) | 0.68 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4551 | M89 | 0.29 | all |
+| NGC4551 | M58 | 0.68 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4551 | NGC4564 | 0.85 | seestar-s30-pro, dwarf-2 |
-| NGC4551 | M90 (Messier 90) | 0.95 | seestar-s30-pro |
+| NGC4551 | M90 | 0.95 | seestar-s30-pro |
 | NGC4551 | M87 (Virgo A) | 1.18 | none |
 | NGC4555 | NGC4565 (Needle Galaxy) | 0.56 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4559C | NGC4559 | 0.03 | all |
-| NGC4564 | M58 (Messier 58) | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4564 | M89 (Messier 89) | 1.13 | none |
+| NGC4564 | M58 | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4564 | M89 | 1.13 | none |
 | NGC4565 (Needle Galaxy) | NGC4494 | 1.13 | none |
-| NGC4567 | NGC4564 | 0.18 | all |
-| NGC4567 | M58 (Messier 58) | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4568 | NGC4564 | 0.20 | all |
-| NGC4568 | M58 (Messier 58) | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4567 (Butterfly Galaxies) | NGC4564 | 0.18 | all |
+| NGC4567 (Butterfly Galaxies) | M58 | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4568 (Butterfly Galaxies) | NGC4564 | 0.20 | all |
+| NGC4568 (Butterfly Galaxies) | M58 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4570 | NGC4526 | 0.84 | seestar-s30-pro, dwarf-2 |
 | NGC4570 | NGC4535 | 1.14 | none |
-| NGC4571 | M91 (Messier 91) | 0.46 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4571 | M90 (Messier 90) | 1.05 | seestar-s30-pro |
+| NGC4571 | M91 | 0.46 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4571 | M90 | 1.05 | seestar-s30-pro |
 | NGC4578 | NGC4596 | 0.86 | seestar-s30-pro, dwarf-2 |
 | NGC4581 | NGC4536 | 1.15 | none |
 | NGC4599 | NGC4643 | 1.06 | seestar-s30-pro |
 | NGC4600 | NGC4636 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4606 | M59 (Messier 59) | 0.37 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4606 | M60 (Messier 60) | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4606 | M58 (Messier 58) | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4606 | M59 | 0.37 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4606 | M60 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4606 | M58 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4606 | NGC4660 | 1.13 | none |
-| NGC4607 | M59 (Messier 59) | 0.31 | all |
-| NGC4607 | M60 (Messier 60) | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4607 | M58 (Messier 58) | 0.85 | seestar-s30-pro, dwarf-2 |
+| NGC4607 | M59 | 0.31 | all |
+| NGC4607 | M60 | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4607 | M58 | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC4607 | NGC4660 | 1.07 | seestar-s30-pro |
 | NGC4608 | NGC4596 | 0.32 | all |
 | NGC4612 | NGC4570 | 1.16 | none |
@@ -1205,13 +1192,13 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4631 (Whale Galaxy) | NGC4656 (Hockey Stick Galaxy) | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4632 | NGC4666 | 0.75 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4636 | NGC4643 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4638 | M60 (Messier 60) | 0.24 | all |
-| NGC4638 | M59 (Messier 59) | 0.28 | all |
+| NGC4638 | M60 | 0.24 | all |
+| NGC4638 | M59 | 0.28 | all |
 | NGC4638 | NGC4660 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4639 | NGC4654 | 0.29 | all |
 | NGC4643 | NGC4636 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4647 | M60 (Messier 60) | 0.04 | all |
-| NGC4647 | M59 (Messier 59) | 0.37 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4647 | M60 | 0.04 | all |
+| NGC4647 | M59 | 0.37 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4647 | NGC4660 | 0.46 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4653 | NGC4666 | 0.34 | all |
 | NGC4654 | NGC4689 | 1.13 | none |
@@ -1220,15 +1207,15 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4656NED01 | NGC4631 (Whale Galaxy) | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4659 | NGC4654 | 0.39 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4659 | NGC4689 | 0.84 | seestar-s30-pro, dwarf-2 |
-| NGC4660 | M60 (Messier 60) | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC4660 | M59 (Messier 59) | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4660 | M60 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4660 | M59 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4664 | NGC4636 | 0.68 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4664 | NGC4643 | 1.16 | none |
 | NGC4668 | NGC4666 | 0.12 | all |
 | NGC4689 | NGC4654 | 1.13 | none |
 | NGC4694 | NGC4660 | 0.94 | seestar-s30-pro |
 | NGC4694 | NGC4754 | 1.04 | seestar-s30-pro |
-| NGC4694 | NGC4762 | 1.18 | none |
+| NGC4694 | NGC4762 | 1.17 | none |
 | NGC4705 | NGC4697 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4731 | NGC4697 | 0.84 | seestar-s30-pro, dwarf-2 |
 | NGC4733 | NGC4754 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -1243,36 +1230,36 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC4771 | NGC4772 | 0.90 | seestar-s30-pro, dwarf-2 |
 | NGC4778 | NGC4699 | 1.14 | none |
 | NGC4790 | NGC4781 | 0.31 | all |
-| NGC4807 | NGC4889 | 1.13 | none |
-| NGC4816 | NGC4889 | 0.90 | seestar-s30-pro, dwarf-2 |
-| NGC4827 | NGC4889 | 1.10 | seestar-s30-pro |
-| NGC4839 | NGC4889 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4841 | NGC4889 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4842 | NGC4889 | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4807 | NGC4889 (Coma B) | 1.13 | none |
+| NGC4816 | NGC4889 (Coma B) | 0.90 | seestar-s30-pro, dwarf-2 |
+| NGC4827 | NGC4889 (Coma B) | 1.10 | seestar-s30-pro |
+| NGC4839 | NGC4889 (Coma B) | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4841 | NGC4889 (Coma B) | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4842 | NGC4889 (Coma B) | 0.74 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC4845 | NGC4900 | 1.14 | none |
 | NGC4852 | NGC4755 (Jewel Box) | 1.10 | seestar-s30-pro |
-| NGC4860 | NGC4889 | 0.28 | all |
-| NGC4864 | NGC4889 | 0.20 | all |
-| NGC4865 | NGC4889 | 0.21 | all |
-| NGC4869 | NGC4889 | 0.18 | all |
-| NGC4874 | NGC4889 | 0.12 | all |
-| NGC4881 | NGC4889 | 0.27 | all |
-| NGC4895 | NGC4889 | 0.23 | all |
-| NGC4898 | NGC4889 | 0.04 | all |
+| NGC4860 | NGC4889 (Coma B) | 0.28 | all |
+| NGC4864 | NGC4889 (Coma B) | 0.20 | all |
+| NGC4865 | NGC4889 (Coma B) | 0.21 | all |
+| NGC4869 | NGC4889 (Coma B) | 0.18 | all |
+| NGC4874 | NGC4889 (Coma B) | 0.12 | all |
+| NGC4881 | NGC4889 (Coma B) | 0.27 | all |
+| NGC4895 | NGC4889 (Coma B) | 0.23 | all |
+| NGC4898 | NGC4889 (Coma B) | 0.04 | all |
 | NGC4900 | NGC4845 | 1.14 | none |
-| NGC4908 | NGC4889 | 0.17 | all |
-| NGC4911 | NGC4889 | 0.26 | all |
-| NGC4921 | NGC4889 | 0.30 | all |
-| NGC4926 | NGC4889 | 0.53 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC4908 | NGC4889 (Coma B) | 0.17 | all |
+| NGC4911 | NGC4889 (Coma B) | 0.26 | all |
+| NGC4921 | NGC4889 (Coma B) | 0.30 | all |
+| NGC4926 | NGC4889 (Coma B) | 0.53 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4928 | NGC4958 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4931 | NGC4889 | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC4944 | NGC4889 | 0.84 | seestar-s30-pro, dwarf-2 |
+| NGC4931 | NGC4889 (Coma B) | 0.64 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC4944 | NGC4889 (Coma B) | 0.84 | seestar-s30-pro, dwarf-2 |
 | NGC4945A | NGC4945 | 0.29 | all |
 | NGC4948 | NGC4958 | 0.23 | all |
 | NGC4948 | NGC4995 | 1.18 | none |
 | NGC4948A | NGC4958 | 0.23 | all |
 | NGC4948A | NGC4995 | 1.18 | none |
-| NGC4957 | NGC4889 | 1.19 | none |
+| NGC4957 | NGC4889 (Coma B) | 1.19 | none |
 | NGC4958 | NGC4995 | 0.97 | seestar-s30-pro |
 | NGC4976 | NGC4945 | 0.52 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC4981 | NGC4995 | 1.08 | seestar-s30-pro |
@@ -1286,7 +1273,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC5037 | NGC5054 | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC5044 | NGC5054 | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC5049 | NGC5054 | 0.34 | all |
-| NGC5053 | M53 (Messier 53) | 0.96 | seestar-s30-pro |
+| NGC5053 | M53 | 0.96 | seestar-s30-pro |
 | NGC5068 | NGC5084 | 0.85 | seestar-s30-pro, dwarf-2 |
 | NGC5079 | NGC5077 | 0.05 | all |
 | NGC5088 | NGC5077 | 0.21 | all |
@@ -1369,7 +1356,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC5981 | NGC5982 | 0.10 | all |
 | NGC5985 | NGC5982 | 0.12 | all |
 | NGC6070 | SH2-36 | 1.16 | none |
-| NGC6144 | M4 (Messier 4) | 0.96 | seestar-s30-pro |
+| NGC6144 | M4 | 0.96 | seestar-s30-pro |
 | NGC6188 (Rim Nebula) | NGC6193 | 0.23 | all |
 | NGC6196 | M13 (Hercules Cluster) | 0.86 | seestar-s30-pro, dwarf-2 |
 | NGC6207 | M13 (Hercules Cluster) | 0.46 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -1378,7 +1365,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC6318 | SH2-3 | 1.04 | seestar-s30-pro |
 | NGC6337 | SH2-5 | 0.43 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC6337 | SH2-4 | 0.98 | seestar-s30-pro |
-| NGC6342 | M9 (Messier 9) | 1.17 | none |
+| NGC6342 | M9 | 1.17 | none |
 | NGC6357 (Lobster Nebula) | SH2-10 | 1.19 | none |
 | NGC6374 | SH2-12 | 0.26 | all |
 | NGC6404 | M6 (Butterfly Cluster) | 1.00 | seestar-s30-pro |
@@ -1410,7 +1397,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC6546 | SH2-32 | 0.88 | seestar-s30-pro, dwarf-2 |
 | NGC6546 | NGC6559 | 1.00 | seestar-s30-pro |
 | NGC6546 | SH2-31 | 1.03 | seestar-s30-pro |
-| NGC6546 | M21 (Messier 21) | 1.08 | seestar-s30-pro |
+| NGC6546 | M21 | 1.08 | seestar-s30-pro |
 | NGC6546 | SH2-28 | 1.11 | seestar-s30-pro |
 | NGC6546 | M20 (Trifid Nebula) | 1.12 | seestar-s30-pro |
 | NGC6553 | NGC6544 | 1.01 | seestar-s30-pro |
@@ -1425,19 +1412,19 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC6567 | SH2-39 | 0.83 | seestar-s30-pro, dwarf-2 |
 | NGC6567 | M24 (Sagittarius Star Cloud) | 0.94 | seestar-s30-pro |
 | NGC6567 | SH2-41 | 0.98 | seestar-s30-pro |
-| NGC6567 | IC1283 | 1.08 | seestar-s30-pro |
+| NGC6567 | IC1283 (Twiddlebug Nebula) | 1.08 | seestar-s30-pro |
 | NGC6568 | NGC6583 | 0.88 | seestar-s30-pro, dwarf-2 |
-| NGC6572 | SH2-70 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC6572 (Blue Racquetball) | SH2-70 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC6578 | SH2-35 | 0.22 | all |
-| NGC6578 | IC1283 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC6578 | IC1283 (Twiddlebug Nebula) | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC6583 | NGC6568 | 0.88 | seestar-s30-pro, dwarf-2 |
-| NGC6589 | IC1283 | 0.09 | all |
+| NGC6589 | IC1283 (Twiddlebug Nebula) | 0.09 | all |
 | NGC6589 | SH2-35 | 0.54 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC6589 | SH2-39 | 1.13 | none |
-| NGC6590 | IC1283 | 0.11 | all |
+| NGC6590 | IC1283 (Twiddlebug Nebula) | 0.11 | all |
 | NGC6590 | SH2-35 | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC6596 | SH2-44 | 0.27 | all |
-| NGC6596 | M18 (Messier 18) | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC6596 | M18 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC6596 | SH2-43 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC6596 | M17 (Omega Nebula) | 0.91 | seestar-s30-pro |
 | NGC6596 | SH2-47 | 1.04 | seestar-s30-pro |
@@ -1451,25 +1438,25 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC6642 | M22 (Sagittarius Cluster) | 1.12 | seestar-s30-pro |
 | NGC6647 | NGC6645 | 0.35 | all |
 | NGC6649 | SH2-56 | 0.90 | seestar-s30-pro, dwarf-2 |
-| NGC6652 | M69 (Messier 69) | 1.12 | seestar-s30-pro |
+| NGC6652 | M69 | 1.12 | seestar-s30-pro |
 | NGC6664 | SH2-59 | 0.63 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC6704 | M11 (Wild Duck Cluster) | 1.07 | seestar-s30-pro |
-| NGC6723 | NGC6729 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC6726 | NGC6729 | 0.09 | all |
+| NGC6723 | NGC6729 (R Coronae Australis Nebula) | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC6726 | NGC6729 (R Coronae Australis Nebula) | 0.09 | all |
 | NGC6726 | NGC6723 | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC6727 | NGC6729 | 0.09 | all |
+| NGC6727 | NGC6729 (R Coronae Australis Nebula) | 0.09 | all |
 | NGC6727 | NGC6723 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC6729 | NGC6723 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC6729 (R Coronae Australis Nebula) | NGC6723 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC6735 | NGC6741 (Phantom Streak Nebula) | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC6745NED01 | NGC6745 | 0.01 | all |
 | NGC6745NED03 | NGC6745 | 0.00 | all |
 | NGC6755 | NGC6756 | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC6756 | NGC6755 | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC6756 | SH2-74 | 0.90 | seestar-s30-pro, dwarf-2 |
-| NGC6769 | NGC6752 | 1.07 | seestar-s30-pro |
-| NGC6770 | NGC6752 | 1.09 | seestar-s30-pro |
-| NGC6771 | NGC6752 | 1.12 | seestar-s30-pro |
-| NGC6818 (Little Gem Nebula) | NGC6822 (Barnard's Galaxy) | 0.68 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC6769 | NGC6752 (Great Peacock Globular) | 1.07 | seestar-s30-pro |
+| NGC6770 | NGC6752 (Great Peacock Globular) | 1.09 | seestar-s30-pro |
+| NGC6771 | NGC6752 (Great Peacock Globular) | 1.12 | seestar-s30-pro |
+| NGC6818 (Little Gem Nebula) | NGC6822 (Barnard's Galaxy) | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC6820 | NGC6823 | 0.01 | all |
 | NGC6823 | NGC6820 | 0.01 | all |
 | NGC6834 | SH2-95 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -1498,12 +1485,12 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC7281 | NGC7261 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC7281 | SH2-135 | 1.01 | seestar-s30-pro |
 | NGC7281 | SH2-138 | 1.17 | none |
-| NGC7318 | NGC7331 | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC7318A | NGC7331 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC7319 | NGC7331 | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC7320 | NGC7331 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| NGC7335 | NGC7331 | 0.06 | all |
-| NGC7343 | NGC7331 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC7318 | NGC7331 (Deer Lick Group) | 0.50 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC7318A | NGC7331 (Deer Lick Group) | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC7319 | NGC7331 (Deer Lick Group) | 0.49 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC7320 | NGC7331 (Deer Lick Group) | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| NGC7335 | NGC7331 (Deer Lick Group) | 0.06 | all |
+| NGC7343 | NGC7331 (Deer Lick Group) | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC7380 (Wizard Nebula) | SH2-143 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC7380 (Wizard Nebula) | SH2-147 | 1.12 | seestar-s30-pro |
 | NGC7423 | SH2-143 | 0.90 | seestar-s30-pro, dwarf-2 |
@@ -1522,7 +1509,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC7538 | SH2-159 | 0.44 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | NGC7538 | NGC7635 (Bubble Nebula) | 0.90 | seestar-s30-pro, dwarf-2 |
 | NGC7538 | NGC7510 | 0.99 | seestar-s30-pro |
-| NGC7577 | NGC7619 | 1.11 | seestar-s30-pro |
+| NGC7577 | NGC7619 | 1.12 | seestar-s30-pro |
 | NGC7600 | NGC7606 | 0.91 | seestar-s30-pro |
 | NGC7611 | NGC7619 | 0.21 | all |
 | NGC7611 | NGC7626 | 0.31 | all |
@@ -1537,7 +1524,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC7634 | NGC7626 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC7634 | NGC7619 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC7635 (Bubble Nebula) | SH2-159 | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
-| NGC7635 (Bubble Nebula) | M52 (Messier 52) | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| NGC7635 (Bubble Nebula) | M52 | 0.62 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | NGC7635 (Bubble Nebula) | NGC7538 | 0.90 | seestar-s30-pro, dwarf-2 |
 | NGC7635 (Bubble Nebula) | SH2-161 | 0.90 | seestar-s30-pro, dwarf-2 |
 | NGC7723 | NGC7727 | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -1552,7 +1539,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | NGC7795 | NGC7790 | 1.17 | none |
 | SH2-4 | SH2-5 | 0.89 | seestar-s30-pro, dwarf-2 |
 | SH2-5 | SH2-4 | 0.89 | seestar-s30-pro, dwarf-2 |
-| SH2-9 | M4 (Messier 4) | 1.08 | seestar-s30-pro |
+| SH2-9 | M4 | 1.08 | seestar-s30-pro |
 | SH2-10 | NGC6357 (Lobster Nebula) | 1.19 | none |
 | SH2-12 | M6 (Butterfly Cluster) | 0.99 | seestar-s30-pro |
 | SH2-15 | NGC6451 | 1.05 | seestar-s30-pro |
@@ -1592,17 +1579,17 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-28 | M20 (Trifid Nebula) | 0.61 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-28 | M8 (Lagoon Nebula) | 0.83 | seestar-s30-pro, dwarf-2 |
 | SH2-28 | SH2-26 | 0.89 | seestar-s30-pro, dwarf-2 |
-| SH2-28 | M21 (Messier 21) | 1.15 | none |
+| SH2-28 | M21 | 1.15 | none |
 | SH2-31 | SH2-32 | 0.18 | all |
 | SH2-31 | NGC6559 | 0.44 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-32 | SH2-31 | 0.18 | all |
 | SH2-32 | NGC6559 | 0.51 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| SH2-34 (Forgotten Nebula) | M21 (Messier 21) | 0.97 | seestar-s30-pro |
-| SH2-35 | IC1283 | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
+| SH2-34 (Forgotten Nebula) | M21 | 0.97 | seestar-s30-pro |
+| SH2-35 | IC1283 (Twiddlebug Nebula) | 0.59 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-38 | SH2-40 | 0.94 | seestar-s30-pro |
 | SH2-39 | M24 (Sagittarius Star Cloud) | 0.14 | all |
 | SH2-39 | SH2-41 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| SH2-39 | IC1283 | 1.12 | seestar-s30-pro |
+| SH2-39 | IC1283 (Twiddlebug Nebula) | 1.12 | seestar-s30-pro |
 | SH2-40 | SH2-38 | 0.94 | seestar-s30-pro |
 | SH2-40 | SH2-42 | 1.02 | seestar-s30-pro |
 | SH2-40 | SH2-41 | 1.03 | seestar-s30-pro |
@@ -1614,11 +1601,11 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-42 | SH2-40 | 1.02 | seestar-s30-pro |
 | SH2-43 | SH2-44 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-43 | SH2-41 | 0.85 | seestar-s30-pro, dwarf-2 |
-| SH2-43 | M18 (Messier 18) | 0.90 | seestar-s30-pro, dwarf-2 |
+| SH2-43 | M18 | 0.90 | seestar-s30-pro, dwarf-2 |
 | SH2-43 | SH2-40 | 1.10 | seestar-s30-pro |
 | SH2-43 | M24 (Sagittarius Star Cloud) | 1.12 | seestar-s30-pro |
 | SH2-44 | SH2-43 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| SH2-44 | M18 (Messier 18) | 0.91 | seestar-s30-pro |
+| SH2-44 | M18 | 0.91 | seestar-s30-pro |
 | SH2-44 | SH2-47 | 1.16 | none |
 | SH2-44 | M17 (Omega Nebula) | 1.17 | none |
 | SH2-47 | M17 (Omega Nebula) | 0.92 | seestar-s30-pro |
@@ -1636,13 +1623,13 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-60 | SH2-59 | 0.90 | seestar-s30-pro, dwarf-2 |
 | SH2-66 | SH2-67 | 1.04 | seestar-s30-pro |
 | SH2-67 | SH2-66 | 1.04 | seestar-s30-pro |
-| SH2-70 | NGC6572 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
+| SH2-70 | NGC6572 (Blue Racquetball) | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-71 | SH2-72 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-72 | SH2-71 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-74 | NGC6756 | 0.90 | seestar-s30-pro, dwarf-2 |
 | SH2-75 | SH2-76 | 0.99 | seestar-s30-pro |
 | SH2-76 | SH2-75 | 0.99 | seestar-s30-pro |
-| SH2-84 | M71 (Messier 71) | 1.18 | none |
+| SH2-84 | M71 | 1.18 | none |
 | SH2-87 | SH2-88 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-88 | SH2-87 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-89 | SH2-90 | 0.42 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
@@ -1703,11 +1690,11 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-159 | SH2-161 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-159 | NGC7510 | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-159 | SH2-157 (Lobster Claw Nebula) | 1.10 | seestar-s30-pro |
-| SH2-159 | M52 (Messier 52) | 1.18 | none |
+| SH2-159 | M52 | 1.18 | none |
 | SH2-161 | NGC7538 | 0.41 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-161 | SH2-159 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-161 | NGC7635 (Bubble Nebula) | 0.90 | seestar-s30-pro, dwarf-2 |
-| SH2-161 | M52 (Messier 52) | 1.14 | none |
+| SH2-161 | M52 | 1.14 | none |
 | SH2-163 | SH2-164 | 1.03 | seestar-s30-pro |
 | SH2-163 | SH2-166 | 1.09 | seestar-s30-pro |
 | SH2-164 | SH2-163 | 1.03 | seestar-s30-pro |
@@ -1736,7 +1723,6 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-183 | SH2-181 | 0.70 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-183 | SH2-182 | 1.04 | seestar-s30-pro |
 | SH2-185 | NGC381 | 1.16 | none |
-| SH2-190 (Heart Nebula) | NGC1027 | 1.11 | seestar-s30-pro |
 | SH2-191 (Maffei 1) | SH2-195 | 0.44 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-191 (Maffei 1) | SH2-197 (Maffei 2) | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-192 | SH2-193 | 0.04 | all |
@@ -1765,7 +1751,7 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-207 | SH2-208 | 0.17 | all |
 | SH2-208 | SH2-207 | 0.17 | all |
 | SH2-209 | NGC1528 | 0.67 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
-| SH2-212 | NGC1624 | 0.08 | all |
+| SH2-212 | NGC1624 (Tribble Nebulae) | 0.08 | all |
 | SH2-213 | SH2-214 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-214 | SH2-213 | 0.57 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-217 | SH2-219 | 0.76 | seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -1773,7 +1759,8 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-226 | SH2-228 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-227 | NGC1857 | 0.39 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-228 | SH2-226 | 0.73 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| SH2-230 | SH2-236 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| SH2-230 | IC410 (Tadpoles Nebula) | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
+| SH2-230 | IC417 (Spider Nebula) | 1.19 | none |
 | SH2-231 | SH2-233 | 0.18 | all |
 | SH2-231 | SH2-235 | 0.35 | all |
 | SH2-231 | SH2-232 | 0.69 | seestar-s50-pro, seestar-s30-pro, dwarf-3, dwarf-2 |
@@ -1783,15 +1770,11 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-233 | SH2-231 | 0.18 | all |
 | SH2-233 | SH2-235 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-233 | SH2-232 | 0.86 | seestar-s30-pro, dwarf-2 |
-| SH2-234 | NGC1931 (Fly Nebula) | 0.71 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| SH2-234 | NGC1907 | 0.89 | seestar-s30-pro, dwarf-2 |
 | SH2-235 | SH2-231 | 0.35 | all |
 | SH2-235 | SH2-232 | 0.45 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-235 | SH2-233 | 0.47 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| SH2-236 | SH2-230 | 0.77 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| SH2-247 | SH2-252 | 1.15 | none |
+| SH2-247 | NGC2174 (Monkey Head Nebula) | 0.98 | seestar-s30-pro |
 | SH2-249 | IC443 (Jellyfish Nebula) | 1.15 | none |
-| SH2-252 | SH2-247 | 1.15 | none |
 | SH2-254 | SH2-256 | 0.12 | all |
 | SH2-254 | SH2-257 | 0.14 | all |
 | SH2-254 | SH2-255 | 0.20 | all |
@@ -1837,28 +1820,21 @@ pairs that fit on every listed telescope (radius 0.36 deg or less).
 | SH2-272 | SH2-271 | 0.03 | all |
 | SH2-272 | NGC2194 | 0.56 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
 | SH2-274 (Medusa Nebula) | NGC2395 | 0.58 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| SH2-275 (Rosette Nebula) | NGC2244 (Rosette Cluster) | 0.18 | all |
-| SH2-275 (Rosette Nebula) | NGC2237 (Rosette Nebula) | 0.23 | all |
 | SH2-282 | SH2-283 | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-283 | SH2-282 | 0.82 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-286 | NGC2311 | 0.81 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-287 | NGC2311 | 0.48 | seestar-s50-pro, seestar-s30, seestar-s30-pro, dwarf-3, dwarf-2, dwarf-mini |
-| SH2-292 (Seagull Nebula) | NGC2335 | 0.72 | seestar-s30-pro, dwarf-3, dwarf-2 |
-| SH2-292 (Seagull Nebula) | SH2-296 | 0.84 | seestar-s30-pro, dwarf-2 |
-| SH2-292 (Seagull Nebula) | NGC2343 | 0.92 | seestar-s30-pro |
-| SH2-292 (Seagull Nebula) | SH2-293 | 1.08 | seestar-s30-pro |
-| SH2-292 (Seagull Nebula) | SH2-295 | 1.10 | seestar-s30-pro |
 | SH2-293 | SH2-295 | 0.27 | all |
 | SH2-293 | SH2-296 | 0.99 | seestar-s30-pro |
-| SH2-293 | SH2-292 (Seagull Nebula) | 1.08 | seestar-s30-pro |
+| SH2-293 | IC2177 (Seagull Nebula) | 1.09 | seestar-s30-pro |
 | SH2-294 | NGC2353 | 0.97 | seestar-s30-pro |
 | SH2-295 | SH2-293 | 0.27 | all |
 | SH2-295 | SH2-296 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-295 | SH2-297 | 1.08 | seestar-s30-pro |
-| SH2-295 | SH2-292 (Seagull Nebula) | 1.10 | seestar-s30-pro |
+| SH2-295 | IC2177 (Seagull Nebula) | 1.10 | seestar-s30-pro |
+| SH2-296 | IC2177 (Seagull Nebula) | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-296 | SH2-295 | 0.80 | seestar-s30-pro, dwarf-3, dwarf-2 |
 | SH2-296 | NGC2343 | 0.83 | seestar-s30-pro, dwarf-2 |
-| SH2-296 | SH2-292 (Seagull Nebula) | 0.84 | seestar-s30-pro, dwarf-2 |
 | SH2-296 | SH2-293 | 0.99 | seestar-s30-pro |
 | SH2-296 | SH2-297 | 1.12 | seestar-s30-pro |
 | SH2-297 | SH2-295 | 1.08 | seestar-s30-pro |

@@ -158,6 +158,29 @@ describe('extractPack — path traversal guard', () => {
   });
 });
 
+describe('extractPack — mixed-case names', () => {
+  it('extracts solar system names such as hubble_Amalthea.webp', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'unpack-case-'));
+    const destDir = path.join(tmpDir, 'dest');
+    fs.mkdirSync(destDir);
+
+    const archivePath = await createTestArchive(tmpDir, [
+      { name: 'images/hubble_Amalthea.webp', content: 'moon' },
+      { name: 'images/Amalthea_master.jpg', content: 'moon-dss2' },
+      { name: 'images/hubble_bad.name.webp', content: 'dot-in-name' },
+    ]);
+
+    const result = await extractPack(archivePath, destDir, 10 * 1024 * 1024);
+
+    expect(result.extractedPaths.map(p => path.basename(p)).sort()).toEqual([
+      'Amalthea_master.jpg',
+      'hubble_Amalthea.webp',
+    ]);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
 describe('extractPack — decompression bomb guard', () => {
   it('throws when extracted bytes exceed maxBytes', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'unpack-bomb-'));

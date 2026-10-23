@@ -4,6 +4,7 @@ import fs from 'fs';
 import { getCatalogEntry } from '../data/catalog.js';
 import { parsePagination, paginate } from '../middleware/pagination.js';
 import { getLibraryDir } from '../lib/libraryPath.js';
+import { resolveLibraryFile } from '../lib/library/fileResolver.js';
 import { requireAdmin } from '../middleware/auth.js';
 import {
   parseFilename,
@@ -92,7 +93,7 @@ router.get('/objects/:objectId', (req: Request, res: Response) => {
     const folderName = getObjectFolderName(objectId);
     // getObjectFolderName falls back to the raw objectId on a DB miss, so a
     // crafted objectId with traversal tokens would otherwise escape
-    // LIBRARY_DIR. Mirror the guard used in download.ts/library.ts.
+    // LIBRARY_DIR. resolveContainedObjectDir (lib/library/objects.ts) guards it.
     const objDir = resolveContainedObjectDir(objectId);
     if (!objDir) {
       res.apiError(400, 'INVALID_OBJECT_ID', 'Object id resolves outside the library');
@@ -297,18 +298,19 @@ router.get('/objects/:objectId/subs', (req: Request, res: Response) => {
       return;
     }
 
-    const files = fs.readdirSync(subDir)
+    const subDirPath = subDir;
+    const files = fs.readdirSync(subDirPath)
       .filter(isRealFile)
       .map(fname => {
         const parsed = parseFilename(fname);
-        const fullPath = path.join(subDir!, fname);
+        const fullPath = path.join(subDirPath, fname);
         const stat = fs.statSync(fullPath);
         const category = getFileCategory(fname);
         return {
           name: fname,
           size: stat.size,
           type: category,
-          fileType: parsed.type as 'stacked' | 'sub' | 'thumbnail' | 'video' | 'other',
+          fileType: parsed.type,
           subIndex: parsed.subIndex || null,
           path: `${objectId}/${fname}`,
           exposure: parsed.exposure || null,
@@ -351,7 +353,6 @@ router.get('/objects/:objectId/subs', (req: Request, res: Response) => {
 
 router.get('/files', async (req: Request, res: Response) => {
   try {
-    const LIBRARY_DIR = getLibraryDir();
     const filePath = String(req.query.path || '');
     if (!filePath) {
       res.apiError(400, 'MISSING_PATH', 'Query parameter "path" is required');
@@ -367,17 +368,19 @@ router.get('/files', async (req: Request, res: Response) => {
     }
 
     const relative = filePath.slice(BASE_PATH.length + 1); // strip "MyWorks/"
-    const localPath = path.join(LIBRARY_DIR, relative);
-    if (!fs.existsSync(localPath)) {
+    // Same containment check as every other library read (fileResolver.ts).
+    const resolved = resolveLibraryFile(relative);
+    if (!resolved || !fs.existsSync(resolved.abs)) {
       res.apiError(404, 'NOT_FOUND', 'File not found in local library. Run an import to sync it from the telescope.');
       return;
     }
-
-    const data = fs.readFileSync(localPath);
+    const localPath = resolved.abs;
     const ext = path.extname(filePath).toLowerCase();
     const wantsBase64 = req.query.format === 'base64';
 
     if (wantsBase64) {
+      // Non-blocking read: the sync variant stalled the event loop for the whole file.
+      const data = await fs.promises.readFile(localPath);
       res.apiSuccess({
         base64: data.toString('base64'),
         mimeType: mimeTypeForExtension(ext),
@@ -388,7 +391,9 @@ router.get('/files', async (req: Request, res: Response) => {
       res.set('Content-Type', mimeTypeForExtension(ext));
       res.set('Cache-Control', 'public, max-age=3600');
       res.set('Content-Disposition', contentDispositionHeader('inline', path.basename(filePath)));
-      res.send(data);
+      res.sendFile(localPath, { dotfiles: 'allow' }, (err) => {
+        if (err && !res.headersSent) res.apiError(500, 'FETCH_FAILED', 'Could not read file');
+      });
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to get file';
@@ -422,7 +427,6 @@ router.delete('/files', requireAdmin, (req: Request, res: Response) => {
 // ─── Legacy compat endpoints (for web frontend) ─────────────────────
 
 router.get('/file', (req: Request, res: Response) => {
-  const LIBRARY_DIR = getLibraryDir();
   const filePath = String(req.query.path || '');
   if (!filePath) { res.status(400).json({ error: 'path required' }); return; }
   if (!filePath.startsWith(BASE_PATH) || filePath.includes('..')) {
@@ -432,11 +436,12 @@ router.get('/file', (req: Request, res: Response) => {
     res.status(400).json({ error: 'Not a real image file' }); return;
   }
   const relative = filePath.slice(BASE_PATH.length + 1);
-  const localPath = path.join(LIBRARY_DIR, relative);
-  if (!fs.existsSync(localPath)) {
+  const resolved = resolveLibraryFile(relative);
+  if (!resolved || !fs.existsSync(resolved.abs)) {
     res.status(404).json({ error: 'File not found in local library' });
     return;
   }
+  const localPath = resolved.abs;
   const ext = path.extname(filePath).toLowerCase();
   res.set('Content-Type', mimeTypeForExtension(ext));
   res.set('Cache-Control', 'public, max-age=3600');
