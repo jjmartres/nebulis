@@ -24,6 +24,7 @@ import { storageRouter } from './routes/storage.js';
 import { notesRouter } from './routes/notes.js';
 import { telescopesRouter } from './routes/telescopes.js';
 import { sitesRouter } from './routes/sites.js';
+import { alertsRouter } from './routes/alerts.js';
 import { forecastRouter } from './routes/forecast.js';
 import { authRouter } from './routes/auth.js';
 import { observationsRouter } from './routes/observations.js';
@@ -53,6 +54,7 @@ import { startArchiveScheduler } from './lib/archive/archiveScheduler.js';
 import { prewarmSessionThumbnails } from './lib/library/sessionThumbnailPrewarm.js';
 import { startForecastRefresh } from './lib/forecastCache.js';
 import { startLinkedSourceScheduler } from './lib/library/linkedSourceScheduler.js';
+import { startAlerts } from './lib/alerts/index.js';
 import { startAppUpdateChecker } from './lib/appUpdate/updater.js';
 import { prewarmThumbnails } from './lib/catalogPrefetch.js';
 import { satelliteCatalog } from './lib/satelliteCatalog.js';
@@ -408,6 +410,7 @@ v1.use('/devices', devicesRouter);
 v1.use('/meta', metaRouter);
 v1.use('/catalogs', catalogsRouter);
 v1.use('/system-log', systemLogRouter);
+v1.use('/alerts', alertsRouter);
 
 // Mount v1
 app.use('/api/v1', v1);
@@ -451,6 +454,7 @@ legacy.use('/devices', devicesRouter);
 legacy.use('/catalogs', catalogsRouter);
 legacy.use('/meta', metaRouter);
 legacy.use('/system-log', systemLogRouter);
+legacy.use('/alerts', alertsRouter);
 app.use('/api', legacy);
 
 // --- PixInsight Plugin Update Repository ---
@@ -732,6 +736,8 @@ function onListening(): void {
   })();
   if (!TEST_MODE) {
     startPackUpdateChecker(prewarmThumbnails);
+    // Before the update checker, so its first result is announced.
+    startAlerts();
     startAppUpdateChecker();
     startPlannerNightlyScheduler();
     startForecastRefresh();

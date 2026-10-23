@@ -18,7 +18,8 @@
     "about": "Over",
     "archive": "Archief",
     "linked": "Gekoppelde mappen",
-    "cleanup": "Opruimen"
+    "cleanup": "Opruimen",
+    "alerts": "Meldingen"
   },
   "page": {
     "viewOnlyBanner": "Alleen-lezen-modus. Neem contact op met een beheerder om wijzigingen aan te brengen.",
@@ -911,7 +912,8 @@
     "log": "Aanmeldingen, gebruikers- en telescoopwijzigingen, synchronisaties en andere beheerdersactiviteiten.",
     "danger": "Diagnostiek, opruimtools en destructieve acties.",
     "about": "Waarom Nebulis bestaat en wie het heeft gebouwd.",
-    "libraryCleanup": "Maak schijfruimte vrij door bestanden te verwijderen die je niet meer nodig hebt."
+    "libraryCleanup": "Maak schijfruimte vrij door bestanden te verwijderen die je niet meer nodig hebt.",
+    "alerts": "Krijg bericht als er een heldere nacht aankomt of een import klaar is."
   },
   "transportEditor": {
     "kindLabel": {
@@ -1428,6 +1430,121 @@
       "detail": "Bestanden die nog niet in mappen per waarneemnacht zijn ingedeeld. Opnieuw indelen verplaatst de bestanden.",
       "progress": "Opnieuw indelen… {{done}} / {{total}}",
       "fix": "Opnieuw indelen"
+    }
+  },
+  "alerts": {
+    "title": "Meldingskanalen",
+    "description": "Waar Nebulis naartoe stuurt wat het zelf opmerkt.",
+    "add": "Kanaal toevoegen",
+    "actionFailed": "Dat lukte niet. Probeer het opnieuw.",
+    "saveFailed": "Kanaal kon niet worden opgeslagen.",
+    "loadFailed": "Meldingen konden niet worden geladen.",
+    "loading": "Laden…",
+    "empty": "Nog geen meldingskanaal.",
+    "emptyHint": "Voeg een ntfy-onderwerp toe om meldingen op je telefoon te krijgen, of een Discord-, Slack- of webhook-URL.",
+    "noEvents": "Geen gebeurtenissen gekozen, dus er wordt niets verstuurd.",
+    "lastSent": "Laatst verstuurd {{when}}",
+    "lastFailed": "Laatste poging {{when}} mislukt: {{error}}",
+    "testSent": "Testmelding verstuurd.",
+    "testFailed": "Test mislukt: {{error}}",
+    "enabledLabel": "Meldingen naar {{name}} sturen",
+    "test": "Testen",
+    "edit": "Bewerken",
+    "delete": "Verwijderen",
+    "deleteConfirm": "“{{name}}” verwijderen? Er wordt niets meer naartoe gestuurd.",
+    "cancel": "Annuleren",
+    "save": "Opslaan",
+    "addTitle": "Meldingskanaal toevoegen",
+    "editTitle": "Meldingskanaal bewerken",
+    "kindLabel": "Sturen naar",
+    "kindHelp": {
+      "ntfy": "Pushmeldingen op je telefoon met de gratis ntfy-app: abonneer je in de app op een onderwerp en plak hier de URL ervan. Kies een moeilijk te raden naam, of voeg ?auth=… toe voor een beveiligde server.",
+      "discord": "In Discord: kanaalinstellingen → Integraties → Webhooks → Nieuwe webhook → Webhook-URL kopiëren.",
+      "slack": "In Slack: maak een app met Incoming Webhooks, voeg er een toe aan een kanaal en kopieer de URL.",
+      "webhook": "Nebulis stuurt JSON (gebeurtenis, titel, bericht, gegevens) naar deze URL, voor Home Assistant, n8n of je eigen scripts."
+    },
+    "nameLabel": "Naam",
+    "namePlaceholder": {
+      "ntfy": "Mijn telefoon",
+      "discord": "Astro-server",
+      "slack": "Sterrenwachtkanaal",
+      "webhook": "Home Assistant"
+    },
+    "urlLabel": "URL",
+    "urlPlaceholder": {
+      "ntfy": "https://ntfy.sh/my-nebulis-topic",
+      "discord": "https://discord.com/api/webhooks/…",
+      "slack": "https://hooks.slack.com/services/…",
+      "webhook": "https://homeassistant.local:8123/api/webhook/nebulis"
+    },
+    "urlKeep": "Laat leeg om de huidige URL te houden.",
+    "secretLabel": "Ondertekeningsgeheim (optioneel)",
+    "secretHelp": "Indien ingesteld draagt elk verzoek X-Nebulis-Signature: sha256=HMAC van de inhoud, zodat de ontvanger kan controleren dat het van Nebulis komt.",
+    "secretClear": "Geheim verwijderen",
+    "eventsLabel": "Gebeurtenissen",
+    "event": {
+      "night": {
+        "clear": {
+          "short": "Heldere nacht",
+          "label": "Heldere nacht op komst",
+          "help": "Elke avond, als de verwachting genoeg heldere donkere uren geeft op de actieve locatie."
+        }
+      },
+      "import": {
+        "finished": {
+          "short": "Import klaar",
+          "label": "Import voltooid",
+          "help": "Als een import nieuwe bestanden oplevert, met de betrokken objecten."
+        },
+        "failed": {
+          "short": "Import mislukt",
+          "label": "Import mislukt",
+          "help": "Als een import stopt op een fout."
+        }
+      },
+      "update": {
+        "available": {
+          "short": "Update",
+          "label": "Update beschikbaar",
+          "help": "Eén keer per nieuwe Nebulis-versie."
+        }
+      }
+    },
+    "language": "Taal van de meldingen",
+    "languageHelp": "Taal van de meldingsteksten, voor alle kanalen.",
+    "kind": {
+      "ntfy": "ntfy",
+      "discord": "Discord",
+      "slack": "Slack",
+      "webhook": "Webhook"
+    },
+    "clearNight": {
+      "title": "Heldere nacht op komst",
+      "description": "De avondcontrole achter de melding “Heldere nacht op komst”, voor de actieve locatie.",
+      "checkTime": "Controleren om",
+      "checkTimeHelp": "Lokale tijd op de actieve locatie. De controle draait één keer per nacht.",
+      "minClearHours": "Versturen vanaf",
+      "minClearHoursHelp": "Heldere donkere uren die na de controle nog komen.",
+      "hours_one": "{{count}} helder uur",
+      "hours_other": "{{count}} heldere uren",
+      "maxCloud": "Een uur is helder tot",
+      "maxCloudHelp": "Bewolking volgens de verwachting. Uren met waarschijnlijk regen tellen nooit.",
+      "cloudPct": "{{pct}}% bewolking",
+      "preview": "Vannacht nu controleren",
+      "noListener": "Geen kanaal heeft “Heldere nacht” aangevinkt, dus de controle draait niet.",
+      "listeners_one": "Wordt naar {{count}} kanaal gestuurd.",
+      "listeners_other": "Wordt naar {{count}} kanalen gestuurd.",
+      "tonight": "Vannacht:",
+      "lastCheck": "Laatste controle {{when}}:",
+      "summary": "{{clear}} u helder van {{dark}} u duisternis, het best van {{start}} tot {{end}}, Maan {{moon}}%",
+      "reason": {
+        "sent": "melding verstuurd",
+        "not_clear_enough": "onder het minimum, niet verstuurd",
+        "no_forecast": "geen verwachting beschikbaar",
+        "no_dark_window": "vannacht geen astronomische duisternis",
+        "no_site": "stel eerst de positie van de actieve locatie in",
+        "preview": "alleen voorbeeld"
+      }
     }
   }
 }

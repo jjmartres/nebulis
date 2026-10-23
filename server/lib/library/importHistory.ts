@@ -9,6 +9,7 @@
  * import entry points call it.
  */
 import { logEvent } from '../systemLog.js';
+import { emitAlert } from '../alerts/delivery.js';
 import { stmts } from './objects.js';
 import type { ImportStatus, TouchedObject, TouchedSession } from './importTypes.js';
 
@@ -104,4 +105,33 @@ export function writeImportHistory(status: ImportStatus, acc: ImportHistoryAccum
   } catch (err) {
     console.warn('[import] sync-history log failed:', err instanceof Error ? err.message : err);
   }
+  try {
+    alertImport(acc, status, newFilesCount);
+  } catch (err) {
+    console.warn('[import] alert failed:', err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * `import.finished` when a run brought new files, `import.failed` when it
+ * ended on an error. A cancelled run, or a scheduled tick that found nothing,
+ * sends nothing: alerts are for things worth a look.
+ */
+function alertImport(acc: ImportHistoryAccumulators, status: ImportStatus, newFilesCount: number): void {
+  if (status.cancelled) return;
+  const type = status.error ? 'import.failed' : newFilesCount > 0 ? 'import.finished' : null;
+  if (!type) return;
+  emitAlert({
+    type,
+    occurredAt: new Date().toISOString(),
+    data: {
+      source: acc.source,
+      telescopeName: status.telescopeName,
+      newFiles: newFilesCount,
+      objects: Array.from(acc.objectsTouched.values()).map(o => ({ objectId: o.objectId, name: o.name, isNew: o.isNew })),
+      sessions: Array.from(acc.sessionsTouched.values()).map(s => ({ objectId: s.objectId, objectName: s.objectName, date: s.date })),
+      manual: status.manual,
+      error: status.error || null,
+    },
+  });
 }

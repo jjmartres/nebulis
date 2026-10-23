@@ -18,7 +18,8 @@
     "about": "About",
     "archive": "Archive",
     "linked": "Linked folders",
-    "cleanup": "Cleanup"
+    "cleanup": "Cleanup",
+    "alerts": "Alerts"
   },
   "page": {
     "viewOnlyBanner": "View-only mode. Contact an admin to make changes.",
@@ -911,7 +912,8 @@
     "log": "Sign-ins, user and telescope changes, syncs, and other admin activity.",
     "danger": "Diagnostics, cleanup tools, and destructive actions.",
     "about": "Why Nebulis exists, and who built it.",
-    "libraryCleanup": "Reclaim disk space by removing files you no longer need."
+    "libraryCleanup": "Reclaim disk space by removing files you no longer need.",
+    "alerts": "Get told when a clear night is coming or an import is done."
   },
   "transportEditor": {
     "kindLabel": {
@@ -1428,6 +1430,121 @@
       "detail": "Files not yet sorted into per-night folders. Reorganizing moves files.",
       "progress": "Reorganizing… {{done}} / {{total}}",
       "fix": "Reorganize"
+    }
+  },
+  "alerts": {
+    "title": "Alert channels",
+    "description": "Where Nebulis sends what it notices on its own.",
+    "add": "Add channel",
+    "actionFailed": "That didn't work. Try again.",
+    "saveFailed": "Could not save the channel.",
+    "loadFailed": "Could not load alerts.",
+    "loading": "Loading…",
+    "empty": "No alert channel yet.",
+    "emptyHint": "Add an ntfy topic to get alerts on your phone, or a Discord, Slack or webhook URL.",
+    "noEvents": "No events selected, so nothing is sent.",
+    "lastSent": "Last sent {{when}}",
+    "lastFailed": "Last attempt {{when}} failed: {{error}}",
+    "testSent": "Test alert sent.",
+    "testFailed": "Test failed: {{error}}",
+    "enabledLabel": "Send alerts to {{name}}",
+    "test": "Test",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete “{{name}}”? Nothing more will be sent there.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "addTitle": "Add an alert channel",
+    "editTitle": "Edit the alert channel",
+    "kindLabel": "Send to",
+    "kindHelp": {
+      "ntfy": "Push notifications on your phone with the free ntfy app: subscribe to a topic in the app, then paste the topic URL here. Pick a name hard to guess, or add ?auth=… for a protected server.",
+      "discord": "In Discord: channel settings → Integrations → Webhooks → New webhook → Copy webhook URL.",
+      "slack": "In Slack: create an app with Incoming Webhooks, add one to a channel, then copy its URL.",
+      "webhook": "Nebulis posts JSON (event, title, message, data) to this URL, for Home Assistant, n8n or your own scripts."
+    },
+    "nameLabel": "Name",
+    "namePlaceholder": {
+      "ntfy": "My phone",
+      "discord": "Astro server",
+      "slack": "Observatory channel",
+      "webhook": "Home Assistant"
+    },
+    "urlLabel": "URL",
+    "urlPlaceholder": {
+      "ntfy": "https://ntfy.sh/my-nebulis-topic",
+      "discord": "https://discord.com/api/webhooks/…",
+      "slack": "https://hooks.slack.com/services/…",
+      "webhook": "https://homeassistant.local:8123/api/webhook/nebulis"
+    },
+    "urlKeep": "Leave empty to keep the current URL.",
+    "secretLabel": "Signing secret (optional)",
+    "secretHelp": "When set, each request carries X-Nebulis-Signature: sha256=HMAC of the body, so the receiver can check it comes from Nebulis.",
+    "secretClear": "Remove the secret",
+    "eventsLabel": "Events",
+    "event": {
+      "night": {
+        "clear": {
+          "short": "Clear night",
+          "label": "Clear night ahead",
+          "help": "Each evening, when the forecast has enough clear dark hours at the active site."
+        }
+      },
+      "import": {
+        "finished": {
+          "short": "Import done",
+          "label": "Import finished",
+          "help": "When an import brings new files, with the objects it touched."
+        },
+        "failed": {
+          "short": "Import failed",
+          "label": "Import failed",
+          "help": "When an import stops on an error."
+        }
+      },
+      "update": {
+        "available": {
+          "short": "Update",
+          "label": "Update available",
+          "help": "Once per new Nebulis version."
+        }
+      }
+    },
+    "language": "Message language",
+    "languageHelp": "Language of the alert texts, for every channel.",
+    "kind": {
+      "ntfy": "ntfy",
+      "discord": "Discord",
+      "slack": "Slack",
+      "webhook": "Webhook"
+    },
+    "clearNight": {
+      "title": "Clear night ahead",
+      "description": "The evening check behind the “Clear night ahead” alert, for the active site.",
+      "checkTime": "Check at",
+      "checkTimeHelp": "Local time at the active site. The check runs once per night.",
+      "minClearHours": "Send when at least",
+      "minClearHoursHelp": "Clear hours of darkness still ahead of the check.",
+      "hours_one": "{{count}} clear hour",
+      "hours_other": "{{count}} clear hours",
+      "maxCloud": "An hour is clear up to",
+      "maxCloudHelp": "Cloud cover from the forecast. Hours likely to rain never count.",
+      "cloudPct": "{{pct}}% clouds",
+      "preview": "Check tonight now",
+      "noListener": "No channel has “Clear night” selected, so the check does not run.",
+      "listeners_one": "Sent to {{count}} channel.",
+      "listeners_other": "Sent to {{count}} channels.",
+      "tonight": "Tonight:",
+      "lastCheck": "Last check {{when}}:",
+      "summary": "{{clear}} h clear out of {{dark}} h of darkness, best from {{start}} to {{end}}, Moon {{moon}}%",
+      "reason": {
+        "sent": "alert sent",
+        "not_clear_enough": "under the minimum, not sent",
+        "no_forecast": "no forecast available",
+        "no_dark_window": "no astronomical darkness tonight",
+        "no_site": "set a location for the active site first",
+        "preview": "preview only"
+      }
     }
   }
 }

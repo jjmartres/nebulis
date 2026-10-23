@@ -18,7 +18,8 @@
     "about": "Über",
     "archive": "Archiv",
     "linked": "Verknüpfte Ordner",
-    "cleanup": "Aufräumen"
+    "cleanup": "Aufräumen",
+    "alerts": "Benachrichtigungen"
   },
   "page": {
     "viewOnlyBanner": "Nur-Lese-Modus. Wende dich an einen Admin, um Änderungen vorzunehmen.",
@@ -911,7 +912,8 @@
     "log": "Anmeldungen, Benutzer- und Teleskopänderungen, Syncs und andere Admin-Aktivitäten.",
     "danger": "Diagnose, Bereinigungswerkzeuge und destruktive Aktionen.",
     "about": "Warum es Nebulis gibt und wer es gebaut hat.",
-    "libraryCleanup": "Speicherplatz freigeben, indem nicht mehr benötigte Dateien entfernt werden."
+    "libraryCleanup": "Speicherplatz freigeben, indem nicht mehr benötigte Dateien entfernt werden.",
+    "alerts": "Erfahren Sie, wenn eine klare Nacht kommt oder ein Import fertig ist."
   },
   "transportEditor": {
     "kindLabel": {
@@ -1428,6 +1430,121 @@
       "detail": "Dateien noch nicht in Nachtordner sortiert. Das Umorganisieren verschiebt Dateien.",
       "progress": "Wird umorganisiert… {{done}} / {{total}}",
       "fix": "Umorganisieren"
+    }
+  },
+  "alerts": {
+    "title": "Benachrichtigungskanäle",
+    "description": "Wohin Nebulis meldet, was es selbst bemerkt.",
+    "add": "Kanal hinzufügen",
+    "actionFailed": "Das hat nicht geklappt. Bitte erneut versuchen.",
+    "saveFailed": "Kanal konnte nicht gespeichert werden.",
+    "loadFailed": "Benachrichtigungen konnten nicht geladen werden.",
+    "loading": "Wird geladen…",
+    "empty": "Noch kein Benachrichtigungskanal.",
+    "emptyHint": "Fügen Sie ein ntfy-Thema hinzu, um Meldungen aufs Handy zu bekommen, oder eine Discord-, Slack- oder Webhook-URL.",
+    "noEvents": "Keine Ereignisse gewählt, es wird nichts gesendet.",
+    "lastSent": "Zuletzt gesendet {{when}}",
+    "lastFailed": "Letzter Versuch {{when}} fehlgeschlagen: {{error}}",
+    "testSent": "Testmeldung gesendet.",
+    "testFailed": "Test fehlgeschlagen: {{error}}",
+    "enabledLabel": "Meldungen an {{name}} senden",
+    "test": "Testen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "deleteConfirm": "„{{name}}“ löschen? Dorthin wird nichts mehr gesendet.",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "addTitle": "Benachrichtigungskanal hinzufügen",
+    "editTitle": "Benachrichtigungskanal bearbeiten",
+    "kindLabel": "Senden an",
+    "kindHelp": {
+      "ntfy": "Push-Meldungen aufs Handy mit der kostenlosen ntfy-App: Abonnieren Sie in der App ein Thema und fügen Sie hier dessen URL ein. Wählen Sie einen schwer zu erratenden Namen oder hängen Sie ?auth=… für einen geschützten Server an.",
+      "discord": "In Discord: Kanaleinstellungen → Integrationen → Webhooks → Neuer Webhook → Webhook-URL kopieren.",
+      "slack": "In Slack: Erstellen Sie eine App mit Incoming Webhooks, fügen Sie einem Kanal einen hinzu und kopieren Sie dessen URL.",
+      "webhook": "Nebulis sendet JSON (Ereignis, Titel, Nachricht, Daten) an diese URL, für Home Assistant, n8n oder eigene Skripte."
+    },
+    "nameLabel": "Name",
+    "namePlaceholder": {
+      "ntfy": "Mein Handy",
+      "discord": "Astro-Server",
+      "slack": "Sternwarten-Kanal",
+      "webhook": "Home Assistant"
+    },
+    "urlLabel": "URL",
+    "urlPlaceholder": {
+      "ntfy": "https://ntfy.sh/my-nebulis-topic",
+      "discord": "https://discord.com/api/webhooks/…",
+      "slack": "https://hooks.slack.com/services/…",
+      "webhook": "https://homeassistant.local:8123/api/webhook/nebulis"
+    },
+    "urlKeep": "Leer lassen, um die aktuelle URL zu behalten.",
+    "secretLabel": "Signaturschlüssel (optional)",
+    "secretHelp": "Wenn gesetzt, trägt jede Anfrage X-Nebulis-Signature: sha256=HMAC des Inhalts, damit der Empfänger prüfen kann, dass sie von Nebulis stammt.",
+    "secretClear": "Schlüssel entfernen",
+    "eventsLabel": "Ereignisse",
+    "event": {
+      "night": {
+        "clear": {
+          "short": "Klare Nacht",
+          "label": "Klare Nacht steht bevor",
+          "help": "Jeden Abend, wenn die Vorhersage genug klare dunkle Stunden am aktiven Standort zeigt."
+        }
+      },
+      "import": {
+        "finished": {
+          "short": "Import fertig",
+          "label": "Import abgeschlossen",
+          "help": "Wenn ein Import neue Dateien bringt, mit den betroffenen Objekten."
+        },
+        "failed": {
+          "short": "Import fehlgeschlagen",
+          "label": "Import fehlgeschlagen",
+          "help": "Wenn ein Import mit einem Fehler abbricht."
+        }
+      },
+      "update": {
+        "available": {
+          "short": "Update",
+          "label": "Update verfügbar",
+          "help": "Einmal pro neuer Nebulis-Version."
+        }
+      }
+    },
+    "language": "Sprache der Meldungen",
+    "languageHelp": "Sprache der Meldungstexte, für alle Kanäle.",
+    "kind": {
+      "ntfy": "ntfy",
+      "discord": "Discord",
+      "slack": "Slack",
+      "webhook": "Webhook"
+    },
+    "clearNight": {
+      "title": "Klare Nacht steht bevor",
+      "description": "Die abendliche Prüfung hinter der Meldung „Klare Nacht steht bevor“, für den aktiven Standort.",
+      "checkTime": "Prüfen um",
+      "checkTimeHelp": "Ortszeit am aktiven Standort. Die Prüfung läuft einmal pro Nacht.",
+      "minClearHours": "Senden ab",
+      "minClearHoursHelp": "Klare dunkle Stunden, die nach der Prüfung noch bevorstehen.",
+      "hours_one": "{{count}} klare Stunde",
+      "hours_other": "{{count}} klare Stunden",
+      "maxCloud": "Eine Stunde gilt als klar bis",
+      "maxCloudHelp": "Bewölkung laut Vorhersage. Stunden mit wahrscheinlichem Regen zählen nie.",
+      "cloudPct": "{{pct}} % Wolken",
+      "preview": "Heute Nacht jetzt prüfen",
+      "noListener": "Kein Kanal hat „Klare Nacht“ gewählt, daher läuft die Prüfung nicht.",
+      "listeners_one": "Wird an {{count}} Kanal gesendet.",
+      "listeners_other": "Wird an {{count}} Kanäle gesendet.",
+      "tonight": "Heute Nacht:",
+      "lastCheck": "Letzte Prüfung {{when}}:",
+      "summary": "{{clear}} h klar von {{dark}} h Dunkelheit, am besten von {{start}} bis {{end}}, Mond {{moon}} %",
+      "reason": {
+        "sent": "Meldung gesendet",
+        "not_clear_enough": "unter dem Minimum, nicht gesendet",
+        "no_forecast": "keine Vorhersage verfügbar",
+        "no_dark_window": "heute keine astronomische Dunkelheit",
+        "no_site": "zuerst die Position des aktiven Standorts festlegen",
+        "preview": "nur Vorschau"
+      }
     }
   }
 }
