@@ -26,6 +26,7 @@
     "linkedFolders": "Gekoppelde mappen",
     "archive": "Extern archief",
     "mobileDevices": "Mobiele apparaten",
+    "pixinsight": "PixInsight-integratie",
     "troubleshooting": "Problemen oplossen"
   },
   "whatIsNebulis": {
@@ -508,6 +509,31 @@
     "step4Body": "Gekoppelde telefoons, tablets en tv's staan bij Instellingen → Account → Apparaten. Elk apparaat heeft een eigen aanmeldtoken. Als je de toegang intrekt, wordt die direct beëindigd zonder andere apparaten te beïnvloeden.",
     "step4Alt": "Instellingen → Account → Apparaten met de knop Apparaat verbinden en een lege apparatenlijst",
     "step4Caption": "Instellingen → Account → Apparaten"
+  },
+  "pixinsightHelp": {
+    "title": "PixInsight-integratie",
+    "lead": "Nebulis beschikt over een officiële PixInsight-integratie via een ingebouwde update-repository en een eigen PJSR-connector. Blader door objecten, download light subframes, beheer kalibraties met zichtbaarheid van het gekoppelde doel en synchroniseer procesiconen en bewerkingsprojecten.",
+    "step1Title": "1. De repository toevoegen aan PixInsight",
+    "step1Desc": "Nebulis biedt een officiële PixInsight-update-repository via <1>/plugins/pixinsight/</1>. Voeg deze eenmalig toe om automatische updates rechtstreeks via PixInsight te ontvangen:",
+    "bullet1": "Navigeer in PixInsight naar <1>Resources → Updates → Manage Repositories</1>.",
+    "bullet2": "Klik op <1>Add</1>, plak de bovenstaande Nebulis-repository-URL (zorg voor de afsluitende slash <3>/</3>) en klik op <5>OK</5>.",
+    "bullet3": "Ga naar <1>Resources → Updates → Check for Updates</1>. PixInsight vindt de connectorupdate. Klik op <3>Apply updates</3> en herstart PixInsight.",
+    "bullet4": "Start de connector via <1>Script → Nebulis → Nebulis Connector</1>.",
+    "step2Title": "2. Verifiëren met een API-sleutel",
+    "step2Desc": "De connector verifieert met aan gebruikers gekoppelde API-sleutels:",
+    "bullet5": "Open in Nebulis in je webbrowser <1>Instellingen → Account → API-sleutels</1>.",
+    "bullet6": "Klik op <1>Nieuwe API-sleutel</1>, geef deze een duidelijke naam (bijv. <3>PixInsight Mac Studio</3>) en kopieer de sleutel (voorafgegaan door <5>neb-</5>).",
+    "bullet7": "Klik in PixInsight op het pictogram <1>⚙ Settings</1> in de kop of onderbalk van de connector, plak de sleutel in <3>Nebulis API Key</3> en klik op <5>Save Settings</5>.",
+    "step3Title": "3. Overzicht van de connectorinterface",
+    "termsLabel": "Tabbladarchitectuur",
+    "termLibrary": "Bibliotheek & downloaden",
+    "termLibraryDesc": "Blader door je DSO-doelen met realtime voorvertoningen, catalogusaanduidingen en sessiedetails (datum, filter, subframes, telescoopopstelling). Download onbewerkte light subframes rechtstreeks naar je lokale werkmap.",
+    "termCalibration": "Kalibratiebibliotheek",
+    "termCalibrationDesc": "Speciale browser voor alle Master Darks, Flats, Bias en Flat-Darks van alle telescopen en opstellingen. Voor Flats wordt het gekoppelde doelobject expliciet weergegeven. Selecteer kalibratiesets en download ze in batch.",
+    "termProject": "Projectsynchronisatie",
+    "termProjectDesc": "Tweerichtingssynchronisatie voor je bewerkingsworkflows. Exporteer actieve PixInsight-procesiconen (.xpsm) of upload geïntegreerde masterafbeeldingen rechtstreeks naar de map processing_project/ van het object op Nebulis.",
+    "termSettings": "⚙ Instellingenvenster",
+    "termSettingsDesc": "Speciaal venster voor serververbinding, API-sleuteltests, downloadhoofdmappen en downloadversnellingsopties."
   },
   "troubleshooting": {
     "title": "Problemen oplossen",

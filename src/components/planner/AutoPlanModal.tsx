@@ -513,18 +513,6 @@ export function AutoPlanModal({
                             <Moon className="w-3 h-3" />
                             {b.moonSeparation === Infinity ? t('autoPlanModal.moonDown') : t('autoPlanModal.awayDeg', { deg: Math.round(b.moonSeparation) })}
                           </span>
-                          {b.filterBand && (
-                            <span
-                              className={`rounded px-1 font-semibold ${
-                                b.filterBand === 'narrowband'
-                                  ? isDark ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-50 text-violet-700'
-                                  : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
-                              }`}
-                              title={t(`scheduledImagingBlock.band.${b.filterBand}`)}
-                            >
-                              {t(`scheduledImagingBlock.bandShort.${b.filterBand}`)}
-                            </span>
-                          )}
                           {b.sky && (
                             <span
                               className={`inline-flex items-center gap-1 ${

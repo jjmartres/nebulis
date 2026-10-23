@@ -403,13 +403,5 @@
     "noFilter": "Sans filtre",
     "complete": "Objectifs atteints",
     "completeTitle": "Tous les objectifs d’intégration de cet objet sont atteints"
-  },
-  "filterSuggestion": {
-    "complete": "Objectifs d’intégration atteints pour cet objet.",
-    "suggest": "Filtre conseillé : {{filter}}, reste {{left}}",
-    "noneTonight": "Tous les filtres qui manquent de temps sont large bande, et la Lune est trop proche pour eux.",
-    "use": "Utiliser {{filter}}",
-    "inUse": "Utilisé",
-    "ruledOut": "Lune trop proche pour la large bande : {{filters}}"
   }
 }

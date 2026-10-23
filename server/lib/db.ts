@@ -506,6 +506,22 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_connectedDevices_user ON connectedDevices(userId);
 
+  -- ─── User-linked API Keys ───────────────────────────────────
+  -- Allows users to generate dedicated API keys for PixInsight,
+  -- CLI scripts, and automated workflows. Hashed with SHA-256 for secure lookup.
+  CREATE TABLE IF NOT EXISTS userApiKeys (
+    id         TEXT PRIMARY KEY,
+    userId     TEXT NOT NULL,
+    keyHash    TEXT NOT NULL UNIQUE,
+    keyPrefix  TEXT NOT NULL,
+    name       TEXT NOT NULL DEFAULT '',
+    createdAt  INTEGER NOT NULL,
+    lastUsedAt INTEGER,
+    revokedAt  INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_userApiKeys_user ON userApiKeys(userId);
+  CREATE INDEX IF NOT EXISTS idx_userApiKeys_hash ON userApiKeys(keyHash);
+
   -- ─── System log (admin audit trail) ───────────────────────────
   -- Security and administrative events: logins (success/failure), user and
   -- telescope management, device pairing, sync summaries, storage and
@@ -1155,6 +1171,16 @@ db.exec(`
   }
 }
 
+// Settings → Library → "Measure sub-frame quality after import". On by
+// default: it only reads the imported FITS files and fills the quality cache
+// (server/lib/library/autoQuality.ts), so the Keep selection is ready.
+{
+  const autoQualityCols = db.prepare<[], { name: string }>('PRAGMA table_info(appSettings)').all();
+  if (!autoQualityCols.some(c => c.name === 'autoMeasureSubQuality')) {
+    db.prepare('ALTER TABLE appSettings ADD COLUMN autoMeasureSubQuality INTEGER NOT NULL DEFAULT 1').run();
+  }
+}
+
 // ─── Sub-frame role correction ──────────────────────────────────────────────
 // A sub-frame is a raw exposure and is always FITS. Rows recorded before
 // parseFilename enforced that could hold a device's per-frame preview under
@@ -1667,18 +1693,13 @@ db.exec(`
   }
 }
 
-// ─── plannedSessions: filterBand ('broadband' | 'narrowband' | NULL) ────────
-// What the block will be shot through, so its Moon check uses the right
-// tolerance (server/lib/moonProximity.ts). NULL = not set, checked as
-// broadband like before.
+// ─── plannedSessions: user's "skipped" mark for plan vs actual ──────────────
+// Everything else about a block's outcome is computed on read (planOutcome.ts);
+// only the user's own decision that a block was deliberately skipped is stored.
 {
   const cols = db.prepare<[], { name: string }>('PRAGMA table_info(plannedSessions)').all();
-  if (!cols.some(c => c.name === 'filterBand')) {
-    db.prepare('ALTER TABLE plannedSessions ADD COLUMN filterBand TEXT').run();
-  }
-  // The filter itself ("D2", "Ha"), when one was picked for the block.
-  if (!cols.some(c => c.name === 'filter')) {
-    db.prepare('ALTER TABLE plannedSessions ADD COLUMN filter TEXT').run();
+  if (!cols.some(c => c.name === 'skipped')) {
+    db.prepare('ALTER TABLE plannedSessions ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0').run();
   }
 }
 

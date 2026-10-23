@@ -103,18 +103,3 @@ describe('plannedSessions filterBand', () => {
     expect(update(row.id, { filterBand: null })?.filterBand).toBeNull();
   });
 });
-
-describe('plannedSessions filter', () => {
-  beforeEach(() => {
-    db.prepare('DELETE FROM plannedSessions').run();
-  });
-  it('stores the picked filter, trims it, and clears it with null', () => {
-    const row = create({
-      objectId: 'NGC6888', objectName: 'Crescent Nebula', ra: 20.2, dec: 38.35,
-      startTime: '2026-09-05T21:00:00.000Z', endTime: '2026-09-05T23:00:00.000Z', filter: ' D2 ', filterBand: 'narrowband',
-    });
-    expect(row).toMatchObject({ filter: 'D2', filterBand: 'narrowband' });
-    expect(update(row.id, { notes: 'x' })?.filter).toBe('D2');
-    expect(update(row.id, { filter: null })?.filter).toBeNull();
-  });
-});

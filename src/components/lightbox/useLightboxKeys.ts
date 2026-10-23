@@ -14,6 +14,8 @@ interface LightboxKeyActions {
   onDownload?: () => void;
   onDelete?: () => void;
   onToggleFavorite?: () => void;
+  /** K: keep / drop the sub-frame on screen. */
+  onToggleKeep?: () => void;
   /**
    * Suspends every shortcut. Set while a nested dialog is open (a delete
    * confirmation, the FITS header modal) so Escape dismisses that dialog
@@ -74,6 +76,9 @@ export function useLightboxKeys(actions: LightboxKeyActions, enabled = true) {
           break;
         case 'l': case 'L':
           if (a.onToggleFavorite) { e.preventDefault(); a.onToggleFavorite(); }
+          break;
+        case 'k': case 'K':
+          if (a.onToggleKeep) { e.preventDefault(); a.onToggleKeep(); }
           break;
       }
     };

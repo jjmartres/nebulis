@@ -215,33 +215,3 @@ describe('generateNightPlanDetailed — forecast', () => {
     expect(without.skippedSlots).toEqual([]);
   });
 });
-
-describe('generateNightPlan — filter type and the Moon', () => {
-  // 2025-06-21 12:00–13:00 UTC from New York: a target at RA 0h, Dec +30°
-  // sits ~70° high and ~34° from the Moon (see moonProximity.test.ts).
-  const params = (moonIllumination: number, targets: PlanCandidate[]) => ({
-    targets,
-    observerLat: 40.7128,
-    observerLon: -74.006,
-    windowStart: new Date('2025-06-21T12:00:00Z'),
-    windowEnd: new Date('2025-06-21T13:00:00Z'),
-    slotMinutes: 60,
-    maxObjects: 1,
-    minAlt: 30,
-    moonIllumination,
-    visibleSkyMap: null,
-  });
-  // The galaxy has a common name, so it wins whenever the Moon lets it.
-  const galaxy = candidate({ id: 'galaxy', ra: 0, dec: 30, type: 'Spiral Galaxy', commonNames: ['Bright one'] });
-  const nebula = candidate({ id: 'nebula', ra: 0.05, dec: 30, type: 'Emission Nebula' });
-
-  it('turns to a narrowband target when the Moon is too close for a galaxy', () => {
-    const [block] = generateNightPlan(params(60, [galaxy, nebula]));
-    expect(block).toMatchObject({ target: { id: 'nebula' }, filterBand: 'narrowband', moonVerdict: 'ok' });
-  });
-
-  it('keeps the broadband target on a dark night, and says it is broadband', () => {
-    const [block] = generateNightPlan(params(0, [galaxy, nebula]));
-    expect(block).toMatchObject({ target: { id: 'galaxy' }, filterBand: 'broadband', moonVerdict: 'ok' });
-  });
-});

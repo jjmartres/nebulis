@@ -29,9 +29,6 @@ export interface PlanBlock {
   meanAlt: number;
   moonSeparation: number;
   moonVerdict: MoonVerdict;
-  /** Filter type the plan assumed for the block (from the object type);
-   *  absent from servers that predate it. */
-  filterBand?: FilterBand;
   /** Forecast for the block when the plan was built with the forecast. */
   sky?: PlanSkyQuality | null;
 }

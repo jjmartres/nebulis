@@ -100,9 +100,6 @@ export interface PlanBlock {
   meanAlt: number;
   moonSeparation: number;
   moonVerdict: 'ok' | 'caution' | 'warning';
-  /** Filter type the block is planned for (from the object type), which the
-   *  Moon check above used. Stored on the block when it is scheduled. */
-  filterBand: FilterBand;
   /** Forecast for the block, or null when there was none for it. */
   sky: SlotSkyQuality | null;
 }
@@ -173,7 +170,7 @@ export function generateNightPlanDetailed(p: AutoPlanParams): NightPlanResult {
       continue;
     }
 
-    type Candidate = { target: PlanCandidate; meanAlt: number; moon: MoonProximityResult; band: FilterBand; score: number };
+    type Candidate = { target: PlanCandidate; meanAlt: number; moon: MoonProximityResult; score: number };
     let best: Candidate | null = null;
     let bestRelaxed: Candidate | null = null;
 
@@ -199,7 +196,7 @@ export function generateNightPlanDetailed(p: AutoPlanParams): NightPlanResult {
       const popularBonus = t.commonNames.length > 0 ? 30 : 0;
       const score = meanAlt - moonPenalty + popularBonus + seeingAdjustment(sky, t)
         + (jitter > 0 ? (Math.random() * 2 - 1) * jitter : 0);
-      const candidate = { target: t, meanAlt, moon, band, score };
+      const candidate = { target: t, meanAlt, moon, score };
 
       if (!bestRelaxed || candidate.score > bestRelaxed.score) bestRelaxed = candidate;
       if (meanAlt >= p.minAlt && (!best || candidate.score > best.score)) best = candidate;
@@ -218,7 +215,6 @@ export function generateNightPlanDetailed(p: AutoPlanParams): NightPlanResult {
       meanAlt: chosen.meanAlt,
       moonSeparation: chosen.moon.minSeparation,
       moonVerdict: chosen.moon.verdict,
-      filterBand: chosen.band,
       sky,
     });
   }

@@ -98,9 +98,6 @@ import {
 } from '../lib/visibilityCheck';
 import { checkMoonProximity, type FilterBand, type MoonProximityResult } from '../lib/moonProximity';
 import { nightFilterAdvice } from '../lib/nightFilterAdvice';
-import { suggestFilter } from '../lib/filterSuggestion';
-import { useIntegrationProgress } from '../hooks/useIntegrationProgress';
-import { FilterSuggestionPanel } from '../components/planner/FilterSuggestionPanel';
 import { AutoPlanModal } from '../components/planner/AutoPlanModal';
 import { PlanShareModal } from '../components/planner/PlanShareModal';
 import { TourAnchor } from '../components/tour/TourAnchor';
@@ -420,7 +417,7 @@ export function PlannerPage() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['planned-sessions'] }),
   });
   const updateMut = useMutation({
-    mutationFn: (vars: { id: number; patch: { startTime?: string; endTime?: string; framingSetup?: string; filterBand?: FilterBand | null; filter?: string | null } }) =>
+    mutationFn: (vars: { id: number; patch: { startTime?: string; endTime?: string; framingSetup?: string; filterBand?: FilterBand | null } }) =>
       updatePlannedSession(vars.id, vars.patch),
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ['planned-sessions'] });
@@ -520,9 +517,6 @@ export function PlannerPage() {
     majorAxisArcmin: number | null;
     framingSetup: string | null;
     filterBand?: FilterBand | null;
-    filter?: string | null;
-    start?: Date;
-    end?: Date;
   } | null>(null);
   // Jumped straight to from the timeline block's own framing shortcut icon
   // (only shown when that block already has a saved mosaic), bypassing the
@@ -1128,9 +1122,6 @@ export function PlannerPage() {
       majorAxisArcmin: planner?.targets.find(t => t.id === s.objectId)?.majorAxisArcmin ?? null,
       framingSetup: s.framingSetup,
       filterBand: s.filterBand ?? null,
-      filter: s.filter ?? null,
-      start: new Date(s.startTime),
-      end: new Date(s.endTime),
     });
   }, [planner?.targets]);
   // Memoized for the same reason as the other block-row callbacks above:
@@ -1542,18 +1533,8 @@ export function PlannerPage() {
           filterBand={detailsSession.filterBand}
           onSetFilterBand={detailsSession.sessionId != null
             ? (band: FilterBand | null) => {
-                // A filter picked earlier no longer fits a band set by hand.
-                updateMutate({ id: detailsSession.sessionId!, patch: { filterBand: band, filter: null } });
-                setDetailsSession(d => (d ? { ...d, filterBand: band, filter: null } : d));
-              }
-            : undefined}
-          blockStart={detailsSession.start ?? null}
-          blockEnd={detailsSession.end ?? null}
-          filter={detailsSession.filter}
-          onSetFilter={detailsSession.sessionId != null
-            ? (name: string | null, band: FilterBand) => {
-                updateMutate({ id: detailsSession.sessionId!, patch: { filter: name, filterBand: band } });
-                setDetailsSession(d => (d ? { ...d, filter: name, filterBand: band } : d));
+                updateMutate({ id: detailsSession.sessionId!, patch: { filterBand: band } });
+                setDetailsSession(d => (d ? { ...d, filterBand: band } : d));
               }
             : undefined}
           onClose={() => setDetailsSession(null)}
@@ -1676,13 +1657,6 @@ interface SessionDetailsModalProps {
   /** Sets the block's filter type (null = not set). Absent for an
    *  unscheduled target, which has no block to set it on. */
   onSetFilterBand?: (band: FilterBand | null) => void;
-  /** The scheduled block's window, for its own Moon check. */
-  blockStart?: Date | null;
-  blockEnd?: Date | null;
-  /** The filter picked for the block, if any. */
-  filter?: string | null;
-  /** Picks a filter (and its band) for the block. */
-  onSetFilter?: (filter: string | null, band: FilterBand) => void;
   onClose: () => void;
 }
 
@@ -1708,10 +1682,6 @@ function SessionDetailsModal({
   moonIllumination,
   filterBand,
   onSetFilterBand,
-  blockStart,
-  blockEnd,
-  filter,
-  onSetFilter,
   onClose,
 }: SessionDetailsModalProps) {
   const { t } = useTranslation('planner');
@@ -1965,13 +1935,6 @@ function SessionDetailsModal({
                   </div>
                 );
               })()}
-              <FilterSuggestionPanel
-                objectId={objectId}
-                moon={suggestionMoon}
-                currentFilter={filter}
-                onUse={onSetFilter}
-                isDark={isDark}
-              />
               {onSetFilterBand && (
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{t('plannerPage.blockFilter')}</span>

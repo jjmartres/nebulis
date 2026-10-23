@@ -32,5 +32,7 @@
   "settings:addTelescopeModal.wifiSmb": "Connection type names",
   "settings:transportEditor.kindLabel.ftp": "Connection type names",
   "settings:archive.destinationPlaceholder": "Example path",
-  "settings:usersSection.emailPlaceholder": "Example email address"
+  "settings:usersSection.emailPlaceholder": "Example email address",
+  "observations:stackingExport.wbpp": "Product and tool name (PixInsight WBPP)",
+  "observations:stackingExport.row.flatDark": "Calibration frame type, the term astrophotographers use in every language"
 }

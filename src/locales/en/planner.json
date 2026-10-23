@@ -403,13 +403,5 @@
     "noFilter": "No filter",
     "complete": "Goals reached",
     "completeTitle": "Every integration goal on this object is reached"
-  },
-  "filterSuggestion": {
-    "complete": "Integration goals reached for this object.",
-    "suggest": "Shoot through {{filter}}: {{left}} left",
-    "noneTonight": "Every filter with time left is broadband, and the Moon is too close for it.",
-    "use": "Use {{filter}}",
-    "inUse": "In use",
-    "ruledOut": "Too close to the Moon for broadband: {{filters}}"
   }
 }

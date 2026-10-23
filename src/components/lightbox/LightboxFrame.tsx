@@ -72,6 +72,9 @@ interface Props {
    * the fit zoom.
    */
   contentAspect?: number | null;
+  /** Per-item details shown between the picture and the thumbnail strip
+   *  (e.g. a sub-frame's measured quality). Hidden in fullscreen. */
+  infoBar?: ReactNode;
 
   children: ReactNode;
 }
@@ -113,7 +116,7 @@ export function LightboxFrame({
   index, count, onPrev, onNext, onSelectIndex,
   zoom, extraControls, actions, onRotate,
   immersive, onToggleImmersive,
-  thumbs, swipeDisabled, status, ambientSrc, contentAspect, children,
+  thumbs, swipeDisabled, status, ambientSrc, contentAspect, infoBar, children,
 }: Props) {
   const { t } = useTranslation('library');
   // Escape and a backdrop click both route through Modal's own `onClose`.
@@ -387,6 +390,10 @@ export function LightboxFrame({
             </div>
           )}
         </div>
+
+        {infoBar && !immersive && (
+          <div className="relative z-10 flex-shrink-0">{infoBar}</div>
+        )}
 
         {thumbs && !immersive && (
           <LightboxThumbStrip

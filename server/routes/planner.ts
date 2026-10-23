@@ -44,7 +44,7 @@ import {
   type ForecastHour,
 } from '../lib/forecastCache.js';
 import { log } from '../lib/logger.js';
-import { checkMoonProximity, moonThresholdForIllumination, moonVerdictFor } from '../lib/moonProximity.js';
+import { checkMoonProximity } from '../lib/moonProximity.js';
 import { checkBlockVisibility, type VisibleSkyMap } from '../lib/visibilityCheck.js';
 import { computeBestTonightScore } from '../lib/bestTonightScore.js';
 import SunCalc from 'suncalc';
@@ -526,8 +526,6 @@ router.post('/plan', async (req: Request, res: Response) => {
       meanAlt: Math.round(b.meanAlt * 10) / 10,
       moonSeparation: Number.isFinite(b.moonSeparation) ? Math.round(b.moonSeparation * 10) / 10 : null,
       moonVerdict: b.moonVerdict,
-      // Additive, like `sky`: the filter type the Moon check assumed.
-      filterBand: b.filterBand,
       // Additive: clients that don't know `sky` ignore it.
       sky: b.sky,
     })),

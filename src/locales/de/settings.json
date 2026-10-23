@@ -7,6 +7,7 @@
     "account": "Konto",
     "users": "Benutzer",
     "devices": "Geräte",
+    "apiKeys": "API-Schlüssel",
     "hardware": "Teleskope",
     "sky": "Himmel",
     "storage": "Speicher",
@@ -285,6 +286,10 @@
       "groupCompanions": {
         "label": "Objekte im selben Bildfeld mitzählen",
         "description": "Weitere Katalogobjekte, die im Bildfeld eines aufgenommenen Objekts lagen, zählen ebenfalls als aufgenommen. Beispiel: Wird M42 aufgenommen, zählt auch M43. Ausschalten, um nur die anvisierten Objekte zu zählen."
+      },
+      "autoQuality": {
+        "label": "Qualität der Einzelbilder nach dem Import messen",
+        "description": "Jede Nacht mit neuen FITS-Einzelbildern wird nach dem Import gemessen (HFR, Sterne, Hintergrund), damit die Auswahl fürs Stacken bereitsteht."
       }
     },
     "calibration": {
@@ -898,6 +903,7 @@
     "library": "Wie Objektkarten, Benennung und die Diashow sich verhalten.",
     "updates": "Version, Versionshinweise und Update-Einstellungen.",
     "accountDevices": "Telefone und Apple TVs, die mit deinem Konto verknüpft sind.",
+    "accountApiKeys": "API-Schlüssel für externe Tools wie PixInsight.",
     "accountUsers": "Die Personen, die sich bei dieser Bibliothek anmelden können.",
     "hardware": "Teleskop- und Kameraverbindungen.",
     "sky": "Beobachtungsort, Kataloge und externe Datenquellen.",

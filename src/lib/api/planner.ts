@@ -205,7 +205,6 @@ interface WirePlanBlock {
   meanAlt: number;
   moonSeparation: number | null;
   moonVerdict: PlanBlock['moonVerdict'];
-  filterBand?: PlanBlock['filterBand'];
   sky?: PlanBlock['sky'];
 }
 

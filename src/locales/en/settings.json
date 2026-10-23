@@ -7,6 +7,7 @@
     "account": "Account",
     "users": "Users",
     "devices": "Devices",
+    "apiKeys": "API keys",
     "hardware": "Telescopes",
     "sky": "Sky",
     "storage": "Storage",
@@ -285,6 +286,10 @@
       "groupCompanions": {
         "label": "Credit objects in the same frame",
         "description": "Other catalog objects that were also in the frame of something you imaged count as imaged too. Example: imaging M42 also counts M43. Turn off to count only the objects you aimed at."
+      },
+      "autoQuality": {
+        "label": "Measure sub-frame quality after import",
+        "description": "Every night that receives new FITS sub-frames is measured (HFR, stars, background) once the import finishes, so the Keep selection is ready for stacking."
       }
     },
     "calibration": {
@@ -898,6 +903,7 @@
     "library": "How object cards, naming, and the slideshow behave.",
     "updates": "Version, release notes, and update settings.",
     "accountDevices": "Phones and Apple TVs linked to your account.",
+    "accountApiKeys": "API keys for external tools like PixInsight.",
     "accountUsers": "The people who can sign in to this library.",
     "hardware": "Telescopes and camera connections.",
     "sky": "Observing site, catalogs, and external data sources.",

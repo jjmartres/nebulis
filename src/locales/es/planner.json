@@ -403,13 +403,5 @@
     "noFilter": "Sin filtro",
     "complete": "Objetivos alcanzados",
     "completeTitle": "Todos los objetivos de integración de este objeto se han alcanzado"
-  },
-  "filterSuggestion": {
-    "complete": "Objetivos de integración alcanzados para este objeto.",
-    "suggest": "Filtro: {{filter}}, quedan {{left}}",
-    "noneTonight": "Todos los filtros con tiempo pendiente son de banda ancha y la Luna está demasiado cerca.",
-    "use": "Usar {{filter}}",
-    "inUse": "En uso",
-    "ruledOut": "Luna demasiado cerca para banda ancha: {{filters}}"
   }
 }

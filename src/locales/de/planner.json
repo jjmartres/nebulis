@@ -403,13 +403,5 @@
     "noFilter": "Ohne Filter",
     "complete": "Ziele erreicht",
     "completeTitle": "Alle Integrationsziele für dieses Objekt sind erreicht"
-  },
-  "filterSuggestion": {
-    "complete": "Integrationsziele für dieses Objekt erreicht.",
-    "suggest": "Filter: {{filter}}, noch {{left}}",
-    "noneTonight": "Alle Filter mit Restzeit sind Breitband, und der Mond steht zu nah.",
-    "use": "{{filter}} verwenden",
-    "inUse": "Verwendet",
-    "ruledOut": "Mond zu nah für Breitband: {{filters}}"
   }
 }
