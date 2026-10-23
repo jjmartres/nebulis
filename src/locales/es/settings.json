@@ -18,7 +18,8 @@
     "about": "Acerca de",
     "archive": "Archivo",
     "linked": "Carpetas vinculadas",
-    "cleanup": "Limpieza"
+    "cleanup": "Limpieza",
+    "alerts": "Alertas"
   },
   "page": {
     "viewOnlyBanner": "Modo de solo lectura. Contacta con un administrador para hacer cambios.",
@@ -286,6 +287,10 @@
       "groupCompanions": {
         "label": "Contar objetos del mismo encuadre",
         "description": "Los demás objetos del catálogo que estaban en el encuadre de algo fotografiado también cuentan como fotografiados. Ejemplo: fotografiar M42 también cuenta M43. Desactivar para contar solo los objetos apuntados."
+      },
+      "autoQuality": {
+        "label": "Medir la calidad de las subtomas tras importar",
+        "description": "Cada noche que recibe nuevas subtomas FITS se mide (HFR, estrellas, fondo) al terminar la importación, para que la selección esté lista para apilar."
       }
     },
     "calibration": {
@@ -296,6 +301,18 @@
         "description": "La corriente de oscuridad y el ruido de lectura de un sensor cambian con el tiempo, así que un conjunto más antiguo que este valor se marca como Caducado en la página de Calibraciones y puede eliminarse desde allí. Los flats y flat-darks no se ven afectados, se asocian a una sesión en lugar de caducar.",
         "unit": "días"
       }
+    },
+    "filterAliases": {
+      "title": "Alias de filtros",
+      "description": "Agrupa los nombres de filtro que tu software de captura escribe de forma distinta, para que la integración por filtro los cuente juntos. Las grafías habituales (Ha, H-alpha, OIII, SII, L, R, G, B) ya están agrupadas.",
+      "empty": "Aún no hay alias.",
+      "aliasPlaceholder": "Nombre en tus archivos",
+      "canonicalPlaceholder": "Contar como",
+      "remove": "Quitar alias",
+      "add": "Añadir alias",
+      "cancel": "Cancelar",
+      "save": "Guardar alias",
+      "saveFailed": "No se pudieron guardar los alias."
     }
   },
   "softwareUpdate": {
@@ -895,7 +912,8 @@
     "log": "Inicios de sesión, cambios de usuarios y telescopios, sincronizaciones y otra actividad administrativa.",
     "danger": "Diagnósticos, herramientas de limpieza y acciones destructivas.",
     "about": "Por qué existe Nebulis, y quién lo creó.",
-    "libraryCleanup": "Libera espacio en disco eliminando archivos que ya no necesitas."
+    "libraryCleanup": "Libera espacio en disco eliminando archivos que ya no necesitas.",
+    "alerts": "Entérese cuando se acerca una noche despejada o termina una importación."
   },
   "transportEditor": {
     "kindLabel": {
@@ -1412,6 +1430,121 @@
       "detail": "Archivos aún sin ordenar por noche. Reorganizar mueve archivos.",
       "progress": "Reorganizando… {{done}} / {{total}}",
       "fix": "Reorganizar"
+    }
+  },
+  "alerts": {
+    "title": "Canales de alerta",
+    "description": "Adónde envía Nebulis lo que detecta por sí mismo.",
+    "add": "Añadir canal",
+    "actionFailed": "No funcionó. Inténtelo de nuevo.",
+    "saveFailed": "No se pudo guardar el canal.",
+    "loadFailed": "No se pudieron cargar las alertas.",
+    "loading": "Cargando…",
+    "empty": "Todavía no hay canales de alerta.",
+    "emptyHint": "Añada un tema de ntfy para recibir alertas en el teléfono, o una URL de Discord, Slack o webhook.",
+    "noEvents": "Ningún evento elegido, así que no se envía nada.",
+    "lastSent": "Último envío {{when}}",
+    "lastFailed": "El último intento {{when}} falló: {{error}}",
+    "testSent": "Alerta de prueba enviada.",
+    "testFailed": "La prueba falló: {{error}}",
+    "enabledLabel": "Enviar alertas a {{name}}",
+    "test": "Probar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "deleteConfirm": "¿Eliminar «{{name}}»? No se enviará nada más allí.",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "addTitle": "Añadir un canal de alerta",
+    "editTitle": "Editar el canal de alerta",
+    "kindLabel": "Enviar a",
+    "kindHelp": {
+      "ntfy": "Notificaciones en el teléfono con la app gratuita ntfy: suscríbase a un tema en la app y pegue aquí la URL del tema. Elija un nombre difícil de adivinar, o añada ?auth=… para un servidor protegido.",
+      "discord": "En Discord: ajustes del canal → Integraciones → Webhooks → Nuevo webhook → Copiar URL del webhook.",
+      "slack": "En Slack: cree una app con Incoming Webhooks, añada uno a un canal y copie su URL.",
+      "webhook": "Nebulis envía JSON (evento, título, mensaje, datos) a esta URL, para Home Assistant, n8n o sus propios scripts."
+    },
+    "nameLabel": "Nombre",
+    "namePlaceholder": {
+      "ntfy": "Mi teléfono",
+      "discord": "Servidor astro",
+      "slack": "Canal del observatorio",
+      "webhook": "Home Assistant"
+    },
+    "urlLabel": "URL",
+    "urlPlaceholder": {
+      "ntfy": "https://ntfy.sh/my-nebulis-topic",
+      "discord": "https://discord.com/api/webhooks/…",
+      "slack": "https://hooks.slack.com/services/…",
+      "webhook": "https://homeassistant.local:8123/api/webhook/nebulis"
+    },
+    "urlKeep": "Déjelo vacío para mantener la URL actual.",
+    "secretLabel": "Secreto de firma (opcional)",
+    "secretHelp": "Si se define, cada solicitud lleva X-Nebulis-Signature: sha256=HMAC del cuerpo, para que el receptor compruebe que viene de Nebulis.",
+    "secretClear": "Quitar el secreto",
+    "eventsLabel": "Eventos",
+    "event": {
+      "night": {
+        "clear": {
+          "short": "Noche despejada",
+          "label": "Noche despejada a la vista",
+          "help": "Cada tarde, cuando la previsión da suficientes horas oscuras despejadas en el sitio activo."
+        }
+      },
+      "import": {
+        "finished": {
+          "short": "Importación lista",
+          "label": "Importación terminada",
+          "help": "Cuando una importación trae archivos nuevos, con los objetos afectados."
+        },
+        "failed": {
+          "short": "Importación fallida",
+          "label": "La importación falló",
+          "help": "Cuando una importación se detiene por un error."
+        }
+      },
+      "update": {
+        "available": {
+          "short": "Actualización",
+          "label": "Actualización disponible",
+          "help": "Una vez por cada nueva versión de Nebulis."
+        }
+      }
+    },
+    "language": "Idioma de los mensajes",
+    "languageHelp": "Idioma de los textos de alerta, para todos los canales.",
+    "kind": {
+      "ntfy": "ntfy",
+      "discord": "Discord",
+      "slack": "Slack",
+      "webhook": "Webhook"
+    },
+    "clearNight": {
+      "title": "Noche despejada a la vista",
+      "description": "La comprobación de la tarde detrás de la alerta «Noche despejada a la vista», para el sitio activo.",
+      "checkTime": "Comprobar a las",
+      "checkTimeHelp": "Hora local del sitio activo. La comprobación se hace una vez por noche.",
+      "minClearHours": "Enviar a partir de",
+      "minClearHoursHelp": "Horas oscuras despejadas que quedan tras la comprobación.",
+      "hours_one": "{{count}} hora despejada",
+      "hours_other": "{{count}} horas despejadas",
+      "maxCloud": "Una hora está despejada hasta",
+      "maxCloudHelp": "Nubosidad de la previsión. Las horas con probable lluvia nunca cuentan.",
+      "cloudPct": "{{pct}} % de nubes",
+      "preview": "Comprobar esta noche ahora",
+      "noListener": "Ningún canal tiene «Noche despejada» marcado, así que la comprobación no se ejecuta.",
+      "listeners_one": "Se envía a {{count}} canal.",
+      "listeners_other": "Se envía a {{count}} canales.",
+      "tonight": "Esta noche:",
+      "lastCheck": "Última comprobación {{when}}:",
+      "summary": "{{clear}} h despejadas de {{dark}} h de oscuridad, mejor de {{start}} a {{end}}, Luna al {{moon}} %",
+      "reason": {
+        "sent": "alerta enviada",
+        "not_clear_enough": "por debajo del mínimo, no enviada",
+        "no_forecast": "no hay previsión disponible",
+        "no_dark_window": "no hay oscuridad astronómica esta noche",
+        "no_site": "defina primero la ubicación del sitio activo",
+        "preview": "solo vista previa"
+      }
     }
   }
 }

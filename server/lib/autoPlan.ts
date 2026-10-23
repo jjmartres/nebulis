@@ -15,7 +15,10 @@
  *     but only when unimagedOnly excludes them outright — once eligible,
  *     already-imaged objects compete on equal footing
  *   - images each object when it sits highest during its time slot (elevation)
- *   - stays away from the moon (skips moon-wrecked slots, penalizes close ones)
+ *   - stays away from the moon (skips moon-wrecked slots, penalizes close ones),
+ *     judged for the filter type each object is shot through: narrowband
+ *     targets (emission nebulae…) tolerate a much closer Moon than galaxies,
+ *     so on a bright night the plan naturally turns to them
  *   - fills the night back-to-back from the chosen start time
  *
  * The schedule is greedy and per-slot: walking the night in order, each slot
@@ -24,9 +27,11 @@
  * in the sky, instead of just sorting by "best overall tonight" and hoping.
  */
 import { altAz } from './astroCalc.js';
-import { checkMoonProximity, type MoonProximityResult } from './moonProximity.js';
+import { checkMoonProximity, type FilterBand, type MoonProximityResult } from './moonProximity.js';
+import { bandForObjectType } from './filterBands.js';
 import { objectEverVisible, type VisibleSkyMap } from './visibilityCheck.js';
 import { typeInClass } from './objectCategories.js';
+import { seeingAdjustment, type SlotSkyQuality } from './skyQuality.js';
 
 export const AUTO_PLAN_FOCUSES = ['all', 'galaxies', 'nebulae', 'clusters'] as const;
 export type AutoPlanFocus = (typeof AUTO_PLAN_FOCUSES)[number];
@@ -69,6 +74,23 @@ export interface AutoPlanParams {
   /** 0 = deterministic, >0 adds randomness so "Shuffle" surfaces
    *  different-but-still-good plans. Degrees of altitude-equivalent. */
   jitter?: number;
+  /** Sky quality for a slot, from the forecast (see skyQuality.ts). Slots it
+   *  marks unusable (too cloudy) are left empty and reported in
+   *  `skippedSlots`; seeing nudges small targets toward steady hours. Omit,
+   *  or return null for a slot, to plan exactly as without a forecast. */
+  skyQuality?: (start: Date, end: Date) => SlotSkyQuality | null;
+}
+
+export interface SkippedSlot {
+  start: Date;
+  end: Date;
+  cloudCover: number;
+}
+
+export interface NightPlanResult {
+  blocks: PlanBlock[];
+  /** Slots left empty because the forecast says they are cloudy. */
+  skippedSlots: SkippedSlot[];
 }
 
 export interface PlanBlock {
@@ -78,6 +100,8 @@ export interface PlanBlock {
   meanAlt: number;
   moonSeparation: number;
   moonVerdict: 'ok' | 'caution' | 'warning';
+  /** Forecast for the block, or null when there was none for it. */
+  sky: SlotSkyQuality | null;
 }
 
 function matchesFocus(t: PlanCandidate, focus: AutoPlanFocus): boolean {
@@ -103,6 +127,11 @@ function meanAltitude(
 }
 
 export function generateNightPlan(p: AutoPlanParams): PlanBlock[] {
+  return generateNightPlanDetailed(p).blocks;
+}
+
+/** Same plan, plus the slots skipped for clouds. */
+export function generateNightPlanDetailed(p: AutoPlanParams): NightPlanResult {
   const slotMs = Math.max(5, p.slotMinutes) * 60_000;
   const jitter = p.jitter ?? 0;
 
@@ -123,6 +152,7 @@ export function generateNightPlan(p: AutoPlanParams): PlanBlock[] {
 
   const used = new Set<string>();
   const blocks: PlanBlock[] = [];
+  const skippedSlots: SkippedSlot[] = [];
 
   for (
     let slotStart = p.windowStart.getTime();
@@ -131,6 +161,14 @@ export function generateNightPlan(p: AutoPlanParams): PlanBlock[] {
   ) {
     const start = new Date(slotStart);
     const end = new Date(Math.min(slotStart + slotMs, p.windowEnd.getTime()));
+
+    // Cloudy slot: leave it empty rather than spend a target on it. The slot
+    // doesn't count toward maxObjects, so a clear later slot still gets one.
+    const sky = p.skyQuality?.(start, end) ?? null;
+    if (sky && !sky.usable) {
+      skippedSlots.push({ start, end, cloudCover: sky.cloudCover });
+      continue;
+    }
 
     type Candidate = { target: PlanCandidate; meanAlt: number; moon: MoonProximityResult; score: number };
     let best: Candidate | null = null;
@@ -141,7 +179,8 @@ export function generateNightPlan(p: AutoPlanParams): PlanBlock[] {
       const meanAlt = meanAltitude(t.ra, t.dec, p.observerLat, p.observerLon, start, end);
       if (meanAlt < 10) continue; // effectively below the horizon for this slot
 
-      const moon = checkMoonProximity(t.ra, t.dec, p.observerLat, p.observerLon, start, end, p.moonIllumination);
+      const band = bandForObjectType(t.type);
+      const moon = checkMoonProximity(t.ra, t.dec, p.observerLat, p.observerLon, start, end, p.moonIllumination, 5, undefined, band);
       if (moon.verdict === 'warning') continue; // moon would wreck it
 
       // Score (degrees of altitude-equivalent):
@@ -149,12 +188,14 @@ export function generateNightPlan(p: AutoPlanParams): PlanBlock[] {
       //   - moon penalty when the moon is merely close
       //   + popularity bonus for objects with a common name so the plan leans
       //     toward recognizable targets over obscure catalog entries
+      //   + seeing fit: small targets gain in steady air (forecast only)
       //   + jitter for "Shuffle"
       // Already-imaged status has no score effect here: unimagedOnly (above)
       // is the sole switch for whether imaged objects are eligible at all.
       const moonPenalty = moon.verdict === 'caution' ? 10 : 0;
       const popularBonus = t.commonNames.length > 0 ? 30 : 0;
-      const score = meanAlt - moonPenalty + popularBonus + (jitter > 0 ? (Math.random() * 2 - 1) * jitter : 0);
+      const score = meanAlt - moonPenalty + popularBonus + seeingAdjustment(sky, t)
+        + (jitter > 0 ? (Math.random() * 2 - 1) * jitter : 0);
       const candidate = { target: t, meanAlt, moon, score };
 
       if (!bestRelaxed || candidate.score > bestRelaxed.score) bestRelaxed = candidate;
@@ -174,8 +215,9 @@ export function generateNightPlan(p: AutoPlanParams): PlanBlock[] {
       meanAlt: chosen.meanAlt,
       moonSeparation: chosen.moon.minSeparation,
       moonVerdict: chosen.moon.verdict,
+      sky,
     });
   }
 
-  return blocks;
+  return { blocks, skippedSlots };
 }

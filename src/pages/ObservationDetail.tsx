@@ -50,6 +50,7 @@ import { SessionFileGrid } from '../components/observationDetail/SessionFileGrid
 import { SubframesPanel } from '../components/observationDetail/SubframesPanel';
 import { ProcessedImagesGrid } from '../components/observationDetail/ProcessedImagesGrid';
 import { useTheme } from '../hooks/useTheme';
+import { useSubframeGalleryExtras } from '../hooks/useSubframeGalleryExtras';
 import { useAuth } from '../contexts/AuthContext';
 import type { SessionFile, ProcessedImage } from '../types';
 import type { CompareItem } from '../components/observationDetail/types';
@@ -432,6 +433,15 @@ export function ObservationDetail() {
     }
   }, [gallerySource, filteredFiles, subFrames, processedImages]);
 
+  // Measured quality and Keep for each sub, only when the viewer is showing
+  // the night's sub-frames.
+  const subframeExtras = useSubframeGalleryExtras(
+    objectId,
+    date,
+    gallerySource?.kind === 'subframes' && subFrames.some(f => f.type === 'fits'),
+    isAdmin,
+  );
+
   // ─── What the hero shows ────────────────────────────────────────────────────
   // A processed image, when one is crowned or auto-picked, otherwise the best
   // telescope frame. The badge distinguishes the three: an explicit crown is the
@@ -558,11 +568,11 @@ export function ObservationDetail() {
 
   // ─── Download local subframes as ZIP ────────────────────────────────────────
 
-  const handleDownloadToComputer = useCallback(async () => {
+  const handleDownloadToComputer = useCallback(async (keptOnly = false) => {
     if (!objectId || !date || archiveState !== 'idle') return;
     archiveAbortRef.current = false;
     try {
-      const { jobId, filesTotal } = await startSubframesArchive(objectId, [date]);
+      const { jobId, filesTotal } = await startSubframesArchive(objectId, [date], undefined, undefined, undefined, keptOnly);
       if (archiveAbortRef.current) { void cancelSubframesArchive(jobId).catch(() => {}); return; }
       archiveJobIdRef.current = jobId;
       setArchiveState({ done: 0, total: filesTotal });
@@ -838,6 +848,8 @@ if (isLoading) {
 
         {activeTab === 'subframes' && (
         <SubframesPanel
+          objectId={objectId}
+          date={date}
           subFrames={subFrames}
           isAdmin={isAdmin}
           telescopeOnline={telescopeOnline}
@@ -917,6 +929,7 @@ if (isLoading) {
         onDeleteProcessed={handleDeleteProcessed}
         settingGalleryId={settingGalleryId}
         deletingProcessedId={deletingProcessedId}
+        extras={subframeExtras}
       />
 
       {/* Satellite Trail Scan Modal */}

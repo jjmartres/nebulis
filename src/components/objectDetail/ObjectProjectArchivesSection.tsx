@@ -22,9 +22,17 @@ import { ConfirmModal } from '../ConfirmModal';
 export function ObjectProjectArchivesSection({
   objectId,
   isAdmin,
+  openClassName = '',
+  closedClassName = '',
 }: {
   objectId: string;
   isAdmin: boolean;
+  /** Classes for the card when open (e.g. to fill what is left of its
+   *  column); the collapsed card is styled by closedClassName. */
+  openClassName?: string;
+  /** Classes for the card when collapsed (e.g. `self-start` in a stretched
+   *  grid row, so a closed card keeps its own height). */
+  closedClassName?: string;
 }) {
   const { isDark } = useTheme();
   const { t } = useTranslation('library');
@@ -65,7 +73,9 @@ export function ObjectProjectArchivesSection({
   };
 
   return (
-    <div className={`rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+    <div className={`flex flex-col rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200 shadow-sm'} ${
+      isOpen ? openClassName : closedClassName
+    }`}>
       <div className={`flex items-center gap-2 p-4 ${isOpen ? `border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}` : ''}`}>
         <button
           type="button"

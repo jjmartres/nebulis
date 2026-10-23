@@ -9,6 +9,7 @@ import {
   Download,
   Library,
   Info,
+  Bell,
 } from 'lucide-react';
 import { cloneElement, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -75,6 +76,7 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: 'cleanup', labelKey: 'nav.cleanup' },
     ],
   },
+  { id: 'alerts', labelKey: 'nav.alerts', icon: Bell, adminOnly: true },
   { id: 'log', labelKey: 'nav.log', icon: ScrollText, adminOnly: true },
   { id: 'danger', labelKey: 'nav.danger', icon: AlertTriangle, danger: true, adminOnly: true },
   { id: 'about', labelKey: 'nav.about', icon: Info },

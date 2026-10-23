@@ -80,3 +80,26 @@ describe('plannedSessions', () => {
     expect(afterUnrelatedPatch?.framingSetup).toBe('{"cols":2,"rows":2,"overlap":0.1,"rotationDeg":15}');
   });
 });
+
+describe('plannedSessions filterBand', () => {
+  beforeEach(() => {
+    db.prepare('DELETE FROM plannedSessions').run();
+  });
+  const block = {
+    objectId: 'NGC6888', objectName: 'Crescent Nebula', ra: 20.2, dec: 38.35,
+    startTime: '2026-09-05T21:00:00.000Z', endTime: '2026-09-05T23:00:00.000Z',
+  };
+
+  it('is null unless set, can be set on create and patched', () => {
+    expect(create(block).filterBand).toBeNull();
+    const nb = create({ ...block, filterBand: 'narrowband' });
+    expect(nb.filterBand).toBe('narrowband');
+    expect(update(nb.id, { filterBand: 'broadband' })?.filterBand).toBe('broadband');
+  });
+
+  it('is left alone by other patches and cleared by an explicit null', () => {
+    const row = create({ ...block, filterBand: 'narrowband' });
+    expect(update(row.id, { notes: 'D2 filter' })?.filterBand).toBe('narrowband');
+    expect(update(row.id, { filterBand: null })?.filterBand).toBeNull();
+  });
+});

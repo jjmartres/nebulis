@@ -85,6 +85,7 @@ import {
 import { resolveObjectImagePath, invalidateAllImagesCache, objectThumbnailDiskCacheKey } from './gallery.js';
 import { writeFileIntoLibrary, copyTransportFile } from './importWrite.js';
 import { recordLibraryFiles, roleForFile, resolverFor, writeObjectManifest, getLibraryFileRow, type RecordFileInput } from './libraryFiles.js';
+import { noteImportedSubFrames, setImportBusyProbe } from './autoQuality.js';
 import { classifyExistingCopy } from './existingCopy.js';
 import { isCaptureInfoSidecar, ingestCaptureInfoFile } from './captureInfo.js';
 import { getStartrailsObjectId, patchStartrailsObjectMeta } from './dwarfStartrails.js';
@@ -1644,6 +1645,7 @@ export async function runImport(
       // object pointing at files with no row — the same order as before, just
       // batched.
       recordLibraryFiles(pendingFileRows);
+      noteImportedSubFrames(pendingFileRows);
 
       if (downloadsCancelled) {
         importStatus.error = 'Import cancelled. Files already downloaded were kept; the rest will be picked up on the next run.';
@@ -2597,6 +2599,7 @@ export async function syncSessionSubFrames(
         });
       }
       recordLibraryFiles(subFrameRows);
+      noteImportedSubFrames(subFrameRows);
       writeObjectManifest(targetObjectId, objFolderName);
     }
 
@@ -3100,6 +3103,9 @@ export function forceReleaseStaleLock(reason: string): void {
  * transport validation), so a hang before that point would leave it holding
  * a stale value from whatever run completed previously.
  */
+// Auto quality measurement waits for the import to finish (autoQuality.ts).
+setImportBusyProbe(() => getImportLockStartedAt() !== null);
+
 export function getImportLockStartedAt(): string | null {
   try {
     return stmts.getImportMeta.get()?.importStartedAt ?? null;
@@ -3695,6 +3701,7 @@ export async function commitFolderImport(plan: CommitPlan): Promise<void> {
       }
 
       recordLibraryFiles(folderFileRows);
+      noteImportedSubFrames(folderFileRows);
 
       if (cancelledMidObject) {
         importStatus.error = 'Import cancelled. Files already copied were kept; the rest will be picked up on the next run.';

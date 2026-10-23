@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { Settings as SettingsType } from '../../types';
 import { Sec, Row, Toggle, getInputClass } from './SettingsUI';
 import { Telescope, Globe } from 'lucide-react';
+import { FilterAliasesSection } from './FilterAliasesSection';
 
 function ImageSourceOption({
   value,
@@ -185,6 +186,17 @@ export function LibrarySection({
             label={t('librarySection.organization.groupCompanions.label')}
           />
         </Row>
+        <Row
+          label={t('librarySection.organization.autoQuality.label')}
+          description={t('librarySection.organization.autoQuality.description')}
+          isDark={isDark}
+        >
+          <Toggle
+            checked={form.autoMeasureSubQuality ?? true}
+            onChange={v => setForm(f => ({ ...f, autoMeasureSubQuality: v }))}
+            label={t('librarySection.organization.autoQuality.label')}
+          />
+        </Row>
       </Sec>
 
       <Sec
@@ -216,6 +228,8 @@ export function LibrarySection({
           </div>
         </Row>
       </Sec>
+
+      <FilterAliasesSection isDark={isDark} />
     </>
   );
 }

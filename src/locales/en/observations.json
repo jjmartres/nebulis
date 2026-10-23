@@ -238,7 +238,10 @@
       "showingAll": "Showing all {{total}}",
       "viewAll": "View all {{total}}",
       "openViewer": "Open viewer",
-      "empty": "No subframes downloaded yet. Connect your telescope and use Download Subs to sync them."
+      "empty": "No subframes downloaded yet. Connect your telescope and use Download Subs to sync them.",
+      "quality": "Quality",
+      "qualityTitle": "Measure HFR, FWHM and stars for each sub-frame and pick the ones to keep",
+      "notKept": "not kept"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Exit compare mode",
@@ -451,7 +454,9 @@
       "filterTypesSelected_other": "{{selected}} of {{count}} filter types selected",
       "selectAtLeastOneFilter": "Select at least one filter type",
       "back": "Back",
-      "discardSelection": "Discard your session selection?"
+      "discardSelection": "Discard your session selection?",
+      "keptOnlyOption": "Only sub-frames kept by the quality check",
+      "keptOnlyHint": "Leaves out the sub-frames graded poor or unticked in a night’s quality view. Nights not measured yet go in whole."
     },
     "satelliteTrailScanModal": {
       "title": "Satellite Trail Detection",
@@ -548,5 +553,58 @@
     "moreCount_one": "+{{count}} more",
     "moreCount_other": "+{{count}} more",
     "approximate": "approximate"
+  },
+  "subframeQuality": {
+    "title": "Sub-frame quality",
+    "summary": "{{accepted}} of {{total}} kept",
+    "summaryPartial": "{{measured}} of {{total}} measured · {{kept}} kept",
+    "notMeasured_one": "{{count}} sub-frame, not measured yet",
+    "notMeasured_other": "{{count}} sub-frames, not measured yet",
+    "analyze_one": "Measure {{count}} sub-frame",
+    "analyze_other": "Measure {{count}} sub-frames",
+    "reanalyze": "Measure again",
+    "csv": "CSV",
+    "cancel": "Stop",
+    "measuring": "Measuring {{done}} / {{total}}",
+    "failed": "Something went wrong. Try again.",
+    "hint": "An admin can measure HFR, FWHM, stars and background for each sub-frame of this night.",
+    "hintAdmin": "Measures HFR, FWHM, star count, elongation and background from the pixels, then grades each sub-frame against the rest of the night. About a third of a second per frame.",
+    "group_one": "{{filter}}: {{count}} frame, median HFR {{hfr}} px, {{stars}} stars",
+    "group_other": "{{filter}}: {{count}} frames, median HFR {{hfr}} px, {{stars}} stars",
+    "noFilter": "No filter",
+    "legendRejected": "Faded: not kept",
+    "onlyRejected": "Only sub-frames not kept ({{count}})",
+    "col": {
+      "file": "File",
+      "filter": "Filter",
+      "hfr": "HFR",
+      "fwhm": "FWHM",
+      "stars": "Stars",
+      "ecc": "Elong.",
+      "background": "Background",
+      "grade": "Grade",
+      "keep": "Keep"
+    },
+    "grade": {
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Poor"
+    },
+    "flag": {
+      "soft": "Softer than the night",
+      "very_soft": "Much softer than the night",
+      "few_stars": "Fewer stars than the night",
+      "very_few_stars": "Far fewer stars (clouds?)",
+      "bright_background": "Brighter background",
+      "elongated": "Elongated stars"
+    },
+    "unreadable": "Unreadable",
+    "keepFile": "Keep {{name}}",
+    "reset": "auto",
+    "resetTitle": "Go back to the automatic decision",
+    "showAll": "Show all {{count}}",
+    "viewerNotMeasured": "Not measured yet. Use the Quality button above the sub-frame thumbnails to measure this night.",
+    "keepShortcut": "Keep this sub-frame for stacking (K)",
+    "autoDecision": "automatic"
   }
 }
