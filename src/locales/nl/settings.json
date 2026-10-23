@@ -7,6 +7,7 @@
     "account": "Account",
     "users": "Gebruikers",
     "devices": "Apparaten",
+    "apiKeys": "API-sleutels",
     "hardware": "Telescopen",
     "sky": "Hemel",
     "storage": "Opslag",
@@ -296,6 +297,18 @@
         "description": "De donkerstroom en uitleesruis van een sensor veranderen naarmate deze ouder wordt. Bundels die ouder zijn dan deze termijn krijgen daarom de status Verlopen bij Kalibraties en kunnen daar worden verwijderd. Deze termijn geldt niet voor flats en flat-darks: die worden aan een specifieke sessie gekoppeld.",
         "unit": "dagen"
       }
+    },
+    "filterAliases": {
+      "title": "Filteraliassen",
+      "description": "Voeg filternamen samen die je opnamesoftware verschillend schrijft, zodat de integratie per filter ze samen telt. Gangbare schrijfwijzen (Ha, H-alpha, OIII, SII, L, R, G, B) zijn al samengevoegd.",
+      "empty": "Nog geen aliassen.",
+      "aliasPlaceholder": "Naam in je bestanden",
+      "canonicalPlaceholder": "Tellen als",
+      "remove": "Alias verwijderen",
+      "add": "Alias toevoegen",
+      "cancel": "Annuleren",
+      "save": "Aliassen opslaan",
+      "saveFailed": "De aliassen konden niet worden opgeslagen."
     }
   },
   "softwareUpdate": {
@@ -887,6 +900,7 @@
     "library": "Hoe objectkaarten, naamgeving en de diavoorstelling zich gedragen.",
     "updates": "Versie, versienotities en update-instellingen.",
     "accountDevices": "Telefoons en Apple TV's die aan je account zijn gekoppeld.",
+    "accountApiKeys": "API-sleutels voor externe tools zoals PixInsight.",
     "accountUsers": "De mensen die zich kunnen aanmelden bij deze bibliotheek.",
     "hardware": "Telescopen en camera-aansluitingen.",
     "sky": "Waarneemlocatie, catalogi en externe gegevensbronnen.",

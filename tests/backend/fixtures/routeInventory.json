@@ -527,6 +527,21 @@
   },
   {
     "method": "GET",
+    "path": "/library/filter-aliases",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/filter-aliases",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/library/fits-thumbnail",
     "guards": [
       "<anonymous>"
@@ -641,6 +656,13 @@
     ]
   },
   {
+    "method": "GET",
+    "path": "/library/integration/progress",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
     "method": "POST",
     "path": "/library/manual-observations",
     "guards": [
@@ -747,6 +769,21 @@
   },
   {
     "method": "GET",
+    "path": "/library/objects/:objectId/integration/filters",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/objects/:objectId/integration/goals",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/library/objects/:objectId/linked-files",
     "guards": [
       "requireAdmin",
@@ -789,6 +826,23 @@
     "path": "/library/objects/:objectId/processed-images/:id",
     "guards": [
       "requireAdmin",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/processing-project",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/processing-project/file",
+    "guards": [
+      "requireAdmin",
+      "checkArchiveUploadSpace",
       "multerMiddleware",
       "<anonymous>"
     ]
@@ -937,6 +991,36 @@
     ]
   },
   {
+    "method": "GET",
+    "path": "/library/objects/:objectId/sessions/:date/quality",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/sessions/:date/quality.csv",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/quality/analyze",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/quality/cancel",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
     "method": "POST",
     "path": "/library/objects/:objectId/sessions/:date/restore",
     "guards": [
@@ -1009,6 +1093,22 @@
   },
   {
     "method": "POST",
+    "path": "/library/objects/:objectId/stacking-export",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/stacking-export/plan",
+    "guards": [
+      "<anonymous>",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
     "path": "/library/objects/:objectId/sync-subframes",
     "guards": [
       "requireAdmin",
@@ -1063,6 +1163,14 @@
     "method": "GET",
     "path": "/library/project-archives/:id",
     "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/quality/review",
+    "guards": [
+      "requireAdmin",
       "<anonymous>"
     ]
   },
@@ -1329,6 +1437,13 @@
   },
   {
     "method": "GET",
+    "path": "/planned-sessions/nights",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/planner",
     "guards": [
       "<anonymous>"
@@ -1470,7 +1585,27 @@
     "method": "DELETE",
     "path": "/settings/api-key",
     "guards": [
-      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/settings/api-keys",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/settings/api-keys",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/settings/api-keys/:id",
+    "guards": [
       "<anonymous>"
     ]
   },
@@ -1510,7 +1645,6 @@
     "method": "POST",
     "path": "/settings/generate-api-key",
     "guards": [
-      "requireAdmin",
       "<anonymous>"
     ]
   },

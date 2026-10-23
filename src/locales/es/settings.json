@@ -7,6 +7,7 @@
     "account": "Cuenta",
     "users": "Usuarios",
     "devices": "Dispositivos",
+    "apiKeys": "Claves API",
     "hardware": "Telescopios",
     "sky": "Cielo",
     "storage": "Almacenamiento",
@@ -296,6 +297,18 @@
         "description": "La corriente de oscuridad y el ruido de lectura de un sensor cambian con el tiempo, así que un conjunto más antiguo que este valor se marca como Caducado en la página de Calibraciones y puede eliminarse desde allí. Los flats y flat-darks no se ven afectados, se asocian a una sesión en lugar de caducar.",
         "unit": "días"
       }
+    },
+    "filterAliases": {
+      "title": "Alias de filtros",
+      "description": "Agrupa los nombres de filtro que tu software de captura escribe de forma distinta, para que la integración por filtro los cuente juntos. Las grafías habituales (Ha, H-alpha, OIII, SII, L, R, G, B) ya están agrupadas.",
+      "empty": "Aún no hay alias.",
+      "aliasPlaceholder": "Nombre en tus archivos",
+      "canonicalPlaceholder": "Contar como",
+      "remove": "Quitar alias",
+      "add": "Añadir alias",
+      "cancel": "Cancelar",
+      "save": "Guardar alias",
+      "saveFailed": "No se pudieron guardar los alias."
     }
   },
   "softwareUpdate": {
@@ -887,6 +900,7 @@
     "library": "Cómo se comportan las tarjetas de objeto, el nombrado y la presentación de diapositivas.",
     "updates": "Versión, notas de la versión y configuración de actualizaciones.",
     "accountDevices": "Teléfonos y Apple TV vinculados a tu cuenta.",
+    "accountApiKeys": "Claves API para herramientas externas como PixInsight.",
     "accountUsers": "Las personas que pueden iniciar sesión en esta biblioteca.",
     "hardware": "Telescopios y conexiones de cámara.",
     "sky": "Sitio de observación, catálogos y fuentes de datos externas.",

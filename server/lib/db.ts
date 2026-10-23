@@ -506,6 +506,22 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_connectedDevices_user ON connectedDevices(userId);
 
+  -- ─── User-linked API Keys ───────────────────────────────────
+  -- Allows users to generate dedicated API keys for PixInsight,
+  -- CLI scripts, and automated workflows. Hashed with SHA-256 for secure lookup.
+  CREATE TABLE IF NOT EXISTS userApiKeys (
+    id         TEXT PRIMARY KEY,
+    userId     TEXT NOT NULL,
+    keyHash    TEXT NOT NULL UNIQUE,
+    keyPrefix  TEXT NOT NULL,
+    name       TEXT NOT NULL DEFAULT '',
+    createdAt  INTEGER NOT NULL,
+    lastUsedAt INTEGER,
+    revokedAt  INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_userApiKeys_user ON userApiKeys(userId);
+  CREATE INDEX IF NOT EXISTS idx_userApiKeys_hash ON userApiKeys(keyHash);
+
   -- ─── System log (admin audit trail) ───────────────────────────
   -- Security and administrative events: logins (success/failure), user and
   -- telescope management, device pairing, sync summaries, storage and
@@ -658,28 +674,36 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_calibrationAttachments_bundle
     ON calibrationAttachments(scope, folderName, settingsKey);
 
-  -- ─── Alerts ────────────────────────────────────────────────────
-  -- Where alerts go (see server/lib/alerts). The URL and the signing secret
-  -- are stored encrypted (secretBox): webhook URLs commonly embed a token
-  -- (Discord, Slack, a private ntfy topic).
-  CREATE TABLE IF NOT EXISTS alertChannels (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    kind        TEXT NOT NULL,
-    url         TEXT NOT NULL,
-    secret      TEXT,
-    events      TEXT NOT NULL DEFAULT '[]',
-    enabled     INTEGER NOT NULL DEFAULT 1,
-    createdAt   TEXT NOT NULL,
-    lastSentAt  TEXT,
-    lastStatus  TEXT,
-    lastError   TEXT
+  -- ─── Integration per filter (see server/lib/library/integration.ts) ──────
+  -- How much integration the user wants on an object, per filter. filter is
+  -- the canonical (alias-normalised) name; '' is the "no filter" bucket
+  -- (one-shot colour cameras without a wheel, or frames with no FILTER key).
+  CREATE TABLE IF NOT EXISTS objectIntegrationGoals (
+    objectId  TEXT NOT NULL,
+    filter    TEXT NOT NULL DEFAULT '',
+    goalSec   INTEGER NOT NULL,
+    updatedAt TEXT NOT NULL,
+    PRIMARY KEY (objectId, filter)
   );
-  -- Alert options and bookkeeping (the night a clear-night alert last went
-  -- out, the last update version announced), as JSON values by key.
-  CREATE TABLE IF NOT EXISTS alertState (
-    key    TEXT PRIMARY KEY,
-    value  TEXT NOT NULL
+
+  -- User-defined filter name aliases ("H-alpha 7nm" → "Ha"), applied before
+  -- the built-in ones. Case-insensitive on the alias side.
+  CREATE TABLE IF NOT EXISTS filterAliases (
+    alias     TEXT PRIMARY KEY COLLATE NOCASE,
+    canonical TEXT NOT NULL
+  );
+
+  -- Per-file cache of the two header values the integration breakdown needs,
+  -- so opening an object does not re-read every sub-frame. Keyed by the
+  -- libraryFiles relPath and invalidated by size/mtime. rawFilter is stored
+  -- before alias normalisation so editing aliases never needs a re-read.
+  CREATE TABLE IF NOT EXISTS subFrameHeaderCache (
+    relPath     TEXT PRIMARY KEY,
+    bytes       INTEGER NOT NULL,
+    mtimeMs     INTEGER NOT NULL,
+    rawFilter   TEXT,
+    exposureSec REAL,
+    cachedAt    TEXT NOT NULL
   );
 `);
 
@@ -1656,6 +1680,16 @@ db.exec(`
   const cols = db.prepare<[], { name: string }>('PRAGMA table_info(plannedSessions)').all();
   if (!cols.some(c => c.name === 'framingSetup')) {
     db.prepare('ALTER TABLE plannedSessions ADD COLUMN framingSetup TEXT').run();
+  }
+}
+
+// ─── plannedSessions: user's "skipped" mark for plan vs actual ──────────────
+// Everything else about a block's outcome is computed on read (planOutcome.ts);
+// only the user's own decision that a block was deliberately skipped is stored.
+{
+  const cols = db.prepare<[], { name: string }>('PRAGMA table_info(plannedSessions)').all();
+  if (!cols.some(c => c.name === 'skipped')) {
+    db.prepare('ALTER TABLE plannedSessions ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0').run();
   }
 }
 
