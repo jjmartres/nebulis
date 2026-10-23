@@ -942,6 +942,36 @@
     ]
   },
   {
+    "method": "GET",
+    "path": "/library/objects/:objectId/sessions/:date/quality",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/library/objects/:objectId/sessions/:date/quality.csv",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/quality/analyze",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/sessions/:date/quality/cancel",
+    "guards": [
+      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
     "method": "POST",
     "path": "/library/objects/:objectId/sessions/:date/restore",
     "guards": [
@@ -1068,6 +1098,14 @@
     "method": "GET",
     "path": "/library/project-archives/:id",
     "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/library/quality/review",
+    "guards": [
+      "requireAdmin",
       "<anonymous>"
     ]
   },

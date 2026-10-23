@@ -226,7 +226,10 @@
       "showingAll": "Alle {{total}} weergegeven",
       "viewAll": "Bekijk alle {{total}}",
       "openViewer": "Viewer openen",
-      "empty": "Nog geen subframes gedownload. Verbind je telescoop en kies Subframes synchroniseren om ze te downloaden."
+      "empty": "Nog geen subframes gedownload. Verbind je telescoop en kies Subframes synchroniseren om ze te downloaden.",
+      "quality": "Kwaliteit",
+      "qualityTitle": "HFR, FWHM en sterren per subframe meten en kiezen welke je houdt",
+      "notKept": "niet behouden"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Verlaat de vergelijkingsmodus",
@@ -536,5 +539,58 @@
     "moreCount_one": "+{{count}} meer",
     "moreCount_other": "+{{count}} meer",
     "approximate": "bij benadering"
+  },
+  "subframeQuality": {
+    "title": "Kwaliteit van de subframes",
+    "summary": "{{accepted}} van {{total}} behouden",
+    "summaryPartial": "{{measured}} van {{total}} gemeten · {{kept}} behouden",
+    "notMeasured_one": "{{count}} subframe, nog niet gemeten",
+    "notMeasured_other": "{{count}} subframes, nog niet gemeten",
+    "analyze_one": "{{count}} subframe meten",
+    "analyze_other": "{{count}} subframes meten",
+    "reanalyze": "Opnieuw meten",
+    "csv": "CSV",
+    "cancel": "Stoppen",
+    "measuring": "Meten {{done}} / {{total}}",
+    "failed": "Er ging iets mis. Probeer het opnieuw.",
+    "hint": "Een beheerder kan HFR, FWHM, sterren en achtergrond meten voor elk subframe van deze nacht.",
+    "hintAdmin": "Meet HFR, FWHM, aantal sterren, elongatie en achtergrond uit de pixels en beoordeelt elk subframe ten opzichte van de rest van de nacht. Ongeveer een derde seconde per opname.",
+    "group_one": "{{filter}}: {{count}} opname, mediaan HFR {{hfr}} px, {{stars}} sterren",
+    "group_other": "{{filter}}: {{count}} opnamen, mediaan HFR {{hfr}} px, {{stars}} sterren",
+    "noFilter": "Geen filter",
+    "legendRejected": "Vervaagd: niet behouden",
+    "onlyRejected": "Alleen niet behouden subframes ({{count}})",
+    "col": {
+      "file": "Bestand",
+      "filter": "Filter",
+      "hfr": "HFR",
+      "fwhm": "FWHM",
+      "stars": "Sterren",
+      "ecc": "Elong.",
+      "background": "Achtergrond",
+      "grade": "Score",
+      "keep": "Behouden"
+    },
+    "grade": {
+      "good": "Goed",
+      "fair": "Matig",
+      "poor": "Slecht"
+    },
+    "flag": {
+      "soft": "Zachter dan de nacht",
+      "very_soft": "Veel zachter dan de nacht",
+      "few_stars": "Minder sterren dan de nacht",
+      "very_few_stars": "Veel minder sterren (wolken?)",
+      "bright_background": "Helderdere achtergrond",
+      "elongated": "Langgerekte sterren"
+    },
+    "unreadable": "Onleesbaar",
+    "keepFile": "{{name}} behouden",
+    "reset": "auto",
+    "resetTitle": "Terug naar de automatische keuze",
+    "showAll": "Alle {{count}} tonen",
+    "viewerNotMeasured": "Nog niet gemeten. Gebruik de knop Kwaliteit boven de subframe-miniaturen om deze nacht te meten.",
+    "keepShortcut": "Dit subframe bewaren voor het stacken (K)",
+    "autoDecision": "automatisch"
   }
 }
