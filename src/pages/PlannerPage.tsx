@@ -708,6 +708,8 @@ export function PlannerPage() {
             dec: s.dec,
             startTime: newStart.toISOString(),
             endTime: newEnd.toISOString(),
+            filterBand: s.filterBand ?? null,
+            filter: s.filter ?? null,
           });
         }),
       );
@@ -1039,6 +1041,7 @@ export function PlannerPage() {
   // once at the end rather than firing the optimistic createMut per block,
   // which would thrash the cache and the connection pool. Errors propagate to
   // AutoPlanModal.handleApply, which surfaces them instead of silently closing.
+  const integrationProgressFor = useIntegrationProgress();
   const applyAutoPlan = useCallback(
     async (blocks: PlanBlock[], clearFirst: boolean) => {
       if (clearFirst && timelineStartIso && timelineEndIso) {
@@ -1051,6 +1054,12 @@ export function PlannerPage() {
         await Promise.all(current.filter(s => s.id > 0).map(s => deletePlannedSession(s.id)));
       }
       for (const b of blocks) {
+        // An object with integration goals gets the filter with the most time
+        // left that the Moon allows on this block; others keep the plan's band.
+        const pick = suggestFilter(integrationProgressFor(b.target.id), {
+          minSeparation: b.moonSeparation,
+          illumination: nightMoonIllumination ?? 0,
+        });
         await createPlannedSession({
           objectId: b.target.id,
           objectName: b.target.name,
@@ -1058,11 +1067,13 @@ export function PlannerPage() {
           dec: b.target.dec,
           startTime: b.start.toISOString(),
           endTime: b.end.toISOString(),
+          filterBand: pick?.band ?? b.filterBand ?? null,
+          filter: pick?.filter ?? null,
         });
       }
       await queryClient.invalidateQueries({ queryKey: ['planned-sessions'] });
     },
-    [queryClient, timelineStartIso, timelineEndIso],
+    [queryClient, timelineStartIso, timelineEndIso, integrationProgressFor, nightMoonIllumination],
   );
 
   const stepDate = useCallback((days: number) => {
@@ -1727,6 +1738,17 @@ function SessionDetailsModal({
       checkMoonProximity(ra, dec, observerLat!, observerLon!, start, end, moonIllumination, 10, observerTimezone, band);
     return { broadband: check('broadband'), narrowband: check('narrowband') };
   }, [hasLocation, ra, dec, observerLat, observerLon, nightStart, nightEnd, moonIllumination, observerTimezone]);
+
+  // The block's own closest approach (the night's for an unscheduled target),
+  // for the filter suggestion.
+  const suggestionMoon = useMemo(() => {
+    if (!hasLocation || moonIllumination == null) return null;
+    if (blockStart && blockEnd) {
+      const c = checkMoonProximity(ra, dec, observerLat!, observerLon!, blockStart, blockEnd, moonIllumination, 10, observerTimezone);
+      return { minSeparation: c.minSeparation, illumination: moonIllumination };
+    }
+    return moonCheck ? { minSeparation: moonCheck.broadband.minSeparation, illumination: moonIllumination } : null;
+  }, [hasLocation, moonIllumination, blockStart, blockEnd, ra, dec, observerLat, observerLon, observerTimezone, moonCheck]);
 
   const referenceUrl = getCatalogThumbnailUrl(objectId, majorAxisArcmin);
 

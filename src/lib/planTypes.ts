@@ -3,7 +3,7 @@
  * server-side (POST /planner/plan, see lib/api/planner.ts) so every client
  * agrees on the result. These are just the shapes the UI renders.
  */
-import type { MoonVerdict } from './moonProximity';
+import type { FilterBand, MoonVerdict } from './moonProximity';
 
 export type AutoPlanFocus = 'all' | 'galaxies' | 'nebulae' | 'clusters';
 
