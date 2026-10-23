@@ -551,6 +551,8 @@ const VerdictItemSchema = z.object({
   dec: z.number(),
   start: z.string().datetime(),
   end: z.string().datetime(),
+  /** The block's filter type; absent or null = broadband, as before. */
+  band: z.enum(['broadband', 'narrowband']).nullable().optional(),
 });
 
 const VerdictBodySchema = z.object({
@@ -589,7 +591,11 @@ router.post('/verdict', (req: Request, res: Response) => {
   const results = body.items.map(item => {
     const start = new Date(item.start);
     const end = new Date(item.end);
-    const moon = checkMoonProximity(item.ra, item.dec, body.observerLat, body.observerLon, start, end, body.moonIllumination, 5, body.timeZone);
+    const band = item.band ?? 'broadband';
+    const moon = checkMoonProximity(item.ra, item.dec, body.observerLat, body.observerLon, start, end, body.moonIllumination, 5, body.timeZone, band);
+    // Same closest approach against the narrowband tolerance: lets the client
+    // say "narrowband would be fine" on a broadband or unset block.
+    const narrowbandVerdict = moonVerdictFor(moon.minSeparation, moonThresholdForIllumination(body.moonIllumination, 'narrowband'));
     const visibility = checkBlockVisibility(item.ra, item.dec, body.observerLat, body.observerLon, start, end, skyMap, 5, body.timeZone);
     return {
       id: item.id,
@@ -600,6 +606,8 @@ router.post('/verdict', (req: Request, res: Response) => {
         worstAt: moon.worstAt?.toISOString() ?? null,
         moonAltAtWorst: Math.round(moon.moonAltAtWorst * 10) / 10,
         reason: moon.reason,
+        band,
+        narrowbandVerdict,
       },
       visibility: {
         verdict: visibility.verdict,

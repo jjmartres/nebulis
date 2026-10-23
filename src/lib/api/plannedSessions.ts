@@ -2,6 +2,7 @@
  * Planner scheduled blocks: client for /api/v1/planned-sessions.
  */
 import { fetchJSON } from './client';
+import type { FilterBand } from '../moonProximity';
 
 export interface PlannedSession {
   id: number;
@@ -42,12 +43,15 @@ export interface PlannedSessionCreate {
   startTime: string;
   endTime: string;
   notes?: string;
+  filterBand?: FilterBand | null;
 }
 
 interface PlannedSessionPatch {
   startTime?: string;
   endTime?: string;
   notes?: string;
+  /** null clears it. */
+  filterBand?: FilterBand | null;
   framingSetup?: string;
   skipped?: boolean;
 }

@@ -263,6 +263,8 @@ export interface VerdictRequestItem {
   dec: number;
   start: Date;
   end: Date;
+  /** The block's filter type; omitted or null = broadband. */
+  band?: 'broadband' | 'narrowband' | null;
 }
 
 interface WireBlockVerdict {
@@ -274,6 +276,8 @@ interface WireBlockVerdict {
     worstAt: string | null;
     moonAltAtWorst: number;
     reason: string;
+    band?: 'broadband' | 'narrowband';
+    narrowbandVerdict?: MoonProximityResult['verdict'];
   };
   visibility: {
     verdict: BlockVisibilityResult['verdict'];
@@ -302,7 +306,7 @@ export async function getBlockVerdicts(
   const wire = await fetchJSON<WireBlockVerdict[]>('/planner/verdict', {
     method: 'POST',
     body: JSON.stringify({
-      items: items.map(i => ({ id: i.id, ra: i.ra, dec: i.dec, start: i.start.toISOString(), end: i.end.toISOString() })),
+      items: items.map(i => ({ id: i.id, ra: i.ra, dec: i.dec, start: i.start.toISOString(), end: i.end.toISOString(), band: i.band ?? null })),
       observerLat,
       observerLon,
       moonIllumination,
@@ -319,6 +323,8 @@ export async function getBlockVerdicts(
       worstAt: v.moon.worstAt ? new Date(v.moon.worstAt) : null,
       moonAltAtWorst: v.moon.moonAltAtWorst,
       reason: v.moon.reason,
+      band: v.moon.band,
+      narrowbandVerdict: v.moon.narrowbandVerdict,
     },
     visibility: {
       verdict: v.visibility.verdict,

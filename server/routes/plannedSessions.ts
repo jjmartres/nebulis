@@ -3,7 +3,7 @@
  *
  * GET    /api/v1/planned-sessions?from=ISO&to=ISO   List sessions overlapping window.
  * POST   /api/v1/planned-sessions                    Create a new scheduled block.
- * PATCH  /api/v1/planned-sessions/:id                Move / resize / edit notes.
+ * PATCH  /api/v1/planned-sessions/:id                Move / resize / edit notes / filter band.
  * DELETE /api/v1/planned-sessions/:id                Remove a block.
  *
  * GET    /api/v1/planned-sessions/nights?from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -79,6 +79,7 @@ const CreateBodySchema = z.object({
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
   notes: z.string().optional(),
+  filterBand: z.enum(['broadband', 'narrowband']).nullable().optional(),
 });
 
 const UpdateBodySchema = z.object({

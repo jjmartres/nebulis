@@ -5,6 +5,7 @@
  * multi-user planning, add `userId` and filter every query by it.
  */
 import db from './db.js';
+import type { FilterBand } from './moonProximity.js';
 
 export interface PlannedSession {
   id: number;
@@ -33,6 +34,7 @@ export interface PlannedSessionInput {
   startTime: string;
   endTime: string;
   notes?: string;
+  filterBand?: FilterBand | null;
 }
 
 const stmts = {
@@ -44,8 +46,8 @@ const stmts = {
   ),
   getById: db.prepare<[number], PlannedSession>('SELECT * FROM plannedSessions WHERE id = ?'),
   insert: db.prepare(
-    `INSERT INTO plannedSessions (objectId, objectName, ra, dec, startTime, endTime, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO plannedSessions (objectId, objectName, ra, dec, startTime, endTime, notes, filterBand)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ),
   update: db.prepare(
     `UPDATE plannedSessions
@@ -57,6 +59,8 @@ const stmts = {
            updatedAt    = datetime('now')
      WHERE id = ?`,
   ),
+  // Separate from `update`: its COALESCEs cannot set a column back to NULL.
+  setFilterBand: db.prepare(`UPDATE plannedSessions SET filterBand = ?, updatedAt = datetime('now') WHERE id = ?`),
   delete: db.prepare('DELETE FROM plannedSessions WHERE id = ?'),
 };
 
@@ -97,6 +101,7 @@ export function create(input: PlannedSessionInput): PlannedSession {
     canonicalizeIso(input.startTime),
     canonicalizeIso(input.endTime),
     input.notes ?? '',
+    input.filterBand ?? null,
   );
   const row = stmts.getById.get(Number(result.lastInsertRowid));
   if (!row) throw new Error('[plannedSessions] insert succeeded but row not found');
@@ -117,6 +122,7 @@ export function update(
     patch.skipped === undefined ? null : patch.skipped ? 1 : 0,
     id,
   );
+  if (patch.filterBand !== undefined) stmts.setFilterBand.run(patch.filterBand, id);
   return stmts.getById.get(id) ?? null;
 }
 

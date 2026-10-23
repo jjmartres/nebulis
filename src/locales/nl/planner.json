@@ -18,8 +18,6 @@
     "raDec": "RA {{ra}}u · Dec {{dec}}°",
     "closeDetails": "Details sluiten",
     "addToTonight": "Toevoegen aan vannacht",
-    "moonOkTonight": "De maan hindert vannacht niet ({{percent}}% verlicht).",
-    "moonWarningTonight": "De maan komt om {{time}} op minder dan {{deg}}° van dit object ({{percent}}% verlicht). Maanlicht kan zwakke details overstralen.",
     "referenceImageAlt": "Referentiebeeld van {{name}}",
     "referenceImage": "Referentiebeeld",
     "setLocationForSky": "Stel je locatie in via Instellingen om te zien waar dit object aan je hemel staat.",
@@ -28,7 +26,20 @@
     "noCatalogDescription": "Voor dit object is geen catalogusbeschrijving beschikbaar.",
     "readMoreWikipedia": "Lees meer op Wikipedia →",
     "altitudeTonight": "Hoogte vannacht (van middag tot middag, lokale tijd)",
-    "setLocationForAltitude": "Stel je locatie in via Instellingen om de hoogtecurve te bekijken."
+    "setLocationForAltitude": "Stel je locatie in via Instellingen om de hoogtecurve te bekijken.",
+    "moonTonight": "Maan vannacht: {{percent}}% verlicht.",
+    "moonBand": {
+      "broadband": "Breedband:",
+      "narrowband": "Smalband:"
+    },
+    "moonBandOk": "geen probleem.",
+    "moonBandWarning": "komt om {{time}} tot {{deg}}° (nodig ≥ {{min}}°).",
+    "blockFilter": "Filter",
+    "blockFilterOption": {
+      "unset": "Niet ingesteld",
+      "broadband": "Breedband",
+      "narrowband": "Smalband"
+    }
   },
   "nightHero": {
     "rises": "Opkomst {{time}}",
@@ -45,7 +56,14 @@
     "hourByHour": "per uur",
     "moon": "Maan",
     "litPercent": "{{percent}}% verlicht",
-    "planMyNight": "Plan mijn nacht"
+    "planMyNight": "Plan mijn nacht",
+    "filterAdviceTitle": "Op basis van de maan tijdens de donkere uren",
+    "filterAdvice": {
+      "broadband": "Breedbandnacht",
+      "narrowband": "Smalbandnacht",
+      "broadbandUntil": "Breedband tot {{time}}, daarna smalband",
+      "broadbandFrom": "Smalband, breedband vanaf {{time}}"
+    }
   },
   "scheduleTimeline": {
     "nightSchedule": "Nachtplanning",
@@ -80,7 +98,17 @@
     "removeScheduledBlock": "Gepland blok verwijderen",
     "remove": "Verwijderen",
     "resizeTop": "Begintijd aanpassen",
-    "resizeBottom": "Eindtijd aanpassen"
+    "resizeBottom": "Eindtijd aanpassen",
+    "narrowbandOk": "smalband OK",
+    "moonNbOk": "Maan · SB OK",
+    "band": {
+      "broadband": "Breedband (L, RGB, kleur zonder filter)",
+      "narrowband": "Smalband (Ha, OIII, SII, dualband)"
+    },
+    "bandShort": {
+      "broadband": "BB",
+      "narrowband": "SB"
+    }
   },
   "libraryPanel": {
     "filterAll": "Alles",
