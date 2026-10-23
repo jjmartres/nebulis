@@ -338,7 +338,20 @@
     "replaceTitle": "De planning voor {{nightLabel}} vervangen?",
     "replaceMessage_one": "Hiermee verwijder je {{count}} ingepland object voor {{nightLabel}} en vervang je het door deze selectie ({{newCount}}).",
     "replaceMessage_other": "Hiermee verwijder je de {{count}} objecten die al zijn ingepland voor {{nightLabel}} en vervang je ze door deze selectie ({{newCount}}).",
-    "replace": "Vervangen"
+    "replace": "Vervangen",
+    "avoidClouds": "Bewolkte uren overslaan (verwachting)",
+    "cloudThresholdLabel": "Grens voor bewolking",
+    "cloudThreshold": "boven {{pct}}% bewolking",
+    "forecastUnavailable": "Geen weersverwachting voor deze nacht, dus het plan houdt geen rekening met het weer.",
+    "skippedCloudy": "Leeg gelaten: verwachting boven {{pct}}% bewolking",
+    "skippedRange": "{{start}}–{{end}} ({{pct}}%)",
+    "allCloudy": "De verwachting is bewolkt voor het hele tijdvak.",
+    "cloudPct": "{{pct}}% bewolking",
+    "dewRisk": "Kans op dauw: temperatuur dicht bij het dauwpunt",
+    "seeingExcellent": "Uitstekende seeing",
+    "seeingGood": "Goede seeing",
+    "seeingAverage": "Gemiddelde seeing",
+    "seeingPoor": "Slechte seeing"
   },
   "planShareModal": {
     "observationPlan": "Waarneemplanning",
@@ -356,20 +369,11 @@
     "shareImage": "Afbeelding delen",
     "saveImage": "Afbeelding opslaan"
   },
-  "planOutcome": {
-    "status": {
-      "upcoming": "Gepland",
-      "in_progress": "Bezig",
-      "done": "Klaar",
-      "partial": "Gedeeltelijk",
-      "missed": "Gemist",
-      "skipped": "Overgeslagen"
-    },
-    "achieved": "{{achieved}} / {{planned}}",
-    "title_one": "{{status}} · {{count}} subframe in de bibliotheek",
-    "title_other": "{{status}} · {{count}} subframes in de bibliotheek",
-    "repeatTomorrow": "Opnieuw plannen voor de volgende nacht",
-    "markSkipped": "Markeren als overgeslagen",
-    "unskip": "Markering overgeslagen weghalen"
+  "integrationRemaining": {
+    "left": "nog {{duration}} · {{filter}}",
+    "title": "{{filter}}: {{done}} van {{goal}}",
+    "noFilter": "Geen filter",
+    "complete": "Doelen bereikt",
+    "completeTitle": "Alle integratiedoelen voor dit object zijn bereikt"
   }
 }

@@ -16,6 +16,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { AlertTriangle, ArrowUp, Frame, GripVertical, Info, Moon, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { IntegrationRemainingChips } from './IntegrationRemainingChips';
 import { formatHm, SNAP_MINUTES, TIMELINE_GUTTER_PX } from './scheduleGeometry';
 import { useTheme } from '../../hooks/useTheme';
 import type { PlannedSession } from '../../lib/api/plannedSessions';
@@ -233,7 +234,7 @@ export const ScheduledImagingBlock = memo(function ScheduledImagingBlock({
                   {t('scheduledImagingBlock.overlap')}
                 </Chip>
               )}
-              <PlanOutcomeChip outcome={session.outcome} />
+              <IntegrationRemainingChips objectId={session.objectId} isDark tone="block" />
             </div>
           )}
 

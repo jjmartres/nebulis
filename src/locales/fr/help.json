@@ -26,6 +26,7 @@
     "linkedFolders": "Dossiers liés",
     "archive": "Archive externe",
     "mobileDevices": "Appareils mobiles",
+    "pixinsight": "Intégration PixInsight",
     "troubleshooting": "Dépannage"
   },
   "whatIsNebulis": {
@@ -508,6 +509,31 @@
     "step4Body": "Chaque téléphone, tablette et TV que vous avez associé apparaît dans Paramètres → Compte → Appareils. Chacun porte son propre jeton de connexion, donc révoquer un appareil ici coupe son accès immédiatement sans toucher à celui des autres.",
     "step4Alt": "Paramètres → Compte → Appareils, avec un bouton Connecter un appareil et une liste d'appareils vide",
     "step4Caption": "Paramètres → Compte → Appareils"
+  },
+  "pixinsightHelp": {
+    "title": "Intégration PixInsight",
+    "lead": "Nebulis propose une intégration officielle avec PixInsight via un dépôt de mises à jour intégré et un connecteur PJSR natif. Parcourez vos cibles, téléchargez les brutes, gérez vos bibliothèques de calibration avec visibilité de la cible liée, et synchronisez vos icônes de processus et projets de traitement.",
+    "step1Title": "1. Ajouter le dépôt dans PixInsight",
+    "step1Desc": "Nebulis sert un dépôt officiel de mises à jour PixInsight sur <1>/plugins/pixinsight/</1>. Ajoutez-le une fois pour recevoir des mises à jour automatiques directement dans PixInsight :",
+    "bullet1": "Dans PixInsight, accédez à <1>Resources → Updates → Manage Repositories</1>.",
+    "bullet2": "Cliquez sur <1>Add</1>, collez l'URL du dépôt Nebulis ci-dessus (veillez à inclure la barre oblique finale <3>/</3>), puis cliquez sur <5>OK</5>.",
+    "bullet3": "Accédez à <1>Resources → Updates → Check for Updates</1>. PixInsight trouvera la mise à jour du connecteur. Cliquez sur <3>Apply updates</3> et redémarrez PixInsight.",
+    "bullet4": "Lancez le connecteur depuis <1>Script → Nebulis → Nebulis Connector</1>.",
+    "step2Title": "2. S'authentifier avec une clé d'API",
+    "step2Desc": "Le connecteur s'authentifie à l'aide de clés d'API liées à l'utilisateur :",
+    "bullet5": "Dans l'interface web de Nebulis, ouvrez <1>Paramètres → Compte → Clés d'API</1>.",
+    "bullet6": "Cliquez sur <1>Nouvelle clé d'API</1>, donnez-lui un nom descriptif (ex. <3>PixInsight Mac Studio</3>) et copiez la clé (préfixée par <5>neb-</5>).",
+    "bullet7": "Dans PixInsight, cliquez sur l'icône <1>⚙ Settings</1> dans l'en-tête ou la barre inférieure du connecteur, collez la clé dans <3>Nebulis API Key</3> et cliquez sur <5>Save Settings</5>.",
+    "step3Title": "3. Présentation de l'interface du connecteur",
+    "termsLabel": "Architecture par onglets",
+    "termLibrary": "Bibliothèque & Téléchargement",
+    "termLibraryDesc": "Parcourez vos objets DSO avec aperçus en temps réel, identifiants de catalogue et détails de session (date, filtre, brutes, télescope). Téléchargez les brutes directes dans votre dossier de travail local.",
+    "termCalibration": "Bibliothèque d'étalonnage",
+    "termCalibrationDesc": "Navigateur dédié pour tous les Master Darks, Flats, Bias et Flat-Darks de tous vos télescopes. Pour les Flats, l'objet cible lié est explicitement affiché. Sélectionnez vos jeux de calibration et téléchargez-les par lot.",
+    "termProject": "Synchronisation de projet",
+    "termProjectDesc": "Synchronisation bidirectionnelle pour vos flux de traitement. Exportez vos icônes de processus actifs (.xpsm) ou téléchargez vos images intégrées directement dans le dossier processing_project/ de l'objet sur Nebulis.",
+    "termSettings": "⚙ Fenêtre des paramètres",
+    "termSettingsDesc": "Fenêtre dédiée pour la connexion au serveur, le test de la clé d'API, les dossiers racine de téléchargement et les options d'accélération."
   },
   "troubleshooting": {
     "title": "Dépannage",

@@ -21,6 +21,15 @@ import { redactUrl } from '../lib/logSafe.js';
 import { THUMBNAILS_DIR } from '../lib/paths.js';
 import { getLibraryDir, isLibraryAvailable, statLibraryFileForServe, TimeoutError } from '../lib/libraryPath.js';
 import { resolveLibraryFile, LinkedFileReadOnlyError } from '../lib/library/fileResolver.js';
+import {
+  getIntegrationBreakdown,
+  getIntegrationProgressForGoalObjects,
+  setIntegrationGoals,
+  getFilterAliases,
+  setFilterAliases,
+  MAX_GOAL_SEC,
+  MAX_FILTER_NAME_LENGTH,
+} from '../lib/library/integration.js';
 import { getObjectLayout, sessionFolderFor } from '../lib/library/libraryLayout.js';
 import { runRender } from '../lib/renderQueue.js';
 import { mintDownloadToken, DOWNLOAD_TOKEN_TTL_MS } from '../lib/downloadToken.js';
@@ -105,6 +114,8 @@ import {
   getProjectArchivePath,
   isProjectArchiveName,
   projectArchiveMimeType,
+  getProcessingProjectSummary,
+  saveProcessingProjectFile,
   getObjectFolderName,
   scanImportFolder,
   LIBRARY_OBJECT_FILTERS,
@@ -2286,6 +2297,79 @@ router.get('/objects/:objectId/integration', async (req: Request, res: Response)
   }
 });
 
+// ─── Integration per filter + goals ──────────────────────────────────────────
+// See server/lib/library/integration.ts. Unlike /integration above (managed
+// files only, per night), this reads the libraryFiles table, so linked-folder
+// subs count, and groups by filter.
+
+const FilterNameSchema = z.string().trim().min(1).max(MAX_FILTER_NAME_LENGTH);
+
+const IntegrationGoalsSchema = z.object({
+  goals: z.array(z.object({
+    filter: FilterNameSchema.nullable(),
+    goalSec: z.number().int().min(0).max(MAX_GOAL_SEC),
+  })).max(50),
+});
+
+const FilterAliasesSchema = z.object({
+  aliases: z.array(z.object({
+    alias: FilterNameSchema,
+    canonical: FilterNameSchema,
+  })).max(500),
+});
+
+router.get('/objects/:objectId/integration/filters', async (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  try {
+    if (!(await requireLibraryReachable(res))) return;
+    res.apiSuccess(getIntegrationBreakdown(objectId));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to compute integration per filter';
+    res.apiError(500, 'STATS_FAILED', message);
+  }
+});
+
+router.get('/integration/progress', async (_req: Request, res: Response) => {
+  try {
+    if (!(await requireLibraryReachable(res))) return;
+    res.apiSuccess(getIntegrationProgressForGoalObjects());
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to compute integration progress';
+    res.apiError(500, 'STATS_FAILED', message);
+  }
+});
+
+router.put('/objects/:objectId/integration/goals', requireAdmin, (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  const parsed = IntegrationGoalsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  try {
+    res.apiSuccess(setIntegrationGoals(objectId, parsed.data.goals));
+  } catch (err) {
+    if (err instanceof RangeError) {
+      res.apiError(422, 'VALIDATION_ERROR', err.message);
+      return;
+    }
+    throw err;
+  }
+});
+
+router.get('/filter-aliases', (_req: Request, res: Response) => {
+  res.apiSuccess(getFilterAliases());
+});
+
+router.put('/filter-aliases', requireAdmin, (req: Request, res: Response) => {
+  const parsed = FilterAliasesSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.apiError(422, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+  res.apiSuccess(setFilterAliases(parsed.data.aliases));
+});
+
 // ─── FITS header (local file) ─────────────────────────────────────────────────
 
 router.get('/headers', async (req: Request, res: Response) => {
@@ -3386,6 +3470,14 @@ const projectArchiveUpload = multer({
   fileFilter: (_req, file, cb) => cb(null, isProjectArchiveName(file.originalname)),
 });
 
+const processingProjectFileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, file, cb) => cb(null, `processingproj_${randomUUID()}_${path.basename(file.originalname)}`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 * 1024, fieldSize: 1 * 1024 * 1024 },
+});
+
 /**
  * Free-space preflight for a project-archive upload, keyed off the
  * Content-Length header before multer starts streaming the body anywhere.
@@ -3479,6 +3571,44 @@ router.get('/project-archives/:id', async (req: Request, res: Response) => {
     if (err && !res.headersSent) res.status(500).send('Failed to send file');
   });
 });
+
+// ─── Processing project direct inspection and file synchronization ────────────
+router.get('/objects/:objectId/processing-project', (req: Request, res: Response) => {
+  const objectId = String(req.params.objectId);
+  try {
+    const summary = getProcessingProjectSummary(objectId);
+    res.apiSuccess(summary);
+  } catch (err) {
+    res.apiError(500, 'PROJECT_SUMMARY_FAILED', err instanceof Error ? err.message : 'Failed to get processing project');
+  }
+});
+
+router.post(
+  '/objects/:objectId/processing-project/file',
+  requireAdmin,
+  checkArchiveUploadSpace,
+  processingProjectFileUpload.single('file'),
+  (req: Request, res: Response) => {
+    const objectId = String(req.params.objectId);
+    const file = req.file;
+    if (!file) {
+      res.apiError(400, 'NO_FILE', 'No file provided');
+      return;
+    }
+
+    const subPath = typeof req.body?.subPath === 'string' && req.body.subPath.trim()
+      ? req.body.subPath.trim()
+      : file.originalname;
+
+    try {
+      const result = saveProcessingProjectFile(objectId, subPath, file.path);
+      res.apiSuccess(result);
+    } catch (err) {
+      try { fs.unlinkSync(file.path); } catch { /* ignore */ }
+      res.apiError(500, 'UPLOAD_FAILED', err instanceof Error ? err.message : 'Failed to save project file');
+    }
+  },
+);
 
 // ─── Save edited telescope image back into the library folder ─────────────────
 // Writes the canvas export alongside the original telescope files so it

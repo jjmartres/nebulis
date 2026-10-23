@@ -10,6 +10,7 @@ import {
   Download,
   Upload,
   Library,
+  Layers,
   Settings,
   AlertTriangle,
   Wifi,
@@ -117,6 +118,7 @@ type SectionId =
   | 'linked-folders'
   | 'archive'
   | 'mobile-devices'
+  | 'pixinsight'
   | 'troubleshooting';
 
 const NAV: ({ id: SectionId; labelKey: string; icon?: LucideIcon; indent?: boolean })[] = [
@@ -140,6 +142,7 @@ const NAV: ({ id: SectionId; labelKey: string; icon?: LucideIcon; indent?: boole
   { id: 'linked-folders', labelKey: 'nav.linkedFolders', icon: Link2 },
   { id: 'archive', labelKey: 'nav.archive', icon: ArchiveIcon },
   { id: 'mobile-devices', labelKey: 'nav.mobileDevices', icon: Smartphone },
+  { id: 'pixinsight', labelKey: 'nav.pixinsight', icon: Layers },
   { id: 'troubleshooting', labelKey: 'nav.troubleshooting', icon: AlertTriangle },
 ];
 
@@ -1286,6 +1289,9 @@ function renderSection(id: SectionId, isDark: boolean, navigate: (id: SectionId)
         </GuideCard>
       );
 
+    case 'pixinsight':
+      return <PixInsightHelp isDark={isDark} t={t} />;
+
     case 'troubleshooting':
       return (
         <GuideCard icon={AlertTriangle} title={t('troubleshooting.title')} lead={t('troubleshooting.lead')} isDark={isDark}>
@@ -1309,6 +1315,92 @@ function renderSection(id: SectionId, isDark: boolean, navigate: (id: SectionId)
       return null;
     }
   }
+}
+
+function PixInsightHelp({ isDark, t }: { isDark: boolean; t: TFunc }) {
+  const repoUrl = typeof window !== 'undefined' ? `${window.location.origin}/plugins/pixinsight/` : 'http://<nebulis-host>:3002/plugins/pixinsight/';
+  return (
+    <GuideCard
+      icon={Layers}
+      title={t('pixinsightHelp.title')}
+      lead={t('pixinsightHelp.lead')}
+      isDark={isDark}
+    >
+      <div className="space-y-6">
+        <div>
+          <h3 className={`text-sm font-semibold mb-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+            {t('pixinsightHelp.step1Title')}
+          </h3>
+          <p className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+            <Trans
+              i18nKey="pixinsightHelp.step1Desc"
+              ns="help"
+              components={{
+                1: <Code isDark={isDark} />,
+              }}
+            />
+          </p>
+          <div className={`p-3.5 rounded-xl border font-mono text-xs mb-3 flex items-center justify-between ${isDark ? 'bg-slate-950 border-slate-800 text-sky-400' : 'bg-slate-100 border-slate-300 text-sky-700'}`}>
+            <span>{repoUrl}</span>
+          </div>
+          <Bullets
+            isDark={isDark}
+            items={[
+              <Trans i18nKey="pixinsightHelp.bullet1" ns="help" components={{ 1: <b /> }} />,
+              <Trans i18nKey="pixinsightHelp.bullet2" ns="help" components={{ 1: <b />, 3: <Code isDark={isDark} />, 5: <b /> }} />,
+              <Trans i18nKey="pixinsightHelp.bullet3" ns="help" components={{ 1: <b />, 3: <b />, 5: <b /> }} />,
+              <Trans i18nKey="pixinsightHelp.bullet4" ns="help" components={{ 1: <b /> }} />,
+            ]}
+          />
+        </div>
+
+        <div>
+          <h3 className={`text-sm font-semibold mb-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+            {t('pixinsightHelp.step2Title')}
+          </h3>
+          <p className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+            {t('pixinsightHelp.step2Desc')}
+          </p>
+          <Bullets
+            isDark={isDark}
+            items={[
+              <Trans i18nKey="pixinsightHelp.bullet5" ns="help" components={{ 1: <b /> }} />,
+              <Trans i18nKey="pixinsightHelp.bullet6" ns="help" components={{ 1: <b />, 3: <i />, 5: <Code isDark={isDark} /> }} />,
+              <Trans i18nKey="pixinsightHelp.bullet7" ns="help" components={{ 1: <b />, 3: <b />, 5: <b /> }} />,
+            ]}
+          />
+        </div>
+
+        <div>
+          <h3 className={`text-sm font-semibold mb-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+            {t('pixinsightHelp.step3Title')}
+          </h3>
+          <Terms
+            isDark={isDark}
+            label={t('pixinsightHelp.termsLabel')}
+            items={[
+              {
+                t: t('pixinsightHelp.termLibrary'),
+                d: t('pixinsightHelp.termLibraryDesc'),
+              },
+              {
+                t: t('pixinsightHelp.termCalibration'),
+                d: t('pixinsightHelp.termCalibrationDesc'),
+              },
+              {
+                t: t('pixinsightHelp.termProject'),
+                d: t('pixinsightHelp.termProjectDesc'),
+              },
+              {
+                t: t('pixinsightHelp.termSettings'),
+                d: t('pixinsightHelp.termSettingsDesc'),
+              },
+            ]}
+          />
+        </div>
+      </div>
+    </GuideCard>
+  );
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */

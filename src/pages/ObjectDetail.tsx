@@ -58,6 +58,7 @@ import { LinkedFilesChoice } from '../components/objectDetail/LinkedFilesChoice'
 import { buildObjectMetrics, summarizeObject } from '../components/objectDetail/objectStats';
 import { ObjectProcessedSection } from '../components/objectDetail/ObjectProcessedSection';
 import { ObjectProjectArchivesSection } from '../components/objectDetail/ObjectProjectArchivesSection';
+import { ObjectIntegrationSection } from '../components/objectDetail/ObjectIntegrationSection';
 import { TourAnchor } from '../components/tour/TourAnchor';
 import { DWARF_STARTRAILS_OBJECT_TYPE, DWARF_STARTRAILS_PLACEHOLDER_IMAGE } from '../lib/dwarfStartrails';
 import { DWARF_VIDEOS_OBJECT_TYPE } from '../lib/dwarfVideos';
@@ -629,7 +630,9 @@ export function ObjectDetail() {
         <p className={`text-sm ${isDark ? 'text-red-300' : 'text-red-600'}`} role="alert">{downloadError}</p>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 items-start">
+      {/* Stretched: About and Tonight are always open, so the two cards
+          share a height and the row ends on one line. */}
+      <div className="grid gap-4 md:grid-cols-2">
         <ObjectPanel
           displayName={displayName}
           info={{
@@ -656,14 +659,25 @@ export function ObjectDetail() {
         {!isSyntheticDwarfObject && <TonightPanel raHours={raHours} decDegrees={decDegrees} site={site} />}
       </div>
 
-      {/* items-start: without it, grid's default align-items:stretch forces
-          a collapsed section to match the height of its expanded sibling,
-          leaving a tall dead area below the collapsed header that reads as
-          a broken/empty panel rather than simply "closed". */}
-      <div className="grid gap-4 md:grid-cols-2 items-start">
-        <ObjectProcessedSection objectId={activeObjectId} isAdmin={isAdmin} />
+      {/* Stretched so the two columns end on one line, but only for open
+          cards: a collapsed Processed Images card opts out (self-start),
+          since matching the height of an expanded sibling would leave a tall
+          dead area below its header that reads as a broken/empty panel
+          rather than simply "closed". */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <ObjectProcessedSection objectId={activeObjectId} isAdmin={isAdmin} openClassName="md:h-full" closedClassName="self-start" />
 
-        <ObjectProjectArchivesSection objectId={activeObjectId} isAdmin={isAdmin} />
+        {/* Right column: integration per filter (with goals) stacked above
+            the project archives. Integration is skipped for Star Trails /
+            Videos, which have no sub-frames to integrate. */}
+        <div className="flex flex-col gap-4 min-w-0">
+          {!isSyntheticDwarfObject && (
+            <ObjectIntegrationSection objectId={activeObjectId} isAdmin={isAdmin} />
+          )}
+          {/* Last card takes up whatever the column has left, so its bottom
+              lines up with the Processed Images card beside it. */}
+          <ObjectProjectArchivesSection objectId={activeObjectId} isAdmin={isAdmin} openClassName="md:flex-1" />
+        </div>
       </div>
 
       <ObservationsSection
