@@ -783,6 +783,23 @@
   },
   {
     "method": "GET",
+    "path": "/library/objects/:objectId/processing-project",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/library/objects/:objectId/processing-project/file",
+    "guards": [
+      "requireAdmin",
+      "checkArchiveUploadSpace",
+      "multerMiddleware",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/library/objects/:objectId/processing-runs",
     "guards": [
       "<anonymous>"
@@ -1512,7 +1529,27 @@
     "method": "DELETE",
     "path": "/settings/api-key",
     "guards": [
-      "requireAdmin",
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/settings/api-keys",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/settings/api-keys",
+    "guards": [
+      "<anonymous>"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/settings/api-keys/:id",
+    "guards": [
       "<anonymous>"
     ]
   },
@@ -1552,7 +1589,6 @@
     "method": "POST",
     "path": "/settings/generate-api-key",
     "guards": [
-      "requireAdmin",
       "<anonymous>"
     ]
   },

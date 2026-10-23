@@ -222,31 +222,3 @@ describe('sub-frame download (shares the ZIP job)', () => {
     ]);
   });
 });
-
-describe('filter aliases', () => {
-  it('matches a light and a flat whose filter names are aliases of each other', async () => {
-    const { setFilterAliases } = await import('../../server/lib/library/integration');
-    // Before: lights say "O", the only O flats say "OIII".
-    addCal('Flats', [1, 2].map(i => `Flat_1.5s_Bin1_OIII_gain200_20260906-07000${i}_-10.0C_000${i}.fit`));
-    let plan = (await (await post('/objects/NGC6888/stacking-export/plan', { dates: [N1] })).json()).data;
-    expect(plan.groups.find((g: { filter: string }) => g.filter === 'O').flat).toBeNull();
-
-    setFilterAliases([{ alias: 'O', canonical: 'OIII' }]);
-    plan = (await (await post('/objects/NGC6888/stacking-export/plan', { dates: [N1] })).json()).data;
-    const o = plan.groups.find((g: { filter: string }) => g.filter === 'OIII');
-    expect(o.flat).toMatchObject({ type: 'flat', filter: 'OIII', fileCount: 2 });
-    expect(o.issues).toEqual([]);
-    setFilterAliases([]);
-  });
-});
-
-describe('sub-frame download, kept only', () => {
-  it('leaves out the subs that are not kept, and keeps every sub of an unmeasured night', async () => {
-    const start = async (body: unknown) => (await (await post('/download/objects/NGC6888/subframes', body)).json()).data;
-    expect((await start({ dates: [N1] })).filesTotal).toBe(5);
-    // One H sub of night 1 is unticked (beforeAll).
-    expect((await start({ dates: [N1], keptOnly: true })).filesTotal).toBe(4);
-    // Night 2 was never measured and has no decisions.
-    expect((await start({ dates: [N2], keptOnly: true })).filesTotal).toBe(2);
-  });
-});

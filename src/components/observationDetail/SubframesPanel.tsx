@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Satellite, Download, Trash2, ArrowRight, Activity, Loader2 } from 'lucide-react';
 import { SubframeQualityPanel } from './SubframeQualityPanel';
-import { useClickOutside } from '../../hooks/useClickOutside';
 import { useSubFrameQuality } from '../../hooks/useSubFrameQuality';
 import type { SubFrameQualityRow } from '../../lib/api/library';
 import { FitsThumbnail } from '../FitsThumbnail';
@@ -79,11 +78,6 @@ export function SubframesPanel({
   const quality = useSubFrameQuality(objectId, date, hasFits);
   const report = quality.data;
   const [qualityOpen, setQualityOpen] = useState(false);
-  // Download asks "all or kept only" once some subs are not kept.
-  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
-  const notKeptCount = report && report.measured > 0 ? report.total - report.accepted : 0;
-  const downloadMenuRef = useRef<HTMLDivElement>(null);
-  useClickOutside([downloadMenuRef], () => setDownloadMenuOpen(false), { enabled: downloadMenuOpen, closeOnEscape: true });
   const measuring = !!report?.job?.running;
   const showQuality = qualityOpen || measuring;
   const qualityByName = useMemo(() => {
@@ -116,7 +110,7 @@ export function SubframesPanel({
       {/* No title row: the selected tab immediately above already names this
           panel and carries its count, so the bar is only its controls. */}
       <div className={`flex items-center justify-end p-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex items-center gap-2">
           {isAdmin && hasFits && (
             <button
               onClick={onScanTrails}
