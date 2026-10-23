@@ -442,7 +442,9 @@
       "editObjectDetails": "Modifier les détails de l'objet",
       "reclassifyObject": "Reclasser l'objet",
       "reclassifyObjectTitle": "Déplacer tout ce qui se trouve ici vers un autre objet du catalogue",
-      "deleteObject": "Supprimer l'objet"
+      "deleteObject": "Supprimer l'objet",
+      "stackingExport": "Export pour empilement",
+      "stackingExportTitle": "Lights gardées + darks, flats et bias correspondants, pour WBPP ou Siril"
     }
   },
   "galleryPage": {

@@ -226,7 +226,10 @@
       "showingAll": "Showing all {{total}}",
       "viewAll": "View all {{total}}",
       "openViewer": "Open viewer",
-      "empty": "No subframes downloaded yet. Connect your telescope and use Download Subs to sync them."
+      "empty": "No subframes downloaded yet. Connect your telescope and use Download Subs to sync them.",
+      "quality": "Quality",
+      "qualityTitle": "Measure HFR, FWHM and stars for each sub-frame and pick the ones to keep",
+      "notKept": "not kept"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Exit compare mode",
@@ -537,19 +540,57 @@
     "moreCount_other": "+{{count}} more",
     "approximate": "approximate"
   },
-  "planOutcome": {
-    "status": {
-      "upcoming": "Planned",
-      "in_progress": "In progress",
-      "done": "Done",
-      "partial": "Partly done",
-      "missed": "Missed",
-      "skipped": "Skipped"
+  "subframeQuality": {
+    "title": "Sub-frame quality",
+    "summary": "{{accepted}} of {{total}} kept",
+    "summaryPartial": "{{measured}} of {{total}} measured · {{kept}} kept",
+    "notMeasured_one": "{{count}} sub-frame, not measured yet",
+    "notMeasured_other": "{{count}} sub-frames, not measured yet",
+    "analyze_one": "Measure {{count}} sub-frame",
+    "analyze_other": "Measure {{count}} sub-frames",
+    "reanalyze": "Measure again",
+    "csv": "CSV",
+    "cancel": "Stop",
+    "measuring": "Measuring {{done}} / {{total}}",
+    "failed": "Something went wrong. Try again.",
+    "hint": "An admin can measure HFR, FWHM, stars and background for each sub-frame of this night.",
+    "hintAdmin": "Measures HFR, FWHM, star count, elongation and background from the pixels, then grades each sub-frame against the rest of the night. About a third of a second per frame.",
+    "group_one": "{{filter}}: {{count}} frame, median HFR {{hfr}} px, {{stars}} stars",
+    "group_other": "{{filter}}: {{count}} frames, median HFR {{hfr}} px, {{stars}} stars",
+    "noFilter": "No filter",
+    "legendRejected": "Faded: not kept",
+    "onlyRejected": "Only sub-frames not kept ({{count}})",
+    "col": {
+      "file": "File",
+      "filter": "Filter",
+      "hfr": "HFR",
+      "fwhm": "FWHM",
+      "stars": "Stars",
+      "ecc": "Elong.",
+      "background": "Background",
+      "grade": "Grade",
+      "keep": "Keep"
     },
-    "achievedOfPlanned": "{{achieved}}/{{planned}}",
-    "resultTitle_one": "Planner: {{status}} · {{achieved}} of {{planned}} planned ({{count}} block)",
-    "resultTitle_other": "Planner: {{status}} · {{achieved}} of {{planned}} planned ({{count}} blocks)",
-    "plannedLine": "{{status}} · {{planned}} planned",
-    "plannedTitle": "{{name}}: {{status}}, {{planned}} planned. Open in the Planner."
+    "grade": {
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Poor"
+    },
+    "flag": {
+      "soft": "Softer than the night",
+      "very_soft": "Much softer than the night",
+      "few_stars": "Fewer stars than the night",
+      "very_few_stars": "Far fewer stars (clouds?)",
+      "bright_background": "Brighter background",
+      "elongated": "Elongated stars"
+    },
+    "unreadable": "Unreadable",
+    "keepFile": "Keep {{name}}",
+    "reset": "auto",
+    "resetTitle": "Go back to the automatic decision",
+    "showAll": "Show all {{count}}",
+    "viewerNotMeasured": "Not measured yet. Use the Quality button above the sub-frame thumbnails to measure this night.",
+    "keepShortcut": "Keep this sub-frame for stacking (K)",
+    "autoDecision": "automatic"
   }
 }

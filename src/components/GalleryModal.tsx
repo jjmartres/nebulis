@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -28,6 +28,19 @@ export type GalleryItem =
   | { kind: 'file'; file: SessionFile }
   | { kind: 'processed'; img: ProcessedImage };
 
+/** Caller-supplied extras for each item (the sub-frame viewer uses them for
+ *  measured quality). The viewer itself stays agnostic of what they show. */
+export interface GalleryItemExtras {
+  /** Rendered between the picture and the thumbnail strip. */
+  info?: (item: GalleryItem) => ReactNode;
+  /** Overlaid on the item's tile in the thumbnail strip. */
+  thumbBadge?: (item: GalleryItem) => ReactNode;
+  /** Whether a tile is drawn dimmed (e.g. a sub-frame that is not kept). */
+  dimmed?: (item: GalleryItem) => boolean;
+  /** K shortcut on the item on screen. */
+  onToggleKeep?: (item: GalleryItem) => void;
+}
+
 interface Props {
   isOpen: boolean;
   items: GalleryItem[];
@@ -49,6 +62,7 @@ interface Props {
    *  "edit and save back into session X" doesn't have a single X to target)
    *  rather than wiring a handler that would silently do nothing. */
   hideEditButton?: boolean;
+  extras?: GalleryItemExtras;
 }
 
 /** `<img>` src for an item, or null when the format cannot be rendered.
@@ -67,6 +81,48 @@ function displaySrc(item: GalleryItem): string | null {
   return previewSrcFor(item.file);
 }
 
+/** Strip tile for one item. */
+function thumbFor(entry: GalleryItem): ThumbEntry {
+  if (entry.kind === 'processed') {
+    const img = entry.img;
+    const renderable = isRenderableProcessed(img.originalName);
+    const fits = !renderable && isFitsProcessed(img.originalName);
+    return {
+      key: img.id,
+      label: img.title || img.originalName,
+      content: renderable ? (
+        <img src={img.thumbUrl ?? img.previewUrl ?? img.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+      ) : fits ? (
+        <FitsThumbnail url={img.url} thumbUrl={img.thumbUrl ?? undefined} stretch={1.0} isDark />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-white/[0.06] text-white/40">
+          <FileImage className="h-5 w-5" />
+        </div>
+      ),
+    };
+  }
+  const f = entry.file;
+  const thumbIsFits = f.type === 'fits';
+  // `thumbSrcFor` falls back to the raw file when the server produced no
+  // thumbnail. For a 100 MB float TIFF that fallback is the full original,
+  // which is exactly the decode the preview gate exists to avoid, so the
+  // check applies to strip tiles as well as the viewed item.
+  const unrenderable = !thumbIsFits && !canPreviewImage(f);
+  return {
+    key: f.path,
+    label: f.name,
+    content: thumbIsFits ? (
+      <FitsThumbnail url={thumbSrcFor(f)} thumbUrl={f.thumbUrl} stretch={1.0} isDark />
+    ) : unrenderable ? (
+      <div className="flex h-full w-full items-center justify-center bg-white/[0.06] text-white/40">
+        <FileImage className="h-5 w-5" />
+      </div>
+    ) : (
+      <img src={thumbSrcFor(f)} alt="" className="w-full h-full object-cover" loading="lazy" />
+    ),
+  };
+}
+
 export function GalleryModal({
   isOpen,
   items,
@@ -83,6 +139,7 @@ export function GalleryModal({
   deletingProcessedId,
   objectName,
   hideEditButton,
+  extras,
 }: Props) {
   const { t } = useTranslation('library');
   const queryClient = useQueryClient();
@@ -281,51 +338,27 @@ export function GalleryModal({
     onRotate: isFits || noPreview ? undefined : zp.rotate,
     onDownload: handleDownload,
     onDelete: canDelete ? () => setPendingDelete(item) : undefined,
+    onToggleKeep: extras?.onToggleKeep && item ? () => extras.onToggleKeep?.(item) : undefined,
     // Escape must reach the confirmation dialog, not tear down the viewer
     // underneath it.
     suspended: !!pendingDelete,
   }, isOpen);
 
   const thumbs = useMemo<ThumbEntry[]>(() => localItems.map(entry => {
-    if (entry.kind === 'processed') {
-      const img = entry.img;
-      const renderable = isRenderableProcessed(img.originalName);
-      const fits = !renderable && isFitsProcessed(img.originalName);
-      return {
-        key: img.id,
-        label: img.title || img.originalName,
-        content: renderable ? (
-          <img src={img.thumbUrl ?? img.previewUrl ?? img.url} alt="" className="w-full h-full object-cover" loading="lazy" />
-        ) : fits ? (
-          <FitsThumbnail url={img.url} thumbUrl={img.thumbUrl ?? undefined} stretch={1.0} isDark />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-white/[0.06] text-white/40">
-            <FileImage className="h-5 w-5" />
-          </div>
-        ),
-      };
-    }
-    const f = entry.file;
-    const thumbIsFits = f.type === 'fits';
-    // `thumbSrcFor` falls back to the raw file when the server produced no
-    // thumbnail. For a 100 MB float TIFF that fallback is the full original,
-    // which is exactly the decode the preview gate exists to avoid, so the
-    // check applies to strip tiles as well as the viewed item.
-    const unrenderable = !thumbIsFits && !canPreviewImage(f);
+    const base = thumbFor(entry);
+    const badge = extras?.thumbBadge?.(entry);
+    const dim = extras?.dimmed?.(entry) ?? false;
+    if (!badge && !dim) return base;
     return {
-      key: f.path,
-      label: f.name,
-      content: thumbIsFits ? (
-        <FitsThumbnail url={thumbSrcFor(f)} thumbUrl={f.thumbUrl} stretch={1.0} isDark />
-      ) : unrenderable ? (
-        <div className="flex h-full w-full items-center justify-center bg-white/[0.06] text-white/40">
-          <FileImage className="h-5 w-5" />
+      ...base,
+      content: (
+        <div className="relative h-full w-full">
+          <div className={`h-full w-full ${dim ? 'opacity-40' : ''}`}>{base.content}</div>
+          {badge}
         </div>
-      ) : (
-        <img src={thumbSrcFor(f)} alt="" className="w-full h-full object-cover" loading="lazy" />
       ),
     };
-  }), [localItems]);
+  }), [localItems, extras]);
 
   if (!isOpen || !item) return null;
 
@@ -446,6 +479,7 @@ export function GalleryModal({
         immersive={canGoImmersive && immersive}
         onToggleImmersive={canGoImmersive ? () => setImmersive(v => !v) : undefined}
         thumbs={thumbs}
+        infoBar={extras?.info?.(item)}
         swipeDisabled={isFits ? !fits.controls.isFit : !zp.isFit}
         status={status}
         // The thumbnail, not `src`: blurring a 4000px stacked frame to nothing

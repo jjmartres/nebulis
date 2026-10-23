@@ -226,7 +226,10 @@
       "showingAll": "Alle {{total}} angezeigt",
       "viewAll": "Alle {{total}} ansehen",
       "openViewer": "Betrachter öffnen",
-      "empty": "Noch keine Subframes heruntergeladen. Verbinde dein Teleskop und nutze \"Subs herunterladen\", um sie zu synchronisieren."
+      "empty": "Noch keine Subframes heruntergeladen. Verbinde dein Teleskop und nutze \"Subs herunterladen\", um sie zu synchronisieren.",
+      "quality": "Qualität",
+      "qualityTitle": "HFR, FWHM und Sterne je Einzelbild messen und die zu behaltenden auswählen",
+      "notKept": "nicht behalten"
     },
     "sessionFileGrid": {
       "exitCompareTitle": "Vergleichsmodus verlassen",
@@ -537,19 +540,57 @@
     "moreCount_other": "+{{count}} weitere",
     "approximate": "ungefähr"
   },
-  "planOutcome": {
-    "status": {
-      "upcoming": "Geplant",
-      "in_progress": "Läuft",
-      "done": "Erledigt",
-      "partial": "Teilweise",
-      "missed": "Verpasst",
-      "skipped": "Übersprungen"
+  "subframeQuality": {
+    "title": "Qualität der Einzelbilder",
+    "summary": "{{accepted}} von {{total}} behalten",
+    "summaryPartial": "{{measured}} von {{total}} gemessen · {{kept}} behalten",
+    "notMeasured_one": "{{count}} Einzelbild, noch nicht gemessen",
+    "notMeasured_other": "{{count}} Einzelbilder, noch nicht gemessen",
+    "analyze_one": "{{count}} Einzelbild messen",
+    "analyze_other": "{{count}} Einzelbilder messen",
+    "reanalyze": "Erneut messen",
+    "csv": "CSV",
+    "cancel": "Stoppen",
+    "measuring": "Messe {{done}} / {{total}}",
+    "failed": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
+    "hint": "Ein Admin kann HFR, FWHM, Sterne und Hintergrund für jedes Einzelbild dieser Nacht messen.",
+    "hintAdmin": "Misst HFR, FWHM, Sternanzahl, Elongation und Hintergrund aus den Pixeln und bewertet jedes Einzelbild im Vergleich zum Rest der Nacht. Etwa eine Drittelsekunde pro Bild.",
+    "group_one": "{{filter}}: {{count}} Bild, HFR-Median {{hfr}} px, {{stars}} Sterne",
+    "group_other": "{{filter}}: {{count}} Bilder, HFR-Median {{hfr}} px, {{stars}} Sterne",
+    "noFilter": "Ohne Filter",
+    "legendRejected": "Blass: nicht behalten",
+    "onlyRejected": "Nur nicht behaltene Einzelbilder ({{count}})",
+    "col": {
+      "file": "Datei",
+      "filter": "Filter",
+      "hfr": "HFR",
+      "fwhm": "FWHM",
+      "stars": "Sterne",
+      "ecc": "Elong.",
+      "background": "Hintergrund",
+      "grade": "Note",
+      "keep": "Behalten"
     },
-    "achievedOfPlanned": "{{achieved}}/{{planned}}",
-    "resultTitle_one": "Planer: {{status}} · {{achieved}} von {{planned}} geplant ({{count}} Block)",
-    "resultTitle_other": "Planer: {{status}} · {{achieved}} von {{planned}} geplant ({{count}} Blöcke)",
-    "plannedLine": "{{status}} · {{planned}} geplant",
-    "plannedTitle": "{{name}}: {{status}}, {{planned}} geplant. Im Planer öffnen."
+    "grade": {
+      "good": "Gut",
+      "fair": "Mittel",
+      "poor": "Schlecht"
+    },
+    "flag": {
+      "soft": "Unschärfer als die Nacht",
+      "very_soft": "Deutlich unschärfer als die Nacht",
+      "few_stars": "Weniger Sterne als die Nacht",
+      "very_few_stars": "Viel weniger Sterne (Wolken?)",
+      "bright_background": "Hellerer Hintergrund",
+      "elongated": "Längliche Sterne"
+    },
+    "unreadable": "Nicht lesbar",
+    "keepFile": "{{name}} behalten",
+    "reset": "auto",
+    "resetTitle": "Zur automatischen Entscheidung zurück",
+    "showAll": "Alle {{count}} anzeigen",
+    "viewerNotMeasured": "Noch nicht gemessen. Mit der Schaltfläche „Qualität“ über den Einzelbild-Vorschauen diese Nacht messen.",
+    "keepShortcut": "Dieses Einzelbild zum Stacken behalten (K)",
+    "autoDecision": "automatisch"
   }
 }
